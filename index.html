@@ -744,6 +744,7 @@ function toast(msg, err){
 
 /* ============ アイコン ============ */
 const ICONS = {
+  crop:'<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
   dice:'<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.6" cy="8.6" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.2" fill="currentColor" stroke="none"/>',
   drop:'<path d="m14 7 3 3"/><path d="M16.4 4.2a2.2 2.2 0 0 1 3.2 3.2L17.5 9.5l-3-3z"/><path d="M14.5 6.5 6 15l-1 4 4-1 8.5-8.5"/>',
   image:'<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.7"/><path d="m20.5 15.5-4.8-4.8L6 19.5"/>',
@@ -2835,7 +2836,7 @@ function normalizeDoc(d){
     : L.type === 'fx' ? Object.assign({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'}, L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over', flip:false}, L, {
         outline: Object.assign({on:true, w:10, c:'#ffffff'}, L.outline || {}),
-        frame: Object.assign(FRAME_BASE(), L.frame || {}),
+        frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
         shadow: Object.assign({on:true, blur:30, y:14, a:0.45}, L.shadow || {})}));
   // 以前の「背景の集中線」を動的エフェクトのレイヤーに移す
   if(o.bg.lines.on){ const l = o.bg.lines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * 1920, y:(o.bg.fcy ?? 0.5) * 1080})); l.on = false; }
@@ -2920,15 +2921,17 @@ function tinted(A, color){
   return A.tint[color] = c;
 }
 /* ---------- 画像の切り抜きフレーム ---------- */
-function FRAME_BASE(){ return {shape:'none', ar:'auto', zoom:1, ox:0, oy:0, r:0.12, style:'solid', c2:'#1f1b2d'}; }
+function FRAME_BASE(){ return {shape:'none', ar:'auto', fs:1, cx:0.5, cy:0.5, r:0.12, style:'solid', c2:'#1f1b2d'}; }
 const FRAME_SHAPES = [
   ['none','なし'], ['rect','四角（角丸）'], ['circle','丸'], ['arch','アーチ'], ['hex','六角形'], ['oct','八角形'], ['diamond','ひし形'], ['tri','三角'],
   ['slant','平行四辺形'], ['shield','盾'], ['star','星'], ['kira','キラッ'], ['heart','ハート'], ['burst','バクハツ'], ['cloud','もこもこ'], ['flower','花'],
-  ['bubble','吹き出し'], ['torn','ラフな切り口'],
+  ['bubble','吹き出し'], ['torn','ラフな切り口'], ['cut','サイバーカット'], ['notch','HUD（角カット）'], ['blade','ブレード'], ['trap','台形'],
+  ['shard','クリスタル'], ['chevron','矢印'],
 ];
-const FRAME_AUTO = new Set(['rect', 'arch', 'slant', 'shield', 'torn', 'bubble', 'cloud']);
+const FRAME_AUTO = new Set(['rect', 'arch', 'slant', 'shield', 'torn', 'bubble', 'cloud', 'cut', 'notch', 'blade', 'trap', 'chevron']);
 const FRAME_STYLES = [['none','枠なし（切り抜きだけ）'], ['solid','単色のフチ'], ['double','二重線'], ['pop','2色フチ（ポップ）'], ['grad','グラデーション'],
-  ['neon','ネオン（光る）'], ['dash','点線'], ['photo','ポラロイド風'], ['tape','マスキングテープ']];
+  ['neon','ネオン（光る）'], ['neon2','2色ネオン'], ['dash','点線'], ['photo','ポラロイド風'], ['tape','マスキングテープ'],
+  ['hud','サイバーHUD'], ['bracket','ファインダー（四隅だけ）'], ['glitch','グリッチ'], ['metal','メタル'], ['block','立体影']];
 const FRAME_PRESETS = [
   ['icon','アイコン', {shape:'circle', style:'pop', c2:'#1f1b2d'}, {w:12, c:'#ffffff'}],
   ['wipe','ワイプ', {shape:'rect', r:0.08, style:'double', ar:'1.778'}, {w:12, c:'#ffffff'}],
@@ -2941,6 +2944,15 @@ const FRAME_PRESETS = [
   ['tape','マステ', {shape:'torn', style:'tape', c2:'#ffb6d0'}, {w:6, c:'#ffffff'}],
   ['star','スター', {shape:'star', style:'grad', c2:'#ff4f8b'}, {w:12, c:'#ffe600'}],
   ['cloud','もこもこ', {shape:'cloud', style:'dash'}, {w:9, c:'#ffffff'}],
+  ['cyber','サイバー', {shape:'notch', style:'hud'}, {w:10, c:'#34d2ff'}],
+  ['glitch','グリッチ', {shape:'cut', style:'glitch'}, {w:10, c:'#ffffff'}],
+  ['metal','メタル', {shape:'cut', style:'metal'}, {w:18, c:'#d8dde6'}],
+  ['gold','ゴールド', {shape:'hex', style:'metal'}, {w:18, c:'#ffc83d'}],
+  ['vs','VS', {shape:'blade', style:'block', c2:'#ff2d55'}, {w:11, c:'#ffffff'}],
+  ['finder','ファインダー', {shape:'rect', r:0.02, style:'bracket', ar:'1.778'}, {w:8, c:'#ffffff'}],
+  ['twin','ツインネオン', {shape:'circle', style:'neon2', c2:'#34d2ff'}, {w:14, c:'#ff4f8b'}],
+  ['crystal','クリスタル', {shape:'shard', style:'grad', c2:'#b388ff'}, {w:14, c:'#8ff3ff'}],
+  ['arrow','アロー', {shape:'chevron', style:'block', c2:'#1f1b2d'}, {w:11, c:'#ffe600'}],
   ['off','フレームなし', {shape:'none'}, null],
 ];
 function framePath(x, shape, w, h, r = 0.12){
@@ -2970,20 +2982,42 @@ function framePath(x, shape, w, h, r = 0.12){
     case 'torn': { const R = rng(11), p = [], n = 26, j = Math.min(w, h) * 0.025;
       for(let i = 0; i < n; i++) p.push([-a + w * i / n, -b + R() * j]); for(let i = 0; i < n; i++) p.push([a - R() * j, -b + h * i / n]);
       for(let i = 0; i < n; i++) p.push([a - w * i / n, b - R() * j]); for(let i = 0; i < n; i++) p.push([-a + R() * j, b - h * i / n]); poly(p); break; }
+    case 'cut': { const k = Math.min(w, h) * 0.16; poly([[-a + k, -b], [a, -b], [a, b - k], [a - k, b], [-a, b], [-a, -b + k]]); break; }
+    case 'notch': { const k = Math.min(w, h) * 0.12; poly([[-a + k, -b], [a - k, -b], [a, -b + k], [a, b - k], [a - k, b], [-a + k, b], [-a, b - k], [-a, -b + k]]); break; }
+    case 'blade': { const k = w * 0.28; poly([[-a + k, -b], [a, -b], [a - k, b], [-a, b]]); break; }
+    case 'trap': poly([[-a + w * 0.12, -b], [a - w * 0.12, -b], [a, b], [-a, b]]); break;
+    case 'shard': poly([[-a * 0.7, -b], [a * 0.35, -b * 0.92], [a, -b * 0.3], [a * 0.82, b * 0.55], [a * 0.2, b], [-a * 0.6, b * 0.82], [-a, b * 0.1], [-a * 0.92, -b * 0.55]]); break;
+    case 'chevron': poly([[-a, -b], [a * 0.55, -b], [a, 0], [a * 0.55, b], [-a, b], [-a * 0.55, 0]]); break;
     default: x.roundRect(-a, -b, w, h, Math.min(w, h) * Math.min(0.5, Math.max(0, r)));
   }
+}
+function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; }
+/* フレームの形の位置（画像のピクセル座標）：fs=大きさ、cx/cy=画像のどこを中心に切り抜くか */
+function frameGeom(L){
+  const A = ASSETS[L.asset]; if(!A) return null;
+  const fr = L.frame, iw = A.img.naturalWidth, ih = A.img.naturalHeight;
+  const ar = fr.ar && fr.ar !== 'auto' ? parseFloat(fr.ar) || 1 : (FRAME_AUTO.has(fr.shape) ? iw / ih : 1);
+  const fw0 = Math.min(iw, ih * ar), fs = clamp(fr.fs ?? 1, 0.05, 1), fw = fw0 * fs, fh = fw / ar;
+  const cxp = clamp((fr.cx ?? 0.5) * iw, fw / 2, iw - fw / 2), cyp = clamp((fr.cy ?? 0.5) * ih, fh / 2, ih - fh / 2);
+  return {A, iw, ih, ar, fw0, fw, fh, cxp, cyp};
+}
+/* フレームを動かしても、画像がキャンバス上で動かないようにレイヤーの位置を補正 */
+function frameCompensate(L, g0, base){
+  const g1 = frameGeom(L); if(!g0 || !g1) return;
+  const dx = (g1.cxp - g0.cxp) * (L.flip ? -1 : 1) * L.sc, dy = (g1.cyp - g0.cyp) * L.sc, a = (L.rot || 0) * PI / 180;
+  const bx = base ? base.x : L.x, by = base ? base.y : L.y;
+  L.x = bx + dx * Math.cos(a) - dy * Math.sin(a); L.y = by + dx * Math.sin(a) + dy * Math.cos(a);
 }
 function framedCanvas(L, f, live, cache){
   const A = ASSETS[L.asset], fr = L.frame, o = L.outline, need = L.sc * f;
   const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip]);
   let e = cache.get(L.id);
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
-  const iw = A.img.naturalWidth, ih = A.img.naturalHeight;
-  const ar = fr.ar && fr.ar !== 'auto' ? parseFloat(fr.ar) || 1 : (FRAME_AUTO.has(fr.shape) ? iw / ih : 1);
-  const fw = Math.min(iw, ih * ar), FW = Math.max(2, fw * need), FH = Math.max(2, fw / ar * need);
+  const G = frameGeom(L), iw = G.iw, ih = G.ih;
+  const FW = Math.max(2, G.fw * need), FH = Math.max(2, G.fh * need);
   const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.5, o.w * f);
   const tw = Math.min(FW, FH) * 0.36;
-  const pad = Math.ceil(E * ({photo:4.6, neon:3.4, pop:2}[st] || 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
+  const pad = Math.ceil(E * ({photo:4.6, neon:3.4, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4}[st] || 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
   const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
   x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
   const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r); };
@@ -2994,14 +3028,36 @@ function framedCanvas(L, f, live, cache){
     else if(st === 'grad'){ const g = x.createLinearGradient(-FW / 2, -FH / 2, FW / 2, FH / 2); g.addColorStop(0, o.c); g.addColorStop(1, fr.c2); stroke(2 * E, g); }
     else if(st === 'neon'){ x.shadowColor = o.c; x.shadowBlur = E * 2.6; stroke(E * 1.2, o.c); stroke(E * 1.2, o.c); x.shadowBlur = 0; stroke(E * 0.4, '#ffffff'); }
     else if(st === 'dash'){ x.setLineDash([E * 0.01, E * 3]); stroke(2 * E, o.c); x.setLineDash([]); }
+    else if(st === 'neon2'){ x.shadowColor = fr.c2; x.shadowBlur = E * 4; stroke(E * 2.6, fr.c2); stroke(E * 2.6, fr.c2); x.shadowColor = o.c; x.shadowBlur = E * 2; stroke(E * 1.3, o.c); x.shadowBlur = 0; stroke(E * 0.45, '#ffffff'); }
+    else if(st === 'hud'){ x.shadowColor = o.c; x.shadowBlur = E * 1.2; stroke(E * 0.55, o.c); x.shadowBlur = 0; }
+    else if(st === 'glitch'){ x.save(); x.translate(-E * 0.8, -E * 0.2); stroke(2 * E, '#ff2d55'); x.restore(); x.save(); x.translate(E * 0.8, E * 0.2); stroke(2 * E, '#00e5ff'); x.restore(); stroke(1.3 * E, o.c); }
+    else if(st === 'metal'){ stroke(2 * E + 3 * f, 'rgba(0,0,0,.55)'); const g = x.createLinearGradient(0, -FH / 2 - E, 0, FH / 2 + E);
+      [[0, mixc(o.c, '#ffffff', 0.75)], [0.22, o.c], [0.48, mixc(o.c, '#000000', 0.5)], [0.52, mixc(o.c, '#ffffff', 0.45)], [0.78, o.c], [1, mixc(o.c, '#000000', 0.55)]].forEach(([t, cc]) => g.addColorStop(t, cc));
+      stroke(2 * E, g); stroke(Math.max(1, f * 1.2), 'rgba(255,255,255,.55)'); }
+    else if(st === 'block'){ x.save(); x.translate(E * 2.4, E * 2.4); P(); x.fillStyle = fr.c2; x.fill(); x.lineWidth = 2 * E; x.strokeStyle = fr.c2; x.stroke(); x.restore(); stroke(2 * E, o.c); }
+    else if(st === 'bracket'){ }
     else if(st === 'photo'){ x.fillStyle = o.c; x.beginPath(); x.roundRect(-FW / 2 - E, -FH / 2 - E, FW + 2 * E, FH + E * 4.4, E * 0.18); x.fill(); }
     else stroke(2 * E, o.c);
   }
   x.save(); P(); x.clip();
-  const k = Math.max(FW / iw, FH / ih) * Math.max(1, fr.zoom || 1), DW = iw * k, DH = ih * k;
-  const dx = -DW / 2 + (fr.ox || 0) * (DW - FW) / 2, dy = -DH / 2 + (fr.oy || 0) * (DH - FH) / 2;
-  if(L.flip){ x.scale(-1, 1); x.drawImage(A.img, -dx - DW, dy, DW, DH); } else x.drawImage(A.img, dx, dy, DW, DH);
+  if(L.flip) x.scale(-1, 1);
+  x.drawImage(A.img, -G.cxp * need, -G.cyp * need, iw * need, ih * need);
   x.restore();
+  if(st === 'glitch' && E > 0){
+    const R = rng(3), tmp = mk(c.width, c.height); tmp.getContext('2d').drawImage(c, 0, 0);
+    x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+    for(let i = 0; i < 4; i++){ const hy = R() * c.height, hh = Math.max(2, c.height * (0.02 + R() * 0.05)), sh = (R() - 0.5) * E * 4;
+      x.clearRect(0, hy, c.width, hh); x.drawImage(tmp, 0, hy, c.width, hh, sh, hy, c.width, hh); }
+    x.restore();
+  }
+  if((st === 'hud' || st === 'bracket') && E > 0){
+    const off = st === 'hud' ? E * 1.8 : E * 0.9, lb = Math.min(FW, FH) * (st === 'hud' ? 0.13 : 0.2), X = FW / 2 + off, Y = FH / 2 + off;
+    x.strokeStyle = o.c; x.lineWidth = st === 'hud' ? E * 0.9 : E; x.lineCap = 'square'; x.shadowColor = o.c; x.shadowBlur = st === 'hud' ? E : 0;
+    x.beginPath(); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => { x.moveTo(sx * X, sy * (Y - lb)); x.lineTo(sx * X, sy * Y); x.lineTo(sx * (X - lb), sy * Y); }); x.stroke();
+    if(st === 'hud'){ x.lineWidth = E * 0.45; x.beginPath(); for(const sy of [-1, 1]) for(let i = -2; i <= 2; i++){ x.moveTo(i * FW * 0.06, sy * Y); x.lineTo(i * FW * 0.06, sy * (Y - E * (i ? 0.8 : 1.6))); } x.stroke();
+      x.fillStyle = o.c; for(const [sx, sy] of [[-1, -1], [1, 1]]){ x.beginPath(); x.arc(sx * (X + E * 1.1), sy * (Y + E * 1.1), E * 0.35, 0, 7); x.fill(); } }
+    x.shadowBlur = 0;
+  }
   if(st === 'photo' && E > 0){ x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = Math.max(1, f); x.strokeRect(-FW / 2, -FH / 2, FW, FH); }
   if(st === 'tape' && E >= 0){
     const [r, g, b] = hex2rgb(fr.c2);
@@ -3262,6 +3318,16 @@ function layerGeom(L){
 }
 const fxHandleOn = () => DOC.guides.fx && (((DOC.bg.type === 'image' && DOC.bg.zb.on) || DOC.bg.vignette > 0) && (!DOC.sel || fxEditing));
 let fxEditing = false;
+let frameEdit = null;
+const frameEditLayer = () => { if(!frameEdit) return null; const L = DOC.layers.find(l => l.id === frameEdit); return L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !L.hidden && ASSETS[L.asset] ? L : null; };
+function setFrameEdit(id){
+  frameEdit = id || null;
+  const b = document.getElementById('frameEditBtn'); if(b) b.lastChild.textContent = frameEdit ? '調整を終える' : 'キャンバスでフレームを調整';
+  if(frameEdit) toast(isMobile ? 'ドラッグでフレームの位置、ピンチで大きさを調整。外をタップで終了' : 'ドラッグでフレームの位置、角かホイールで大きさを調整。Esc か外をクリックで終了');
+  paintPreview(false);
+}
+// 画像上の点（ドキュメント座標）→ フレーム基準のローカル座標（画像ピクセル）
+function frameLocal(L, x, y){ const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y; return [(dx * Math.cos(a) - dy * Math.sin(a)) / L.sc, (dx * Math.sin(a) + dy * Math.cos(a)) / L.sc]; }
 function drawOverlay(ctx, W, H, dpr){
   const f = W / DOC.w;
   ctx.save();
@@ -3293,6 +3359,23 @@ function drawOverlay(ctx, W, H, dpr){
     if(snapLines.x != null){ ctx.moveTo(snapLines.x * f, 0); ctx.lineTo(snapLines.x * f, H); }
     if(snapLines.y != null){ ctx.moveTo(0, snapLines.y * f); ctx.lineTo(W, snapLines.y * f); }
     ctx.stroke();
+  }
+  const FE = frameEditLayer();
+  if(FE){
+    const G = frameGeom(FE), a = (FE.rot || 0) * PI / 180;
+    ctx.save(); ctx.translate(FE.x * f, FE.y * f); ctx.rotate(a); ctx.scale(FE.sc * f, FE.sc * f);
+    ctx.save(); if(FE.flip) ctx.scale(-1, 1); ctx.globalAlpha = 0.38; ctx.drawImage(G.A.img, -G.cxp, -G.cyp, G.iw, G.ih); ctx.restore();
+    const k = 1 / (FE.sc * f), hw = G.fw / 2, hh = G.fh / 2;
+    ctx.lineWidth = 2 * dpr * k; ctx.strokeStyle = '#ffb800'; ctx.setLineDash([7 * dpr * k, 5 * dpr * k]); ctx.strokeRect(-hw, -hh, hw * 2, hh * 2); ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = dpr * k; ctx.beginPath(); framePath(ctx, FE.frame.shape, G.fw, G.fh, FE.frame.r); ctx.stroke();
+    ctx.fillStyle = '#ffb800'; ctx.strokeStyle = '#1f1b2d'; ctx.lineWidth = 2 * dpr * k;
+    for(const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){ ctx.beginPath(); ctx.arc(sx * hw, sy * hh, 7 * dpr * k, 0, 7); ctx.fill(); ctx.stroke(); }
+    ctx.restore();
+    ctx.font = `800 ${12 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const msg = isMobile ? 'フレーム調整中：ドラッグで位置／ピンチで大きさ／外をタップで終了' : 'フレーム調整中：ドラッグで位置／角・ホイールで大きさ／Esc か外をクリックで終了';
+    const tw = ctx.measureText(msg).width + 24 * dpr; ctx.fillStyle = 'rgba(31,27,45,.88)'; ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, 8 * dpr, tw, 26 * dpr, 13 * dpr); ctx.fill();
+    ctx.fillStyle = '#ffb800'; ctx.fillText(msg, W / 2, 14 * dpr);
+    ctx.restore(); return;
   }
   const L = selLayer(), g = L && !L.hidden && layerGeom(L);
   if(g && L.locked){
@@ -3464,6 +3547,7 @@ $('#ctxmenu').addEventListener('click', e => {
 document.addEventListener('pointerdown', e => { if(!e.target.closest('#ctxmenu')) hideMenu(); }, true);
 window.addEventListener('blur', hideMenu);
 function selectLayer(id){
+  if(frameEdit && id !== frameEdit) setFrameEdit(null);
   DOC.sel = id;
   const L = selLayer();
   if(L && L.type === 'text'){
@@ -3551,16 +3635,17 @@ const SEL_ROWS = [
   {sub:'切り抜きフレーム', note:'図形で切り抜いて枠を付けます。形と枠のデザインは自由に組み合わせOK', show:'@type=image'},
   {frpre:true, show:'@type=image'},
   {shapes:true, l:'形', show:'@type=image'},
-  {sel:'@frame.style', l:'枠のデザイン', opts:FRAME_STYLES, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
-  {seg:'@frame.ar', l:'縦横比', opts:[['auto','自動'],['1','1:1'],['1.333','4:3'],['0.75','3:4'],['1.778','16:9']], show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {sel:'@frame.style', l:'枠のデザイン', opts:FRAME_STYLES, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron'},
+  {seg:'@frame.ar', l:'縦横比', opts:[['auto','自動'],['1','1:1'],['1.333','4:3'],['0.75','3:4'],['1.778','16:9']], show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron'},
   {r:'@frame.r', l:'角の丸み', min:0, max:0.5, step:0.01, show:'@type=image&@frame.shape=rect|bubble'},
-  {r:'@frame.zoom', l:'中の画像の大きさ', min:1, max:4, step:0.01, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
-  {r:'@frame.ox', l:'中の画像 左右', min:-1, max:1, step:0.01, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
-  {r:'@frame.oy', l:'中の画像 上下', min:-1, max:1, step:0.01, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {btns:[['frameEditBtn', 'crop', 'キャンバスでフレームを調整']], show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron'},
+  {r:'@frame.fs', l:'フレームの大きさ', min:0.1, max:1, step:0.005, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron'},
+  {r:'@frame.cx', l:'フレームの位置 左右', min:0, max:1, step:0.002, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron'},
+  {r:'@frame.cy', l:'フレームの位置 上下', min:0, max:1, step:0.002, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron'},
   {chk:'@outline.on', l:'フチを付ける（切り抜き画像向け）', show:'@type=image&@frame.shape=none'},
   {r:'@outline.w', l:'フチ太さ', min:1, max:50, step:0.5, show:'@type=image'},
   {c:'@outline.c', l:'フチ色', show:'@type=image'},
-  {c:'@frame.c2', l:'2色目', show:'@type=image&@frame.style=pop|grad|tape'},
+  {c:'@frame.c2', l:'2色目', show:'@type=image&@frame.style=pop|grad|tape|neon2|block'},
   {chk:'@shadow.on', l:'影を付ける', show:'@type=image'},
   {r:'@shadow.blur', l:'影ぼかし', min:0, max:120, step:1, show:'@type=image'},
   {r:'@shadow.y', l:'影の位置', min:-60, max:90, step:1, show:'@type=image'},
@@ -3671,7 +3756,9 @@ document.addEventListener('input', e => {
   else if(el.type === 'range' || el.type === 'number' || el.dataset.num){ v = parseFloat(el.value); if(isNaN(v)) return; }
   else if(el.classList.contains('hex')){ if(!/^#[0-9a-f]{6}$/i.test(el.value)) return; v = el.value.toLowerCase(); }
   else v = el.value;
-  dSet(k, v); if(/^bg\.fc[xy]$/.test(k)){ fxEditing = true; clearTimeout(fxEditing.t); fxEditing.t = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
+  if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
+  else dSet(k, v);
+  if(/^bg\.fc[xy]$/.test(k)){ fxEditing = true; clearTimeout(fxEditing.t); fxEditing.t = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
   syncDoc(el); docChanged(el.type === 'range');
 });
 document.addEventListener('click', e => {
@@ -3690,11 +3777,14 @@ document.addEventListener('click', e => {
     if(k === 'bg.type' && ds.dataset.v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
     return;
   }
+  if(e.target.closest('#frameEditBtn')){ const L = selLayer(); if(L) setFrameEdit(frameEdit ? null : L.id); return; }
   const frp = e.target.closest('[data-frpre]');
   if(frp){
     const L = selLayer(); if(!L || L.type !== 'image') return;
     const p = FRAME_PRESETS.find(q => q[0] === frp.dataset.frpre);
-    L.frame = Object.assign(FRAME_BASE(), {zoom:L.frame.zoom, ox:L.frame.ox, oy:L.frame.oy}, p[2]);
+    const g0 = L.frame.shape !== 'none' && frameGeom(L);
+    L.frame = Object.assign(FRAME_BASE(), {fs:L.frame.fs, cx:L.frame.cx, cy:L.frame.cy}, p[2]);
+    if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0);
     if(p[3]) L.outline = Object.assign({}, L.outline, {on:true}, p[3]);
     syncDoc(); docChanged(false); return;
   }
@@ -3884,6 +3974,17 @@ async function openProjectFile(f){
     if(fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){
       drag = {mode:'fx'}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return;
     }
+    const FE = frameEditLayer();
+    if(FE){
+      const G = frameGeom(FE), [u, v] = frameLocal(FE, x, y), px = DOC.w / tvCss / FE.sc;
+      const corner = [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([sx, sy]) => Math.hypot(u - sx * G.fw / 2, v - sy * G.fh / 2) < 14 * px);
+      const inImg = Math.abs((FE.flip ? -u : u) + G.cxp - G.iw / 2) <= G.iw / 2 && Math.abs(v + G.cyp - G.ih / 2) <= G.ih / 2;
+      if(corner || inImg){
+        drag = {mode: corner ? 'fscale' : 'fmove', L:FE, x0:x, y0:y, u0:u, v0:v, g0:G, fs0:FE.frame.fs ?? 1, cx0:G.cxp / G.iw, cy0:G.cyp / G.ih, base:{x:FE.x, y:FE.y}, r0:Math.max(1, Math.hypot(u, v))};
+        tv.setPointerCapture(e.pointerId); e.preventDefault(); return;
+      }
+      setFrameEdit(null);
+    }
     let mode = handleAt(x, y), T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
@@ -3910,8 +4011,22 @@ async function openProjectFile(f){
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
+    if(!drag && frameEditLayer()){ tv.style.cursor = 'move'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
+    if(drag.mode === 'fmove' || drag.mode === 'fscale'){
+      const G = drag.g0;
+      // 基準位置に戻してから計算（画像は固定、フレームだけ動く）
+      if(drag.mode === 'fmove'){
+        const a = (L.rot || 0) * PI / 180, ddx = x - drag.x0, ddy = y - drag.y0;
+        const du = (ddx * Math.cos(-a) - ddy * Math.sin(-a)) / L.sc * (L.flip ? -1 : 1), dv = (ddx * Math.sin(-a) + ddy * Math.cos(-a)) / L.sc;
+        L.frame.cx = Math.round(clamp(drag.cx0 + du / G.iw, 0, 1) * 1000) / 1000; L.frame.cy = Math.round(clamp(drag.cy0 + dv / G.ih, 0, 1) * 1000) / 1000;
+      }else{
+        const [u, v] = frameLocal(drag.base ? Object.assign({}, L, drag.base) : L, x, y);
+        L.frame.fs = Math.round(clamp(drag.fs0 * Math.hypot(u, v) / drag.r0, 0.1, 1) * 1000) / 1000;
+      }
+      frameCompensate(L, G, drag.base); syncDoc(); livePaint(); return;
+    }
     if(drag.mode === 'fx'){
       let fx = x / DOC.w, fy = y / DOC.h;
       if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * 9 / 16 < 8) fy = v; } }
@@ -3946,6 +4061,8 @@ async function openProjectFile(f){
   tv.addEventListener('wheel', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitLayer(x, y), k = Math.exp(-e.deltaY * 0.0015);
+    const FE = frameEditLayer();
+    if(FE){ const g0 = frameGeom(FE); FE.frame.fs = Math.round(clamp((FE.frame.fs ?? 1) * k, 0.1, 1) * 1000) / 1000; frameCompensate(FE, g0); e.preventDefault(); syncDoc(); docChanged(true); return; }
     if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 8) * 1000) / 1000; }
     else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
       const b = DOC.bg, nz = clamp(b.zoom * k, 0.2, 4), r = nz / b.zoom;
@@ -3963,6 +4080,7 @@ async function openProjectFile(f){
   tv.addEventListener('dblclick', e => {
     const [x, y] = toDoc(e), L = hitLayer(x, y);
     if(L && L.type === 'text'){ selectLayer(L.id); goTab('text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
+    else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ selectLayer(L.id); setFrameEdit(L.id); }
   });
   document.addEventListener('keydown', e => {
     if(DOC.mode !== 'thumb') return;
@@ -3980,7 +4098,7 @@ async function openProjectFile(f){
       e.preventDefault(); const fwd = e.code === 'BracketRight';
       layerAction(L.id, e.shiftKey ? (fwd ? 'front' : 'back') : (fwd ? 'up' : 'down'));
     }
-    else if(e.key === 'Escape'){ hideMenu(); selectLayer(null); }
+    else if(e.key === 'Escape'){ hideMenu(); if(frameEdit){ setFrameEdit(null); return; } selectLayer(null); }
   });
 }
 
@@ -4058,7 +4176,9 @@ async function shareFile(blob, name){
     if(pts.size === 2){
       e.stopImmediatePropagation(); clearTimeout(lp); drag = null; snapLines = {x:null, y:null};
       const I = pairInfo(), L = selLayer();
-      if(L && !L.locked) pinch = {kind:'layer', L, i:I, sc:L.sc, rot:L.rot || 0, x:L.x, y:L.y};
+      const FE = frameEditLayer();
+      if(FE) pinch = {kind:'frame', L:FE, i:I, fs:FE.frame.fs ?? 1};
+      else if(L && !L.locked) pinch = {kind:'layer', L, i:I, sc:L.sc, rot:L.rot || 0, x:L.x, y:L.y};
       else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]) pinch = {kind:'bg', i:I, zoom:DOC.bg.zoom, ox:DOC.bg.ox, oy:DOC.bg.oy};
       return;
     }
@@ -4080,6 +4200,7 @@ async function shareFile(blob, name){
     if(now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30){
       const [dx, dy] = toDoc(e.clientX, e.clientY), L = selLayer();
       if(L && L.type === 'text'){ clearTimeout(lp); setTimeout(() => goTab('text'), 30); }
+      else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ clearTimeout(lp); setFrameEdit(L.id); }
     }
     lastTap = {t:now, x:e.clientX, y:e.clientY};
   }, true);
@@ -4091,7 +4212,8 @@ async function shareFile(blob, name){
     if(!pinch || pts.size < 2) return;
     e.stopImmediatePropagation();
     const I = pairInfo(), k = I.d / Math.max(1, pinch.i.d), r = tv.getBoundingClientRect(), u = DOC.w / r.width;
-    if(pinch.kind === 'layer'){
+    if(pinch.kind === 'frame'){ const L = pinch.L, g0 = frameGeom(L); L.frame.fs = Math.round(clamp(pinch.fs * k, 0.1, 1) * 1000) / 1000; frameCompensate(L, g0); }
+    else if(pinch.kind === 'layer'){
       const L = pinch.L;
       L.sc = Math.round(clamp(pinch.sc * k, 0.05, 8) * 1000) / 1000;
       let rot = pinch.rot + (I.a - pinch.i.a) * 180 / PI; rot = ((rot + 540) % 360) - 180;
