@@ -122,7 +122,7 @@
 |---|---|---|
 | Google Fonts 日本語 | 68 | Dela Gothic One、LINE Seed JP、BIZ UDゴシック、Rock 3D など日本語対応の全書体 |
 | Google Fonts 欧文 | 約1,860 | 英数字用。「すべて」には厳選した書体だけが出ます。全書体は「欧文」を選ぶか名前で検索 |
-| Webフリー | 27 | Google 以外で配信されているオープンなフォント（下の表） |
+| Webフリー | 35 | Google 以外で配信されているフリーフォント（下の表） |
 
 **Webフリーのおもな書体**（カテゴリ「Webフリー」で絞り込めます）
 
@@ -130,13 +130,31 @@
 |---|---|
 | Genjyuu Gothic（源柔ゴシック） | 角の丸い太めのゴシック。1書体約3.5MBあり、選んだときに読み込みます |
 | Fusion Pixel JP（10px / 12px） | 漢字まで入ったドットフォント。ゲーム系に |
+| PixelMplus 10 / 12 | 漢字入りのドットフォント（約1.2MB）。太字もあり |
+| x12y16pxMaruMonica（マルモニカ）／ x12y12pxMaruMinya（まるみーにゃ） | 丸みのある漢字入りドットフォント（約3MB） |
+| 築豊明朝（Tsukuhou Mincho） | 築地活字風のかなが特徴の明朝体（約7.4MB） |
+| 源泉丸ゴシック（GenSen Rounded 2 JP） | 丸ゴシック。太さ 400 / 700 / 900（1書体約16MB） |
+| 源石ゴシック（GenSeki Gothic 2 JP） | 少し古風なゴシック。太さ 400 / 700 / 900（1書体約16MB） |
+| 源流明朝（GenRyuMin 2 JP） | 明朝体。太さ 400 / 700 / 900（1書体約16MB） |
 | Fusion Kai J | 楷書体（約5.7MB・選んだときに読み込み） |
 | Nico Moji（ニコモジ）／ Nikukyu（にくきゅう） | ポップな手作り風。かな・英数字のみ（漢字は別の書体で表示） |
 | Hannari（はんなり明朝）／ Kokoro（こころ明朝） | やさしい明朝体 |
 | Norwester、Peace Sans、Blackout など | 英数字用のインパクト系 |
 | DSEG7 / DSEG14 | デジタル時計・電光掲示板風の数字 |
 
-Webフリーのフォントは、それぞれのライセンス（主に SIL Open Font License）で配布されています。
+1MB を超えるフォントは、一覧をスクロールしただけでは読み込まず、選んだときに読み込みます（「選ぶと読込」と表示）。一度読み込めば、次からはすぐに表示されます。約16MBの源泉丸ゴシックなどは、スマホの通信量に気をつけてください。
+
+Webフリーのフォントは、それぞれのライセンスで配布されています。原本のファイルをそのまま、配布元（Google Fonts、Fontsource、作者の GitHub リポジトリ）から jsDelivr 経由で読み込んでいます。
+
+| フォント | 作者・配布元 | ライセンス |
+|---|---|---|
+| 源柔ゴシック | 自家製フォント工房 | SIL OFL 1.1 |
+| Fusion Pixel / Fusion Kai | TakWolf、lxgw | SIL OFL 1.1 |
+| PixelMplus | itouhiro、M+ FONTS PROJECT | M+ FONT LICENSE |
+| マルモニカ・まるみーにゃ | hicc（[x0y0pxFreeFont](https://hicchicc.github.io/00ff/)） | 作者独自ライセンス（商用・再配布可） |
+| 築豊明朝 | iose-sakana | SIL OFL 1.1 |
+| 源泉丸ゴシック・源石ゴシック・源流明朝 | ButTaiwan | SIL OFL 1.1 |
+| ニコモジ・にくきゅう・はんなり明朝・こころ明朝 | Google Fonts Early Access | SIL OFL 1.1 |
 
 ### 探す・選ぶ
 
