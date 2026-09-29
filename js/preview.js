@@ -20,16 +20,15 @@ async function update(){
 }
 function fileName(){
   const base = plainText().split('\n').join('_').replace(/[\\/:*?"<>|\s]/g, '').slice(0, 20) || 'text';
-  const d = new Date(), p = n => String(n).padStart(2, '0');
-  return `${base}_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.png`;
+  return `${base}_${stamp()}.png`;
 }
 async function exportBlob(){ await ensureFont(); const c = render(S.scale); return new Promise(r => c.toBlob(r, 'image/png')); }
 $('#dlBtn').onclick = async () => {
   if(DOC.mode === 'thumb') return exportThumb();
   const b = await exportBlob();
-  if(await shareFile(b, fileName())) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(b); a.download = fileName(); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  const name = fileName();
+  if(await shareFile(b, name)) return;
+  downloadBlob(b, name);
   toast('透過PNGを保存しました');
 };
 $('#copyBtn').onclick = async () => {
@@ -56,4 +55,16 @@ $('#bgfile').onchange = e => {
 };
 new MutationObserver(() => { if(!$('#stage').classList.contains('img')) $('#stage').style.backgroundImage = ''; })
   .observe($('#stage'), {attributes:true, attributeFilter:['class']});
-
+/* 視認性チェック（文字の塗り ⇔ すぐ外側の色） */
+function updateVis(){
+  const fills = S.fillType === 'metal' ? [(METALS[S.metal] || METALS.gold)[1][1], (METALS[S.metal] || METALS.gold)[5][1]]
+    : S.fillType === 'solid' ? [S.fill1] : [S.fill1, S.fill2];
+  const st = S.strokes.find(x => x.on && x.w > 0);
+  const edge = st ? st.c : S.plate.on ? S.plate.c : S.shadow.on ? S.shadow.c : null;
+  const el = $('#vis');
+  if(!edge || S.fillMode !== 'normal'){ el.textContent = '視認性：—'; el.className = 'vis'; return; }
+  const cr = Math.min(...fills.map(f => contrast(f, edge)));
+  const [mark, cls] = cr >= 7 ? ['◎ とても読みやすい', 'good'] : cr >= 4.5 ? ['○ 読みやすい', 'ok'] : cr >= 3 ? ['△ 小さいと読みにくい', 'warn'] : ['× フチの色を変えましょう', 'bad'];
+  el.textContent = `視認性 ${cr.toFixed(1)}:1 ${mark}`; el.className = 'vis ' + cls;
+}
+$('#smallBtn').onclick = () => { const on = $('#stage').classList.toggle('small'); $('#smallBtn').classList.toggle('on', on); if(DOC.mode === 'thumb') paintPreview(false); };

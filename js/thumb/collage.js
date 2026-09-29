@@ -1,8 +1,8 @@
 /* 楽ちんサムネメーカー：分割フレーム（複数の画像を2〜6分割で並べる） */
 function COLLAGE_BASE(){
-  return {type:'collage', x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over',
+  return Object.assign(LAYER_BASE(), {type:'collage',
     bw:1920, bh:1080, n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
-    outer:false, radius:0, ac:0, cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0}))};
+    outer:false, radius:0, ac:0, cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0}))});
 }
 const COLLAGE_LAYOUTS = [
   ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6], ['grid2', 'グリッド（縦長）', n => n === 6],
@@ -271,10 +271,8 @@ function drawCollageOverlay(ctx, W, H, dpr){
   ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
   cells.forEach((p, i) => { collagePath(ctx, p); ctx.lineWidth = (i === L.ac ? 3 : 1.5) * dpr / f; ctx.strokeStyle = i === L.ac ? '#ffb800' : 'rgba(255,255,255,.8)'; ctx.setLineDash(i === L.ac ? [] : [6 * dpr / f, 5 * dpr / f]); ctx.stroke(); });
   ctx.restore();
-  ctx.font = `800 ${12 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const msg = isMobile ? `マス${L.ac + 1}を調整中：ドラッグで移動／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}を調整中：ドラッグで移動／ホイールで拡大縮小／Esc か外をクリックで終了`;
-  const tw = ctx.measureText(msg).width + 24 * dpr; ctx.fillStyle = 'rgba(31,27,45,.88)'; ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, 8 * dpr, tw, 26 * dpr, 13 * dpr); ctx.fill();
-  ctx.fillStyle = '#ffb800'; ctx.fillText(msg, W / 2, 14 * dpr);
+  drawBanner(ctx, W, dpr, msg);
   return true;
 }
 const collageIconCache = {};

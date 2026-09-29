@@ -51,14 +51,14 @@ const SEL_ROWS = [
   {sub:'切り抜きフレーム', note:'図形で切り抜いて枠を付けます。形と枠のデザインは自由に組み合わせOK', show:'@type=image'},
   {frpre:true, show:'@type=image'},
   {shapes:true, l:'形', show:'@type=image'},
-  {sel:'@frame.style', l:'枠のデザイン', opts:FRAME_STYLES, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron|pill|squircle|penta|hexv|cross|drop|ticket|wave|splash|swipe|drybrush|brushbox|rip|brushtri|brushcircle'},
-  {seg:'@frame.ar', l:'縦横比', opts:[['auto','自動'],['1','1:1'],['1.333','4:3'],['0.75','3:4'],['1.778','16:9']], show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron|pill|squircle|penta|hexv|cross|drop|ticket|wave|splash|swipe|drybrush|brushbox|rip|brushtri|brushcircle'},
+  {sel:'@frame.style', l:'枠のデザイン', opts:FRAME_STYLES, show:'@type=image&@frame.shape!=none'},
+  {seg:'@frame.ar', l:'縦横比', opts:[['auto','自動'],['1','1:1'],['1.333','4:3'],['0.75','3:4'],['1.778','16:9']], show:'@type=image&@frame.shape!=none'},
   {r:'@frame.r', l:'角の丸み', min:0, max:0.5, step:0.01, show:'@type=image&@frame.shape=rect|bubble'},
-  {btns:[['frameEditBtn', 'crop', 'キャンバスでフレームを調整']], show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron|pill|squircle|penta|hexv|cross|drop|ticket|wave|splash|swipe|drybrush|brushbox|rip|brushtri|brushcircle'},
-  {seed:'@frame.seed', l:'筆のかすれ', show:'@type=image&@frame.shape=swipe|drybrush|brushbox|rip|brushtri|brushcircle|torn|splash|burst'},
-  {r:'@frame.fs', l:'フレームの大きさ', min:0.1, max:1, step:0.005, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron|pill|squircle|penta|hexv|cross|drop|ticket|wave|splash|swipe|drybrush|brushbox|rip|brushtri|brushcircle'},
-  {r:'@frame.cx', l:'フレームの位置 左右', min:0, max:1, step:0.002, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron|pill|squircle|penta|hexv|cross|drop|ticket|wave|splash|swipe|drybrush|brushbox|rip|brushtri|brushcircle'},
-  {r:'@frame.cy', l:'フレームの位置 上下', min:0, max:1, step:0.002, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn|cut|notch|blade|trap|shard|chevron|pill|squircle|penta|hexv|cross|drop|ticket|wave|splash|swipe|drybrush|brushbox|rip|brushtri|brushcircle'},
+  {btns:[['frameEditBtn', 'crop', 'キャンバスでフレームを調整']], show:'@type=image&@frame.shape!=none'},
+  {seed:'@frame.seed', l:'筆のかすれ', show:'@type=image&@frame.shape=' + FRAME_SEEDED.join('|')},
+  {r:'@frame.fs', l:'フレームの大きさ', min:0.1, max:1, step:0.005, show:'@type=image&@frame.shape!=none'},
+  {r:'@frame.cx', l:'フレームの位置 左右', min:0, max:1, step:0.002, show:'@type=image&@frame.shape!=none'},
+  {r:'@frame.cy', l:'フレームの位置 上下', min:0, max:1, step:0.002, show:'@type=image&@frame.shape!=none'},
   {chk:'@outline.on', l:'フチを付ける（切り抜き画像向け）', show:'@type=image&@frame.shape=none'},
   {r:'@outline.w', l:'フチ太さ', min:1, max:50, step:0.5, show:'@type=image'},
   {c:'@outline.c', l:'フチ色', show:'@type=image'},
@@ -197,7 +197,7 @@ function renderInspector(force){
   const name = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : layerName(L);
   if($('#insName').textContent !== name) $('#insName').textContent = name;
   if(key === insKey && !force) return;
-  $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ; $('#insDesel').style.display = L ? '' : 'none';
+  $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ; $('#insDesel').style.display = ctx !== 'bg' && ctx !== 'textmode' ? '' : 'none';
   insKey = key;
   const pages = INS_PAGES[ctx];
   $('#tabs').innerHTML = pages.map(([p, t]) => `<button data-page="${p}">${t}</button>`).join('');

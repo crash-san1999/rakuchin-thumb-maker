@@ -32,26 +32,35 @@
 ビルド不要の静的サイトです。`index.html` をブラウザで開くか、GitHub Pages でそのまま動きます。
 
 ```
-index.html               画面の骨組み（HTML）
-css/app.css              スタイル
-js/core.js               共通の小道具・アイコン
-js/presets.js            文字スタイルのプリセット
-js/data/font-list.js  Google Fonts 全書体の一覧データ
-js/fonts.js              フォント管理（Google Fonts・Webフリー・PC内・URL追加）
-js/controls.js           文字の操作パネル生成
-js/text-render.js        文字の描画エンジン・装飾
-js/preview.js            文字素材モードのプレビュー・書き出し
-js/colors.js             配色
-js/thumb/frames.js       画像の切り抜きフレーム（形・枠のデザイン・プリセット）
-js/thumb/collage.js      分割フレーム（複数の画像を2〜6分割で並べる）
-js/thumb/doc.js          サムネのデータ構造・動的エフェクト定義・画像アセット
-js/thumb/render.js       サムネの描画（レイヤー・背景・エフェクト）
-js/thumb/export.js       サムネの書き出し・ドキュメント操作
-js/thumb/panel.js        操作パネル・モード・タブ
-js/thumb/events.js       キャンバス・レイヤーパネルの操作
-js/mobile.js             PC／スマホの自動判定・タッチ操作
-js/main.js               起動
-docs/manual.md           操作マニュアル
+index.html                 画面の骨組み（HTML）
+css/app.css                スタイル
+js/core.js                 共通の小道具（$・保存・トースト・数値や色の変換・乱数・ダウンロード・レイヤー初期値）・アイコン
+js/presets.js              文字スタイルのプリセット
+js/data/font-list.js       Google Fonts 全書体の一覧データ
+js/fonts.js                フォント管理（Google Fonts・Webフリー・PC内・URL追加）
+js/controls.js             文字の操作パネル（テキスト・装飾）の生成と同期
+js/text-render.js          文字の描画エンジン・装飾
+js/preview.js              文字素材モードのプレビュー・書き出し・視認性
+js/colors.js               配色（パレット・色調整・背景画像からの配色）
+js/history.js              取り消し／やり直し
+js/thumb/frames.js         画像の切り抜きフレーム（形・枠のデザイン・プリセット）
+js/thumb/collage.js        分割フレーム（複数の画像を2〜6分割で並べる）
+js/thumb/fx.js             動的エフェクト（集中線・光・キラキラ・爆発）とワンクリック背景エフェクト
+js/thumb/assets.js         画像アセット（IndexedDB に保存）・画像や背景の追加
+js/thumb/doc.js            サムネのデータ構造・値の読み書き・変更通知
+js/thumb/render.js         サムネの描画（文字・画像レイヤー・背景・合成）
+js/thumb/overlay.js        選択枠・ハンドル・編集モードの表示
+js/thumb/layers.js         レイヤーパネル・レイヤーの選択と操作
+js/thumb/export.js         サムネの書き出し・共有・プロジェクト読み込み
+js/thumb/inspector.js      選んだものに合わせた設定パネル（行の定義・ページ切り替え）
+js/thumb/events.js         キャンバス・ドラッグ＆ドロップ・ボタンの操作
+js/mobile.js               PC／スマホの自動判定・下のバーとシート・タッチ操作
+js/popups.js               ポップアップ（操作ガイド・追加メニュー・ファイルメニュー）
+js/main.js                 起動
+tools/bump-version.sh      読み込みURLのバージョン番号をまとめて更新
+docs/manual.md             操作マニュアル
 ```
 
-JavaScript は通常の `<script>` を上から順に読み込み、共通の変数や関数を共有しています。読み込み順に意味があるので、`index.html` の並びは変えないでください。ファイルを変更したら、`index.html` の `?v=` の値を変えるとブラウザのキャッシュが更新されます。
+JavaScript は通常の `<script>` を上から順に読み込み、共通の変数や関数を共有しています。読み込み時にすぐ実行されるコードは、それより前のファイルにあるものしか使えないので、`index.html` の並びは変えないでください（関数の中から呼ぶぶんには順番は関係ありません）。
+
+ファイルを変更したら `tools/bump-version.sh` を実行してください。`index.html` の `?v=` がまとめて更新され、公開サイトで古いファイルと新しいファイルが混ざらなくなります。

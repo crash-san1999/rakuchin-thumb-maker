@@ -137,8 +137,7 @@ $('#saveProj').onclick = () => {
   const used = usedAssets(), assets = {};
   used.forEach(id => { if(id && ASSETS[id]) assets[id] = ASSETS[id].src; });
   const blob = new Blob([JSON.stringify({app:'rakuchin-thumb', v:1, doc:DOC, assets})], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'rakuchin-thumb-project.json'; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000); toast('プロジェクトを保存しました');
+  downloadBlob(blob, 'rakuchin-thumb-project.json'); toast('プロジェクトを保存しました');
 };
 $('#openProj').onclick = () => $('#projfile').click();
 $('#projfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) openProjectFile(f); };
@@ -189,7 +188,7 @@ async function openProjectFile(f){
   });
   document.addEventListener('paste', e => {
     if(DOC.mode !== 'thumb') return;
-    const t = e.target; if(t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') return;
+    if(isTyping(e)) return;
     const files = [...(e.clipboardData?.files || [])].filter(f => /^image\//.test(f.type));
     if(files.length){ e.preventDefault(); addImageLayers(files); }
   });
@@ -362,25 +361,3 @@ async function openProjectFile(f){
     else if(e.key === 'Escape'){ hideMenu(); if(frameEdit){ setFrameEdit(null); return; } if(collageEdit){ setCollageEdit(null); return; } selectLayer(null); }
   });
 }
-
-
-
-/* ポップアップメニュー（追加・ファイル） */
-function togglePop(id, anchor){
-  const el = document.getElementById(id), open = !el.classList.contains('show');
-  document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show'));
-  if(!open) return;
-  el.classList.add('show');
-  if(isMobile){ el.style.left = ''; el.style.top = ''; return; }
-  const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
-  el.style.left = clamp(r.left, 8, innerWidth - w - 8) + 'px'; el.style.top = clamp(r.bottom + 8, 8, innerHeight - h - 8) + 'px';
-}
-document.addEventListener('click', e => {
-  const a = e.target.closest('#addBtn, #lpAdd'); if(a){ togglePop('addMenu', a); return; }
-  const f = e.target.closest('#fileBtn'); if(f){ togglePop('fileMenu', f); return; }
-  if(e.target.closest('#addBgImg')){ $('#bgimgfile').click(); }
-  if(e.target.closest('#mbar [data-sheet=add]')) return;
-  const pop = e.target.closest('.pop');
-  if(!pop || (pop.id === 'addMenu' && e.target.closest('button'))) setTimeout(() => document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')), 0);
-});
-document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')); });

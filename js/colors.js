@@ -1,6 +1,4 @@
-/* 楽ちんサムネメーカー：配色 */
-/* ============ 配色 ============ */
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+/* 楽ちんサムネメーカー：配色（パレット・色調整・背景画像からの配色） */
 function hexToHsl(hex){
   let [r, g, b] = hex2rgb(hex).map(v => v / 255);
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let h = 0, s = 0;
@@ -173,43 +171,4 @@ $('#fromBg').onclick = () => {
   wantBgPalette = true; toast('サムネに使う背景画像を選んでください'); (th ? $('#bgimgfile') : $('#bgfile')).click();
 };
 
-/* 視認性チェック（文字の塗り ⇔ すぐ外側の色） */
-function updateVis(){
-  const fills = S.fillType === 'metal' ? [(METALS[S.metal] || METALS.gold)[1][1], (METALS[S.metal] || METALS.gold)[5][1]]
-    : S.fillType === 'solid' ? [S.fill1] : [S.fill1, S.fill2];
-  const st = S.strokes.find(x => x.on && x.w > 0);
-  const edge = st ? st.c : S.plate.on ? S.plate.c : S.shadow.on ? S.shadow.c : null;
-  const el = $('#vis');
-  if(!edge || S.fillMode !== 'normal'){ el.textContent = '視認性：—'; el.className = 'vis'; return; }
-  const cr = Math.min(...fills.map(f => contrast(f, edge)));
-  const [mark, cls] = cr >= 7 ? ['◎ とても読みやすい', 'good'] : cr >= 4.5 ? ['○ 読みやすい', 'ok'] : cr >= 3 ? ['△ 小さいと読みにくい', 'warn'] : ['× フチの色を変えましょう', 'bad'];
-  el.textContent = `視認性 ${cr.toFixed(1)}:1 ${mark}`; el.className = 'vis ' + cls;
-}
-$('#smallBtn').onclick = () => { const on = $('#stage').classList.toggle('small'); $('#smallBtn').classList.toggle('on', on); if(DOC.mode === 'thumb') paintPreview(false); };
-
-/* 取り消し／やり直し */
-let hist = [], hIdx = -1, restoring = false;
-function pushHist(){
-  if(restoring || !DOC) return;
-  const j = JSON.stringify(DOC); if(hist[hIdx] === j) return;
-  hist = hist.slice(0, hIdx + 1); hist.push(j); if(hist.length > 120) hist.shift(); hIdx = hist.length - 1;
-}
-function restoreHist(i){
-  if(i < 0 || i >= hist.length) return;
-  hIdx = i; restoring = true;
-  DOC = JSON.parse(hist[i]);
-  const T = textLayer(); if(T) S = T.style;
-  resetAdj(); fixWeight(); buildWeight(); syncUI(); renderFontList(); syncDoc(); renderLayers(); setMode(DOC.mode, true); saveDoc();
-  update().then(() => { restoring = false; });
-}
-$('#undo').onclick = () => restoreHist(hIdx - 1);
-$('#redo').onclick = () => restoreHist(hIdx + 1);
-document.addEventListener('keydown', e => {
-  const t = e.target, typing = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /text|search|number|password/.test(t.type));
-  if(typing || !(e.ctrlKey || e.metaKey)) return;
-  const k = e.key.toLowerCase();
-  if(k === 'z' && !e.shiftKey){ e.preventDefault(); restoreHist(hIdx - 1); }
-  else if((k === 'z' && e.shiftKey) || k === 'y'){ e.preventDefault(); restoreHist(hIdx + 1); }
-});
 renderThemes();
-

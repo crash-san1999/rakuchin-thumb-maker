@@ -1,4 +1,4 @@
-/* 楽ちんサムネメーカー：PC／スマホの自動判定・タッチ操作 */
+/* 楽ちんサムネメーカー：PC／スマホの自動判定・下のバーとシート・タッチ操作 */
 /* ============ PC／スマホの自動判定 ============ */
 let isMobile = false, sheet = null;
 function detectMobile(){
@@ -52,15 +52,6 @@ document.querySelectorAll('.sheet-grip').forEach(g => {
   g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
 });
 window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t = setTimeout(() => applyView(false), 150); });
-
-/* 共有（スマホ：写真アプリに保存できる） */
-async function shareFile(blob, name){
-  if(!isMobile || !navigator.canShare) return false;
-  const file = new File([blob], name, {type: blob.type});
-  if(!navigator.canShare({files:[file]})) return false;
-  try{ await navigator.share({files:[file], title:'サムネイル'}); toast('共有メニューから「画像を保存」で写真に保存できます'); return true; }
-  catch(e){ if(e && e.name === 'AbortError') return true; return false; }
-}
 
 /* キャンバスのタッチ操作：2本指でピンチ（拡大縮小・回転・移動）、長押しでメニュー、ダブルタップで文字編集 */
 {
@@ -135,31 +126,3 @@ async function shareFile(blob, name){
   };
   tv.addEventListener('pointerup', up, true); tv.addEventListener('pointercancel', up, true);
 }
-
-/* 操作ガイド */
-function openHelp(){ $('#help').classList.add('show'); $('#helpNoAuto').checked = LS.get('ttm_helpAuto', false) === true; }
-function closeHelp(){ $('#help').classList.remove('show'); LS.set('ttm_helpAuto', $('#helpNoAuto').checked); }
-$('#helpBtn').onclick = openHelp;
-$('#help').addEventListener('click', e => { if(e.target.id === 'help' || e.target.closest('[data-help-close]')) closeHelp(); });
-$('#helpNoAuto').addEventListener('change', e => LS.set('ttm_helpAuto', e.target.checked));
-document.addEventListener('keydown', e => {
-  if(e.key === 'Escape' && $('#help').classList.contains('show')){ closeHelp(); return; }
-  const t = e.target; if(t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT') return;
-  if(e.key === '?' && !e.ctrlKey && !e.metaKey){ e.preventDefault(); openHelp(); }
-});
-
-function thumbInit(){
-  $('#selBox').innerHTML = `${SEL_ROWS.map(r => drowPg(r)).join('')}`;
-  $('#bgRows').innerHTML = BG_ROWS.map(r => drowPg(r, true)).join('');
-  $('#pickBg').onclick = () => $('#bgimgfile').click();
-  $('#fxCenter').onclick = () => { DOC.bg.fcx = 0.5; DOC.bg.fcy = 0.5; syncDoc(); docChanged(false); };
-  applyView(true);
-  setMode(DOC.mode, true);
-  renderInspector(true);
-  syncDoc(); renderLayers();
-  idbRestore();
-  if(LS.get('ttm_helpAuto', 'first') !== false) setTimeout(openHelp, 400);
-  window.addEventListener('resize', () => { clearTimeout(thumbInit.r); thumbInit.r = setTimeout(() => paintPreview(false), 60); });
-  document.fonts.addEventListener('loadingdone', () => { if(DOC.mode === 'thumb'){ clearTimeout(thumbInit.f); thumbInit.f = setTimeout(() => paintPreview(false), 150); } });
-}
-

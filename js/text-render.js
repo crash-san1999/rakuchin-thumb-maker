@@ -1,17 +1,7 @@
 /* 楽ちんサムネメーカー：文字の描画エンジン・装飾 */
-/* ============ 描画エンジン ============ */
-const PI = Math.PI;
-const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
 const mctx = mk(4, 4).getContext('2d');
-const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
-const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
 const darken = (h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
 const fontStr = () => `${S.weight} ${S.size}px ${S.fontLatin ? '"' + S.fontLatin + '", ' : ''}"${S.font}", "Noto Sans JP", sans-serif`;
-function rng(seed){
-  let a = (Math.imul(seed | 0, 2654435761) >>> 0) || 1;
-  return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-}
-
 /* 金属の色（上→下）。0.5付近の暗い帯が「映り込みの地平線」 */
 const METALS = {
   gold:     [[0,'#fffbe0'],[.2,'#ffe07a'],[.44,'#c99212'],[.5,'#7a4d00'],[.56,'#d9a520'],[.8,'#fff1a6'],[1,'#b07a0c']],
@@ -741,4 +731,3 @@ function render(scale){
   // 8) 自動トリミング
   return trim(B, Math.round(S.pad * scale));
 }
-

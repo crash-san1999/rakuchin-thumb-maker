@@ -7,6 +7,18 @@ const LS = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
 };
 const isTyping = e => { const t = e.target; return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
+// サムネのレイヤーに共通の初期値（1920×1080 の中央）
+const LAYER_BASE = () => ({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
+// 日時入りのファイル名用（例：20260929-213000）
+const stamp = (d = new Date()) => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
+// ファイルとしてダウンロードさせる
+function downloadBlob(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
+// キャンバス上に出す案内の帯（編集モード中など）
+function drawBanner(ctx, W, dpr, msg){
+  ctx.save(); ctx.font = `800 ${12 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const tw = ctx.measureText(msg).width + 24 * dpr; ctx.fillStyle = 'rgba(31,27,45,.88)'; ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, 8 * dpr, tw, 26 * dpr, 13 * dpr); ctx.fill();
+  ctx.fillStyle = '#ffb800'; ctx.fillText(msg, W / 2, 14 * dpr); ctx.restore();
+}
 function toast(msg, err){
   const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 2600);
@@ -105,4 +117,16 @@ function merged(p){
   return o;
 }
 let S = merged(LS.get('ttm_state', {}));
+/* ============ 配色 ============ */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+/* ============ 描画エンジン ============ */
+const PI = Math.PI;
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
+const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
+function rng(seed){
+  let a = (Math.imul(seed | 0, 2654435761) >>> 0) || 1;
+  return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
 
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

@@ -1,5 +1,7 @@
 /* 楽ちんサムネメーカー：画像の切り抜きフレーム */
 /* ---------- 画像の切り抜きフレーム ---------- */
+// 「筆のかすれ（別パターンにする）」で形が変わる、乱数を使う形
+const FRAME_SEEDED = ['swipe', 'drybrush', 'brushbox', 'rip', 'brushtri', 'brushcircle', 'torn', 'splash', 'burst'];
 function FRAME_BASE(){ return {shape:'none', ar:'auto', fs:1, cx:0.5, cy:0.5, r:0.12, style:'solid', c2:'#1f1b2d', seed:1}; }
 const FRAME_SHAPES = [
   ['none','なし'], ['rect','四角（角丸）'], ['circle','丸'], ['arch','アーチ'], ['hex','六角形'], ['oct','八角形'], ['diamond','ひし形'], ['tri','三角'],

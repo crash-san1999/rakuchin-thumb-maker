@@ -273,7 +273,6 @@ function renderFontList(){
   $('#fcount').textContent = `${list.length.toLocaleString()} / ${fonts.length.toLocaleString()} 書体` + (!q && cat !== '欧文' && cat !== 'web' && !cat ? '（欧文の全書体は「欧文」か検索で）' : '');
   $('#curFont').textContent = `使用中: ${S.font}`;
 }
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 $('#flist').addEventListener('click', e => {
   const it = e.target.closest('.fi'); if(!it) return;
   const fam = it.dataset.family;
@@ -498,4 +497,3 @@ const drop = $('#drop');
 drop.onclick = () => $('#ffile').click();
 $('#ffile').onchange = e => { addFontFiles(e.target.files); e.target.value = ''; };
 // ドロップは画面全体のドロップ処理（thumb/events.js）が受け取る
-
