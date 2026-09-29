@@ -12,8 +12,7 @@ function textCanvas(L, need, live, cache){
   const sk = JSON.stringify(L.style) + fontKey(L.style);
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
-    const save = S; S = Object.assign({}, L.style, {pad: 2});
-    let c; try{ c = render(need); } finally { S = save; }
+    const c = render(need, Object.assign({}, L.style, {pad: 2}));
     e = {sk, k:need, c}; cache.set(L.id, e);
   }
   return e;

@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：文字の描画エンジン・装飾 */
 const mctx = mk(4, 4).getContext('2d');
 const darken = (h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
-const fontStr = () => `${S.weight} ${S.size}px ${S.fontLatin ? '"' + S.fontLatin + '", ' : ''}"${S.font}", "Noto Sans JP", sans-serif`;
+const fontStr = () => `${RS.weight} ${RS.size}px ${RS.fontLatin ? '"' + RS.fontLatin + '", ' : ''}"${RS.font}", "Noto Sans JP", sans-serif`;
 /* 金属の色（上→下）。0.5付近の暗い帯が「映り込みの地平線」 */
 const METALS = {
   gold:     [[0,'#fffbe0'],[.2,'#ffe07a'],[.44,'#c99212'],[.5,'#7a4d00'],[.56,'#d9a520'],[.8,'#fff1a6'],[1,'#b07a0c']],
@@ -27,32 +27,32 @@ function parse(text){
   });
 }
 function layout(){
-  mctx.font = fontStr(); mctx.letterSpacing = S.ls + 'px';
-  const lines = parse(S.text).map(segs => {
+  mctx.font = fontStr(); mctx.letterSpacing = RS.ls + 'px';
+  const lines = parse(RS.text).map(segs => {
     let w = 0; segs.forEach(s => { s.w = mctx.measureText(s.t).width; w += s.w; });
     return {segs, w};
   });
   const w = Math.max(1, ...lines.map(l => l.w));
-  const lineH = S.size * S.lh;
-  const h = lineH * (lines.length - 1) + S.size * 1.25;
+  const lineH = RS.size * RS.lh;
+  const h = lineH * (lines.length - 1) + RS.size * 1.25;
   return {lines, w, h, lineH};
 }
-const baseY = (L, i) => S.size * 0.98 + i * L.lineH;
-const lineTop = (L, i) => baseY(L, i) - S.size * 0.9;
+const baseY = (L, i) => RS.size * 0.98 + i * L.lineH;
+const lineTop = (L, i) => baseY(L, i) - RS.size * 0.9;
 
 /* 描画する文字の並び（ゆらぎONなら1文字ずつ） */
 function glyphs(L){
-  const items = [], R = rng(S.jitter.seed), J = S.jitter.on;
-  mctx.font = fontStr(); mctx.letterSpacing = S.ls + 'px';
+  const items = [], R = rng(RS.jitter.seed), J = RS.jitter.on;
+  mctx.font = fontStr(); mctx.letterSpacing = RS.ls + 'px';
   L.lines.forEach((ln, i) => {
-    let x = S.align === 'left' ? 0 : S.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
+    let x = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const y = baseY(L, i);
     ln.segs.forEach(s => {
       if(!J){ items.push({t:s.t, x, y, a:s.a, line:i}); x += s.w; return; }
       for(const ch of s.t){
         const cw = mctx.measureText(ch).width;
         items.push({t:ch, x, y, a:s.a, line:i, cw,
-          rot:(R()*2-1) * S.jitter.rot * PI / 180, dy:(R()*2-1) * S.jitter.y, sc:1 + (R()*2-1) * S.jitter.scale});
+          rot:(R()*2-1) * RS.jitter.rot * PI / 180, dy:(R()*2-1) * RS.jitter.y, sc:1 + (R()*2-1) * RS.jitter.scale});
         x += cw;
       }
     });
@@ -60,7 +60,7 @@ function glyphs(L){
   return items;
 }
 function drawGlyphs(ctx, items, op){
-  const mid = S.size * 0.38;
+  const mid = RS.size * 0.38;
   for(const it of items){
     if(it.rot === undefined){ op(it, it.x, it.y); continue; }
     ctx.save(); ctx.translate(it.x + it.cw / 2, it.y - mid + it.dy); ctx.rotate(it.rot); ctx.scale(it.sc, it.sc);
@@ -70,15 +70,15 @@ function drawGlyphs(ctx, items, op){
 
 /* 塗り */
 function angGrad(ctx, L, stops, line, ang){
-  const a = (ang ?? S.gradAngle) * PI / 180;
-  const bx = 0, bw = L.w, by = line === undefined ? 0 : lineTop(L, line), bh = line === undefined ? L.h : S.size * 1.05;
+  const a = (ang ?? RS.gradAngle) * PI / 180;
+  const bx = 0, bw = L.w, by = line === undefined ? 0 : lineTop(L, line), bh = line === undefined ? L.h : RS.size * 1.05;
   const cx = bx + bw / 2, cy = by + bh / 2, r = (Math.abs(Math.cos(a)) * bw + Math.abs(Math.sin(a)) * bh) / 2;
   const g = ctx.createLinearGradient(cx - Math.cos(a) * r, cy - Math.sin(a) * r, cx + Math.cos(a) * r, cy + Math.sin(a) * r);
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
 function vGrad(ctx, L, i, stops){
-  const top = lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + S.size * 1.02);
+  const top = lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + RS.size * 1.02);
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
@@ -86,27 +86,27 @@ function fillStyles(ctx, L){
   const n = L.lines.length, idx = [...Array(n).keys()];
   const two = (c1, c2, mid) => mid ? [[0,c1],[.5,mid],[1,c2]] : [[0,c1],[1,c2]];
   let main, acc;
-  if(S.fillType === 'solid'){ main = () => S.fill1; acc = () => S.accent1; }
-  else if(S.fillType === 'grad'){
-    const ms = two(S.fill1, S.fill2, S.fill3on ? S.fill3 : null), as = two(S.accent1, S.accent2);
-    if(S.gradScope === 'line'){
+  if(RS.fillType === 'solid'){ main = () => RS.fill1; acc = () => RS.accent1; }
+  else if(RS.fillType === 'grad'){
+    const ms = two(RS.fill1, RS.fill2, RS.fill3on ? RS.fill3 : null), as = two(RS.accent1, RS.accent2);
+    if(RS.gradScope === 'line'){
       const gm = idx.map(i => angGrad(ctx, L, ms, i)), ga = idx.map(i => angGrad(ctx, L, as, i));
       main = it => gm[it.line]; acc = it => ga[it.line];
     }else{
       const gm = angGrad(ctx, L, ms), ga = angGrad(ctx, L, as); main = () => gm; acc = () => ga;
     }
-  }else if(S.fillType === 'split'){
-    const p = S.splitPos, sp = (c1, c2) => [[0,c1],[p,c1],[Math.min(1, p + 0.002),c2],[1,c2]];
-    if(S.splitDir === 'h'){
-      const gm = idx.map(i => vGrad(ctx, L, i, sp(S.fill1, S.fill2))), ga = idx.map(i => vGrad(ctx, L, i, sp(S.accent1, S.accent2)));
+  }else if(RS.fillType === 'split'){
+    const p = RS.splitPos, sp = (c1, c2) => [[0,c1],[p,c1],[Math.min(1, p + 0.002),c2],[1,c2]];
+    if(RS.splitDir === 'h'){
+      const gm = idx.map(i => vGrad(ctx, L, i, sp(RS.fill1, RS.fill2))), ga = idx.map(i => vGrad(ctx, L, i, sp(RS.accent1, RS.accent2)));
       main = it => gm[it.line]; acc = it => ga[it.line];
     }else{
-      const gm = angGrad(ctx, L, sp(S.fill1, S.fill2), undefined, 0), ga = angGrad(ctx, L, sp(S.accent1, S.accent2), undefined, 0);
+      const gm = angGrad(ctx, L, sp(RS.fill1, RS.fill2), undefined, 0), ga = angGrad(ctx, L, sp(RS.accent1, RS.accent2), undefined, 0);
       main = () => gm; acc = () => ga;
     }
   }else{
-    const st = METALS[S.metal] || METALS.gold, as = two(S.accent1, S.accent2);
-    const gm = idx.map(i => S.metal === 'holo' ? angGrad(ctx, L, st, i, 20) : vGrad(ctx, L, i, st));
+    const st = METALS[RS.metal] || METALS.gold, as = two(RS.accent1, RS.accent2);
+    const gm = idx.map(i => RS.metal === 'holo' ? angGrad(ctx, L, st, i, 20) : vGrad(ctx, L, i, st));
     const ga = idx.map(i => vGrad(ctx, L, i, as));
     main = it => gm[it.line]; acc = it => ga[it.line];
   }
@@ -169,7 +169,7 @@ function bevel(c, sizePx, b){
 }
 /* 模様（文字の中だけ） */
 function drawPattern(c, scale){
-  const p = S.pattern, sz = Math.max(2, Math.round(p.size * scale));
+  const p = RS.pattern, sz = Math.max(2, Math.round(p.size * scale));
   let tile, tr = new DOMMatrix().rotateSelf(p.angle);
   if(p.type === 'glitter'){
     tile = mk(96, 96); const x = tile.getContext('2d'), R = rng(11), [r, g, bl] = hex2rgb(p.c);
@@ -197,34 +197,34 @@ function drawPattern(c, scale){
 }
 /* テカリ（行ごとの上半分ハイライト） */
 function drawGloss(ctx, L){
-  const g = S.gloss;
+  const g = RS.gloss;
   ctx.save(); ctx.globalCompositeOperation = 'source-atop';
   L.lines.forEach((ln, i) => {
-    const top = lineTop(L, i) - S.size * 0.15, bot = lineTop(L, i) + S.size * 1.02 * g.h;
-    const x0 = -S.size, x1 = L.w + S.size;
+    const top = lineTop(L, i) - RS.size * 0.15, bot = lineTop(L, i) + RS.size * 1.02 * g.h;
+    const x0 = -RS.size, x1 = L.w + RS.size;
     const gr = ctx.createLinearGradient(0, top, 0, bot);
     gr.addColorStop(0, `rgba(255,255,255,${g.a})`); gr.addColorStop(1, `rgba(255,255,255,${g.a * 0.35})`);
     ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(x1, top); ctx.lineTo(x1, bot);
-    ctx.quadraticCurveTo((x0 + x1) / 2, bot + S.size * 0.35 * g.curve, x0, bot); ctx.closePath(); ctx.fill();
+    ctx.quadraticCurveTo((x0 + x1) / 2, bot + RS.size * 0.35 * g.curve, x0, bot); ctx.closePath(); ctx.fill();
   });
   ctx.restore();
 }
 /* マーカー（文字の後ろの帯） */
 function drawMarker(ctx, L){
-  const m = S.marker;
+  const m = RS.marker;
   ctx.save(); ctx.fillStyle = rgba(m.c, m.a);
   L.lines.forEach((ln, i) => {
     if(!ln.segs.length) return;
-    const x0 = S.align === 'left' ? 0 : S.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
-    const over = S.size * m.over, hh = S.size * m.h, cy = lineTop(L, i) + S.size * 1.02 * m.pos;
-    const x = x0 - over, w = ln.w + over * 2, y = cy - hh / 2, rr = Math.min(hh / 2, S.size * 0.08);
+    const x0 = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
+    const over = RS.size * m.over, hh = RS.size * m.h, cy = lineTop(L, i) + RS.size * 1.02 * m.pos;
+    const x = x0 - over, w = ln.w + over * 2, y = cy - hh / 2, rr = Math.min(hh / 2, RS.size * 0.08);
     ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, hh, rr) : ctx.rect(x, y, w, hh); ctx.fill();
   });
   ctx.restore();
 }
 /* かすれ */
 function applyGrunge(c, scale){
-  const g = S.grunge, bb = bbox(c); if(!bb) return;
+  const g = RS.grunge, bb = bbox(c); if(!bb) return;
   const R = rng(g.seed), sz = g.size * scale, bw = bb.r - bb.l, bh = bb.b - bb.t;
   const x = c.getContext('2d'); x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; x.strokeStyle = '#000';
   const n = Math.min(40000, Math.round(g.amt * bw * bh / (sz * sz) * 0.06));
@@ -243,7 +243,7 @@ function applyGrunge(c, scale){
 }
 /* ワープ（列／行ごとにずらして変形） */
 function warp(src){
-  const w = S.warp; if(w.type === 'none' || !w.amt) return src;
+  const w = RS.warp; if(w.type === 'none' || !w.amt) return src;
   const bb = bbox(src); if(!bb) return src;
   const W = src.width, H = src.height, cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, cx = bb.l + cw / 2, cy = bb.t + ch / 2, A = w.amt;
   if(w.type === 'trap'){
@@ -278,7 +278,7 @@ function effectOnly(src, ox, oy, blur, color, scale){
 }
 /* グリッチ */
 function glitch(B, scale){
-  const g = S.glitch, W = B.width, H = B.height, d = g.rgb * scale;
+  const g = RS.glitch, W = B.width, H = B.height, d = g.rgb * scale;
   const out = mk(W, H), o = out.getContext('2d');
   if(d > 0){
     const tint = col => { const c = mk(W, H), x = c.getContext('2d'); x.drawImage(B, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, W, H); return c; };
@@ -303,8 +303,8 @@ const cut = (dst, src) => { const c = dst.getContext('2d'); c.save(); c.setTrans
 
 /* 1文字ずつの位置（一文字囲み・傍点用） */
 function charCells(items){
-  if(S.jitter.on) return items.filter(it => it.t.trim());
-  const out = []; mctx.font = fontStr(); mctx.letterSpacing = S.ls + 'px';
+  if(RS.jitter.on) return items.filter(it => it.t.trim());
+  const out = []; mctx.font = fontStr(); mctx.letterSpacing = RS.ls + 'px';
   items.forEach(it => {
     let x = it.x;
     for(const ch of it.t){ const cw = mctx.measureText(ch).width; if(ch.trim()) out.push({t:ch, x, y:it.y, a:it.a, line:it.line, cw}); x += cw; }
@@ -312,7 +312,7 @@ function charCells(items){
   return out;
 }
 function withCell(ctx, c, fn){
-  ctx.save(); ctx.translate(c.x + (c.cw - S.ls) / 2, c.y - S.size * 0.38 + (c.dy || 0));
+  ctx.save(); ctx.translate(c.x + (c.cw - RS.ls) / 2, c.y - RS.size * 0.38 + (c.dy || 0));
   if(c.rot) ctx.rotate(c.rot); if(c.sc) ctx.scale(c.sc, c.sc);
   fn(); ctx.restore();
 }
@@ -326,7 +326,7 @@ function boxPath(ctx, shape, h){
   else ctx.rect(-h, -h, 2 * h, 2 * h);
 }
 function drawBoxes(ctx, cells){
-  const b = S.box, h = S.size * (0.5 + b.pad);
+  const b = RS.box, h = RS.size * (0.5 + b.pad);
   cells.forEach((c, i) => withCell(ctx, c, () => {
     boxPath(ctx, b.shape, h);
     if(b.sw > 0){ ctx.lineWidth = b.sw * 2; ctx.strokeStyle = b.sc; ctx.lineJoin = 'round'; ctx.stroke(); }
@@ -335,7 +335,7 @@ function drawBoxes(ctx, cells){
 }
 /* 傍点 */
 function dotPath(ctx){
-  const d = S.dots, r = S.size * d.size * 0.5, y = -S.size * 0.5 - r * 1.3;
+  const d = RS.dots, r = RS.size * d.size * 0.5, y = -RS.size * 0.5 - r * 1.3;
   ctx.beginPath();
   if(d.shape === 'ring'){ ctx.arc(0, y, r, 0, 7); ctx.moveTo(r * 0.5, y); ctx.arc(0, y, r * 0.5, 0, 7, true); }
   else if(d.shape === 'tri'){ ctx.moveTo(-r, y - r * 0.8); ctx.lineTo(r, y - r * 0.8); ctx.lineTo(0, y + r * 0.9); ctx.closePath(); }
@@ -343,14 +343,14 @@ function dotPath(ctx){
 }
 /* 背景シェイプ（角丸・楕円・ギザギザ・吹き出し・斜め帯） */
 function drawPlate(ctx, L, outer){
-  const p = S.plate, pad = S.size * p.pad + outer;
-  const x0 = -pad, y0 = lineTop(L, 0) - pad, x1 = L.w + pad, y1 = baseY(L, L.lines.length - 1) + S.size * 0.14 + pad;
+  const p = RS.plate, pad = RS.size * p.pad + outer;
+  const x0 = -pad, y0 = lineTop(L, 0) - pad, x1 = L.w + pad, y1 = baseY(L, L.lines.length - 1) + RS.size * 0.14 + pad;
   const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   ctx.save(); ctx.beginPath(); ctx.lineJoin = 'round';
   switch(p.shape){
     case 'ellipse': ctx.ellipse(cx, cy, w / 2 * 1.18, h / 2 * 1.3, 0, 0, 7); break;
     case 'burst': {
-      const R = rng(p.seed), n = Math.max(12, Math.round((w + h) / (S.size * 0.45)));
+      const R = rng(p.seed), n = Math.max(12, Math.round((w + h) / (RS.size * 0.45)));
       for(let i = 0; i <= n * 2; i++){
         const a = i / (n * 2) * 2 * PI, k = i % 2 === 0 ? 1.3 + R() * 0.14 : 1.06;
         const px = cx + Math.cos(a) * w / 2 * k, py = cy + Math.sin(a) * h / 2 * k * 1.08;
@@ -359,13 +359,13 @@ function drawPlate(ctx, L, outer){
       ctx.closePath(); break;
     }
     case 'bubble': {
-      ctx.roundRect(x0, y0, w, h, Math.min(h / 2, S.size * 0.3));
+      ctx.roundRect(x0, y0, w, h, Math.min(h / 2, RS.size * 0.3));
       const right = p.tail === 'right', tx = right ? x1 - w * 0.22 : x0 + w * 0.22, dir = right ? 1 : -1;
-      ctx.moveTo(tx - S.size * 0.25, y1 - 2); ctx.lineTo(tx + dir * S.size * 0.4, y1 + S.size * 0.55); ctx.lineTo(tx + S.size * 0.25, y1 - 2); ctx.closePath();
+      ctx.moveTo(tx - RS.size * 0.25, y1 - 2); ctx.lineTo(tx + dir * RS.size * 0.4, y1 + RS.size * 0.55); ctx.lineTo(tx + RS.size * 0.25, y1 - 2); ctx.closePath();
       break;
     }
     case 'para': { const k = h * 0.35; ctx.moveTo(x0 + k, y0); ctx.lineTo(x1 + k, y0); ctx.lineTo(x1 - k, y1); ctx.lineTo(x0 - k, y1); ctx.closePath(); break; }
-    default: ctx.roundRect(x0, y0, w, h, Math.min(h / 2, S.size * 0.3));
+    default: ctx.roundRect(x0, y0, w, h, Math.min(h / 2, RS.size * 0.3));
   }
   if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.sc; ctx.stroke(); }
   ctx.fillStyle = rgba(p.c, p.a); ctx.fill();
@@ -373,7 +373,7 @@ function drawPlate(ctx, L, outer){
 }
 /* 押し出し（ストライプ・奥のフェード対応） */
 function drawExtrude(prep, W, H, items, outer, scale){
-  const e = S.extrude, ex = e.depth, a = e.angle * PI / 180, step = Math.max(0.25, 1 / scale);
+  const e = RS.extrude, ex = e.depth, a = e.angle * PI / 180, step = Math.max(0.25, 1 / scale);
   const E = mk(W, H), x = prep(E), D = e.fade > 0 ? mk(W, H) : null, dx = D ? prep(D) : null;
   const pass = (c, col, d) => {
     c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.fillStyle = c.strokeStyle = col; c.lineWidth = outer * 2;
@@ -395,7 +395,7 @@ function drawExtrude(prep, W, H, items, outer, scale){
 }
 /* 板ずれ（ずらした影。中抜きにもできる） */
 function drawOffsetLayer(prep, W, H, items, outer){
-  const o = S.offset, O = mk(W, H), x = prep(O);
+  const o = RS.offset, O = mk(W, H), x = prep(O);
   x.translate(o.x, o.y); x.fillStyle = x.strokeStyle = o.c;
   const sil = lw => { x.lineWidth = lw; drawGlyphs(x, items, (it, px, py) => { if(lw > 0) x.strokeText(it.t, px, py); x.fillText(it.t, px, py); }); };
   if(o.hollow){ sil((outer + o.w) * 2); x.globalCompositeOperation = 'destination-out'; sil(outer * 2); }
@@ -404,14 +404,14 @@ function drawOffsetLayer(prep, W, H, items, outer){
 }
 /* インナーシャドウ（文字の内側に落ちる影） */
 function innerShadow(F, scale){
-  const s = S.inner, W = F.width, H = F.height, inv = mk(W, H), ix = inv.getContext('2d');
+  const s = RS.inner, W = F.width, H = F.height, inv = mk(W, H), ix = inv.getContext('2d');
   ix.fillStyle = '#000'; ix.fillRect(0, 0, W, H); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(F, 0, 0);
   const sh = effectOnly(inv, s.x, s.y, s.blur, rgba(s.c, s.a), scale);
   const fx = F.getContext('2d'); fx.save(); fx.setTransform(1, 0, 0, 1, 0, 0); fx.globalCompositeOperation = 'source-atop'; fx.drawImage(sh, 0, 0); fx.restore();
 }
 /* 鏡面反射（下に反転して映す） */
 function addReflection(B, body, scale){
-  const r = S.reflect, bb = bbox(body); if(!bb) return B;
+  const r = RS.reflect, bb = bbox(body); if(!bb) return B;
   const ch = bb.b - bb.t + 1, len = Math.max(1, Math.round(ch * r.len)), gap = Math.round(r.gap * scale), W = B.width;
   const R = mk(W, len), rx = R.getContext('2d');
   rx.save(); rx.scale(1, -1); rx.drawImage(body, 0, bb.b - len + 1, W, len, 0, -len, W, len); rx.restore();
@@ -458,22 +458,22 @@ function displace(c, amp, sc, seed, stretchY){
 }
 /* 炎：文字の上端から炎の舌を立ちのぼらせる */
 function makeFire(body, scale){
-  const f = S.fire, W = body.width, H = body.height, bb = bbox(body), out = mk(W, H);
+  const f = RS.fire, W = body.width, H = body.height, bb = bbox(body), out = mk(W, H);
   if(!bb) return out;
   const d = body.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, W, H).data;
-  const R = rng(f.seed), sp = Math.max(3, S.size * 0.09 * scale), tops = [];
+  const R = rng(f.seed), sp = Math.max(3, RS.size * 0.09 * scale), tops = [];
   for(let x = bb.l; x <= bb.r; x += sp){
     const xi = Math.round(x + (R() - 0.5) * sp * 0.6);
     for(let y = Math.max(1, bb.t); y <= bb.b; y++){
       const k = (y * W + xi) * 4 + 3;
-      if(d[k] > 128 && d[k - W * 4] <= 128){ tops.push([xi, y]); y += Math.round(S.size * 0.25 * scale); }
+      if(d[k] > 128 && d[k - W * 4] <= 128){ tops.push([xi, y]); y += Math.round(RS.size * 0.25 * scale); }
     }
   }
   const o = out.getContext('2d');
   // 土台の赤い照り返し
   const sil = mk(W, H), sx = sil.getContext('2d');
   sx.drawImage(body, 0, 0); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = f.c3; sx.fillRect(0, 0, W, H);
-  o.filter = `blur(${Math.max(2, S.size * 0.08 * scale)}px)`; o.globalAlpha = 0.9; o.drawImage(sil, 0, -S.size * 0.05 * scale); o.filter = 'none'; o.globalAlpha = 1;
+  o.filter = `blur(${Math.max(2, RS.size * 0.08 * scale)}px)`; o.globalAlpha = 0.9; o.drawImage(sil, 0, -RS.size * 0.05 * scale); o.filter = 'none'; o.globalAlpha = 1;
   const T = mk(W, H), t = T.getContext('2d');
   const tongue = (x, y, h, w, sway, c0, c1, c2, a) => {
     const o = t, g = o.createLinearGradient(0, y, 0, y - h);
@@ -483,26 +483,26 @@ function makeFire(body, scale){
     o.bezierCurveTo(x + sway + w * 0.35, y - h * 0.7, x + w * 0.9, y - h * 0.35, x + w, y + w * 0.4);
     o.closePath(); o.fill();
   };
-  const Hs = f.height * S.size * scale, wild = f.wild;
+  const Hs = f.height * RS.size * scale, wild = f.wild;
   t.globalCompositeOperation = 'lighter';
   for(const [x, y] of tops){   // 外炎
-    const h = Hs * (0.35 + R() * 0.75), w = S.size * scale * (0.09 + R() * 0.08);
+    const h = Hs * (0.35 + R() * 0.75), w = RS.size * scale * (0.09 + R() * 0.08);
     tongue(x, y, h, w, (R() - 0.5) * w * 3 * wild, f.c2, f.c3, f.c3, 0.55);
   }
   for(const [x, y] of tops){   // 内炎（芯）
     if(R() < 0.35) continue;
-    const h = Hs * (0.2 + R() * 0.4), w = S.size * scale * (0.05 + R() * 0.05);
+    const h = Hs * (0.2 + R() * 0.4), w = RS.size * scale * (0.05 + R() * 0.05);
     tongue(x, y, h, w, (R() - 0.5) * w * 2.5 * wild, f.c1, f.c2, f.c3, 0.65);
   }
-  o.filter = `blur(${Math.max(1, S.size * 0.02 * scale)}px)`; o.drawImage(T, 0, 0); o.filter = 'none';
+  o.filter = `blur(${Math.max(1, RS.size * 0.02 * scale)}px)`; o.drawImage(T, 0, 0); o.filter = 'none';
   return out;
 }
 /* ドリップ（とろ〜り／つらら）：塗りの下端から垂らす */
 function drawDrips(F, K, outerPx, strokeColor, scale){
-  const dr = S.drip, bb = bbox(F); if(!bb) return;
+  const dr = RS.drip, bb = bbox(F); if(!bb) return;
   const W = F.width, R = rng(dr.seed), fctx = F.getContext('2d', {willReadFrequently:true});
   const d = fctx.getImageData(0, 0, W, F.height).data;
-  const wPx = Math.max(3, dr.w * S.size * scale), step = Math.max(2, Math.round(wPx * 1.4)), gapPx = S.size * 0.22 * scale;
+  const wPx = Math.max(3, dr.w * RS.size * scale), step = Math.max(2, Math.round(wPx * 1.4)), gapPx = RS.size * 0.22 * scale;
   const list = [];
   for(let x = bb.l + step; x < bb.r - step; x += step){
     for(let y = bb.t; y < bb.b; y++){
@@ -512,7 +512,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
         if(!open) continue;
         const j = (Math.max(0, y - 3) * W + x) * 4;
         const col = dr.sample ? `rgb(${d[j]},${d[j+1]},${d[j+2]})` : dr.c;
-        list.push({x, y, len:(0.25 + Math.pow(R(), 1.5) * 0.9) * dr.len * S.size * scale, w:wPx * (0.6 + R() * 0.6), col});
+        list.push({x, y, len:(0.25 + Math.pow(R(), 1.5) * 0.9) * dr.len * RS.size * scale, w:wPx * (0.6 + R() * 0.6), col});
       }
     }
   }
@@ -533,7 +533,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
 }
 /* ハーフトーン（下ほど大きい網点） */
 function drawHalftone(F, scale){
-  const p = S.pattern, bb = bbox(F); if(!bb) return;
+  const p = RS.pattern, bb = bbox(F); if(!bb) return;
   const sz = Math.max(3, p.size * scale), x = F.getContext('2d');
   x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = p.a; x.fillStyle = p.c;
   const a = p.angle * PI / 180, ca = Math.cos(a), sa = Math.sin(a), cx = (bb.l + bb.r) / 2, cy = (bb.t + bb.b) / 2;
@@ -550,13 +550,13 @@ function drawHalftone(F, scale){
 }
 /* 80年代のラインカット（下半分に切れ込み） */
 function drawCutLines(ctx, L){
-  const p = S.pattern, n = Math.max(2, Math.round(p.size / 3));
+  const p = RS.pattern, n = Math.max(2, Math.round(p.size / 3));
   ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000';
   L.lines.forEach((ln, i) => {
-    const top = lineTop(L, i) + S.size * 0.48, bot = baseY(L, i) + S.size * 0.03, band = (bot - top) / n;
+    const top = lineTop(L, i) + RS.size * 0.48, bot = baseY(L, i) + RS.size * 0.03, band = (bot - top) / n;
     for(let k = 0; k < n; k++){
       const th = band * (0.12 + 0.55 * (k / n)) * Math.max(0.2, p.a * 1.6);
-      ctx.fillRect(-S.size, top + band * k + (band - th), L.w + S.size * 2, th);
+      ctx.fillRect(-RS.size, top + band * k + (band - th), L.w + RS.size * 2, th);
     }
   });
   ctx.restore();
@@ -573,7 +573,7 @@ function edgePoints(c){
 }
 /* 電球（マーキー）：塗りの少し内側の輪郭に等間隔で配置 */
 function drawBulbs(F, scale){
-  const b = S.bulbs, r = Math.max(1.5, b.size * S.size * scale), gap = Math.max(r * 2.4, b.gap * S.size * scale), bb = bbox(F); if(!bb) return;
+  const b = RS.bulbs, r = Math.max(1.5, b.size * RS.size * scale), gap = Math.max(r * 2.4, b.gap * RS.size * scale), bb = bbox(F); if(!bb) return;
   const W = F.width, H = F.height, pad = Math.ceil(r * 2) + 2;
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), w = Math.min(W, bb.r + pad) - l, h = Math.min(H, bb.b + pad) - t;
   const ctx = F.getContext('2d', {willReadFrequently:true}), d = ctx.getImageData(l, t, w, h).data;
@@ -604,9 +604,9 @@ function drawBulbs(F, scale){
 }
 /* キラキラ（4方向の星） */
 function drawSparkles(B, body, scale){
-  const s = S.sparkle; if(s.count <= 0) return;
+  const s = RS.sparkle; if(s.count <= 0) return;
   const pts = edgePoints(body), bb = bbox(body); if(!pts.length || !bb) return;
-  const R = rng(s.seed), x = B.getContext('2d'), base = s.size * S.size * scale;
+  const R = rng(s.seed), x = B.getContext('2d'), base = s.size * RS.size * scale;
   x.save(); x.fillStyle = s.c;
   if(s.glow){ x.shadowColor = s.c; x.shadowBlur = base * 0.6; }
   for(let i = 0; i < s.count; i++){
@@ -623,7 +623,7 @@ function drawSparkles(B, body, scale){
 }
 /* 残像（スピード感） */
 function addTrail(body, scale){
-  const t = S.trail, W = body.width, H = body.height, a = t.angle * PI / 180, Lp = t.len * S.size * scale;
+  const t = RS.trail, W = body.width, H = body.height, a = t.angle * PI / 180, Lp = t.len * RS.size * scale;
   let src = body;
   if(t.tint){ src = mk(W, H); const x = src.getContext('2d'); x.drawImage(body, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = t.c; x.fillRect(0, 0, W, H); }
   const out = mk(W, H), o = out.getContext('2d');
@@ -632,43 +632,50 @@ function addTrail(body, scale){
   return out;
 }
 
-function render(scale){
+// 描画中のスタイル。render() の間だけ入り、描画用の関数はすべてこれを見る（画面の S は書き換えない）
+let RS = null;
+// style を scale 倍で描いたキャンバスを返す（style を省略すると、文字パネルで編集中のスタイル）
+function render(scale, style = S){
+  const prev = RS; RS = style;
+  try{ return renderStyle(scale); } finally { RS = prev; }
+}
+function renderStyle(scale){
   if(!plainText().trim()) return mk(1, 1);
   const L = layout(), items = glyphs(L);
-  const cells = (S.box.on || S.dots.on) ? charCells(items) : [];
-  const dotCells = S.dots.on ? cells.filter(c => c.a) : [];
-  const t = Math.tan(S.skew * PI / 180);
-  const on = S.strokes.filter(s => s.on && s.w > 0);
+  const cells = (RS.box.on || RS.dots.on) ? charCells(items) : [];
+  const dotCells = RS.dots.on ? cells.filter(c => c.a) : [];
+  const t = Math.tan(RS.skew * PI / 180);
+  const on = RS.strokes.filter(s => s.on && s.w > 0);
   let cum = 0; const layers = on.map(s => ({w: (cum += s.w), c: s.c}));
   const outer = cum;
-  const ex = S.extrude.on ? S.extrude.depth : 0;
-  const sh = S.shadow.on ? Math.max(Math.abs(S.shadow.x), Math.abs(S.shadow.y)) + S.shadow.blur * 1.5 : 0;
-  const gl = S.glow.on ? S.glow.blur * (S.glow.dual ? 2.2 : 1.6) : 0;
-  const jit = S.jitter.on ? S.jitter.y + S.size * (S.jitter.scale + Math.sin(S.jitter.rot * PI / 180)) : 0;
-  const gli = S.glitch.on ? Math.max(S.glitch.rgb, S.glitch.shift) : 0;
-  const mrk = S.marker.on ? S.size * S.marker.over : 0;
-  const pl = S.plate.on ? S.size * (S.plate.pad + 0.9) + S.plate.sw + (['burst', 'ellipse'].includes(S.plate.shape) ? 0.3 * (L.w + L.h) : 0) : 0;
-  const bxm = S.box.on ? S.size * (S.box.pad + 0.45) + S.box.sw : 0;
-  const ofm = S.offset.on ? Math.max(Math.abs(S.offset.x), Math.abs(S.offset.y)) + S.offset.w : 0;
-  const dtm = S.dots.on ? S.size * (S.dots.size * 2 + 0.3) : 0;
-  const xtra = (S.fire.on ? S.fire.height * S.size + S.size * 0.25 : 0) + (S.drip.on ? S.drip.len * S.size * 1.2 : 0)
-    + (S.trail.on ? S.trail.len * S.size : 0) + (S.distort.on ? S.distort.amt : 0)
-    + (S.sparkle.on ? S.sparkle.size * S.size : 0) + (S.bulbs.on ? S.bulbs.size * S.size * 3 : 0);
-  const m = S.size * 0.35 + outer + ex + sh + gl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;
+  const ex = RS.extrude.on ? RS.extrude.depth : 0;
+  const sh = RS.shadow.on ? Math.max(Math.abs(RS.shadow.x), Math.abs(RS.shadow.y)) + RS.shadow.blur * 1.5 : 0;
+  const gl = RS.glow.on ? RS.glow.blur * (RS.glow.dual ? 2.2 : 1.6) : 0;
+  const jit = RS.jitter.on ? RS.jitter.y + RS.size * (RS.jitter.scale + Math.sin(RS.jitter.rot * PI / 180)) : 0;
+  const gli = RS.glitch.on ? Math.max(RS.glitch.rgb, RS.glitch.shift) : 0;
+  const mrk = RS.marker.on ? RS.size * RS.marker.over : 0;
+  const pl = RS.plate.on ? RS.size * (RS.plate.pad + 0.9) + RS.plate.sw + (['burst', 'ellipse'].includes(RS.plate.shape) ? 0.3 * (L.w + L.h) : 0) : 0;
+  const bxm = RS.box.on ? RS.size * (RS.box.pad + 0.45) + RS.box.sw : 0;
+  const ofm = RS.offset.on ? Math.max(Math.abs(RS.offset.x), Math.abs(RS.offset.y)) + RS.offset.w : 0;
+  const dtm = RS.dots.on ? RS.size * (RS.dots.size * 2 + 0.3) : 0;
+  const xtra = (RS.fire.on ? RS.fire.height * RS.size + RS.size * 0.25 : 0) + (RS.drip.on ? RS.drip.len * RS.size * 1.2 : 0)
+    + (RS.trail.on ? RS.trail.len * RS.size : 0) + (RS.distort.on ? RS.distort.amt : 0)
+    + (RS.sparkle.on ? RS.sparkle.size * RS.size : 0) + (RS.bulbs.on ? RS.bulbs.size * RS.size * 3 : 0);
+  const m = RS.size * 0.35 + outer + ex + sh + gl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;
   const W = Math.ceil((L.w + 2 * m + Math.abs(t) * L.h) * scale), H = Math.ceil((L.h + 2 * m) * scale);
   const prep = c => {
     const x = c.getContext('2d');
     x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
-    x.font = fontStr(); x.letterSpacing = S.ls + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
+    x.font = fontStr(); x.letterSpacing = RS.ls + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
     return x;
   };
 
   // 1) 背面：背景シェイプ → 一文字囲み → マーカー → 板ずれ → 押し出し
   const A = mk(W, H), ax = prep(A);
-  if(S.plate.on) drawPlate(ax, L, outer);
-  if(S.box.on) drawBoxes(ax, cells);
-  if(S.marker.on) drawMarker(ax, L);
-  if(S.offset.on) blit(A, drawOffsetLayer(prep, W, H, items, outer));
+  if(RS.plate.on) drawPlate(ax, L, outer);
+  if(RS.box.on) drawBoxes(ax, cells);
+  if(RS.marker.on) drawMarker(ax, L);
+  if(RS.offset.on) blit(A, drawOffsetLayer(prep, W, H, items, outer));
   if(ex > 0) blit(A, drawExtrude(prep, W, H, items, outer, scale));
   // 2) フチ（傍点にもフチ）
   const K = mk(W, H), kx = prep(K);
@@ -680,54 +687,54 @@ function render(scale){
   // 3) 文字の塗り → 模様 → ベベル → インナーシャドウ → テカリ
   const F = mk(W, H), fx = prep(F), fs = fillStyles(fx, L);
   drawGlyphs(fx, items, (it, px, py) => { fx.fillStyle = fs(it); fx.fillText(it.t, px, py); });
-  if(dotCells.length){ fx.fillStyle = S.dots.c; dotCells.forEach(c => withCell(fx, c, () => { dotPath(fx); fx.fill(); })); }
-  if(S.drip.on && S.drip.amt > 0) drawDrips(F, K, outer * scale, layers.length ? layers[layers.length - 1].c : null, scale);
-  if(S.pattern.on && S.pattern.a > 0){
-    if(S.pattern.type === 'halftone') drawHalftone(F, scale);
-    else if(S.pattern.type === 'cutlines') drawCutLines(fx, L);
+  if(dotCells.length){ fx.fillStyle = RS.dots.c; dotCells.forEach(c => withCell(fx, c, () => { dotPath(fx); fx.fill(); })); }
+  if(RS.drip.on && RS.drip.amt > 0) drawDrips(F, K, outer * scale, layers.length ? layers[layers.length - 1].c : null, scale);
+  if(RS.pattern.on && RS.pattern.a > 0){
+    if(RS.pattern.type === 'halftone') drawHalftone(F, scale);
+    else if(RS.pattern.type === 'cutlines') drawCutLines(fx, L);
     else drawPattern(F, scale);
   }
-  if(S.bevel.on){
-    bevel(F, S.bevel.size * scale, S.bevel);
-    if(S.bevel.target === 'both' && layers.length) bevel(K, Math.max(1, Math.min(S.bevel.size, outer)) * scale, S.bevel);
+  if(RS.bevel.on){
+    bevel(F, RS.bevel.size * scale, RS.bevel);
+    if(RS.bevel.target === 'both' && layers.length) bevel(K, Math.max(1, Math.min(RS.bevel.size, outer)) * scale, RS.bevel);
   }
-  if(S.inner.on) innerShadow(F, scale);
-  if(S.gloss.on) drawGloss(fx, L);
-  if(S.bulbs.on) drawBulbs(F, scale);
+  if(RS.inner.on) innerShadow(F, scale);
+  if(RS.gloss.on) drawGloss(fx, L);
+  if(RS.bulbs.on) drawBulbs(F, scale);
   // 4) 合成（通常／中抜き／くり抜き）→ かすれ → ワープ
-  if(S.fillMode === 'hollow'){ cut(K, F); blit(A, K); }
-  else if(S.fillMode === 'knock'){ blit(A, K); cut(A, F); }
+  if(RS.fillMode === 'hollow'){ cut(K, F); blit(A, K); }
+  else if(RS.fillMode === 'knock'){ blit(A, K); cut(A, F); }
   else { blit(A, K); blit(A, F); }
-  if(S.grunge.on && S.grunge.amt > 0) applyGrunge(A, scale);
-  if(S.distort.on && S.distort.amt > 0) displace(A, S.distort.amt * scale, S.distort.scale * scale, S.distort.seed, 1);
+  if(RS.grunge.on && RS.grunge.amt > 0) applyGrunge(A, scale);
+  if(RS.distort.on && RS.distort.amt > 0) displace(A, RS.distort.amt * scale, RS.distort.scale * scale, RS.distort.seed, 1);
   let body = warp(A);
-  if(S.trail.on && S.trail.count > 0 && S.trail.len > 0) body = addTrail(body, scale);
+  if(RS.trail.on && RS.trail.count > 0 && RS.trail.len > 0) body = addTrail(body, scale);
   // 5) 光彩・影
   let B = mk(body.width, body.height); const bx = B.getContext('2d');
-  if(S.fire.on) bx.drawImage(makeFire(body, scale), 0, 0);
-  if(S.glow.on && S.glow.blur > 0){
-    if(S.glow.dual){
-      bx.drawImage(effectOnly(body, 0, 0, S.glow.blur * 1.4, rgba(S.glow.c2, S.glow.a), scale), 0, 0);
-      const g = effectOnly(body, 0, 0, S.glow.blur * 0.5, rgba(S.glow.c, S.glow.a), scale);
-      for(let i = 0; i < S.glow.str; i++) bx.drawImage(g, 0, 0);
+  if(RS.fire.on) bx.drawImage(makeFire(body, scale), 0, 0);
+  if(RS.glow.on && RS.glow.blur > 0){
+    if(RS.glow.dual){
+      bx.drawImage(effectOnly(body, 0, 0, RS.glow.blur * 1.4, rgba(RS.glow.c2, RS.glow.a), scale), 0, 0);
+      const g = effectOnly(body, 0, 0, RS.glow.blur * 0.5, rgba(RS.glow.c, RS.glow.a), scale);
+      for(let i = 0; i < RS.glow.str; i++) bx.drawImage(g, 0, 0);
     }else{
-      const g = effectOnly(body, 0, 0, S.glow.blur, rgba(S.glow.c, S.glow.a), scale);
-      for(let i = 0; i < S.glow.str; i++) bx.drawImage(g, 0, 0);
+      const g = effectOnly(body, 0, 0, RS.glow.blur, rgba(RS.glow.c, RS.glow.a), scale);
+      for(let i = 0; i < RS.glow.str; i++) bx.drawImage(g, 0, 0);
     }
   }
-  if(S.shadow.on) bx.drawImage(effectOnly(body, S.shadow.x, S.shadow.y, S.shadow.blur, rgba(S.shadow.c, S.shadow.a), scale), 0, 0);
+  if(RS.shadow.on) bx.drawImage(effectOnly(body, RS.shadow.x, RS.shadow.y, RS.shadow.blur, rgba(RS.shadow.c, RS.shadow.a), scale), 0, 0);
   bx.drawImage(body, 0, 0);
-  if(S.sparkle.on) drawSparkles(B, body, scale);
+  if(RS.sparkle.on) drawSparkles(B, body, scale);
   // 6) 鏡面反射 → グリッチ
-  if(S.reflect.on) B = addReflection(B, body, scale);
-  if(S.glitch.on) B = glitch(B, scale);
+  if(RS.reflect.on) B = addReflection(B, body, scale);
+  if(RS.glitch.on) B = glitch(B, scale);
   // 7) 回転
-  if(S.rotate){
-    const a = S.rotate * PI / 180, cw = B.width, chh = B.height;
+  if(RS.rotate){
+    const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
     const R = mk(Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a))));
     const rx = R.getContext('2d'); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
     B = R;
   }
   // 8) 自動トリミング
-  return trim(B, Math.round(S.pad * scale));
+  return trim(B, Math.round(RS.pad * scale));
 }
