@@ -55,7 +55,7 @@ function syncDoc(except){
   document.querySelectorAll('[data-dshow]').forEach(el => { el.style.display = el.dataset.dshow.split('&').every(c => { const [k, vs] = c.split('='); return vs.split('|').includes(String(dGet(k))); }) ? '' : 'none'; });
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const L = selLayer();
-  $('#selBox').style.display = L ? '' : 'none'; $('#selHint').style.display = L ? 'none' : '';
+  renderInspector();
   if(L) $('#selTitle').textContent = ({text:'選択中の文字 ― ', image:'選択中の画像 ― ', fx:'選択中のエフェクト ― ', collage:''}[L.type]) + layerName(L);
   updateEditing();
   renderCells();

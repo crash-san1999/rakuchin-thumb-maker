@@ -70,6 +70,7 @@ const SEL_ROWS = [
   {btns:[['editText', 'text', '文字を編集'], ['editStyle', 'palette', 'スタイルを選ぶ']], show:'@type=text'},
 ];
 const BG_ROWS = [
+  {sub:'色調は、背景が「画像」のときに使えます', tonenote:true, show:'bg.type=grad|color'},
   {chk:'bg.hidden', l:'背景を非表示にする（PNGで保存すると透明に）'},
   {r:'bg.op', l:'背景の不透明度', min:0, max:1, step:0.01, show:'bg.hidden=false'},
   {seg:'bg.type', l:'種類', opts:[['image', '画像'], ['grad', 'グラデ'], ['color', '単色']]},
@@ -122,6 +123,23 @@ const BG_ROWS = [
 ];
 const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走'], ['soft', 'ふんわり'], ['pop', '文字を目立たせる'], ['vivid', '鮮やか'],
   ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'], ['reset', 'リセット']];
+function rowPg(r, bg){
+  const k = r.r || r.c || r.chk || r.sel || r.seg || r.seed || '', b = r.btns ? r.btns[0][0] : '';
+  if(bg){
+    if(r.sub === '色調' || /^bg\.(bright|contrast|sat|hue|blur|tone|duo)/.test(k) || r.tonenote) return 'tone';
+    if(r.fx || r.addfx || r.sub === 'エフェクト' || r.sub === '背景エフェクト' || /^bg\.(zb|mb|mosaic|dim|vignette|shade|tint|fc)/.test(k) || b === 'fxCenter') return 'fx';
+    return 'main';
+  }
+  if(k.startsWith('@p.')) return 'fx';
+  if(r.frpre || r.shapes || k.startsWith('@frame.') || r.sub === '切り抜きフレーム' || b === 'frameEditBtn') return 'frame';
+  if(k === '@outline.on' || k.startsWith('@shadow.')) return 'edge';
+  if(k.startsWith('@outline.')) return 'frame|edge';
+  if(r.sub === '分割フレーム' || r.layouts || ['@n', '@slant', '@main', '@edge', '@amp', '@bstyle', '@lw', '@lc', '@outer', '@radius'].includes(k)) return 'split';
+  if(r.sub === 'マスの画像' || r.cells || k.startsWith('@cell.') || b === 'collageEditBtn') return 'cells';
+  if(b === 'editText') return 'none';
+  return 'base';
+}
+const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
@@ -150,21 +168,55 @@ function shapeIcon(k){
   return shapeIconCache[k] = c.toDataURL();
 }
 /* ---------- モード・タブ ---------- */
-let curTab = 'thumb';
-function setTab(t){
-  if(DOC.mode === 'text' && t === 'thumb') t = 'style';
-  curTab = t; document.body.dataset.tab = t;
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === t));
-  LS.set('ttm_tab', t);
+/* ---------- 選んだものに合わせた設定パネル ---------- */
+let curTab = 'thumb', curPage = null, insKey = '', pendingPage = null;
+const lastPage = LS.get('ttm_pages', {});
+const INS_PAGES = {
+  textmode:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾']],
+  text:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾'], ['lay-base', '配置']],
+  image:[['lay-base', '配置'], ['lay-frame', 'フレーム'], ['lay-edge', 'フチ・影']],
+  collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-base', '配置']],
+  fx:[['lay-fx', 'エフェクト'], ['lay-base', '配置']],
+  bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果']],
+};
+const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
+function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = selLayer(); return L ? L.type : 'bg'; }
+function setPage(page){
+  const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);
+  const pane = {'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'}[page] || 'thumb';
+  curTab = pane; document.body.dataset.tab = pane;
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === pane));
+  const tp = document.querySelector('.pane[data-pane=text]'), [ts, fs] = tp.querySelectorAll(':scope > section');
+  ts.classList.toggle('secoff', page !== 'txt-text'); fs.classList.toggle('secoff', page !== 'txt-font');
+  $('#layerSec').classList.toggle('secoff', !page.startsWith('lay-')); $('#bgSec').classList.toggle('secoff', !page.startsWith('bg-'));
+  const pg = page.split('-')[1];
+  document.querySelectorAll('#selBox [data-pg], #bgRows [data-pg]').forEach(el => el.classList.toggle('pgoff', !el.dataset.pg.split('|').includes(pg)));
+  document.querySelectorAll('#tabs [data-page]').forEach(b => b.classList.toggle('on', b.dataset.page === page));
+  const pn = document.querySelector('.pane.on'); if(pn) pn.scrollTop = 0;
 }
+function renderInspector(force){
+  if(!DOC || !$('#insHead')) return;
+  const ctx = insCtx(), L = selLayer(), key = ctx + '|' + (L ? L.id : ''), [icn, typ] = INS_INFO[ctx];
+  $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ;
+  $('#insName').textContent = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : layerName(L);
+  $('#insDesel').style.display = L ? '' : 'none';
+  if(key === insKey && !force) return;
+  insKey = key;
+  const pages = INS_PAGES[ctx];
+  $('#tabs').innerHTML = pages.map(([p, t]) => `<button data-page="${p}">${t}</button>`).join('');
+  const has = p => p && pages.some(q => q[0] === p);
+  const want = has(pendingPage) ? pendingPage : has(lastPage[ctx]) ? lastPage[ctx] : pages[0][0];
+  pendingPage = null; setPage(want);
+  if(isMobile && sheet === 'ins') $('#sheetTitle').textContent = typ;
+}
+function setTab(t){ pendingPage = {text:'txt-text', style:'txt-style', design:'txt-deco'}[t] || null; renderInspector(true); }
 function setMode(m, silent){
   DOC.mode = m;
   document.body.classList.toggle('mode-thumb', m === 'thumb'); document.body.classList.toggle('mode-text', m === 'text');
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   $('#dlLabel').textContent = isMobile ? '保存' : (m === 'thumb' ? 'サムネを保存' : '透過PNGを保存');
-  if(m === 'text' && curTab === 'thumb') setTab('style');
-  if(m === 'text' && (sheet === 'layers' || sheet === 'thumb')) openSheet(null);
+  if(m === 'text' && (sheet === 'layers' || sheet === 'add')) openSheet(null);
+  renderInspector(true);
   if(m === 'thumb' && $('#stage').classList.contains('img')) setBg('checker');
   saveDoc();
   if(!silent){ clearTimeout(schT); schT = setTimeout(update, 10); }

@@ -21,20 +21,23 @@ function applyView(first){
   if(DOC) $('#dlLabel').textContent = m ? '保存' : (DOC.mode === 'thumb' ? 'サムネを保存' : '透過PNGを保存');
   if(!first) setTimeout(() => paintPreview(false), 60);
 }
-function sheetTitle(n){ return {thumb:'配置・背景', style:'スタイル', text:'文字', design:'装飾', layers:'レイヤー'}[n] || ''; }
+function sheetTitle(n){ return n === 'layers' ? 'レイヤー' : (INS_INFO[insCtx()] || [])[1] || '設定'; }
 function openSheet(name, force){
   if(!isMobile) name = null;
   if(!force && name && sheet === name) name = null;
   sheet = name;
   document.body.classList.toggle('sheet-open', !!name);
   $('#lpanel').classList.toggle('sheet-on', name === 'layers');
-  $('#side').classList.toggle('sheet-on', !!name && name !== 'layers');
-  if(name && name !== 'layers'){ setTab(name); $('#sheetTitle').textContent = sheetTitle(name); }
+  $('#side').classList.toggle('sheet-on', name === 'ins');
+  if(name && name !== 'layers') $('#sheetTitle').textContent = sheetTitle(name);
   document.querySelectorAll('#mbar [data-sheet]').forEach(b => b.classList.toggle('on', b.dataset.sheet === name));
   clearTimeout(openSheet.t); openSheet.t = setTimeout(() => paintPreview(false), 340);
 }
-function goTab(t){ if(isMobile) openSheet(t, true); else setTab(t); }
-$('#mbar').addEventListener('click', e => { const b = e.target.closest('[data-sheet]'); if(b) openSheet(b.dataset.sheet); });
+function goTab(t){ setTab(t); if(isMobile) openSheet('ins', true); }
+$('#mbar').addEventListener('click', e => { const b = e.target.closest('[data-sheet]'); if(!b) return; const n = b.dataset.sheet;
+  if(n === 'add'){ openSheet(null); togglePop('addMenu', b); return; }
+  if(n === 'bg'){ selectLayer(null); openSheet('ins', true); return; }
+  openSheet(n); });
 document.addEventListener('click', e => {
   if(e.target.closest('button[data-close-sheet]')){ openSheet(null); return; }
   const vb = e.target.closest('#viewSeg [data-view]');
@@ -147,15 +150,15 @@ document.addEventListener('keydown', e => {
 });
 
 function thumbInit(){
-  $('#selBox').innerHTML = `<div class="selbox"><div class="subhead" id="selTitle"></div>${SEL_ROWS.map(drow).join('')}</div>`;
-  $('#bgRows').innerHTML = BG_ROWS.map(drow).join('');
+  $('#selBox').innerHTML = `<div class="selbox"><div class="subhead" id="selTitle" hidden></div>${SEL_ROWS.map(r => drowPg(r)).join('')}</div>`;
+  $('#bgRows').innerHTML = BG_ROWS.map(r => drowPg(r, true)).join('');
   $('#editText').onclick = () => { goTab('text'); if(!isMobile) $('#text').focus(); };
   $('#editStyle').onclick = () => goTab('style');
   $('#pickBg').onclick = () => $('#bgimgfile').click();
   $('#fxCenter').onclick = () => { DOC.bg.fcx = 0.5; DOC.bg.fcy = 0.5; syncDoc(); docChanged(false); };
   applyView(true);
   setMode(DOC.mode, true);
-  setTab(LS.get('ttm_tab', 'thumb'));
+  renderInspector(true);
   syncDoc(); renderLayers();
   idbRestore();
   if(LS.get('ttm_helpAuto', 'first') !== false) setTimeout(openHelp, 400);

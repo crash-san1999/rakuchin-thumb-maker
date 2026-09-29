@@ -51,8 +51,9 @@ document.addEventListener('click', e => {
   if(gb){ DOC.guides[gb.dataset.guide] = !DOC.guides[gb.dataset.guide]; syncDoc(); saveDoc(); paintPreview(false); return; }
   const mb = e.target.closest('[data-mode]');
   if(mb){ setMode(mb.dataset.mode); return; }
-  const tb = e.target.closest('#tabs [data-tab]');
-  if(tb){ setTab(tb.dataset.tab); return; }
+  const tb = e.target.closest('#tabs [data-page]');
+  if(tb){ setPage(tb.dataset.page); return; }
+  if(e.target.closest('#insDesel')){ selectLayer(null); return; }
 });
 {
   const list = $('#layerList');
@@ -102,7 +103,7 @@ document.addEventListener('click', e => {
     const bga = e.target.closest('[data-bga]');
     if(bga){ DOC.bg.hidden = !DOC.bg.hidden; renderLayers(); syncDoc(); docChanged(false); toast(DOC.bg.hidden ? '背景を非表示にしました（PNGで保存すると背景が透明になります）' : '背景を表示しました'); return; }
     if(e.target.closest('.ly-op')) return;
-    if(e.target.closest('[data-bgrow]')){ selectLayer(null); goTab('thumb'); const bs = $('#bgSec'); bs.classList.remove('collapsed'); bs.scrollIntoView({behavior:'smooth', block:'start'}); return; }
+    if(e.target.closest('[data-bgrow]')){ selectLayer(null); if(isMobile) openSheet('ins', true); return; }
     const row = e.target.closest('[data-lid]'); if(!row) return;
     const act = e.target.closest('[data-la]');
     if(act){
@@ -121,12 +122,7 @@ document.addEventListener('click', e => {
     e.preventDefault(); if(row.dataset.lid !== DOC.sel) selectLayer(row.dataset.lid);
     showMenu(row.dataset.lid, e.clientX, e.clientY);
   });
-  $('#lpAddText').onclick = () => $('#addText').click();
-  $('#lpAddImg').onclick = () => $('#imgfile').click();
-  $('#lpAddFx').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); setTimeout(() => showFxMenu(r.right - 280, r.bottom + 6), 0); };
-  $('#lpAddCollage').onclick = () => addCollage();
   $('#addCollageBtn').onclick = () => addCollage();
-  $('#addFxBtn').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); setTimeout(() => showFxMenu(r.left, r.bottom + 6), 0); };
 }
 $('#addText').onclick = () => {
   const st = clone(S); st.text = 'テキスト';
@@ -368,3 +364,23 @@ async function openProjectFile(f){
 }
 
 
+
+/* ポップアップメニュー（追加・ファイル） */
+function togglePop(id, anchor){
+  const el = document.getElementById(id), open = !el.classList.contains('show');
+  document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show'));
+  if(!open) return;
+  el.classList.add('show');
+  if(isMobile){ el.style.left = ''; el.style.top = ''; return; }
+  const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = clamp(r.left, 8, innerWidth - w - 8) + 'px'; el.style.top = clamp(r.bottom + 8, 8, innerHeight - h - 8) + 'px';
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('#addBtn, #lpAdd'); if(a){ togglePop('addMenu', a); return; }
+  const f = e.target.closest('#fileBtn'); if(f){ togglePop('fileMenu', f); return; }
+  if(e.target.closest('#addBgImg')){ $('#bgimgfile').click(); }
+  if(e.target.closest('#mbar [data-sheet=add]')) return;
+  const pop = e.target.closest('.pop');
+  if(!pop || (pop.id === 'addMenu' && e.target.closest('button'))) setTimeout(() => document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')), 0);
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')); });

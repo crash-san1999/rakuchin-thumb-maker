@@ -36,7 +36,7 @@ index.html               画面の骨組み（HTML）
 css/app.css              スタイル
 js/core.js               共通の小道具・アイコン
 js/presets.js            文字スタイルのプリセット
-js/data/google-fonts.js  Google Fonts 全書体の一覧データ
+js/data/font-list.js  Google Fonts 全書体の一覧データ
 js/fonts.js              フォント管理（Google Fonts・Webフリー・PC内・URL追加）
 js/controls.js           文字の操作パネル生成
 js/text-render.js        文字の描画エンジン・装飾

@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=f79b710f">
+<link rel="stylesheet" href="css/app.css?v=34c49c1b">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -21,6 +21,7 @@
     <span class="brand-sub">THUMBNAIL STUDIO</span>
   </div>
   <div class="seg mode-seg" id="modeSeg"><button data-mode="thumb">サムネ作成</button><button data-mode="text">文字素材</button></div>
+  <button class="btn add-btn only-thumb" id="addBtn" title="文字・画像・分割フレーム・エフェクトを追加"><i data-ic="plus"></i><span>追加</span></button>
   <div class="head-sp"></div>
   <div class="head-group">
     <button class="icon-btn" id="helpBtn" title="操作ヘルプ（?キー）"><i data-ic="help"></i></button>
@@ -38,6 +39,7 @@
       <span class="head-label">倍率</span>
       <div class="seg" data-seg="scale" data-num="1"><button data-v="1">1x</button><button data-v="2">2x</button><button data-v="3">3x</button><button data-v="4">4x</button></div>
     </div>
+    <button class="icon-btn only-thumb" id="fileBtn" title="ファイル（プロジェクトの保存・開く・書き出し設定）"><i data-ic="folder"></i></button>
     <button class="btn ghost" id="copyBtn" title="クリップボードにコピー"><i data-ic="copy"></i><span class="hide-sm">コピー</span></button>
     <button class="btn pri" id="dlBtn"><i data-ic="download"></i><span id="dlLabel">サムネを保存</span></button>
   </div>
@@ -45,45 +47,19 @@
 
 <aside id="side">
   <div class="sheet-grip sp-only" data-close-sheet><span></span><b id="sheetTitle"></b><button class="icon-btn sm" data-close-sheet title="閉じる"><i data-ic="close"></i></button></div>
-  <nav class="tabs" id="tabs">
-    <button data-tab="thumb" class="only-thumb">サムネ</button>
-    <button data-tab="style">スタイル</button>
-    <button data-tab="text">テキスト</button>
-    <button data-tab="design">デザイン</button>
-  </nav>
-  <div class="editing only-thumb" id="editing"></div>
+  <div class="ins-head" id="insHead">
+    <div class="ins-title"><span class="ins-ic" id="insIc"></span><div class="ins-txt"><small id="insType"></small><b id="insName"></b></div><button class="btn sm ghost" id="insDesel" title="選択を外して背景の設定へ">選択解除</button></div>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+  <div class="editing only-thumb" id="editing" hidden></div>
 
   <div class="pane" data-pane="thumb">
     <section id="layerSec">
-      <h3>選択中のレイヤー <span class="hint">重なり順は右のレイヤーパネルで</span></h3>
-      <div class="sec-actions top">
-        <button class="btn sm" id="addText"><i data-ic="text"></i>文字を追加</button>
-        <button class="btn sm" id="addImg"><i data-ic="image"></i>画像を追加</button>
-        <button class="btn sm" id="addFxBtn"><i data-ic="fxadd"></i>エフェクト</button>
-        <button class="btn sm" id="addCollageBtn"><i data-ic="grid"></i>分割フレーム</button>
-        <input type="file" id="imgfile" accept="image/*" multiple hidden>
-      </div>
-      <p class="note" id="selHint">キャンバス上の文字や画像、または右のレイヤーパネルをクリックすると、ここで大きさ・回転・描画モードなどを調整できます。</p>
       <div id="selBox"></div>
     </section>
     <section id="bgSec">
-      <h3>背景 <span class="hint">画像・グラデーション・単色</span></h3>
       <input type="file" id="bgimgfile" accept="image/*" hidden>
       <div id="bgRows"></div>
-    </section>
-    <section id="fileSec">
-      <h3>保存と書き出し</h3>
-      <div class="crow">
-        <button class="btn sm" id="saveProj"><i data-ic="save"></i>プロジェクトを保存</button>
-        <button class="btn sm" id="openProj"><i data-ic="folder"></i>開く</button>
-        <input type="file" id="projfile" accept=".json,application/json" hidden>
-      </div>
-      <div class="row"><label>サイズ</label><select data-d="exportW" data-num="1">
-        <option value="1920">1920×1080（フルHD）</option><option value="1280">1280×720</option><option value="2560">2560×1440</option><option value="3840">3840×2160（4K）</option></select></div>
-      <div class="row"><label>形式</label><div class="seg" data-dseg="fmt"><button data-v="jpg">JPG</button><button data-v="png">PNG</button></div></div>
-      <label class="chk"><input type="checkbox" data-d="limit2mb"> JPGを2MB以内に自動圧縮する</label>
-      <div class="row" style="margin-top:16px"><label>画面</label><div class="seg" id="viewSeg"><button data-view="auto">自動判定</button><button data-view="pc">PC</button><button data-view="mobile">スマホ</button></div></div>
-      <p class="note">プロジェクトには画像も含めて保存されます。画像はこのブラウザにも保存されるので、再読み込みしても続きから作れます。<br>キャンバスはフルHD（1920×1080）基準。書き出しサイズはヘッダーで切り替えられます。</p>
     </section>
   </div>
 
@@ -203,11 +179,8 @@
   </div>
   <aside class="lpanel only-thumb" id="lpanel">
     <div class="sheet-grip sp-only" data-close-sheet><span></span><b>レイヤー</b><button class="icon-btn sm" data-close-sheet title="閉じる"><i data-ic="close"></i></button></div>
-    <div class="lp-head"><i data-ic="layers"></i>レイヤー<span class="lp-count" id="lpCount"></span>
-      <button class="icon-btn sm" id="lpAddText" title="文字を追加"><i data-ic="text"></i></button>
-      <button class="icon-btn sm" id="lpAddImg" title="画像を追加"><i data-ic="image"></i></button>
-      <button class="icon-btn sm" id="lpAddCollage" title="分割フレーム（複数の画像を2〜6分割で並べる）を追加"><i data-ic="grid"></i></button>
-      <button class="icon-btn sm" id="lpAddFx" title="動的エフェクト（集中線・光・キラキラ・爆発）を追加"><i data-ic="fxadd"></i></button>
+    <div class="lp-head"><i data-ic="layers"></i>レイヤー<span class="lp-count" id="lpCount"></span><span class="lp-sp"></span>
+      <button class="btn sm add-btn" id="lpAdd" title="文字・画像・分割フレーム・エフェクトを追加"><i data-ic="plus"></i>追加</button>
     </div>
     <div class="lp-hint"><span class="pc-only">ドラッグで重なり順を入れ替え。上にあるほど手前に表示されます。右クリックでメニュー。</span><span class="sp-only">左の ⋮⋮ をつまんで上下に動かすと重なり順を入れ替えられます。長押しでメニュー。</span></div>
     <div class="layers" id="layerList"></div>
@@ -215,22 +188,56 @@
 </main>
 
 <nav class="mbar sp-only" id="mbar">
+  <button data-sheet="add" class="only-thumb"><i data-ic="plus"></i><span>追加</span></button>
   <button data-sheet="layers" class="only-thumb"><i data-ic="layers"></i><span>レイヤー</span></button>
-  <button data-sheet="thumb" class="only-thumb"><i data-ic="sliders"></i><span>配置・背景</span></button>
-  <button data-sheet="style"><i data-ic="palette"></i><span>スタイル</span></button>
-  <button data-sheet="text"><i data-ic="text"></i><span>文字</span></button>
-  <button data-sheet="design"><i data-ic="sparkle"></i><span>装飾</span></button>
+  <button data-sheet="ins"><i data-ic="sliders"></i><span>設定</span></button>
+  <button data-sheet="bg" class="only-thumb"><i data-ic="image"></i><span>背景</span></button>
 </nav>
+<div class="pop" id="addMenu">
+  <div class="pop-ttl">追加する</div>
+  <div class="pop-grid">
+    <button class="pop-item" id="addText"><i data-ic="text"></i><b>文字</b><small>タイトル・テロップ</small></button>
+    <button class="pop-item" id="addImg"><i data-ic="image"></i><b>画像</b><small>キャラ・素材（ドロップでもOK）</small></button>
+    <button class="pop-item" id="addCollageBtn"><i data-ic="grid"></i><b>分割フレーム</b><small>2〜6枚の画像を並べる</small></button>
+    <button class="pop-item" id="addBgImg"><i data-ic="sliders"></i><b>背景画像</b><small>サムネ全体の背景にする</small></button>
+  </div>
+  <div class="pop-ttl">動的エフェクト <small>移動・拡大・回転できる効果</small></div>
+  <div class="pop-row">
+    <button class="pop-chip" data-addfx="lines"><i data-ic="burst"></i>集中線</button>
+    <button class="pop-chip" data-addfx="light"><i data-ic="sun"></i>光</button>
+    <button class="pop-chip" data-addfx="sparkle"><i data-ic="sparkle"></i>キラキラ</button>
+    <button class="pop-chip" data-addfx="burst"><i data-ic="boom"></i>爆発</button>
+  </div>
+  <input type="file" id="imgfile" accept="image/*" multiple hidden>
+</div>
+<div class="pop" id="fileMenu">
+  <div class="pop-ttl">ファイル・書き出し設定</div>
+    <div id="fileSec">
+      <h3>保存と書き出し</h3>
+      <div class="crow">
+        <button class="btn sm" id="saveProj"><i data-ic="save"></i>プロジェクトを保存</button>
+        <button class="btn sm" id="openProj"><i data-ic="folder"></i>開く</button>
+        <input type="file" id="projfile" accept=".json,application/json" hidden>
+      </div>
+      <div class="row"><label>サイズ</label><select data-d="exportW" data-num="1">
+        <option value="1920">1920×1080（フルHD）</option><option value="1280">1280×720</option><option value="2560">2560×1440</option><option value="3840">3840×2160（4K）</option></select></div>
+      <div class="row"><label>形式</label><div class="seg" data-dseg="fmt"><button data-v="jpg">JPG</button><button data-v="png">PNG</button></div></div>
+      <label class="chk"><input type="checkbox" data-d="limit2mb"> JPGを2MB以内に自動圧縮する</label>
+      <div class="row" style="margin-top:16px"><label>画面</label><div class="seg" id="viewSeg"><button data-view="auto">自動判定</button><button data-view="pc">PC</button><button data-view="mobile">スマホ</button></div></div>
+      <p class="note">プロジェクトには画像も含めて保存されます。画像はこのブラウザにも保存されるので、再読み込みしても続きから作れます。<br>キャンバスはフルHD（1920×1080）基準。書き出しサイズはヘッダーで切り替えられます。</p>
+    </div>
+</div>
 <div class="toast" id="toast"></div>
 <div class="ctxmenu" id="ctxmenu"></div>
 <div class="help" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTtl">
   <div class="help-card">
     <div class="help-head"><b id="helpTtl">かんたん操作ガイド</b><button class="icon-btn sm" data-help-close title="閉じる"><i data-ic="close"></i></button></div>
     <div class="help-body">
-      <div class="hstep"><span>1</span><div><b>背景を決める</b><p>「配置・背景」で画像・グラデ・単色を選択。画像はドラッグで移動、<span class="pc-only">ホイール</span><span class="sp-only">2本指ピンチ</span>で拡大縮小。「ワンクリック背景エフェクト」でズームブラーや集中線も。</p></div></div>
-      <div class="hstep"><span>2</span><div><b>文字を入れる</b><p>「<span class="pc-only">テキスト</span><span class="sp-only">文字</span>」で文字を入力。<code>{ }</code> で囲むと強調色に。「スタイル」でプリセットと配色を選ぶだけで完成します。</p></div></div>
-      <div class="hstep"><span>3</span><div><b>画像を重ねる</b><p><span class="pc-only">画像ファイルを画面にドラッグ＆ドロップ（またはコピーして Ctrl+V）で</span><span class="sp-only">「レイヤー」→ 画像アイコンから</span>レイヤーとして追加。白フチ・影は「配置・背景」で。</p></div></div>
-      <div class="hstep"><span>4</span><div><b>保存する</b><p>右上の「保存」でPNG／JPGを書き出し。<span class="sp-only">共有メニューの「画像を保存」で写真アプリに入ります。</span>作業内容はブラウザに自動保存されます。</p></div></div>
+      <div class="hstep"><span>0</span><div><b>設定パネルのしくみ</b><p>選んだもの（文字・画像・分割フレーム・エフェクト）に合わせて、<span class="pc-only">左の</span><span class="sp-only">「設定」の</span>パネルがそのための設定に切り替わります。何も選んでいないときは背景の設定です。追加はすべて「＋追加」から。</p></div></div>
+      <div class="hstep"><span>1</span><div><b>背景を決める</b><p><span class="pc-only">何も選んでいない状態で左の</span><span class="sp-only">下の「背景」の</span>「背景」タブから画像・グラデ・単色を選択。画像はドラッグで移動、<span class="pc-only">ホイール</span><span class="sp-only">2本指ピンチ</span>で拡大縮小。「効果」タブでズームブラーやワンクリック背景エフェクト。</p></div></div>
+      <div class="hstep"><span>2</span><div><b>文字を入れる</b><p>文字を選ぶと「テキスト」「スタイル」「フォント」「装飾」「配置」のタブが出ます。<code>{ }</code> で囲むと強調色に。「スタイル」でプリセットと配色を選ぶだけで完成します。</p></div></div>
+      <div class="hstep"><span>3</span><div><b>画像を重ねる</b><p><span class="pc-only">画像ファイルを画面にドラッグ＆ドロップ（またはコピーして Ctrl+V）、または</span>「＋追加」→「画像」でレイヤーとして追加。「フレーム」タブで切り抜き、「フチ・影」タブで白フチや影。複数の画像を並べるなら「分割フレーム」。</p></div></div>
+      <div class="hstep"><span>4</span><div><b>保存する</b><p>右上の「保存」でPNG／JPGを書き出し。<span class="sp-only">共有メニューの「画像を保存」で写真アプリに入ります。</span>プロジェクトの保存・開くは上のフォルダのアイコン（ファイル）から。作業内容はブラウザに自動保存されます。</p></div></div>
       <h4>キャンバスの操作</h4>
       <table class="htable pc-only">
         <tr><td>クリック</td><td>文字・画像を選択</td></tr>
@@ -282,22 +289,22 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=f79b710f"></script>
-<script src="js/presets.js?v=f79b710f"></script>
-<script src="js/data/google-fonts.js?v=f79b710f"></script>
-<script src="js/fonts.js?v=f79b710f"></script>
-<script src="js/controls.js?v=f79b710f"></script>
-<script src="js/text-render.js?v=f79b710f"></script>
-<script src="js/preview.js?v=f79b710f"></script>
-<script src="js/colors.js?v=f79b710f"></script>
-<script src="js/thumb/frames.js?v=f79b710f"></script>
-<script src="js/thumb/collage.js?v=f79b710f"></script>
-<script src="js/thumb/doc.js?v=f79b710f"></script>
-<script src="js/thumb/render.js?v=f79b710f"></script>
-<script src="js/thumb/export.js?v=f79b710f"></script>
-<script src="js/thumb/panel.js?v=f79b710f"></script>
-<script src="js/thumb/events.js?v=f79b710f"></script>
-<script src="js/mobile.js?v=f79b710f"></script>
-<script src="js/main.js?v=f79b710f"></script>
+<script src="js/core.js?v=34c49c1b"></script>
+<script src="js/presets.js?v=34c49c1b"></script>
+<script src="js/data/font-list.js?v=34c49c1b"></script>
+<script src="js/fonts.js?v=34c49c1b"></script>
+<script src="js/controls.js?v=34c49c1b"></script>
+<script src="js/text-render.js?v=34c49c1b"></script>
+<script src="js/preview.js?v=34c49c1b"></script>
+<script src="js/colors.js?v=34c49c1b"></script>
+<script src="js/thumb/frames.js?v=34c49c1b"></script>
+<script src="js/thumb/collage.js?v=34c49c1b"></script>
+<script src="js/thumb/doc.js?v=34c49c1b"></script>
+<script src="js/thumb/render.js?v=34c49c1b"></script>
+<script src="js/thumb/export.js?v=34c49c1b"></script>
+<script src="js/thumb/panel.js?v=34c49c1b"></script>
+<script src="js/thumb/events.js?v=34c49c1b"></script>
+<script src="js/mobile.js?v=34c49c1b"></script>
+<script src="js/main.js?v=34c49c1b"></script>
 </body>
 </html>
