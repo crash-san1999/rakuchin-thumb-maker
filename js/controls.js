@@ -133,16 +133,19 @@ const SECTIONS = [
   ]},
   {t:'傾き・回転', rows:[{r:'skew', l:'斜体', min:-30, max:30, step:1}, {r:'rotate', l:'回転', min:-45, max:45, step:1}]},
 ];
-function rowHTML(r){
-  const sa = r.show ? ` data-show="${r.show}"` : '';
-  if(r.seg) return `<div class="row"${sa}><label>${r.l||''}</label><div class="seg" data-seg="${r.seg}">${r.opts.map(([v,t]) => `<button data-v="${v}">${t}</button>`).join('')}</div></div>`;
-  if(r.sel) return `<div class="row"${sa}><label>${r.l}</label><select data-k="${r.sel}">${r.opts.map(([v,t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`;
-  if(r.seed) return `<div class="row"${sa}><label>${r.l}</label><button class="btn sm reroll" data-reroll="${r.seed}">${ic('dice')}別パターンにする</button></div>`;
-  if(r.c) return `<div class="row"${sa}><label>${r.l}</label><div class="cpick"><input type="color" data-k="${r.c}"><input type="text" class="hex" data-k="${r.c}" maxlength="7" spellcheck="false"><button class="mini" data-rnd="${r.c}" title="この色だけランダム（明るさはそのまま）">${ic('dice')}</button>${'EyeDropper' in window ? `<button class="mini" data-eye="${r.c}" title="スポイト：画面上の色を拾う">${ic('drop')}</button>` : ''}</div></div>`;
-  if(r.chk) return `<div class="row"${sa}><label></label><label class="chk"><input type="checkbox" data-k="${r.chk}"> ${r.l}</label></div>`;
-  const a = `min="${r.min}" max="${r.max}" step="${r.step}"`;
-  return `<div class="row"${sa}><label>${r.l}</label><input type="range" data-k="${r.r}" ${a}><input type="number" class="num" data-k="${r.r}" ${a}></div>`;
-}
+// 文字スタイル（S）用の入力欄のつなぎ込み
+const getK = k => k.split('.').reduce((o, p) => o?.[p], S);
+function setK(k, v){ const ps = k.split('.'); const last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; }
+const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:getK,
+  onInput(k, v, el){
+    resetAdj(); setK(k, v); syncUI(el);
+    if(k === 'text'){ clearTimeout(KB.st); KB.st = setTimeout(() => document.querySelectorAll('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
+    schedule();
+  },
+  onSeg(k, v){ setK(k, v); syncUI(); schedule(); },
+  onReroll(k){ setK(k, Math.floor(Math.random() * 1e6)); schedule(); },
+});
+const rowHTML = r => KB.row(r, true);
 function strokeHTML(i){
   return `<div class="stroke-row"><label class="chk"><input type="checkbox" data-k="strokes.${i}.on"> フチ${i+1}</label>
     <input type="range" data-k="strokes.${i}.w" min="0" max="40" step="0.5"><input type="number" class="num" data-k="strokes.${i}.w" min="0" max="40" step="0.5">
@@ -155,37 +158,10 @@ $('#genSections').innerHTML = SECTIONS.map(s => `
     <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : s.rows.map(rowHTML).join('')}</div>
   </section>`).join('');
 
-const getK = k => k.split('.').reduce((o, p) => o?.[p], S);
-function setK(k, v){ const ps = k.split('.'); const last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; }
 function syncUI(except){
-  document.querySelectorAll('[data-k]').forEach(el => {
-    if(el === except) return;
-    const v = getK(el.dataset.k);
-    if(el.type === 'checkbox') el.checked = !!v; else if(v !== undefined) el.value = v;
-  });
-  document.querySelectorAll('[data-seg]').forEach(g => {
-    const v = String(getK(g.dataset.seg));
-    g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  });
+  KB.sync(except);
   document.querySelectorAll('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
-  document.querySelectorAll('[data-show]').forEach(el => {
-    const [k, vs] = el.dataset.show.split('=');
-    el.style.display = vs.split('|').includes(String(getK(k))) ? '' : 'none';
-  });
 }
-{ const _syncUI0 = syncUI; syncUI = function(ex){ _syncUI0(ex); document.querySelectorAll('input[type=range][data-k]').forEach(paintRange); }; }
-document.addEventListener('input', e => {
-  const el = e.target, k = el.dataset && el.dataset.k; if(!k) return;
-  let v;
-  if(el.type === 'checkbox') v = el.checked;
-  else if(el.type === 'range' || el.type === 'number' || el.dataset.num){ v = parseFloat(el.value); if(isNaN(v)) return; }
-  else if(el.classList.contains('hex')){ if(!/^#[0-9a-f]{6}$/i.test(el.value)) return; v = el.value.toLowerCase(); }
-  else v = el.value;
-  resetAdj();
-  setK(k, v); syncUI(el);
-  if(k === 'text'){ clearTimeout(syncUI.st); syncUI.st = setTimeout(() => document.querySelectorAll('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
-  schedule();
-});
 document.addEventListener('click', e => {
   const h = e.target.closest('section > h3');
   if(h && !e.target.closest('.sw')) h.parentElement.classList.toggle('collapsed');
@@ -203,11 +179,6 @@ document.addEventListener('click', e => {
   if(rb){ resetAdj(); setK(rb.dataset.rnd, randomLike(getK(rb.dataset.rnd))); syncUI(); schedule(); return; }
   const eb = e.target.closest('[data-eye]');
   if(eb){ new EyeDropper().open().then(r => { resetAdj(); setK(eb.dataset.eye, r.sRGBHex.slice(0, 7).toLowerCase()); syncUI(); schedule(); }).catch(() => {}); return; }
-  const rr = e.target.closest('[data-reroll]');
-  if(rr){ setK(rr.dataset.reroll, Math.floor(Math.random() * 1e6)); schedule(); return; }
-  const b = e.target.closest('[data-seg] button'); if(!b) return;
-  const g = b.parentElement; let v = b.dataset.v; if(g.dataset.num) v = parseFloat(v);
-  setK(g.dataset.seg, v); syncUI(); schedule();
 });
 $('#pcats').addEventListener('click', e => {
   const b = e.target.closest('[data-pcat]'); if(!b) return;

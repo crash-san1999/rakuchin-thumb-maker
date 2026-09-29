@@ -1,17 +1,5 @@
 /* 楽ちんサムネメーカー：キャンバス・レイヤーパネルの操作 */
 /* ---------- イベント ---------- */
-document.addEventListener('input', e => {
-  const el = e.target, k = el.dataset && el.dataset.d; if(!k) return;
-  let v;
-  if(el.type === 'checkbox') v = el.checked;
-  else if(el.type === 'range' || el.type === 'number' || el.dataset.num){ v = parseFloat(el.value); if(isNaN(v)) return; }
-  else if(el.classList.contains('hex')){ if(!/^#[0-9a-f]{6}$/i.test(el.value)) return; v = el.value.toLowerCase(); }
-  else v = el.value;
-  if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
-  else dSet(k, v);
-  if(/^bg\.fc[xy]$/.test(k)){ fxEditing = true; clearTimeout(fxEditT); fxEditT = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
-  syncDoc(el); docChanged(el.type === 'range');
-});
 document.addEventListener('click', e => {
   const pb = e.target.closest('[data-place]');
   if(pb){
@@ -21,12 +9,6 @@ document.addEventListener('click', e => {
     L.x = Math.round(h === 'l' ? mx + bw / 2 : h === 'r' ? DOC.w - mx - bw / 2 : DOC.w / 2);
     L.y = Math.round(v === 't' ? my + bh / 2 : v === 'b' ? DOC.h - my - bh / 2 : DOC.h / 2);
     syncDoc(); docChanged(false); return;
-  }
-  const ds = e.target.closest('[data-dseg] button');
-  if(ds){
-    const k = ds.parentElement.dataset.dseg; dSet(k, ds.dataset.v); syncDoc(); docChanged(false);
-    if(k === 'bg.type' && ds.dataset.v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
-    return;
   }
   if(e.target.closest('#collageEditBtn')){ const L = selLayer(); if(L) setCollageEdit(collageEdit ? null : L.id); return; }
   if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:960, y:540, bw:1920, bh:1080, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
@@ -45,8 +27,6 @@ document.addEventListener('click', e => {
   if(afb){ addFx(afb.dataset.addfx); return; }
   const fx = e.target.closest('[data-bgfx]');
   if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
-  const dr = e.target.closest('[data-dreroll]');
-  if(dr){ dSet(dr.dataset.dreroll, Math.floor(Math.random() * 1e6)); docChanged(false); return; }
   const gb = e.target.closest('[data-guide]');
   if(gb){ DOC.guides[gb.dataset.guide] = !DOC.guides[gb.dataset.guide]; syncDoc(); saveDoc(); paintPreview(false); return; }
   const mb = e.target.closest('[data-mode]');

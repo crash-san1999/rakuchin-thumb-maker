@@ -148,15 +148,9 @@ function drow(r){
   if(r.sub) return `<div class="subhead" style="margin-top:24px"${sa}>${r.sub}${r.note ? `<span class="subnote">${r.note}</span>` : ''}</div>`;
   if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="crow">${Object.keys(FX_DEF).map(k => `<button class="btn sm" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`;
   if(r.fx) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック背景エフェクト</div><div class="pcats fxchips">${FX_CHIPS.map(([k, t]) => `<button data-bgfx="${k}">${t}</button>`).join('')}</div></div>`;
-  if(r.sel) return `<div class="row"${sa}><label>${r.l}</label><select data-d="${r.sel}">${r.opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`;
   if(r.place) return `<div class="row"${sa}><label>${r.l}</label><div class="place">${['t', 'm', 'b'].map(v => ['l', 'c', 'r'].map(h => `<button data-place="${h}${v}" title="この位置に配置"></button>`).join('')).join('')}</div></div>`;
   if(r.btns) return `<div class="crow"${sa}>${r.btns.map(([id, icn, t]) => `<button class="btn sm" id="${id}">${ic(icn)}${t}</button>`).join('')}</div>`;
-  if(r.seg) return `<div class="row"${sa}><label>${r.l}</label><div class="seg" data-dseg="${r.seg}">${r.opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join('')}</div></div>`;
-  if(r.seed) return `<div class="row"${sa}><label>${r.l}</label><button class="btn sm reroll" data-dreroll="${r.seed}">${ic('dice')}別パターンにする</button></div>`;
-  if(r.c) return `<div class="row"${sa}><label>${r.l}</label><div class="cpick"><input type="color" data-d="${r.c}"><input type="text" class="hex" data-d="${r.c}" maxlength="7" spellcheck="false"></div></div>`;
-  if(r.chk) return `<div class="row"${sa}><label></label><label class="chk"><input type="checkbox" data-d="${r.chk}"> ${r.l}</label></div>`;
-  const a = `min="${r.min}" max="${r.max}" step="${r.step}"`;
-  return `<div class="row"${sa}><label>${r.l}</label><input type="range" data-d="${r.r}" ${a}><input type="number" class="num" data-d="${r.r}" ${a}></div>`;
+  return DB.row(r);
 }
 
 const shapeIconCache = {};

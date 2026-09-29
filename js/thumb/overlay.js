@@ -11,6 +11,8 @@ function layerGeom(L){
 }
 const fxHandleOn = () => DOC.guides.fx && (((DOC.bg.type === 'image' && DOC.bg.zb.on) || DOC.bg.vignette > 0) && (!DOC.sel || fxEditing));
 let fxEditing = false, fxEditT = null;
+// 中心のスライダーを動かしている間だけ、背景効果の中心 ◎ を表示する
+function showFxCenterBriefly(){ fxEditing = true; clearTimeout(fxEditT); fxEditT = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
 let frameEdit = null;
 const frameEditLayer = () => { if(!frameEdit) return null; const L = DOC.layers.find(l => l.id === frameEdit); return L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !L.hidden && ASSETS[L.asset] ? L : null; };
 function setFrameEdit(id){

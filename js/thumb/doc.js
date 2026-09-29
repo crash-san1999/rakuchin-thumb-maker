@@ -77,22 +77,27 @@ function docChanged(live){
   if(live){ livePaint(); schT = setTimeout(update, 220); } else schT = setTimeout(update, 30);
   clearTimeout(docChanged.t); docChanged.t = setTimeout(renderLayers, 150);
 }
-// 表示条件：「キー=値1|値2」または「キー!=値1|値2」を & でつなぐ
-function showCond(c){
-  const neg = c.includes('!='), [k, vs] = c.split(neg ? '!=' : '='), hit = vs.split('|').includes(String(dGet(k)));
-  return neg ? !hit : hit;
+// サムネ（DOC・選択中のレイヤー）用の入力欄のつなぎ込み。キーが @ で始まると選択中のレイヤー
+function setD(k, v){
+  // 切り抜きフレームを変えても、画像そのものはキャンバス上で動かないように位置を補正する
+  if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
+  else dSet(k, v);
 }
+const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:dGet,
+  onInput(k, v, el){
+    setD(k, v);
+    if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
+    syncDoc(el); docChanged(el.type === 'range');
+  },
+  onSeg(k, v){
+    setD(k, v); syncDoc(); docChanged(false);
+    if(k === 'bg.type' && v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
+  },
+  onReroll(k){ dSet(k, Math.floor(Math.random() * 1e6)); docChanged(false); },
+});
 function syncDoc(except){
-  document.querySelectorAll('[data-d]').forEach(el => {
-    if(el === except) return;
-    const v = dGet(el.dataset.d);
-    if(el.type === 'checkbox') el.checked = !!v; else if(v !== undefined && v !== null) el.value = v;
-    if(el.type === 'range') paintRange(el);
-  });
-  document.querySelectorAll('[data-dseg]').forEach(g => { const v = String(dGet(g.dataset.dseg)); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
-  document.querySelectorAll('[data-dshow]').forEach(el => { el.style.display = el.dataset.dshow.split('&').every(showCond) ? '' : 'none'; });
+  DB.sync(except);
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
-  const L = selLayer();
   renderInspector();
   renderCells();
 }
