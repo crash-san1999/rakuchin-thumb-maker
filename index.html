@@ -306,6 +306,8 @@ body.mode-thumb #pv, body.mode-text #tv, body.mode-text .dropzone{display:none}
 .ly-act button:hover{background:var(--acc-2);color:var(--ink);transform:scale(1.1)}
 .ly-act button.act{opacity:1 !important;color:var(--acc)}
 .ly-act .ic{width:15px;height:15px}
+.ly-th .fxth{width:100%;height:100%;display:grid;place-items:center;color:#fff;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--fxc) 75%,transparent),#2a2640 78%)}
+.ly-th .fxth .ic{width:20px;height:20px;stroke-width:2.2;filter:drop-shadow(0 1px 0 #1f1b2d)}
 .ly.locked .ly-th{border-color:var(--acc-2)}
 .ly.bgrow{margin-top:10px;cursor:pointer;background:var(--surface-2);border-style:dashed;box-shadow:none}
 .ly.bgrow::before{display:none}
@@ -315,7 +317,7 @@ body.mode-thumb #pv, body.mode-text #tv, body.mode-text .dropzone{display:none}
 @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 .ctxmenu button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;padding:7px 10px;border-radius:9px;font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;text-align:left}
 .ctxmenu button:hover{background:var(--acc-2);color:var(--ink)}
-.ctxmenu button .ic{width:15px;height:15px}
+.ctxmenu button .ic{width:15px;height:15px;flex:none}
 .ctxmenu kbd{margin-left:auto;font:600 10.5px Inter,sans-serif;color:var(--mute);background:var(--surface-2);border-radius:6px;padding:1px 6px}
 .ctxmenu hr{border:0;border-top:2px dashed var(--line-2);margin:5px 4px}
 .ctxmenu .danger{color:var(--bad)}
@@ -499,6 +501,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
       <div class="sec-actions top">
         <button class="btn sm" id="addText"><i data-ic="text"></i>文字を追加</button>
         <button class="btn sm" id="addImg"><i data-ic="image"></i>画像を追加</button>
+        <button class="btn sm" id="addFxBtn"><i data-ic="fxadd"></i>エフェクト</button>
         <input type="file" id="imgfile" accept="image/*" multiple hidden>
       </div>
       <p class="note" id="selHint">キャンバス上の文字や画像、または右のレイヤーパネルをクリックすると、ここで大きさ・回転・描画モードなどを調整できます。</p>
@@ -643,6 +646,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
     <div class="lp-head"><i data-ic="layers"></i>レイヤー<span class="lp-count" id="lpCount"></span>
       <button class="icon-btn sm" id="lpAddText" title="文字を追加"><i data-ic="text"></i></button>
       <button class="icon-btn sm" id="lpAddImg" title="画像を追加"><i data-ic="image"></i></button>
+      <button class="icon-btn sm" id="lpAddFx" title="動的エフェクト（集中線・光・キラキラ・爆発）を追加"><i data-ic="fxadd"></i></button>
     </div>
     <div class="lp-hint"><span class="pc-only">ドラッグで重なり順を入れ替え。上にあるほど手前に表示されます。右クリックでメニュー。</span><span class="sp-only">左の ⋮⋮ をつまんで上下に動かすと重なり順を入れ替えられます。長押しでメニュー。</span></div>
     <div class="layers" id="layerList"></div>
@@ -677,7 +681,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
         <tr><td>ダブルクリック</td><td>文字を編集</td></tr>
         <tr><td>右クリック</td><td>レイヤーメニュー（前面へ・複製・ロックなど）</td></tr>
         <tr><td>Alt＋クリック</td><td>重なった下のレイヤーを選ぶ</td></tr>
-        <tr><td>黄色い◎をドラッグ</td><td>集中線・ズームブラーの中心を移動</td></tr>
+        <tr><td>黄色い◎をドラッグ</td><td>周辺減光・ズームブラー（背景効果）の中心を移動</td></tr>
       </table>
       <table class="htable sp-only">
         <tr><td>タップ</td><td>文字・画像を選択</td></tr>
@@ -685,11 +689,11 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
         <tr><td>2本指ピンチ</td><td>拡大縮小＋回転（未選択なら背景）</td></tr>
         <tr><td>ダブルタップ</td><td>文字を編集</td></tr>
         <tr><td>長押し</td><td>レイヤーメニュー</td></tr>
-        <tr><td>黄色い◎をドラッグ</td><td>集中線・ズームブラーの中心を移動</td></tr>
+        <tr><td>黄色い◎をドラッグ</td><td>周辺減光・ズームブラー（背景効果）の中心を移動</td></tr>
         <tr><td>下のバー</td><td>各パネルを開く／もう一度タップで閉じる</td></tr>
       </table>
       <h4>レイヤー</h4>
-      <p class="hp">右の<span class="sp-only">（下の「レイヤー」の）</span>パネルで、上にあるほど手前。<span class="pc-only">行をドラッグ</span><span class="sp-only">⋮⋮ をつまんで上下</span>で重なり順を入れ替え。👁で表示切替、🔒でロック（キャンバス上で動かなくなる）。<span class="pc-only">ダブルクリックで名前変更。</span></p>
+      <p class="hp">集中線・光・キラキラ・爆発は「動的エフェクト」としてレイヤーで追加（✦ボタン）。文字や画像と同じく移動・拡大・回転でき、キャラの後ろに集中線…のように重なり順で調整できます。ぼかし・モノクロ・周辺減光などは背景の設定で。<br>右の<span class="sp-only">（下の「レイヤー」の）</span>パネルで、上にあるほど手前。<span class="pc-only">行をドラッグ</span><span class="sp-only">⋮⋮ をつまんで上下</span>で重なり順を入れ替え。👁で表示切替、🔒でロック（キャンバス上で動かなくなる）。<span class="pc-only">ダブルクリックで名前変更。</span></p>
       <div class="pc-only">
         <h4>ショートカット</h4>
         <div class="kgrid">
@@ -766,6 +770,10 @@ const ICONS = {
   close:'<path d="M6 6l12 12M18 6 6 18"/>',
   share:'<path d="M12 15V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M5 12.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/>',
   help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/>',
+  burst:'<path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5M5.3 5.3l3.5 3.5M15.2 15.2l3.5 3.5M5.3 18.7l3.5-3.5M15.2 8.8l3.5-3.5"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+  boom:'<path d="M12 2.8l1.9 4.6 4.4-2.4-1.3 4.8 4.9.9-4 3 3 3.9-4.9-.2.3 5-3.9-3-2.9 4.1-1-4.9-4.6 1.8 2-4.5-4.6-1.8 4.7-1.5L4.8 5.5l4.5 2.1z"/>',
+  fxadd:'<path d="M11 3.5l1.6 4.3 4.3 1.6-4.3 1.6L11 15.3l-1.6-4.3-4.3-1.6 4.3-1.6z"/><path d="M18.5 14v6M15.5 17h6"/>',
   palette:'<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.4-1.3-1.7-1.3-3 0-.9.8-1.6 1.7-1.6h2.3a4 4 0 0 0 4-4c0-3.7-3.8-6.7-8.5-6.7z"/><circle cx="7.8" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.8" r="1.1" fill="currentColor" stroke="none"/>',
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -2598,18 +2606,32 @@ const DOC_BASE = () => ({
   guides:{thirds:false, badge:true, snap:true, fx:true},
   bg:{type:'grad', color:'#16161c', c1:'#ff5a2e', c2:'#ffbe3b', angle:120, asset:null, fit:'cover', zoom:1, ox:0, oy:0, rot:0, flip:false,
       gap:'blur', gapColor:'#111114', bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
-      dim:0, vignette:0.35, fcx:0.5, fcy:0.5, lines:{on:false, c:'#ffffff', a:0.5, n:120, inner:0.55, w:1, len:1, seed:1},
+      dim:0, vignette:0, fcx:0.5, fcy:0.5, shade:{on:false, c:'#000000', amt:0.75, angle:90, cover:0.55}, lines:{on:false, c:'#ffffff', a:0.5, n:120, inner:0.55, w:1, len:1, seed:1},
       zb:{on:false, amt:0.25, cx:0.5, cy:0.5}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28},
       tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}},
   layers:[], sel:null, textSel:null,
 });
 const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+/* 動的エフェクト（レイヤーとして移動・拡大縮小・回転できる効果） */
+const FX_DEF = {
+  lines:   () => ({c:'#ffffff', n:120, inner:0.55, w:1, len:1, seed:1}),
+  light:   () => ({c:'#fff1a8', amt:0.9, r:0.45}),
+  sparkle: () => ({c:'#ffffff', n:14, size:1, seed:3, glow:true}),
+  burst:   () => ({c:'#ffe600', c2:'#1f1b2d', sw:10, spikes:16, depth:0.3, seed:2}),
+};
+const FX_NAMES = {lines:'集中線', light:'光（スポット）', sparkle:'キラキラ', burst:'爆発（ギザギザ）'};
+const FX_ICONS = {lines:'burst', light:'sun', sparkle:'sparkle', burst:'boom'};
+const FX_HINT = {lines:'放射状の線で視線を集める。中心の空きを動かして注目させたい所へ', light:'光が差しているように明るく（スクリーン合成）', sparkle:'星のきらめきを散らす', burst:'マンガ風の爆発。文字の後ろに敷いて「ドーン！」'};
+const FX_LAYER_DEF = {lines:{op:0.55}, light:{blend:'screen', x:1380, y:330}, burst:{sc:0.8}};
+const FX_BOX = L => { const p = L.p; return {lines:[1920 * p.inner, 1080 * p.inner], light:[1920 * p.r * 1.1, 1920 * p.r * 1.1], sparkle:[640, 400], burst:[780, 500]}[L.kind] || [400, 400]; };
+const mkFx = (kind, p = {}, ex = {}) => Object.assign({id:uid(), type:'fx', kind, x:960, y:540, sc:1, rot:0, hidden:false, locked:false, op:1, blend:'source-over'}, FX_LAYER_DEF[kind] || {}, ex, {p:Object.assign(FX_DEF[kind](), p)});
 const mkTextLayer = (style, x, y, sc) => ({id:uid(), type:'text', x, y, sc, rot:0, op:1, hidden:false, locked:false, blend:'source-over', style});
 const selLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.sel)) || null;
 const textLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.textSel)) || null;
 function layerName(L){
   if(L.label) return L.label;
   if(L.type === 'text') return L.style.text.replace(/[{}]/g, '').replace(/\n/g, ' ').trim().slice(0, 28) || '（空の文字）';
+  if(L.type === 'fx') return FX_NAMES[L.kind] || 'エフェクト';
   return L.name || '画像';
 }
 function normalizeDoc(d){
@@ -2622,14 +2644,17 @@ function normalizeDoc(d){
   o.w = 1920; o.h = 1080;
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
-  for(const k of ['lines', 'zb', 'mb', 'mosaic', 'tint']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
+  for(const k of ['lines', 'zb', 'mb', 'mosaic', 'tint', 'shade']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
-  o.layers = d.layers.map(L => L.type === 'text'
+  o.layers = d.layers.filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
     ? Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over'}, L, {style: merged(L.style || {})})
+    : L.type === 'fx' ? Object.assign({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'}, L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over', flip:false}, L, {
         outline: Object.assign({on:true, w:10, c:'#ffffff'}, L.outline || {}),
         shadow: Object.assign({on:true, blur:30, y:14, a:0.45}, L.shadow || {})}));
+  // 以前の「背景の集中線」を動的エフェクトのレイヤーに移す
+  if(o.bg.lines.on){ const l = o.bg.lines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * 1920, y:(o.bg.fcy ?? 0.5) * 1080})); l.on = false; }
   if(!o.layers.find(l => l.id === o.textSel)){ const T = o.layers.find(l => l.type === 'text'); o.textSel = T ? T.id : null; }
   if(o.sel && !o.layers.find(l => l.id === o.sel)) o.sel = null;
   return o;
@@ -2817,34 +2842,55 @@ function bgImageLayer(W, H, f){
   let out = c;
   if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
   if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, clamp(b.fcx, 0, 1) * W, clamp(b.fcy, 0, 1) * H);
-  if(b.tint.on && b.tint.a > 0){
+  if(false){
     const tx = out.getContext('2d'); tx.save(); tx.globalCompositeOperation = b.tint.mode; tx.globalAlpha = b.tint.a;
     tx.fillStyle = b.tint.c; tx.fillRect(0, 0, W, H); tx.restore();
   }
   return out;
 }
-const BG_FX_RESET = () => ({bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', dim:0, vignette:0.35,
-  zb:{on:false}, mb:{on:false}, mosaic:{on:false}, tint:{on:false}, lines:{on:false}});
 const BG_FX = {
-  reset:  {},
-  focus:  {zb:{on:true, amt:0.28, cx:0.5, cy:0.5}, vignette:0.5, contrast:0.1},
-  lines:  {zb:{on:true, amt:0.18}, lines:{on:true, a:0.55}, vignette:0.45},
-  speed:  {mb:{on:true, dist:140, angle:0}, contrast:0.1},
-  soft:   {blur:10, bright:0.04, vignette:0.3},
-  pop:    {dim:0.3, blur:5, vignette:0.55},
-  vivid:  {sat:0.45, contrast:0.18},
-  mono:   {tone:'mono', contrast:0.25, vignette:0.45},
-  retro:  {tone:'sepia', contrast:0.08, vignette:0.6},
-  duo:    {tone:'duotone', duo1:'#1b1464', duo2:'#ff9d5c', contrast:0.1},
-  red:    {tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}},
-  mosaic: {mosaic:{on:true, size:32}},
+  reset:  {bg:{}, fx:[]},
+  focus:  {bg:{zb:{on:true, amt:0.28}, contrast:0.1, vignette:0.5}, fx:[]},
+  lines:  {bg:{zb:{on:true, amt:0.18}, vignette:0.45}, fx:[['lines', {}]]},
+  speed:  {bg:{mb:{on:true, dist:140, angle:0}, contrast:0.1}, fx:[]},
+  soft:   {bg:{blur:10, bright:0.04, vignette:0.3}, fx:[]},
+  pop:    {bg:{dim:0.25, blur:5, vignette:0.5, shade:{on:true, amt:0.6, angle:90, cover:0.55}}, fx:[]},
+  vivid:  {bg:{sat:0.45, contrast:0.18}, fx:[]},
+  mono:   {bg:{tone:'mono', contrast:0.25, vignette:0.45}, fx:[]},
+  retro:  {bg:{tone:'sepia', contrast:0.08, vignette:0.6}, fx:[]},
+  duo:    {bg:{tone:'duotone', duo1:'#1b1464', duo2:'#ff9d5c', contrast:0.1}, fx:[]},
+  red:    {bg:{tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}}, fx:[]},
+  spot:   {bg:{dim:0.25, vignette:0.4}, fx:[['light', {}]]},
+  mosaic: {bg:{mosaic:{on:true, size:32}}, fx:[]},
 };
 function applyBgFx(name){
-  const b = DOC.bg, r = BG_FX_RESET(), p = BG_FX[name] || {};
-  for(const src of [r, p]) for(const k in src){
-    if(src[k] && typeof src[k] === 'object') Object.assign(b[k], src[k]); else b[k] = src[k];
-  }
-  syncDoc(); docChanged(false);
+  const b = DOC.bg, P = BG_FX[name] || BG_FX.reset;
+  Object.assign(b, {bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', dim:0, vignette:0});
+  b.zb.on = b.mb.on = b.mosaic.on = b.tint.on = b.shade.on = false;
+  for(const k in P.bg){ const v = P.bg[k]; if(v && typeof v === 'object') Object.assign(b[k], v); else b[k] = v; }
+  // ワンクリックで作った動的エフェクトは入れ替え（自分で追加したものはそのまま）
+  const had = DOC.layers.some(l => l.type === 'fx' && l.auto);
+  DOC.layers = DOC.layers.filter(l => !(l.type === 'fx' && l.auto));
+  DOC.layers.unshift(...P.fx.map(([k, pp, ex]) => Object.assign(mkFx(k, pp, ex), {auto:true})));
+  if(DOC.sel && !DOC.layers.find(l => l.id === DOC.sel)) DOC.sel = null;
+  syncDoc(); renderLayers(); docChanged(false);
+  return P.fx.length > 0 || had;
+}
+function addFx(kind){
+  const L = mkFx(kind);
+  // 選択中のレイヤーのすぐ下（なければ背景のすぐ上）に入れる
+  const si = DOC.layers.findIndex(l => l.id === DOC.sel);
+  DOC.layers.splice(si >= 0 ? si : 0, 0, L);
+  selectLayer(L.id); renderLayers(); docChanged(false); goTab('thumb');
+  toast(`「${FX_NAMES[kind]}」を追加しました。ドラッグで移動、角で拡大縮小、上の○で回転。レイヤーパネルで前後も入れ替えられます`);
+}
+function showFxMenu(x, y){
+  const m = $('#ctxmenu');
+  m.innerHTML = '<div class="ttl">動的エフェクトを追加</div>' + Object.keys(FX_DEF).map(k =>
+    `<button data-addfx="${k}">${ic(FX_ICONS[k])}<span><b style="display:block;font-weight:800">${FX_NAMES[k]}</b><small style="font-weight:500;color:var(--mute);font-size:10.5px;white-space:normal">${FX_HINT[k]}</small></span></button>`).join('');
+  m.dataset.lid = ''; m.classList.add('show');
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
 }
 function drawBackground(ctx, W, H, f){
   const b = DOC.bg;
@@ -2855,20 +2901,73 @@ function drawBackground(ctx, W, H, f){
     g.addColorStop(0, b.c1); g.addColorStop(1, b.c2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }else ctx.drawImage(bgImageLayer(W, H, f), 0, 0);
   if(b.dim > 0){ ctx.fillStyle = `rgba(0,0,0,${b.dim})`; ctx.fillRect(0, 0, W, H); }
+  if(b.shade.on && b.shade.amt > 0){
+    const sh = b.shade, a = sh.angle * PI / 180, hx = W / 2, hy = H / 2, r = (Math.abs(Math.cos(a)) * W + Math.abs(Math.sin(a)) * H) / 2;
+    const g = ctx.createLinearGradient(hx - Math.cos(a) * r, hy - Math.sin(a) * r, hx + Math.cos(a) * r, hy + Math.sin(a) * r);
+    g.addColorStop(0, rgba(sh.c, 0)); g.addColorStop(clamp(1 - sh.cover, 0, 0.99), rgba(sh.c, 0)); g.addColorStop(1, rgba(sh.c, sh.amt));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  if(b.tint.on && b.tint.a > 0){
+    ctx.save(); ctx.globalCompositeOperation = b.tint.mode; ctx.globalAlpha = b.tint.a; ctx.fillStyle = b.tint.c; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
   if(b.vignette > 0){
     const vx = W * b.fcx, vy = H * b.fcy, far = Math.max(Math.hypot(vx, vy), Math.hypot(W - vx, vy), Math.hypot(vx, H - vy), Math.hypot(W - vx, H - vy));
     const g = ctx.createRadialGradient(vx, vy, Math.min(W, H) * 0.3, vx, vy, far);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${b.vignette})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
-  if(b.lines.on) drawSpeedLines(ctx, W, H);
+}
+function drawFx(ctx, L, f){
+  const p = L.p, [bw, bh] = FX_BOX(L);
+  dims.set(L.id, {w:bw * L.sc, h:bh * L.sc});
+  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
+  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
+  const R = rng(p.seed || 1);
+  if(L.kind === 'lines'){
+    const rx = 960 * p.inner, ry = 540 * p.inner, step = 2 * PI / p.n, outer = Math.hypot(1920, 1080) * 2.4 / Math.max(0.05, L.sc);
+    ctx.fillStyle = p.c; ctx.beginPath();
+    for(let i = 0; i < p.n; i++){
+      const a = (i + R() * 0.9) * step, w = step * (0.12 + R() * 0.38) * p.w, k = 1 + (R() * 0.55 - 0.2) * p.len;
+      ctx.moveTo(Math.cos(a) * rx * k, Math.sin(a) * ry * k);
+      ctx.lineTo(Math.cos(a - w) * outer, Math.sin(a - w) * outer);
+      ctx.lineTo(Math.cos(a + w) * outer, Math.sin(a + w) * outer);
+      ctx.closePath();
+    }
+    ctx.fill();
+  }else if(L.kind === 'light'){
+    const r = 1920 * p.r * 0.55, g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    g.addColorStop(0, rgba(p.c, p.amt)); g.addColorStop(0.35, rgba(p.c, p.amt * 0.55)); g.addColorStop(1, rgba(p.c, 0));
+    ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
+  }else if(L.kind === 'sparkle'){
+    ctx.fillStyle = p.c;
+    for(let i = 0; i < p.n; i++){
+      const px = (R() - 0.5) * bw, py = (R() - 0.5) * bh, r = (0.35 + R() * 0.9) * 42 * p.size, k = r * 0.16;
+      if(p.glow){ ctx.shadowColor = p.c; ctx.shadowBlur = r * 0.8 * L.sc * f; }
+      ctx.beginPath(); ctx.moveTo(px, py - r);
+      ctx.quadraticCurveTo(px + k, py - k, px + r, py); ctx.quadraticCurveTo(px + k, py + k, px, py + r);
+      ctx.quadraticCurveTo(px - k, py + k, px - r, py); ctx.quadraticCurveTo(px - k, py - k, px, py - r);
+      ctx.fill();
+    }
+  }else if(L.kind === 'burst'){
+    const rx = bw / 2 * 0.92, ry = bh / 2 * 0.92, n = Math.max(5, Math.round(p.spikes));
+    ctx.beginPath();
+    for(let i = 0; i <= n * 2; i++){
+      const a = i / (n * 2) * 2 * PI - PI / 2, k = i % 2 === 0 ? 1 + R() * 0.08 : 1 - p.depth * (0.65 + R() * 0.35);
+      const x = Math.cos(a) * rx * k, y = Math.sin(a) * ry * k;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.lineJoin = 'round';
+    if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.c2; ctx.stroke(); }
+    ctx.fillStyle = p.c; ctx.fill();
+  }
+  ctx.restore();
 }
 function compose(ctx, W, H, live, cache){
   const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
   let b = cache.get('__bg');
   if(!b || b.key !== key){ const c = mk(W, H); drawBackground(c.getContext('2d'), W, H, f); b = {key, c}; cache.set('__bg', b); }
   ctx.drawImage(b.c, 0, 0);
-  for(const L of DOC.layers) if(!L.hidden) drawLayer(ctx, L, f, live, cache);
+  for(const L of DOC.layers) if(!L.hidden){ if(L.type === 'fx') drawFx(ctx, L, f); else drawLayer(ctx, L, f, live, cache); }
 }
 function layerGeom(L){
   const d = dims.get(L.id); if(!d) return null;
@@ -2880,7 +2979,7 @@ function layerGeom(L){
   if(!inside(rot)){ const alt = [L.x - off * s, L.y + off * c]; rot = inside(alt) ? alt : [clamp(rot[0], m, DOC.w - m), clamp(rot[1], m, DOC.h - m)]; }
   return {pts, d, a, rot};
 }
-const fxHandleOn = () => DOC.guides.fx && (DOC.bg.lines.on || (DOC.bg.type === 'image' && DOC.bg.zb.on) || fxEditing);
+const fxHandleOn = () => DOC.guides.fx && (((DOC.bg.type === 'image' && DOC.bg.zb.on) || DOC.bg.vignette > 0) && (!DOC.sel || fxEditing));
 let fxEditing = false;
 function drawOverlay(ctx, W, H, dpr){
   const f = W / DOC.w;
@@ -2905,7 +3004,7 @@ function drawOverlay(ctx, W, H, dpr){
     ctx.beginPath(); ctx.moveTo(hx - r * 1.9, hy); ctx.lineTo(hx - r * 1.15, hy); ctx.moveTo(hx + r * 1.15, hy); ctx.lineTo(hx + r * 1.9, hy);
     ctx.moveTo(hx, hy - r * 1.9); ctx.lineTo(hx, hy - r * 1.15); ctx.moveTo(hx, hy + r * 1.15); ctx.lineTo(hx, hy + r * 1.9); ctx.stroke();
     ctx.font = `800 ${11 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3 * dpr; ctx.strokeStyle = '#fff'; ctx.strokeText('効果の中心', hx + r * 1.6, hy - r * 1.4); ctx.fillStyle = '#1f1b2d'; ctx.fillText('効果の中心', hx + r * 1.6, hy - r * 1.4);
+    ctx.lineWidth = 3 * dpr; ctx.strokeStyle = '#fff'; ctx.strokeText('背景効果の中心', hx + r * 1.6, hy - r * 1.4); ctx.fillStyle = '#1f1b2d'; ctx.fillText('背景効果の中心', hx + r * 1.6, hy - r * 1.4);
     ctx.restore();
   }
   if(snapLines.x != null || snapLines.y != null){
@@ -3006,7 +3105,7 @@ function syncDoc(except){
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const L = selLayer();
   $('#selBox').style.display = L ? '' : 'none'; $('#selHint').style.display = L ? 'none' : '';
-  if(L) $('#selTitle').textContent = (L.type === 'text' ? '選択中の文字 ― ' : '選択中の画像 ― ') + layerName(L);
+  if(L) $('#selTitle').textContent = ({text:'選択中の文字 ― ', image:'選択中の画像 ― ', fx:'選択中のエフェクト ― '}[L.type]) + layerName(L);
   updateEditing();
 }
 function renderLayers(){
@@ -3014,9 +3113,9 @@ function renderLayers(){
   const arr = DOC.layers.slice().reverse();
   $('#lpCount').textContent = DOC.layers.length ? `${DOC.layers.length}枚` : '';
   const rows = arr.map(L => {
-    const sub = L.type === 'text' ? '文字' : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
+    const sub = L.type === 'text' ? '文字' : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
     const mode = L.blend && L.blend !== 'source-over' ? ' ・ ' + (BLEND_NAMES[L.blend] || L.blend) : '';
-    const th = L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${L.id}" width="72" height="72"></canvas>`;
+    const th = L.type === 'fx' ? `<span class="fxth" style="--fxc:${L.p.c || '#fff'}">${ic(FX_ICONS[L.kind])}</span>` : L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${L.id}" width="72" height="72"></canvas>`;
     return `<div class="ly${L.id === DOC.sel ? ' on' : ''}${L.hidden ? ' hid' : ''}${L.locked ? ' locked' : ''}" data-lid="${L.id}" title="ドラッグで重なり順を変更・ダブルクリックで名前を変更">
       <span class="grip">${ic('grip')}</span>
       <span class="ly-th">${th}</span>
@@ -3075,6 +3174,7 @@ function showMenu(id, cx, cy){
 }
 const hideMenu = () => $('#ctxmenu').classList.remove('show');
 $('#ctxmenu').addEventListener('click', e => {
+  const af = e.target.closest('[data-addfx]'); if(af){ hideMenu(); addFx(af.dataset.addfx); return; }
   const b = e.target.closest('[data-ma]'); if(!b) return;
   const id = $('#ctxmenu').dataset.lid; hideMenu();
   if(b.dataset.ma === 'rename'){ setTimeout(() => startRename(id), 0); return; }
@@ -3105,7 +3205,7 @@ function layerAction(id, act){
   else if(act === 'lock'){ L.locked = !L.locked; toast(L.locked ? `「${layerName(L)}」をロックしました（キャンバス上では選択されません）` : 'ロックを解除しました'); }
   else if(act === 'rename'){ startRename(id); return; }
   else if(act === 'dup'){
-    const c = JSON.parse(JSON.stringify(L)); c.id = uid(); c.x += 36; c.y += 36; if(c.label) c.label += ' のコピー';
+    const c = JSON.parse(JSON.stringify(L)); c.id = uid(); delete c.auto; c.x += 36; c.y += 36; if(c.label) c.label += ' のコピー';
     DOC.layers.splice(i + 1, 0, c); selectLayer(c.id);
   }else if(act === 'del'){
     DOC.layers.splice(i, 1); prevCache.delete(id); dims.delete(id);
@@ -3147,6 +3247,21 @@ function loadDocObj(d){
 const SEL_ROWS = [
   {r:'@sc', l:'大きさ', min:0.05, max:6, step:0.01},
   {r:'@rot', l:'回転', min:-180, max:180, step:1},
+  {c:'@p.c', l:'色', show:'@type=fx'},
+  {r:'@p.n', l:'本数', min:20, max:300, step:1, show:'@kind=lines'},
+  {r:'@p.inner', l:'中心の空き', min:0.02, max:1.5, step:0.01, show:'@kind=lines'},
+  {r:'@p.w', l:'線の太さ', min:0.2, max:3, step:0.05, show:'@kind=lines'},
+  {r:'@p.len', l:'長さのばらつき', min:0, max:2, step:0.05, show:'@kind=lines'},
+  {r:'@p.amt', l:'強さ', min:0, max:1, step:0.01, show:'@kind=light'},
+  {r:'@p.r', l:'光の広がり', min:0.05, max:1.5, step:0.01, show:'@kind=light'},
+  {r:'@p.n', l:'数', min:1, max:60, step:1, show:'@kind=sparkle'},
+  {r:'@p.size', l:'星の大きさ', min:0.2, max:3, step:0.05, show:'@kind=sparkle'},
+  {chk:'@p.glow', l:'光らせる', show:'@kind=sparkle'},
+  {r:'@p.spikes', l:'トゲの数', min:5, max:40, step:1, show:'@kind=burst'},
+  {r:'@p.depth', l:'トゲの深さ', min:0.05, max:0.7, step:0.01, show:'@kind=burst'},
+  {c:'@p.c2', l:'フチの色', show:'@kind=burst'},
+  {r:'@p.sw', l:'フチの太さ', min:0, max:40, step:0.5, show:'@kind=burst'},
+  {seed:'@p.seed', l:'ランダム', show:'@kind=lines|sparkle|burst'},
   {r:'@op', l:'不透明度', min:0.05, max:1, step:0.01},
   {sel:'@blend', l:'描画モード', opts:Object.entries({'source-over':'通常', multiply:'乗算（暗く重ねる）', screen:'スクリーン（明るく重ねる）', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト', 'color-dodge':'覆い焼き（光る）', lighter:'加算（発光）', difference:'差の絶対値', luminosity:'輝度'})},
   {chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
@@ -3164,7 +3279,7 @@ const SEL_ROWS = [
 const BG_ROWS = [
   {seg:'bg.type', l:'種類', opts:[['image', '画像'], ['grad', 'グラデ'], ['color', '単色']]},
   {btns:[['pickBg', 'image', '背景画像を選ぶ']], show:'bg.type=image'},
-  {fx:true, show:'bg.type=image'},
+  {fx:true},
   {sub:'位置と大きさ', show:'bg.type=image', note:'キャンバスの何もないところをドラッグで移動・ホイールで拡大縮小'},
   {seg:'bg.fit', l:'基準', opts:[['cover', '全面'], ['contain', '全体を表示']], show:'bg.type=image'},
   {r:'bg.zoom', l:'拡大縮小', min:0.2, max:4, step:0.01, show:'bg.type=image'},
@@ -3190,34 +3305,32 @@ const BG_ROWS = [
   {r:'bg.mb.angle', l:'方向', min:-90, max:90, step:1, show:'bg.type=image&bg.mb.on=true'},
   {chk:'bg.mosaic.on', l:'モザイク', show:'bg.type=image'},
   {r:'bg.mosaic.size', l:'粗さ', min:4, max:120, step:1, show:'bg.type=image&bg.mosaic.on=true'},
-  {chk:'bg.tint.on', l:'色を重ねる', show:'bg.type=image'},
-  {c:'bg.tint.c', l:'色', show:'bg.type=image&bg.tint.on=true'},
-  {r:'bg.tint.a', l:'濃さ', min:0, max:1, step:0.01, show:'bg.type=image&bg.tint.on=true'},
-  {sel:'bg.tint.mode', l:'重ね方', opts:[['overlay', 'オーバーレイ'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['soft-light', 'ソフトライト'], ['color', 'カラー（単色化）']], show:'bg.type=image&bg.tint.on=true'},
   {c:'bg.color', l:'色', show:'bg.type=color'},
   {c:'bg.c1', l:'色1', show:'bg.type=grad'}, {c:'bg.c2', l:'色2', show:'bg.type=grad'},
   {r:'bg.angle', l:'角度', min:0, max:360, step:1, show:'bg.type=grad'},
-  {sub:'効果の中心', note:'集中線・ズームブラー・周辺減光の中心。キャンバス上の ◎ をドラッグしても動かせます'},
-  {r:'bg.fcx', l:'左右', min:-0.2, max:1.2, step:0.005},
-  {r:'bg.fcy', l:'上下', min:-0.2, max:1.2, step:0.005},
-  {btns:[['fxCenter', 'reset', '中央に戻す']]},
-  {sub:'仕上げ'},
+  {sub:'背景エフェクト', note:'背景全体にかかる効果です（レイヤーにはなりません）'},
   {r:'bg.dim', l:'暗くする', min:0, max:0.85, step:0.01},
   {r:'bg.vignette', l:'周辺減光', min:0, max:1, step:0.01},
-  {chk:'bg.lines.on', l:'集中線を入れる'},
-  {c:'bg.lines.c', l:'色', show:'bg.lines.on=true'},
-  {r:'bg.lines.a', l:'濃さ', min:0.05, max:1, step:0.01, show:'bg.lines.on=true'},
-  {r:'bg.lines.n', l:'本数', min:20, max:260, step:1, show:'bg.lines.on=true'},
-  {r:'bg.lines.inner', l:'中心の空き', min:0.05, max:1.5, step:0.01, show:'bg.lines.on=true'},
-  {r:'bg.lines.w', l:'線の太さ', min:0.2, max:3, step:0.05, show:'bg.lines.on=true'},
-  {r:'bg.lines.len', l:'長さのばらつき', min:0, max:2, step:0.05, show:'bg.lines.on=true'},
-  {seed:'bg.lines.seed', l:'ランダム', show:'bg.lines.on=true'},
+  {chk:'bg.shade.on', l:'グラデーション影（下を暗くして文字を読みやすく）'},
+  {c:'bg.shade.c', l:'影の色', show:'bg.shade.on=true'},
+  {r:'bg.shade.amt', l:'濃さ', min:0, max:1, step:0.01, show:'bg.shade.on=true'},
+  {r:'bg.shade.angle', l:'向き', min:0, max:360, step:1, show:'bg.shade.on=true'},
+  {r:'bg.shade.cover', l:'かかる範囲', min:0.05, max:1, step:0.01, show:'bg.shade.on=true'},
+  {chk:'bg.tint.on', l:'色を重ねる'},
+  {c:'bg.tint.c', l:'色', show:'bg.tint.on=true'},
+  {r:'bg.tint.a', l:'濃さ', min:0, max:1, step:0.01, show:'bg.tint.on=true'},
+  {sel:'bg.tint.mode', l:'重ね方', opts:[['overlay', 'オーバーレイ'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['soft-light', 'ソフトライト'], ['color', 'カラー（単色化）']], show:'bg.tint.on=true'},
+  {r:'bg.fcx', l:'中心 左右', min:-0.2, max:1.2, step:0.005, note:'周辺減光・ズームブラーの中心'},
+  {r:'bg.fcy', l:'中心 上下', min:-0.2, max:1.2, step:0.005},
+  {btns:[['fxCenter', 'reset', '中心を真ん中に']]},
+  {addfx:true},
 ];
 const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走'], ['soft', 'ふんわり'], ['pop', '文字を目立たせる'], ['vivid', '鮮やか'],
-  ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['mosaic', 'モザイク'], ['reset', 'リセット']];
+  ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'], ['reset', 'リセット']];
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
   if(r.sub) return `<div class="subhead" style="margin-top:24px"${sa}>${r.sub}${r.note ? `<span class="subnote">${r.note}</span>` : ''}</div>`;
+  if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="crow">${Object.keys(FX_DEF).map(k => `<button class="btn sm" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`;
   if(r.fx) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック背景エフェクト</div><div class="pcats fxchips">${FX_CHIPS.map(([k, t]) => `<button data-bgfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.sel) return `<div class="row"${sa}><label>${r.l}</label><select data-d="${r.sel}">${r.opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`;
   if(r.place) return `<div class="row"${sa}><label>${r.l}</label><div class="place">${['t', 'm', 'b'].map(v => ['l', 'c', 'r'].map(h => `<button data-place="${h}${v}" title="この位置に配置"></button>`).join('')).join('')}</div></div>`;
@@ -3278,8 +3391,10 @@ document.addEventListener('click', e => {
     if(k === 'bg.type' && ds.dataset.v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
     return;
   }
+  const afb = e.target.closest('[data-addfx]');
+  if(afb && !afb.closest('#ctxmenu')){ addFx(afb.dataset.addfx); return; }
   const fx = e.target.closest('[data-bgfx]');
-  if(fx){ applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました' : `背景エフェクト「${fx.textContent}」を適用しました`); return; }
+  if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
   const dr = e.target.closest('[data-dreroll]');
   if(dr){ dSet(dr.dataset.dreroll, Math.floor(Math.random() * 1e6)); docChanged(false); return; }
   const gb = e.target.closest('[data-guide]');
@@ -3352,6 +3467,8 @@ document.addEventListener('click', e => {
   });
   $('#lpAddText').onclick = () => $('#addText').click();
   $('#lpAddImg').onclick = () => $('#imgfile').click();
+  $('#lpAddFx').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); setTimeout(() => showFxMenu(r.right - 280, r.bottom + 6), 0); };
+  $('#addFxBtn').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); setTimeout(() => showFxMenu(r.left, r.bottom + 6), 0); };
 }
 $('#addText').onclick = () => {
   const st = clone(S); st.text = 'テキスト';
