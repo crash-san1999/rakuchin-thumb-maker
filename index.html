@@ -329,6 +329,45 @@ body.mode-thumb #pv, body.mode-text #tv, body.mode-text .dropzone{display:none}
 .loading.show{display:block}
 
 @media (max-width:1180px){ .lpanel{width:232px} }
+/* 操作ガイド */
+.help{position:fixed;inset:0;z-index:60;display:none;place-items:center;padding:20px;background:rgba(31,27,45,.35);backdrop-filter:blur(3px)}
+.help.show{display:grid}
+.help-card{width:min(640px,100%);max-height:min(88dvh,820px);display:flex;flex-direction:column;background:#fff;border:2.5px solid var(--ink);border-radius:24px;box-shadow:8px 8px 0 var(--ink);animation:pop .28s var(--ease);overflow:hidden}
+.help-head{display:flex;align-items:center;padding:18px 18px 10px 24px}
+.help-head b{font-size:19px;font-weight:800;margin-right:auto;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.help-body{overflow-y:auto;padding:4px 24px 12px}
+.help-foot{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:14px 20px 18px 24px;border-top:2px dashed var(--line-2)}
+.hstep{display:flex;gap:14px;align-items:flex-start;margin:0 0 14px}
+.hstep > span{flex:none;width:30px;height:30px;border-radius:50%;background:var(--acc-2);border:2px solid var(--ink);display:grid;place-items:center;font-weight:800;font-family:Inter,sans-serif;box-shadow:var(--pop-sm)}
+.hstep b{font-size:14px;font-weight:800}
+.hstep p,.hp{margin:3px 0 0;font-size:12.5px;line-height:1.75;color:var(--sub);font-weight:500}
+.help h4{font-size:12px;color:var(--acc);letter-spacing:.08em;font-weight:800;margin:20px 0 8px}
+.help code{background:var(--surface-2);border-radius:6px;padding:0 5px;font-weight:700}
+.htable{width:100%;border-collapse:separate;border-spacing:0 5px;font-size:12.5px}
+.htable td{padding:6px 10px;background:var(--surface-2)}
+.htable td:first-child{font-weight:800;white-space:nowrap;border-radius:10px 0 0 10px;width:1%}
+.htable td:last-child{border-radius:0 10px 10px 0;color:var(--sub)}
+body.is-mobile .htable.sp-only{display:table !important}
+.kgrid{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:12.5px;align-items:center;color:var(--sub)}
+.kgrid > span:nth-child(odd){white-space:nowrap}
+kbd{display:inline-block;min-width:22px;text-align:center;font:700 11px Inter,sans-serif;color:var(--ink);background:#fff;border:2px solid var(--ink);border-bottom-width:3px;border-radius:7px;padding:1px 6px}
+body.is-mobile .help{padding:0;place-items:end stretch}
+body.is-mobile .help-card{width:100%;max-height:88dvh;border-radius:24px 24px 0 0;box-shadow:none;border-bottom:0}
+/* ドロップ受付 */
+.ddov{position:fixed;inset:0;z-index:50;display:none;grid-template-columns:3fr minmax(200px,1fr);grid-template-rows:1fr auto;gap:18px;padding:28px;background:rgba(255,247,238,.86);backdrop-filter:blur(6px)}
+.ddov.show{display:grid;animation:pop .2s var(--ease)}
+.ddov .dz{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:3px dashed var(--ink);border-radius:26px;background:#fff;color:var(--ink);text-align:center;transition:transform .2s var(--ease),background .15s,box-shadow .15s;box-shadow:var(--pop)}
+.ddov .dz .ic{width:46px;height:46px;stroke-width:1.8}
+.ddov .dz b{font-size:24px;font-weight:800}
+.ddov .dz[data-dz=bg] b{font-size:19px}
+.ddov .dz[data-dz=bg]{background:rgba(255,255,255,.75)}
+.ddov .dz small{font-size:13px;color:var(--mute);font-weight:700;line-height:1.6}
+.ddov .dz.hot{transform:scale(1.02) rotate(-.6deg);box-shadow:8px 8px 0 var(--ink)}
+.ddov .dz[data-dz=layer].hot{background:var(--acc-soft);border-color:var(--acc);color:var(--acc)}
+.ddov .dz[data-dz=bg].hot{background:#e0f7ff;border-color:#0ea5e9;color:#0284c7}
+.ddov p{grid-column:1 / -1;margin:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--sub)}
+.ddov *{pointer-events:none}
+.ddov .dz{pointer-events:auto}
 /* ============ スマホ表示 ============ */
 .sp-only{display:none !important}
 body.is-mobile .pc-only{display:none !important}
@@ -424,6 +463,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
   <div class="seg mode-seg" id="modeSeg"><button data-mode="thumb">サムネ作成</button><button data-mode="text">文字素材</button></div>
   <div class="head-sp"></div>
   <div class="head-group">
+    <button class="icon-btn" id="helpBtn" title="操作ヘルプ（?キー）"><i data-ic="help"></i></button>
     <button class="icon-btn" id="viewBtn" title="PC表示／スマホ表示の切り替え"><i data-ic="monitor"></i></button>
     <button class="icon-btn" id="undo" title="取り消し（Ctrl+Z）"><i data-ic="undo"></i></button>
     <button class="icon-btn" id="redo" title="やり直し（Ctrl+Shift+Z）"><i data-ic="redo"></i></button>
@@ -617,6 +657,61 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
 </nav>
 <div class="toast" id="toast"></div>
 <div class="ctxmenu" id="ctxmenu"></div>
+<div class="help" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTtl">
+  <div class="help-card">
+    <div class="help-head"><b id="helpTtl">かんたん操作ガイド</b><button class="icon-btn sm" data-help-close title="閉じる"><i data-ic="close"></i></button></div>
+    <div class="help-body">
+      <div class="hstep"><span>1</span><div><b>背景を決める</b><p>「配置・背景」で画像・グラデ・単色を選択。画像はドラッグで移動、<span class="pc-only">ホイール</span><span class="sp-only">2本指ピンチ</span>で拡大縮小。「ワンクリック背景エフェクト」でズームブラーや集中線も。</p></div></div>
+      <div class="hstep"><span>2</span><div><b>文字を入れる</b><p>「<span class="pc-only">テキスト</span><span class="sp-only">文字</span>」で文字を入力。<code>{ }</code> で囲むと強調色に。「スタイル」でプリセットと配色を選ぶだけで完成します。</p></div></div>
+      <div class="hstep"><span>3</span><div><b>画像を重ねる</b><p><span class="pc-only">画像ファイルを画面にドラッグ＆ドロップ（またはコピーして Ctrl+V）で</span><span class="sp-only">「レイヤー」→ 画像アイコンから</span>レイヤーとして追加。白フチ・影は「配置・背景」で。</p></div></div>
+      <div class="hstep"><span>4</span><div><b>保存する</b><p>右上の「保存」でPNG／JPGを書き出し。<span class="sp-only">共有メニューの「画像を保存」で写真アプリに入ります。</span>作業内容はブラウザに自動保存されます。</p></div></div>
+      <h4>キャンバスの操作</h4>
+      <table class="htable pc-only">
+        <tr><td>クリック</td><td>文字・画像を選択</td></tr>
+        <tr><td>ドラッグ</td><td>移動（中央・三分割線に吸い付く／Altで無効）</td></tr>
+        <tr><td>角の□をドラッグ</td><td>拡大縮小</td></tr>
+        <tr><td>上の○をドラッグ</td><td>回転（Shiftで15°ずつ）</td></tr>
+        <tr><td>ホイール</td><td>選択中の文字・画像 or 背景を拡大縮小</td></tr>
+        <tr><td>何もない所をドラッグ</td><td>背景画像を移動</td></tr>
+        <tr><td>ダブルクリック</td><td>文字を編集</td></tr>
+        <tr><td>右クリック</td><td>レイヤーメニュー（前面へ・複製・ロックなど）</td></tr>
+        <tr><td>Alt＋クリック</td><td>重なった下のレイヤーを選ぶ</td></tr>
+      </table>
+      <table class="htable sp-only">
+        <tr><td>タップ</td><td>文字・画像を選択</td></tr>
+        <tr><td>1本指ドラッグ</td><td>移動</td></tr>
+        <tr><td>2本指ピンチ</td><td>拡大縮小＋回転（未選択なら背景）</td></tr>
+        <tr><td>ダブルタップ</td><td>文字を編集</td></tr>
+        <tr><td>長押し</td><td>レイヤーメニュー</td></tr>
+        <tr><td>下のバー</td><td>各パネルを開く／もう一度タップで閉じる</td></tr>
+      </table>
+      <h4>レイヤー</h4>
+      <p class="hp">右の<span class="sp-only">（下の「レイヤー」の）</span>パネルで、上にあるほど手前。<span class="pc-only">行をドラッグ</span><span class="sp-only">⋮⋮ をつまんで上下</span>で重なり順を入れ替え。👁で表示切替、🔒でロック（キャンバス上で動かなくなる）。<span class="pc-only">ダブルクリックで名前変更。</span></p>
+      <div class="pc-only">
+        <h4>ショートカット</h4>
+        <div class="kgrid">
+          <span><kbd>Ctrl</kbd>+<kbd>Z</kbd></span><span>元に戻す</span>
+          <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></span><span>やり直し</span>
+          <span><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span>保存（書き出し）</span>
+          <span><kbd>Ctrl</kbd>+<kbd>D</kbd></span><span>複製</span>
+          <span><kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd></span><span>前面へ／背面へ（Shiftで最前面／最背面）</span>
+          <span><kbd>←↑↓→</kbd></span><span>1px移動（Shiftで10px）</span>
+          <span><kbd>Delete</kbd></span><span>削除</span>
+          <span><kbd>Esc</kbd></span><span>選択解除</span>
+          <span><kbd>?</kbd></span><span>このガイドを開く</span>
+        </div>
+      </div>
+      <h4>こまったときは</h4>
+      <p class="hp">・文字が小さく読みにくい → 下の「視認性」が◎になる配色に。「小さく表示」でスマホでの見え方を確認<br>・失敗した → <span class="pc-only">Ctrl+Z か </span>上の ↶ で戻せます<br>・最初からやり直したい → 「スタイル」の「初期化」</p>
+    </div>
+    <div class="help-foot"><label class="chk"><input type="checkbox" id="helpNoAuto"> 次回も起動時に表示する</label><button class="btn pri" data-help-close>はじめる</button></div>
+  </div>
+</div>
+<div class="ddov" id="ddov">
+  <div class="dz" data-dz="layer"><i data-ic="image"></i><b>ここに離すとレイヤーとして追加</b><small>キャラ・素材・スタンプなど（複数まとめてOK）<br>画面のどこに離しても、基本はレイヤーになります</small></div>
+  <div class="dz" data-dz="bg"><i data-ic="sliders"></i><b>背景にする</b><small>ここに離したときだけ<br>サムネ全体の背景に</small></div>
+  <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
+</div>
 
 <script>
 /* ============ 基本 ============ */
@@ -667,6 +762,7 @@ const ICONS = {
   sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
   close:'<path d="M6 6l12 12M18 6 6 18"/>',
   share:'<path d="M12 15V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M5 12.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5.5"/>',
+  help:'<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/>',
   palette:'<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.4-1.3-1.7-1.3-3 0-.9.8-1.6 1.7-1.6h2.3a4 4 0 0 0 4-4c0-3.7-3.8-6.7-8.5-6.7z"/><circle cx="7.8" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.8" r="1.1" fill="currentColor" stroke="none"/>',
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
@@ -3250,21 +3346,52 @@ $('#saveProj').onclick = () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 3000); toast('プロジェクトを保存しました');
 };
 $('#openProj').onclick = () => $('#projfile').click();
-$('#projfile').onchange = async e => {
-  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+$('#projfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) openProjectFile(f); };
+async function openProjectFile(f){
   try{
     const j = JSON.parse(await f.text()); if(!j.doc) throw new Error('プロジェクトファイルではありません');
     for(const [id, src] of Object.entries(j.assets || {})) await addAsset(src, id, id);
     loadDocObj(j.doc); toast('プロジェクトを開きました');
   }catch(err){ toast('開けませんでした: ' + err.message, true); }
-};
+}
 
-/* ドラッグ＆ドロップ・貼り付け */
+/* ドラッグ＆ドロップ（画面のどこに落としてもOK）・貼り付け */
 {
-  const stg = $('#stage');
-  stg.addEventListener('dragover', e => { if(DOC.mode !== 'thumb' || !e.dataTransfer.types.includes('Files')) return; e.preventDefault(); stg.classList.add('dragover'); });
-  stg.addEventListener('dragleave', e => { if(!stg.contains(e.relatedTarget)) stg.classList.remove('dragover'); });
-  stg.addEventListener('drop', e => { if(DOC.mode !== 'thumb') return; e.preventDefault(); stg.classList.remove('dragover'); addImageLayers([...e.dataTransfer.files]); });
+  const ov = $('#ddov'); let depth = 0;
+  const hasFiles = e => [...(e.dataTransfer?.types || [])].some(t => t === 'Files' || t === 'text/uri-list');
+  const show = on => { ov.classList.toggle('show', on); if(!on) ov.querySelectorAll('[data-dz]').forEach(z => z.classList.remove('hot')); };
+  window.addEventListener('dragenter', e => { if(!hasFiles(e)) return; e.preventDefault(); depth++; show(true); });
+  window.addEventListener('dragleave', e => { if(!hasFiles(e)) return; depth = Math.max(0, depth - 1); if(!depth) show(false); });
+  window.addEventListener('dragover', e => {
+    if(!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    const z = e.target.closest && e.target.closest('[data-dz]');
+    const hot = z || ov.querySelector('[data-dz=layer]');
+    ov.querySelectorAll('[data-dz]').forEach(x => x.classList.toggle('hot', x === hot));
+  });
+  window.addEventListener('drop', async e => {
+    if(!hasFiles(e)) return;
+    e.preventDefault(); depth = 0;
+    const z = e.target.closest && e.target.closest('[data-dz]'), zone = z ? z.dataset.dz : 'layer';
+    show(false);
+    let files = [...(e.dataTransfer.files || [])];
+    // ほかのタブからドラッグした画像（ファイルが付いていない場合）はURLから取得を試す
+    if(!files.length){
+      const url = (e.dataTransfer.getData('text/uri-list') || '').split('\n').find(u => /^https?:/.test(u.trim()));
+      if(url){
+        try{ const r = await fetch(url.trim()); const b = await r.blob(); if(!/^image\//.test(b.type)) throw 0; files = [new File([b], url.split('/').pop().split('?')[0] || 'image', {type:b.type})]; }
+        catch{ toast('この画像はサイトの制限で直接追加できません。一度PCに保存してからドラッグしてください', true); return; }
+      }
+    }
+    const imgs = files.filter(f => /^image\//.test(f.type));
+    const fontsF = files.filter(f => /\.(ttf|otf|woff2?)$/i.test(f.name));
+    const proj = files.find(f => /\.json$/i.test(f.name));
+    if(proj){ openProjectFile(proj); return; }
+    if(fontsF.length) addFontFiles(fontsF);
+    if(!imgs.length){ if(!fontsF.length) toast('画像（PNG / JPG / WebP など）かフォントファイルをドロップしてください', true); return; }
+    if(DOC.mode !== 'thumb'){ setMode('thumb'); }
+    if(zone === 'bg'){ await setBgFromFile(imgs[0]); goTab('thumb'); toast('背景に設定しました'); if(imgs.length > 1) addImageLayers(imgs.slice(1)); }
+    else addImageLayers(imgs);
+  });
   document.addEventListener('paste', e => {
     if(DOC.mode !== 'thumb') return;
     const t = e.target; if(t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') return;
@@ -3527,6 +3654,18 @@ async function shareFile(blob, name){
   tv.addEventListener('pointerup', up, true); tv.addEventListener('pointercancel', up, true);
 }
 
+/* 操作ガイド */
+function openHelp(){ $('#help').classList.add('show'); $('#helpNoAuto').checked = LS.get('ttm_helpAuto', false) === true; }
+function closeHelp(){ $('#help').classList.remove('show'); LS.set('ttm_helpAuto', $('#helpNoAuto').checked); }
+$('#helpBtn').onclick = openHelp;
+$('#help').addEventListener('click', e => { if(e.target.id === 'help' || e.target.closest('[data-help-close]')) closeHelp(); });
+$('#helpNoAuto').addEventListener('change', e => LS.set('ttm_helpAuto', e.target.checked));
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && $('#help').classList.contains('show')){ closeHelp(); return; }
+  const t = e.target; if(t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT') return;
+  if(e.key === '?' && !e.ctrlKey && !e.metaKey){ e.preventDefault(); openHelp(); }
+});
+
 function thumbInit(){
   $('#selBox').innerHTML = `<div class="selbox"><div class="subhead" id="selTitle"></div>${SEL_ROWS.map(drow).join('')}</div>`;
   $('#bgRows').innerHTML = BG_ROWS.map(drow).join('');
@@ -3538,6 +3677,7 @@ function thumbInit(){
   setTab(LS.get('ttm_tab', 'thumb'));
   syncDoc(); renderLayers();
   idbRestore();
+  if(LS.get('ttm_helpAuto', 'first') !== false) setTimeout(openHelp, 400);
   window.addEventListener('resize', () => { clearTimeout(thumbInit.r); thumbInit.r = setTimeout(() => paintPreview(false), 60); });
   document.fonts.addEventListener('loadingdone', () => { if(DOC.mode === 'thumb'){ clearTimeout(thumbInit.f); thumbInit.f = setTimeout(() => paintPreview(false), 150); } });
 }
