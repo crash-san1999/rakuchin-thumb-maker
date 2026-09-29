@@ -9,6 +9,8 @@ const LS = {
 const isTyping = e => { const t = e.target; return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
 // サムネのレイヤーに共通の初期値（1920×1080 の中央）
 const LAYER_BASE = () => ({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
+// 小数第3位までに丸める（保存データを読みやすく小さく保つ）
+const r3 = v => Math.round(v * 1000) / 1000;
 // 日時入りのファイル名用（例：20260929-213000）
 const stamp = (d = new Date()) => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
 // ファイルとしてダウンロードさせる

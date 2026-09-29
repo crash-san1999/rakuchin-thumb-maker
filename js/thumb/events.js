@@ -10,9 +10,9 @@ document.addEventListener('click', e => {
     L.y = Math.round(v === 't' ? my + bh / 2 : v === 'b' ? DOC.h - my - bh / 2 : DOC.h / 2);
     syncDoc(); docChanged(false); return;
   }
-  if(e.target.closest('#collageEditBtn')){ const L = selLayer(); if(L) setCollageEdit(collageEdit ? null : L.id); return; }
+  if(e.target.closest('#collageEditBtn')){ toggleEdit('cells'); return; }
   if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:960, y:540, bw:1920, bh:1080, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
-  if(e.target.closest('#frameEditBtn')){ const L = selLayer(); if(L) setFrameEdit(frameEdit ? null : L.id); return; }
+  if(e.target.closest('#frameEditBtn')){ toggleEdit('frame'); return; }
   const frp = e.target.closest('[data-frpre]');
   if(frp){
     const L = selLayer(); if(!L || L.type !== 'image') return;
@@ -210,18 +210,7 @@ async function openProjectFile(f){
     if(fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){
       drag = {mode:'fx'}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return;
     }
-    if(collagePointerDown(e, x, y, tv)) return;
-    const FE = frameEditLayer();
-    if(FE){
-      const G = frameGeom(FE), [u, v] = frameLocal(FE, x, y), px = DOC.w / tvCss / FE.sc;
-      const corner = [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([sx, sy]) => Math.hypot(u - sx * G.fw / 2, v - sy * G.fh / 2) < 14 * px);
-      const inImg = Math.abs((FE.flip ? -u : u) + G.cxp - G.iw / 2) <= G.iw / 2 && Math.abs(v + G.cyp - G.ih / 2) <= G.ih / 2;
-      if(corner || inImg){
-        drag = {mode: corner ? 'fscale' : 'fmove', L:FE, x0:x, y0:y, u0:u, v0:v, g0:G, fs0:FE.frame.fs ?? 1, cx0:G.cxp / G.iw, cy0:G.cyp / G.ih, base:{x:FE.x, y:FE.y}, r0:Math.max(1, Math.hypot(u, v))};
-        tv.setPointerCapture(e.pointerId); e.preventDefault(); return;
-      }
-      setFrameEdit(null);
-    }
+    if(editPointerDown(e, x, y, tv)) return;
     let mode = handleAt(x, y), T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
@@ -248,23 +237,10 @@ async function openProjectFile(f){
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
-    if(!drag && (frameEditLayer() || collageEditLayer())){ tv.style.cursor = 'move'; return; }
+    if(!drag && editLayer()){ tv.style.cursor = 'move'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
-    if(drag.mode === 'cpan'){ collagePointerMove(x, y); return; }
-    if(drag.mode === 'fmove' || drag.mode === 'fscale'){
-      const G = drag.g0;
-      // 基準位置に戻してから計算（画像は固定、フレームだけ動く）
-      if(drag.mode === 'fmove'){
-        const a = (L.rot || 0) * PI / 180, ddx = x - drag.x0, ddy = y - drag.y0;
-        const du = (ddx * Math.cos(-a) - ddy * Math.sin(-a)) / L.sc * (L.flip ? -1 : 1), dv = (ddx * Math.sin(-a) + ddy * Math.cos(-a)) / L.sc;
-        L.frame.cx = Math.round(clamp(drag.cx0 + du / G.iw, 0, 1) * 1000) / 1000; L.frame.cy = Math.round(clamp(drag.cy0 + dv / G.ih, 0, 1) * 1000) / 1000;
-      }else{
-        const [u, v] = frameLocal(drag.base ? Object.assign({}, L, drag.base) : L, x, y);
-        L.frame.fs = Math.round(clamp(drag.fs0 * Math.hypot(u, v) / drag.r0, 0.1, 1) * 1000) / 1000;
-      }
-      frameCompensate(L, G, drag.base); syncDoc(); livePaint(); return;
-    }
+    if(drag.mode === 'edit'){ editPointerMove(x, y); return; }
     if(drag.mode === 'fx'){
       let fx = x / DOC.w, fy = y / DOC.h;
       if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * 9 / 16 < 8) fy = v; } }
@@ -299,9 +275,7 @@ async function openProjectFile(f){
   tv.addEventListener('wheel', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitLayer(x, y), k = Math.exp(-e.deltaY * 0.0015);
-    if(collageWheel(e, x, y, k)) return;
-    const FE = frameEditLayer();
-    if(FE){ const g0 = frameGeom(FE); FE.frame.fs = Math.round(clamp((FE.frame.fs ?? 1) * k, 0.1, 1) * 1000) / 1000; frameCompensate(FE, g0); e.preventDefault(); syncDoc(); docChanged(true); return; }
+    if(editWheel(e, x, y, k)) return;
     if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
     else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
       const b = DOC.bg, nz = clamp(b.zoom * k, 0.2, 4), r = nz / b.zoom;
@@ -319,8 +293,7 @@ async function openProjectFile(f){
   tv.addEventListener('dblclick', e => {
     const [x, y] = toDoc(e), L = hitLayer(x, y);
     if(L && L.type === 'text'){ selectLayer(L.id); openInspector('txt-text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
-    else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ selectLayer(L.id); setFrameEdit(L.id); }
-    else if(L && L.type === 'collage' && !collageEdit){ selectLayer(L.id); setCollageEdit(L.id, collageCellAt(L, x, y)); }
+    else if(L) enterEditAt(L, x, y);
   });
   document.addEventListener('keydown', e => {
     if(DOC.mode !== 'thumb' || $('#help').classList.contains('show') || document.querySelector('.pop.show')) return;
@@ -338,6 +311,6 @@ async function openProjectFile(f){
       e.preventDefault(); const fwd = e.code === 'BracketRight';
       layerAction(L.id, e.shiftKey ? (fwd ? 'front' : 'back') : (fwd ? 'up' : 'down'));
     }
-    else if(e.key === 'Escape'){ hideMenu(); if(frameEdit){ setFrameEdit(null); return; } if(collageEdit){ setCollageEdit(null); return; } selectLayer(null); }
+    else if(e.key === 'Escape'){ hideMenu(); if(edit){ setEdit(null); return; } selectLayer(null); }
   });
 }

@@ -234,47 +234,6 @@ document.addEventListener('click', e => {
   };
 }
 
-/* マスの調整モード：ドラッグで中の画像を動かす／ホイール・ピンチで拡大縮小 */
-let collageEdit = null;
-const collageEditLayer = () => { if(!collageEdit) return null; const L = DOC.layers.find(l => l.id === collageEdit); return L && L.type === 'collage' && !L.hidden ? L : null; };
-function setCollageEdit(id, cell){
-  collageEdit = id || null;
-  const L = collageEditLayer(); if(L && cell != null && cell >= 0) L.ac = cell;
-  const b = document.getElementById('collageEditBtn'); if(b) b.lastChild.textContent = collageEdit ? '調整を終える' : 'キャンバスでマスの画像を調整';
-  if(collageEdit) toast(isMobile ? 'マスをドラッグで中の画像を移動、ピンチで拡大縮小。外をタップで終了' : 'マスをドラッグで中の画像を移動、ホイールで拡大縮小。Esc か外をクリックで終了');
-  syncDoc(); paintPreview(false);
-}
-function collagePointerDown(e, x, y, tv){
-  const L = collageEditLayer(); if(!L) return false;
-  const i = collageCellAt(L, x, y);
-  if(i < 0){ setCollageEdit(null); return false; }
-  L.ac = i; const c = L.cells[i];
-  drag = {mode:'cpan', L, x0:x, y0:y, ox0:c.ox || 0, oy0:c.oy || 0, i, size:collageCellSize(L, i)};
-  tv.setPointerCapture(e.pointerId); e.preventDefault(); syncDoc(); return true;
-}
-function collagePointerMove(x, y){
-  const L = drag.L, a = -(L.rot || 0) * PI / 180, dx = x - drag.x0, dy = y - drag.y0, c = L.cells[drag.i];
-  c.ox = Math.round((drag.ox0 + (dx * Math.cos(a) - dy * Math.sin(a)) / drag.size[0]) * 1000) / 1000;
-  c.oy = Math.round((drag.oy0 + (dx * Math.sin(a) + dy * Math.cos(a)) / drag.size[1]) * 1000) / 1000;
-  syncDoc(); livePaint();
-}
-function collageWheel(e, x, y, k){
-  const L = collageEditLayer(); if(!L) return false;
-  const i = collageCellAt(L, x, y); if(i < 0) return false;
-  L.ac = i; const c = L.cells[i]; c.zoom = Math.round(clamp((c.zoom || 1) * k, 0.2, 8) * 1000) / 1000;
-  e.preventDefault(); syncDoc(); docChanged(true); return true;
-}
-function drawCollageOverlay(ctx, W, H, dpr){
-  const L = collageEditLayer(); if(!L) return false;
-  const f = W / DOC.w, w = L.bw * L.sc, h = L.bh * L.sc, cells = collageCells(L.layout, collageN(L), w, h, L.slant, L.main);
-  ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(f, f); ctx.translate(-w / 2, -h / 2);
-  ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
-  cells.forEach((p, i) => { collagePath(ctx, p); ctx.lineWidth = (i === L.ac ? 3 : 1.5) * dpr / f; ctx.strokeStyle = i === L.ac ? '#ffb800' : 'rgba(255,255,255,.8)'; ctx.setLineDash(i === L.ac ? [] : [6 * dpr / f, 5 * dpr / f]); ctx.stroke(); });
-  ctx.restore();
-  const msg = isMobile ? `マス${L.ac + 1}を調整中：ドラッグで移動／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}を調整中：ドラッグで移動／ホイールで拡大縮小／Esc か外をクリックで終了`;
-  drawBanner(ctx, W, dpr, msg);
-  return true;
-}
 const collageIconCache = {};
 function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];

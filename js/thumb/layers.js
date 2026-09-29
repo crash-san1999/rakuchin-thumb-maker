@@ -77,8 +77,7 @@ $('#ctxmenu').addEventListener('click', e => {
 document.addEventListener('pointerdown', e => { if(!e.target.closest('#ctxmenu')) hideMenu(); }, true);
 window.addEventListener('blur', hideMenu);
 function selectLayer(id){
-  if(frameEdit && id !== frameEdit) setFrameEdit(null);
-  if(collageEdit && id !== collageEdit) setCollageEdit(null);
+  if(edit && id !== edit.id) setEdit(null);
   DOC.sel = id;
   const L = selLayer();
   if(L && L.type === 'text'){

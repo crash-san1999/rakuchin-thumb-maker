@@ -35,6 +35,7 @@
 index.html                 画面の骨組み（HTML）
 css/app.css                スタイル
 js/core.js                 共通の小道具（$・保存・トースト・数値や色の変換・乱数・ダウンロード・レイヤー初期値）・アイコン
+js/bind.js                 入力欄と値をつなぐしくみ（文字パネル・サムネ用で共通）
 js/presets.js              文字スタイルのプリセット
 js/data/font-list.js       Google Fonts 全書体の一覧データ
 js/fonts.js                フォント管理（Google Fonts・Webフリー・PC内・URL追加）
@@ -49,14 +50,15 @@ js/thumb/fx.js             動的エフェクト（集中線・光・キラキ�
 js/thumb/assets.js         画像アセット（IndexedDB に保存）・画像や背景の追加
 js/thumb/doc.js            サムネのデータ構造・値の読み書き・変更通知
 js/thumb/render.js         サムネの描画（文字・画像レイヤー・背景・合成）
-js/thumb/overlay.js        選択枠・ハンドル・編集モードの表示
+js/thumb/overlay.js        選択枠・ハンドル・背景効果の中心の表示
+js/thumb/editmodes.js      キャンバス上の編集モード（フレーム調整・マスの調整）
 js/thumb/layers.js         レイヤーパネル・レイヤーの選択と操作
 js/thumb/export.js         サムネの書き出し・共有・プロジェクト読み込み
 js/thumb/inspector.js      選んだものに合わせた設定パネル（行の定義・ページ切り替え）
 js/thumb/events.js         キャンバス・ドラッグ＆ドロップ・ボタンの操作
 js/mobile.js               PC／スマホの自動判定・下のバーとシート・タッチ操作
 js/popups.js               ポップアップ（操作ガイド・追加メニュー・ファイルメニュー）
-js/main.js                 起動
+js/main.js                 起動（起動時の処理はすべてここの boot() に集約）
 tools/bump-version.sh      読み込みURLのバージョン番号をまとめて更新
 docs/manual.md             操作マニュアル
 ```

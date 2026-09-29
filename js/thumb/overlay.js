@@ -13,16 +13,6 @@ const fxHandleOn = () => DOC.guides.fx && (((DOC.bg.type === 'image' && DOC.bg.z
 let fxEditing = false, fxEditT = null;
 // 中心のスライダーを動かしている間だけ、背景効果の中心 ◎ を表示する
 function showFxCenterBriefly(){ fxEditing = true; clearTimeout(fxEditT); fxEditT = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
-let frameEdit = null;
-const frameEditLayer = () => { if(!frameEdit) return null; const L = DOC.layers.find(l => l.id === frameEdit); return L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !L.hidden && ASSETS[L.asset] ? L : null; };
-function setFrameEdit(id){
-  frameEdit = id || null;
-  const b = document.getElementById('frameEditBtn'); if(b) b.lastChild.textContent = frameEdit ? '調整を終える' : 'キャンバスでフレームを調整';
-  if(frameEdit) toast(isMobile ? 'ドラッグでフレームの位置、ピンチで大きさを調整。外をタップで終了' : 'ドラッグでフレームの位置、角かホイールで大きさを調整。Esc か外をクリックで終了');
-  paintPreview(false);
-}
-// 画像上の点（ドキュメント座標）→ フレーム基準のローカル座標（画像ピクセル）
-function frameLocal(L, x, y){ const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y; return [(dx * Math.cos(a) - dy * Math.sin(a)) / L.sc, (dx * Math.sin(a) + dy * Math.cos(a)) / L.sc]; }
 function drawOverlay(ctx, W, H, dpr){
   const f = W / DOC.w;
   ctx.save();
@@ -55,22 +45,7 @@ function drawOverlay(ctx, W, H, dpr){
     if(snapLines.y != null){ ctx.moveTo(0, snapLines.y * f); ctx.lineTo(W, snapLines.y * f); }
     ctx.stroke();
   }
-  if(drawCollageOverlay(ctx, W, H, dpr)){ ctx.restore(); return; }
-  const FE = frameEditLayer();
-  if(FE){
-    const G = frameGeom(FE), a = (FE.rot || 0) * PI / 180;
-    ctx.save(); ctx.translate(FE.x * f, FE.y * f); ctx.rotate(a); ctx.scale(FE.sc * f, FE.sc * f);
-    ctx.save(); if(FE.flip) ctx.scale(-1, 1); ctx.globalAlpha = 0.38; ctx.drawImage(G.A.img, -G.cxp, -G.cyp, G.iw, G.ih); ctx.restore();
-    const k = 1 / (FE.sc * f), hw = G.fw / 2, hh = G.fh / 2;
-    ctx.lineWidth = 2 * dpr * k; ctx.strokeStyle = '#ffb800'; ctx.setLineDash([7 * dpr * k, 5 * dpr * k]); ctx.strokeRect(-hw, -hh, hw * 2, hh * 2); ctx.setLineDash([]);
-    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = dpr * k; ctx.beginPath(); framePath(ctx, FE.frame.shape, G.fw, G.fh, FE.frame.r, FE.frame.seed); ctx.stroke();
-    ctx.fillStyle = '#ffb800'; ctx.strokeStyle = '#1f1b2d'; ctx.lineWidth = 2 * dpr * k;
-    for(const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){ ctx.beginPath(); ctx.arc(sx * hw, sy * hh, 7 * dpr * k, 0, 7); ctx.fill(); ctx.stroke(); }
-    ctx.restore();
-    const msg = isMobile ? 'フレーム調整中：ドラッグで位置／ピンチで大きさ／外をタップで終了' : 'フレーム調整中：ドラッグで位置／角・ホイールで大きさ／Esc か外をクリックで終了';
-    drawBanner(ctx, W, dpr, msg);
-    ctx.restore(); return;
-  }
+  if(drawEditOverlay(ctx, W, H, dpr)){ ctx.restore(); return; }
   const L = selLayer(), g = L && !L.hidden && layerGeom(L);
   if(g && L.locked){
     ctx.strokeStyle = '#ffb800'; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash([6 * dpr, 5 * dpr]); ctx.beginPath();
