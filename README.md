@@ -60,9 +60,29 @@ js/mobile.js               PC／スマホの自動判定・下のバーとシー
 js/popups.js               ポップアップ（操作ガイド・追加メニュー・ファイルメニュー）
 js/main.js                 起動（起動時の処理はすべてここの boot() に集約）
 tools/bump-version.sh      読み込みURLのバージョン番号をまとめて更新
+tools/docs-screenshots.py  説明書（docs/img）の画像をまとめて撮り直す
+tests/                     自動テスト（Playwright）と、変更前後の見た目を比べるツール
 docs/manual.md             操作マニュアル
+docs/img/                  説明書の画像
 ```
 
 JavaScript は通常の `<script>` を上から順に読み込み、共通の変数や関数を共有しています。読み込み時にすぐ実行されるコードは、それより前のファイルにあるものしか使えないので、`index.html` の並びは変えないでください（関数の中から呼ぶぶんには順番は関係ありません）。
 
 ファイルを変更したら `tools/bump-version.sh` を実行してください。`index.html` の `?v=` がまとめて更新され、公開サイトで古いファイルと新しいファイルが混ざらなくなります。
+
+## テストと説明書の画像（開発用）
+
+アプリを動かすだけなら不要です。改修したときの確認用です。Python 3 と Playwright（Chromium）を使います。
+
+```
+pip install playwright pillow
+python3 -m playwright install chromium   # Chromium が入っていない場合
+```
+
+| コマンド | 内容 |
+|---|---|
+| `python3 tests/run_all.py` | 自動テストをすべて実行（`run_all.py fonts -v` のように名前で絞り込み・詳細表示も可） |
+| `python3 tests/compare.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、画面・全プリセットの描画・設定パネルの中身を比べ、見た目が変わっていないか確認 |
+| `python3 tools/docs-screenshots.py` | 説明書の画像を今の画面で撮り直す |
+
+テストは外部との通信をすべて止めた状態で行います（Web フォントは読み込まれません）。テスト用の画像は `tests/fixtures/make_fixtures.py` がその場で描いて作るので、リポジトリには入っていません。
