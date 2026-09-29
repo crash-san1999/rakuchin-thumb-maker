@@ -147,6 +147,12 @@ svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;strok
 
 /* セグメント */
 .seg{display:flex;background:var(--surface-2);border:2px solid var(--ink);border-radius:12px;padding:3px;gap:3px}
+.seg.shapes{display:grid;grid-template-columns:repeat(6,1fr);flex:1}
+.seg.shapes button{padding:5px 0;display:flex;align-items:center;justify-content:center;min-height:34px}
+.seg.shapes img{width:22px;height:22px;display:block}
+.seg.shapes span{font-size:10.5px;font-weight:800}
+
+.pcats.frpre{margin:6px 0 10px}
 .seg button{flex:1;background:transparent;color:var(--sub);border:0;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;border-radius:8px;white-space:nowrap;transition:.2s var(--ease)}
 .seg button:hover{color:var(--ink);background:rgba(255,255,255,.7)}
 .seg button.on{background:var(--acc-2);color:var(--ink);box-shadow:inset 0 0 0 2px var(--ink)}
@@ -2829,6 +2835,7 @@ function normalizeDoc(d){
     : L.type === 'fx' ? Object.assign({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'}, L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over', flip:false}, L, {
         outline: Object.assign({on:true, w:10, c:'#ffffff'}, L.outline || {}),
+        frame: Object.assign(FRAME_BASE(), L.frame || {}),
         shadow: Object.assign({on:true, blur:30, y:14, a:0.45}, L.shadow || {})}));
   // 以前の「背景の集中線」を動的エフェクトのレイヤーに移す
   if(o.bg.lines.on){ const l = o.bg.lines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * 1920, y:(o.bg.fcy ?? 0.5) * 1080})); l.on = false; }
@@ -2912,8 +2919,105 @@ function tinted(A, color){
   x.drawImage(A.img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
   return A.tint[color] = c;
 }
+/* ---------- 画像の切り抜きフレーム ---------- */
+function FRAME_BASE(){ return {shape:'none', ar:'auto', zoom:1, ox:0, oy:0, r:0.12, style:'solid', c2:'#1f1b2d'}; }
+const FRAME_SHAPES = [
+  ['none','なし'], ['rect','四角（角丸）'], ['circle','丸'], ['arch','アーチ'], ['hex','六角形'], ['oct','八角形'], ['diamond','ひし形'], ['tri','三角'],
+  ['slant','平行四辺形'], ['shield','盾'], ['star','星'], ['kira','キラッ'], ['heart','ハート'], ['burst','バクハツ'], ['cloud','もこもこ'], ['flower','花'],
+  ['bubble','吹き出し'], ['torn','ラフな切り口'],
+];
+const FRAME_AUTO = new Set(['rect', 'arch', 'slant', 'shield', 'torn', 'bubble', 'cloud']);
+const FRAME_STYLES = [['none','枠なし（切り抜きだけ）'], ['solid','単色のフチ'], ['double','二重線'], ['pop','2色フチ（ポップ）'], ['grad','グラデーション'],
+  ['neon','ネオン（光る）'], ['dash','点線'], ['photo','ポラロイド風'], ['tape','マスキングテープ']];
+const FRAME_PRESETS = [
+  ['icon','アイコン', {shape:'circle', style:'pop', c2:'#1f1b2d'}, {w:12, c:'#ffffff'}],
+  ['wipe','ワイプ', {shape:'rect', r:0.08, style:'double', ar:'1.778'}, {w:12, c:'#ffffff'}],
+  ['photo','ポラロイド', {shape:'rect', r:0.01, style:'photo', ar:'1'}, {w:22, c:'#ffffff'}],
+  ['neon','ネオン', {shape:'hex', style:'neon'}, {w:10, c:'#34d2ff'}],
+  ['heart','ハート', {shape:'heart', style:'grad', c2:'#ffb000'}, {w:12, c:'#ff4f8b'}],
+  ['boom','バクハツ', {shape:'burst', style:'pop', c2:'#1f1b2d'}, {w:12, c:'#ffe600'}],
+  ['bubble','吹き出し', {shape:'bubble', r:0.18, style:'pop', c2:'#1f1b2d'}, {w:8, c:'#ffffff'}],
+  ['game','ゲーム風', {shape:'slant', style:'pop', c2:'#ff4f8b'}, {w:8, c:'#ffffff'}],
+  ['tape','マステ', {shape:'torn', style:'tape', c2:'#ffb6d0'}, {w:6, c:'#ffffff'}],
+  ['star','スター', {shape:'star', style:'grad', c2:'#ff4f8b'}, {w:12, c:'#ffe600'}],
+  ['cloud','もこもこ', {shape:'cloud', style:'dash'}, {w:9, c:'#ffffff'}],
+  ['off','フレームなし', {shape:'none'}, null],
+];
+function framePath(x, shape, w, h, r = 0.12){
+  const a = w / 2, b = h / 2;
+  const poly = pts => { pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); };
+  const ring = (n, rot, inner) => { const p = []; for(let i = 0; i < n * (inner ? 2 : 1); i++){ const t = rot + i * PI / (inner ? n : n / 2), k = inner && i % 2 ? inner : 1; p.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); } poly(p); };
+  const scallop = (n, base, depth) => { for(let i = 0; i < n; i++){ const t0 = -PI / 2 + i * 2 * PI / n, t1 = t0 + 2 * PI / n, tm = (t0 + t1) / 2;
+    const p0 = [Math.cos(t0) * a * base, Math.sin(t0) * b * base], p1 = [Math.cos(t1) * a * base, Math.sin(t1) * b * base];
+    if(!i) x.moveTo(...p0); x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); } x.closePath(); };
+  switch(shape){
+    case 'circle': x.ellipse(0, 0, a, b, 0, 0, 2 * PI); break;
+    case 'arch': { const ry = Math.min(a, b); x.moveTo(-a, b); x.lineTo(-a, -b + ry); x.ellipse(0, -b + ry, a, ry, 0, PI, 2 * PI); x.lineTo(a, b); x.closePath(); break; }
+    case 'hex': ring(6, 0); break;
+    case 'oct': ring(8, PI / 8); break;
+    case 'diamond': poly([[0, -b], [a, 0], [0, b], [-a, 0]]); break;
+    case 'tri': poly([[0, -b], [a, b], [-a, b]]); break;
+    case 'slant': { const k = w * 0.14; poly([[-a + k, -b], [a, -b], [a - k, b], [-a, b]]); break; }
+    case 'shield': x.moveTo(-a, -b); x.lineTo(a, -b); x.lineTo(a, -b * 0.1); x.quadraticCurveTo(a * 0.9, b * 0.7, 0, b); x.quadraticCurveTo(-a * 0.9, b * 0.7, -a, -b * 0.1); x.closePath(); break;
+    case 'star': ring(5, -PI / 2, 0.48); break;
+    case 'kira': ring(4, -PI / 2, 0.3); break;
+    case 'heart': x.moveTo(0, b); x.bezierCurveTo(-a * 0.2, b * 0.62, -a, b * 0.2, -a, -b * 0.36); x.bezierCurveTo(-a, -b * 0.9, -a * 0.28, -b * 1.08, 0, -b * 0.56);
+      x.bezierCurveTo(a * 0.28, -b * 1.08, a, -b * 0.9, a, -b * 0.36); x.bezierCurveTo(a, b * 0.2, a * 0.2, b * 0.62, 0, b); x.closePath(); break;
+    case 'burst': { const R = rng(5), p = []; for(let i = 0; i < 36; i++){ const t = -PI / 2 + i * PI / 18, k = i % 2 ? 0.74 + R() * 0.08 : 0.96 + R() * 0.04; p.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); } poly(p); break; }
+    case 'cloud': scallop(11, 0.84, 1.13); break;
+    case 'flower': scallop(8, 0.6, 1.25); break;
+    case 'bubble': { const bh = h * 0.8, rr = Math.min(w, bh) * Math.min(0.5, r); x.roundRect(-a, -b, w, bh, rr); x.moveTo(-a + w * 0.2, -b + bh - 1); x.lineTo(-a + w * 0.14, b); x.lineTo(-a + w * 0.4, -b + bh - 1); x.closePath(); break; }
+    case 'torn': { const R = rng(11), p = [], n = 26, j = Math.min(w, h) * 0.025;
+      for(let i = 0; i < n; i++) p.push([-a + w * i / n, -b + R() * j]); for(let i = 0; i < n; i++) p.push([a - R() * j, -b + h * i / n]);
+      for(let i = 0; i < n; i++) p.push([a - w * i / n, b - R() * j]); for(let i = 0; i < n; i++) p.push([-a + R() * j, b - h * i / n]); poly(p); break; }
+    default: x.roundRect(-a, -b, w, h, Math.min(w, h) * Math.min(0.5, Math.max(0, r)));
+  }
+}
+function framedCanvas(L, f, live, cache){
+  const A = ASSETS[L.asset], fr = L.frame, o = L.outline, need = L.sc * f;
+  const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip]);
+  let e = cache.get(L.id);
+  if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
+  const iw = A.img.naturalWidth, ih = A.img.naturalHeight;
+  const ar = fr.ar && fr.ar !== 'auto' ? parseFloat(fr.ar) || 1 : (FRAME_AUTO.has(fr.shape) ? iw / ih : 1);
+  const fw = Math.min(iw, ih * ar), FW = Math.max(2, fw * need), FH = Math.max(2, fw / ar * need);
+  const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.5, o.w * f);
+  const tw = Math.min(FW, FH) * 0.36;
+  const pad = Math.ceil(E * ({photo:4.6, neon:3.4, pop:2}[st] || 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
+  const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
+  x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
+  const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r); };
+  const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };
+  if(E > 0){
+    if(st === 'double'){ stroke(2 * E, o.c); x.globalCompositeOperation = 'destination-out'; stroke(2 * E * 0.62, '#000'); x.globalCompositeOperation = 'source-over'; stroke(2 * E * 0.28, o.c); }
+    else if(st === 'pop'){ stroke(2 * E + 2 * Math.max(3 * f, E * 0.6), fr.c2); stroke(2 * E, o.c); }
+    else if(st === 'grad'){ const g = x.createLinearGradient(-FW / 2, -FH / 2, FW / 2, FH / 2); g.addColorStop(0, o.c); g.addColorStop(1, fr.c2); stroke(2 * E, g); }
+    else if(st === 'neon'){ x.shadowColor = o.c; x.shadowBlur = E * 2.6; stroke(E * 1.2, o.c); stroke(E * 1.2, o.c); x.shadowBlur = 0; stroke(E * 0.4, '#ffffff'); }
+    else if(st === 'dash'){ x.setLineDash([E * 0.01, E * 3]); stroke(2 * E, o.c); x.setLineDash([]); }
+    else if(st === 'photo'){ x.fillStyle = o.c; x.beginPath(); x.roundRect(-FW / 2 - E, -FH / 2 - E, FW + 2 * E, FH + E * 4.4, E * 0.18); x.fill(); }
+    else stroke(2 * E, o.c);
+  }
+  x.save(); P(); x.clip();
+  const k = Math.max(FW / iw, FH / ih) * Math.max(1, fr.zoom || 1), DW = iw * k, DH = ih * k;
+  const dx = -DW / 2 + (fr.ox || 0) * (DW - FW) / 2, dy = -DH / 2 + (fr.oy || 0) * (DH - FH) / 2;
+  if(L.flip){ x.scale(-1, 1); x.drawImage(A.img, -dx - DW, dy, DW, DH); } else x.drawImage(A.img, dx, dy, DW, DH);
+  x.restore();
+  if(st === 'photo' && E > 0){ x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = Math.max(1, f); x.strokeRect(-FW / 2, -FH / 2, FW, FH); }
+  if(st === 'tape' && E >= 0){
+    const [r, g, b] = hex2rgb(fr.c2);
+    [[-1, -38], [1, 38]].forEach(([sx, deg]) => {
+      x.save(); x.translate(sx * (FW / 2 - tw * 0.12), -FH / 2 + tw * 0.06); x.rotate(deg * PI / 180);
+      x.fillStyle = `rgba(${r},${g},${b},0.82)`; x.fillRect(-tw / 2, -tw * 0.16, tw, tw * 0.32);
+      x.fillStyle = 'rgba(255,255,255,.22)'; for(let i = -tw / 2 + tw * 0.08; i < tw / 2; i += tw * 0.16) x.fillRect(i, -tw * 0.16, tw * 0.05, tw * 0.32);
+      x.restore();
+    });
+  }
+  e = {sk, k:need, c}; cache.set(L.id, e);
+  return e;
+}
 function imageCanvas(L, f, live, cache){
   const A = ASSETS[L.asset]; if(!A) return null;
+  if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
   const need = L.sc * f, o = L.outline, ow = o.on ? o.w : 0;
   const sk = [L.asset, o.on, o.w, o.c, L.flip].join('|');
   let e = cache.get(L.id);
@@ -3402,7 +3506,7 @@ async function addImageLayers(files){
     const id = await addAsset(await fileToSrc(f), f.name), A = ASSETS[id];
     const sc = Math.min(DOC.h * 0.85 / A.img.naturalHeight, DOC.w * 0.5 / A.img.naturalWidth);
     const L = {id:uid(), type:'image', name:f.name.replace(/\.[^.]+$/, ''), asset:id, x:Math.round(DOC.w * 0.74), y:Math.round(DOC.h * 0.56), sc, rot:0, op:1,
-      hidden:false, locked:false, blend:'source-over', flip:false, outline:{on:true, w:10, c:'#ffffff'}, shadow:{on:true, blur:30, y:14, a:0.45}};
+      hidden:false, locked:false, blend:'source-over', flip:false, outline:{on:true, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:true, blur:30, y:14, a:0.45}};
     DOC.layers.push(L); last = L.id;
   }
   if(last){ goTab('thumb'); selectLayer(last); docChanged(false); toast('画像を追加しました。ドラッグで移動、角で拡大、上の丸で回転できます'); }
@@ -3444,9 +3548,19 @@ const SEL_ROWS = [
   {chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
   {place:true, l:'配置'},
   {chk:'@flip', l:'左右反転', show:'@type=image'},
-  {chk:'@outline.on', l:'フチを付ける（切り抜き画像向け）', show:'@type=image'},
+  {sub:'切り抜きフレーム', note:'図形で切り抜いて枠を付けます。形と枠のデザインは自由に組み合わせOK', show:'@type=image'},
+  {frpre:true, show:'@type=image'},
+  {shapes:true, l:'形', show:'@type=image'},
+  {sel:'@frame.style', l:'枠のデザイン', opts:FRAME_STYLES, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {seg:'@frame.ar', l:'縦横比', opts:[['auto','自動'],['1','1:1'],['1.333','4:3'],['0.75','3:4'],['1.778','16:9']], show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {r:'@frame.r', l:'角の丸み', min:0, max:0.5, step:0.01, show:'@type=image&@frame.shape=rect|bubble'},
+  {r:'@frame.zoom', l:'中の画像の大きさ', min:1, max:4, step:0.01, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {r:'@frame.ox', l:'中の画像 左右', min:-1, max:1, step:0.01, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {r:'@frame.oy', l:'中の画像 上下', min:-1, max:1, step:0.01, show:'@type=image&@frame.shape=rect|circle|arch|hex|oct|diamond|tri|slant|shield|star|kira|heart|burst|cloud|flower|bubble|torn'},
+  {chk:'@outline.on', l:'フチを付ける（切り抜き画像向け）', show:'@type=image&@frame.shape=none'},
   {r:'@outline.w', l:'フチ太さ', min:1, max:50, step:0.5, show:'@type=image'},
   {c:'@outline.c', l:'フチ色', show:'@type=image'},
+  {c:'@frame.c2', l:'2色目', show:'@type=image&@frame.style=pop|grad|tape'},
   {chk:'@shadow.on', l:'影を付ける', show:'@type=image'},
   {r:'@shadow.blur', l:'影ぼかし', min:0, max:120, step:1, show:'@type=image'},
   {r:'@shadow.y', l:'影の位置', min:-60, max:90, step:1, show:'@type=image'},
@@ -3506,6 +3620,8 @@ const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走
   ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'], ['reset', 'リセット']];
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
+  if(r.frpre) return `<div class="pcats frpre"${sa}>${FRAME_PRESETS.map(([k, t]) => `<button data-frpre="${k}">${t}</button>`).join('')}</div>`;
+  if(r.shapes) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes" data-dseg="@frame.shape">${FRAME_SHAPES.map(([k, t]) => `<button data-v="${k}" title="${t}">${k === 'none' ? '<span>なし</span>' : `<img src="${shapeIcon(k)}" alt="${t}">`}</button>`).join('')}</div></div>`;
   if(r.sub) return `<div class="subhead" style="margin-top:24px"${sa}>${r.sub}${r.note ? `<span class="subnote">${r.note}</span>` : ''}</div>`;
   if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="crow">${Object.keys(FX_DEF).map(k => `<button class="btn sm" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`;
   if(r.fx) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック背景エフェクト</div><div class="pcats fxchips">${FX_CHIPS.map(([k, t]) => `<button data-bgfx="${k}">${t}</button>`).join('')}</div></div>`;
@@ -3520,6 +3636,12 @@ function drow(r){
   return `<div class="row"${sa}><label>${r.l}</label><input type="range" data-d="${r.r}" ${a}><input type="number" class="num" data-d="${r.r}" ${a}></div>`;
 }
 
+const shapeIconCache = {};
+function shapeIcon(k){
+  if(shapeIconCache[k]) return shapeIconCache[k];
+  const c = mk(44, 44), x = c.getContext('2d'); x.translate(22, 22); x.beginPath(); framePath(x, k, 32, 32, 0.2); x.fillStyle = '#1f1b2d'; x.fill();
+  return shapeIconCache[k] = c.toDataURL();
+}
 /* ---------- モード・タブ ---------- */
 let curTab = 'thumb';
 function setTab(t){
@@ -3567,6 +3689,14 @@ document.addEventListener('click', e => {
     const k = ds.parentElement.dataset.dseg; dSet(k, ds.dataset.v); syncDoc(); docChanged(false);
     if(k === 'bg.type' && ds.dataset.v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
     return;
+  }
+  const frp = e.target.closest('[data-frpre]');
+  if(frp){
+    const L = selLayer(); if(!L || L.type !== 'image') return;
+    const p = FRAME_PRESETS.find(q => q[0] === frp.dataset.frpre);
+    L.frame = Object.assign(FRAME_BASE(), {zoom:L.frame.zoom, ox:L.frame.ox, oy:L.frame.oy}, p[2]);
+    if(p[3]) L.outline = Object.assign({}, L.outline, {on:true}, p[3]);
+    syncDoc(); docChanged(false); return;
   }
   const afb = e.target.closest('[data-addfx]');
   if(afb && !afb.closest('#ctxmenu')){ addFx(afb.dataset.addfx); return; }
