@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="content-language" content="ja">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#fff7ee">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -675,7 +677,7 @@ document.addEventListener('input', e => { if(e.target.type === 'range') paintRan
 let DOC = null;
 
 const DEFAULT = {
-  text: '激闘！\n{マスター}到達',
+  text: '楽々サムネメーカー',
   font: 'Dela Gothic One', fontLatin: '', weight: 400, size: 160, ls: 0, lh: 1.15, align: 'center',
   fillType: 'grad', fill1: '#ffffff', fill2: '#ffe14d', fill3on: false, fill3: '#ffffff', gradAngle: 90, gradScope: 'block',
   metal: 'gold', splitDir: 'h', splitPos: 0.55, fillMode: 'normal',
@@ -2493,7 +2495,7 @@ renderThemes();
 
 /* ============ サムネ作成 ============ */
 const DOC_BASE = () => ({
-  mode:'thumb', w:1920, h:1080, exportW:1920, fmt:'jpg', limit2mb:true,
+  mode:'thumb', w:1920, h:1080, exportW:1920, fmt:'png', limit2mb:true,
   guides:{thirds:false, badge:true, snap:true},
   bg:{type:'grad', color:'#16161c', c1:'#ff5a2e', c2:'#ffbe3b', angle:120, asset:null, fit:'cover', zoom:1, ox:0, oy:0, rot:0, flip:false,
       gap:'blur', gapColor:'#111114', bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
