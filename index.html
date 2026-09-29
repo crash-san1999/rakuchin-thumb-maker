@@ -624,6 +624,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
     <button class="chip" data-guide="thirds">三分割</button>
     <button class="chip" data-guide="badge">再生時間</button>
     <button class="chip" data-guide="snap">スナップ</button>
+    <button class="chip" data-guide="fx" title="集中線・ズームブラーの中心をキャンバス上に表示してドラッグで動かす">効果の中心</button>
   </div>
   <div class="stage checker" id="stage">
     <div class="loading" id="loading">フォント読み込み中…</div>
@@ -676,6 +677,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
         <tr><td>ダブルクリック</td><td>文字を編集</td></tr>
         <tr><td>右クリック</td><td>レイヤーメニュー（前面へ・複製・ロックなど）</td></tr>
         <tr><td>Alt＋クリック</td><td>重なった下のレイヤーを選ぶ</td></tr>
+        <tr><td>黄色い◎をドラッグ</td><td>集中線・ズームブラーの中心を移動</td></tr>
       </table>
       <table class="htable sp-only">
         <tr><td>タップ</td><td>文字・画像を選択</td></tr>
@@ -683,6 +685,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
         <tr><td>2本指ピンチ</td><td>拡大縮小＋回転（未選択なら背景）</td></tr>
         <tr><td>ダブルタップ</td><td>文字を編集</td></tr>
         <tr><td>長押し</td><td>レイヤーメニュー</td></tr>
+        <tr><td>黄色い◎をドラッグ</td><td>集中線・ズームブラーの中心を移動</td></tr>
         <tr><td>下のバー</td><td>各パネルを開く／もう一度タップで閉じる</td></tr>
       </table>
       <h4>レイヤー</h4>
@@ -2592,10 +2595,10 @@ renderThemes();
 /* ============ サムネ作成 ============ */
 const DOC_BASE = () => ({
   mode:'thumb', w:1920, h:1080, exportW:1920, fmt:'png', limit2mb:true,
-  guides:{thirds:false, badge:true, snap:true},
+  guides:{thirds:false, badge:true, snap:true, fx:true},
   bg:{type:'grad', color:'#16161c', c1:'#ff5a2e', c2:'#ffbe3b', angle:120, asset:null, fit:'cover', zoom:1, ox:0, oy:0, rot:0, flip:false,
       gap:'blur', gapColor:'#111114', bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
-      dim:0, vignette:0.35, lines:{on:false, c:'#ffffff', a:0.5, n:120, inner:0.55, seed:1},
+      dim:0, vignette:0.35, fcx:0.5, fcy:0.5, lines:{on:false, c:'#ffffff', a:0.5, n:120, inner:0.55, w:1, len:1, seed:1},
       zb:{on:false, amt:0.25, cx:0.5, cy:0.5}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28},
       tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}},
   layers:[], sel:null, textSel:null,
@@ -2621,6 +2624,7 @@ function normalizeDoc(d){
   o.bg = Object.assign(base.bg, d.bg || {});
   for(const k of ['lines', 'zb', 'mb', 'mosaic', 'tint']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
+  if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
   o.layers = d.layers.map(L => L.type === 'text'
     ? Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over'}, L, {style: merged(L.style || {})})
     : Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over', flip:false}, L, {
@@ -2742,11 +2746,11 @@ function drawLayer(ctx, L, f, live, cache){
   ctx.restore();
 }
 function drawSpeedLines(ctx, W, H){
-  const l = DOC.bg.lines, R = rng(l.seed), cx = W / 2, cy = H / 2, outer = Math.hypot(W, H);
-  const rx = W / 2 * l.inner, ry = H / 2 * l.inner, step = 2 * PI / l.n;
+  const l = DOC.bg.lines, R = rng(l.seed), cx = W * DOC.bg.fcx, cy = H * DOC.bg.fcy, outer = Math.hypot(W, H) * 1.6;
+  const rx = W / 2 * l.inner, ry = H / 2 * l.inner, step = 2 * PI / l.n, wf = l.w ?? 1, jit = l.len ?? 1;
   ctx.fillStyle = rgba(l.c, l.a); ctx.beginPath();
   for(let i = 0; i < l.n; i++){
-    const a = (i + R() * 0.9) * step, w = step * (0.12 + R() * 0.38), k = 0.8 + R() * 0.55;
+    const a = (i + R() * 0.9) * step, w = step * (0.12 + R() * 0.38) * wf, k = 1 + (R() * 0.55 - 0.2) * jit;
     ctx.moveTo(cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k);
     ctx.lineTo(cx + Math.cos(a - w) * outer, cy + Math.sin(a - w) * outer);
     ctx.lineTo(cx + Math.cos(a + w) * outer, cy + Math.sin(a + w) * outer);
@@ -2812,7 +2816,7 @@ function bgImageLayer(W, H, f){
   if(b.mosaic.on) mosaic(c, b.mosaic.size * f);
   let out = c;
   if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
-  if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, b.zb.cx * W, b.zb.cy * H);
+  if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, clamp(b.fcx, 0, 1) * W, clamp(b.fcy, 0, 1) * H);
   if(b.tint.on && b.tint.a > 0){
     const tx = out.getContext('2d'); tx.save(); tx.globalCompositeOperation = b.tint.mode; tx.globalAlpha = b.tint.a;
     tx.fillStyle = b.tint.c; tx.fillRect(0, 0, W, H); tx.restore();
@@ -2852,7 +2856,8 @@ function drawBackground(ctx, W, H, f){
   }else ctx.drawImage(bgImageLayer(W, H, f), 0, 0);
   if(b.dim > 0){ ctx.fillStyle = `rgba(0,0,0,${b.dim})`; ctx.fillRect(0, 0, W, H); }
   if(b.vignette > 0){
-    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) / 2);
+    const vx = W * b.fcx, vy = H * b.fcy, far = Math.max(Math.hypot(vx, vy), Math.hypot(W - vx, vy), Math.hypot(vx, H - vy), Math.hypot(W - vx, H - vy));
+    const g = ctx.createRadialGradient(vx, vy, Math.min(W, H) * 0.3, vx, vy, far);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${b.vignette})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
@@ -2875,6 +2880,8 @@ function layerGeom(L){
   if(!inside(rot)){ const alt = [L.x - off * s, L.y + off * c]; rot = inside(alt) ? alt : [clamp(rot[0], m, DOC.w - m), clamp(rot[1], m, DOC.h - m)]; }
   return {pts, d, a, rot};
 }
+const fxHandleOn = () => DOC.guides.fx && (DOC.bg.lines.on || (DOC.bg.type === 'image' && DOC.bg.zb.on) || fxEditing);
+let fxEditing = false;
 function drawOverlay(ctx, W, H, dpr){
   const f = W / DOC.w;
   ctx.save();
@@ -2888,6 +2895,18 @@ function drawOverlay(ctx, W, H, dpr){
     ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 5 * dpr); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = `600 ${bh * 0.55}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('12:34', x + bw / 2, y + bh / 2 + dpr);
+  }
+  if(fxHandleOn()){
+    const hx = DOC.bg.fcx * W, hy = DOC.bg.fcy * H, r = 13 * dpr;
+    ctx.save(); ctx.lineWidth = 2.5 * dpr;
+    ctx.strokeStyle = '#1f1b2d'; ctx.fillStyle = 'rgba(255,184,0,.9)';
+    ctx.beginPath(); ctx.arc(hx, hy, r, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(hx, hy, r * 0.42, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx - r * 1.9, hy); ctx.lineTo(hx - r * 1.15, hy); ctx.moveTo(hx + r * 1.15, hy); ctx.lineTo(hx + r * 1.9, hy);
+    ctx.moveTo(hx, hy - r * 1.9); ctx.lineTo(hx, hy - r * 1.15); ctx.moveTo(hx, hy + r * 1.15); ctx.lineTo(hx, hy + r * 1.9); ctx.stroke();
+    ctx.font = `800 ${11 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3 * dpr; ctx.strokeStyle = '#fff'; ctx.strokeText('効果の中心', hx + r * 1.6, hy - r * 1.4); ctx.fillStyle = '#1f1b2d'; ctx.fillText('効果の中心', hx + r * 1.6, hy - r * 1.4);
+    ctx.restore();
   }
   if(snapLines.x != null || snapLines.y != null){
     ctx.strokeStyle = '#ff4f8b'; ctx.lineWidth = dpr; ctx.beginPath();
@@ -3166,8 +3185,6 @@ const BG_ROWS = [
   {sub:'エフェクト', show:'bg.type=image'},
   {chk:'bg.zb.on', l:'ズームブラー（中心へ吸い込まれる）', show:'bg.type=image'},
   {r:'bg.zb.amt', l:'強さ', min:0.02, max:0.8, step:0.01, show:'bg.type=image&bg.zb.on=true'},
-  {r:'bg.zb.cx', l:'中心 左右', min:0, max:1, step:0.01, show:'bg.type=image&bg.zb.on=true'},
-  {r:'bg.zb.cy', l:'中心 上下', min:0, max:1, step:0.01, show:'bg.type=image&bg.zb.on=true'},
   {chk:'bg.mb.on', l:'モーションブラー（流れる）', show:'bg.type=image'},
   {r:'bg.mb.dist', l:'距離', min:5, max:400, step:1, show:'bg.type=image&bg.mb.on=true'},
   {r:'bg.mb.angle', l:'方向', min:-90, max:90, step:1, show:'bg.type=image&bg.mb.on=true'},
@@ -3180,6 +3197,10 @@ const BG_ROWS = [
   {c:'bg.color', l:'色', show:'bg.type=color'},
   {c:'bg.c1', l:'色1', show:'bg.type=grad'}, {c:'bg.c2', l:'色2', show:'bg.type=grad'},
   {r:'bg.angle', l:'角度', min:0, max:360, step:1, show:'bg.type=grad'},
+  {sub:'効果の中心', note:'集中線・ズームブラー・周辺減光の中心。キャンバス上の ◎ をドラッグしても動かせます'},
+  {r:'bg.fcx', l:'左右', min:-0.2, max:1.2, step:0.005},
+  {r:'bg.fcy', l:'上下', min:-0.2, max:1.2, step:0.005},
+  {btns:[['fxCenter', 'reset', '中央に戻す']]},
   {sub:'仕上げ'},
   {r:'bg.dim', l:'暗くする', min:0, max:0.85, step:0.01},
   {r:'bg.vignette', l:'周辺減光', min:0, max:1, step:0.01},
@@ -3187,7 +3208,9 @@ const BG_ROWS = [
   {c:'bg.lines.c', l:'色', show:'bg.lines.on=true'},
   {r:'bg.lines.a', l:'濃さ', min:0.05, max:1, step:0.01, show:'bg.lines.on=true'},
   {r:'bg.lines.n', l:'本数', min:20, max:260, step:1, show:'bg.lines.on=true'},
-  {r:'bg.lines.inner', l:'中心の空き', min:0.1, max:1.3, step:0.01, show:'bg.lines.on=true'},
+  {r:'bg.lines.inner', l:'中心の空き', min:0.05, max:1.5, step:0.01, show:'bg.lines.on=true'},
+  {r:'bg.lines.w', l:'線の太さ', min:0.2, max:3, step:0.05, show:'bg.lines.on=true'},
+  {r:'bg.lines.len', l:'長さのばらつき', min:0, max:2, step:0.05, show:'bg.lines.on=true'},
   {seed:'bg.lines.seed', l:'ランダム', show:'bg.lines.on=true'},
 ];
 const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走'], ['soft', 'ふんわり'], ['pop', '文字を目立たせる'], ['vivid', '鮮やか'],
@@ -3236,7 +3259,8 @@ document.addEventListener('input', e => {
   else if(el.type === 'range' || el.type === 'number' || el.dataset.num){ v = parseFloat(el.value); if(isNaN(v)) return; }
   else if(el.classList.contains('hex')){ if(!/^#[0-9a-f]{6}$/i.test(el.value)) return; v = el.value.toLowerCase(); }
   else v = el.value;
-  dSet(k, v); syncDoc(el); docChanged(el.type === 'range');
+  dSet(k, v); if(/^bg\.fc[xy]$/.test(k)){ fxEditing = true; clearTimeout(fxEditing.t); fxEditing.t = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
+  syncDoc(el); docChanged(el.type === 'range');
 });
 document.addEventListener('click', e => {
   const pb = e.target.closest('[data-place]');
@@ -3433,6 +3457,9 @@ async function openProjectFile(f){
     if(DOC.mode !== 'thumb' || e.button !== 0) return;
     const [x, y] = toDoc(e);
     hideMenu();
+    if(fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){
+      drag = {mode:'fx'}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return;
+    }
     let mode = handleAt(x, y), T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
@@ -3458,8 +3485,15 @@ async function openProjectFile(f){
   tv.addEventListener('pointermove', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
+    if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
+    if(drag.mode === 'fx'){
+      let fx = x / DOC.w, fy = y / DOC.h;
+      if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * 9 / 16 < 8) fy = v; } }
+      DOC.bg.fcx = Math.round(clamp(fx, -0.2, 1.2) * 1000) / 1000; DOC.bg.fcy = Math.round(clamp(fy, -0.2, 1.2) * 1000) / 1000;
+      syncDoc(); livePaint(); return;
+    }
     if(drag.mode === 'bg'){
       DOC.bg.ox = Math.round((drag.ox + (x - drag.x0) / (DOC.w / 2)) * 1000) / 1000;
       DOC.bg.oy = Math.round((drag.oy + (y - drag.y0) / (DOC.h / 2)) * 1000) / 1000;
@@ -3672,6 +3706,7 @@ function thumbInit(){
   $('#editText').onclick = () => { goTab('text'); if(!isMobile) $('#text').focus(); };
   $('#editStyle').onclick = () => goTab('style');
   $('#pickBg').onclick = () => $('#bgimgfile').click();
+  $('#fxCenter').onclick = () => { DOC.bg.fcx = 0.5; DOC.bg.fcy = 0.5; syncDoc(); docChanged(false); };
   applyView(true);
   setMode(DOC.mode, true);
   setTab(LS.get('ttm_tab', 'thumb'));
