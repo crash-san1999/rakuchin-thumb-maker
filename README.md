@@ -25,3 +25,31 @@
 ## データについて
 
 作ったサムネや読み込んだ画像は、すべて使っている人のブラウザの中だけに保存されます（サーバーには送信されません）。
+
+## ファイル構成
+
+ビルド不要の静的サイトです。`index.html` をブラウザで開くか、GitHub Pages でそのまま動きます。
+
+```
+index.html               画面の骨組み（HTML）
+css/app.css              スタイル
+js/core.js               共通の小道具・アイコン
+js/presets.js            文字スタイルのプリセット
+js/data/google-fonts.js  Google Fonts 全書体の一覧データ
+js/fonts.js              フォント管理（Google Fonts・Webフリー・PC内・URL追加）
+js/controls.js           文字の操作パネル生成
+js/text-render.js        文字の描画エンジン・装飾
+js/preview.js            文字素材モードのプレビュー・書き出し
+js/colors.js             配色
+js/thumb/frames.js       画像の切り抜きフレーム（形・枠のデザイン・プリセット）
+js/thumb/doc.js          サムネのデータ構造・動的エフェクト定義・画像アセット
+js/thumb/render.js       サムネの描画（レイヤー・背景・エフェクト）
+js/thumb/export.js       サムネの書き出し・ドキュメント操作
+js/thumb/panel.js        操作パネル・モード・タブ
+js/thumb/events.js       キャンバス・レイヤーパネルの操作
+js/mobile.js             PC／スマホの自動判定・タッチ操作
+js/main.js               起動
+docs/manual.md           操作マニュアル
+```
+
+JavaScript は通常の `<script>` を上から順に読み込み、共通の変数や関数を共有しています。読み込み順に意味があるので、`index.html` の並びは変えないでください。ファイルを変更したら、`index.html` の `?v=` の値を変えるとブラウザのキャッシュが更新されます。
