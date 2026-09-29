@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=08f3c454">
+<link rel="stylesheet" href="css/app.css?v=f79b710f">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -60,6 +60,7 @@
         <button class="btn sm" id="addText"><i data-ic="text"></i>文字を追加</button>
         <button class="btn sm" id="addImg"><i data-ic="image"></i>画像を追加</button>
         <button class="btn sm" id="addFxBtn"><i data-ic="fxadd"></i>エフェクト</button>
+        <button class="btn sm" id="addCollageBtn"><i data-ic="grid"></i>分割フレーム</button>
         <input type="file" id="imgfile" accept="image/*" multiple hidden>
       </div>
       <p class="note" id="selHint">キャンバス上の文字や画像、または右のレイヤーパネルをクリックすると、ここで大きさ・回転・描画モードなどを調整できます。</p>
@@ -205,6 +206,7 @@
     <div class="lp-head"><i data-ic="layers"></i>レイヤー<span class="lp-count" id="lpCount"></span>
       <button class="icon-btn sm" id="lpAddText" title="文字を追加"><i data-ic="text"></i></button>
       <button class="icon-btn sm" id="lpAddImg" title="画像を追加"><i data-ic="image"></i></button>
+      <button class="icon-btn sm" id="lpAddCollage" title="分割フレーム（複数の画像を2〜6分割で並べる）を追加"><i data-ic="grid"></i></button>
       <button class="icon-btn sm" id="lpAddFx" title="動的エフェクト（集中線・光・キラキラ・爆発）を追加"><i data-ic="fxadd"></i></button>
     </div>
     <div class="lp-hint"><span class="pc-only">ドラッグで重なり順を入れ替え。上にあるほど手前に表示されます。右クリックでメニュー。</span><span class="sp-only">左の ⋮⋮ をつまんで上下に動かすと重なり順を入れ替えられます。長押しでメニュー。</span></div>
@@ -280,21 +282,22 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=08f3c454"></script>
-<script src="js/presets.js?v=08f3c454"></script>
-<script src="js/data/google-fonts.js?v=08f3c454"></script>
-<script src="js/fonts.js?v=08f3c454"></script>
-<script src="js/controls.js?v=08f3c454"></script>
-<script src="js/text-render.js?v=08f3c454"></script>
-<script src="js/preview.js?v=08f3c454"></script>
-<script src="js/colors.js?v=08f3c454"></script>
-<script src="js/thumb/frames.js?v=08f3c454"></script>
-<script src="js/thumb/doc.js?v=08f3c454"></script>
-<script src="js/thumb/render.js?v=08f3c454"></script>
-<script src="js/thumb/export.js?v=08f3c454"></script>
-<script src="js/thumb/panel.js?v=08f3c454"></script>
-<script src="js/thumb/events.js?v=08f3c454"></script>
-<script src="js/mobile.js?v=08f3c454"></script>
-<script src="js/main.js?v=08f3c454"></script>
+<script src="js/core.js?v=f79b710f"></script>
+<script src="js/presets.js?v=f79b710f"></script>
+<script src="js/data/google-fonts.js?v=f79b710f"></script>
+<script src="js/fonts.js?v=f79b710f"></script>
+<script src="js/controls.js?v=f79b710f"></script>
+<script src="js/text-render.js?v=f79b710f"></script>
+<script src="js/preview.js?v=f79b710f"></script>
+<script src="js/colors.js?v=f79b710f"></script>
+<script src="js/thumb/frames.js?v=f79b710f"></script>
+<script src="js/thumb/collage.js?v=f79b710f"></script>
+<script src="js/thumb/doc.js?v=f79b710f"></script>
+<script src="js/thumb/render.js?v=f79b710f"></script>
+<script src="js/thumb/export.js?v=f79b710f"></script>
+<script src="js/thumb/panel.js?v=f79b710f"></script>
+<script src="js/thumb/events.js?v=f79b710f"></script>
+<script src="js/mobile.js?v=f79b710f"></script>
+<script src="js/main.js?v=f79b710f"></script>
 </body>
 </html>

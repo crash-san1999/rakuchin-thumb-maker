@@ -13,6 +13,7 @@ function toast(msg, err){
 
 /* ============ アイコン ============ */
 const ICONS = {
+  grid:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h8.5"/>',
   crop:'<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
   dice:'<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.6" cy="8.6" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.2" fill="currentColor" stroke="none"/>',
   drop:'<path d="m14 7 3 3"/><path d="M16.4 4.2a2.2 2.2 0 0 1 3.2 3.2L17.5 9.5l-3-3z"/><path d="M14.5 6.5 6 15l-1 4 4-1 8.5-8.5"/>',

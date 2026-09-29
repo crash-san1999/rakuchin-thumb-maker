@@ -25,6 +25,28 @@ const SEL_ROWS = [
   {sel:'@blend', l:'描画モード', opts:Object.entries({'source-over':'通常', multiply:'乗算（暗く重ねる）', screen:'スクリーン（明るく重ねる）', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト', 'color-dodge':'覆い焼き（光る）', lighter:'加算（発光）', difference:'差の絶対値', luminosity:'輝度'})},
   {chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
   {place:true, l:'配置'},
+  {sub:'分割フレーム', note:'複数の画像を並べます。マスに画像をドロップするか、下の一覧から選んでください', show:'@type=collage'},
+  {seg:'@n', l:'分割数', opts:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']], show:'@type=collage'},
+  {layouts:true, l:'分割のしかた', show:'@type=collage'},
+  {r:'@slant', l:'傾き・回転', min:-1, max:1, step:0.01, show:'@type=collage&@layout=cols|rows|bigL|bigT|radial'},
+  {r:'@main', l:'大きいマスの大きさ', min:0.25, max:0.8, step:0.01, show:'@type=collage&@layout=bigL|bigT'},
+  {seg:'@edge', l:'境界の形', opts:COLLAGE_EDGES, show:'@type=collage'},
+  {r:'@amp', l:'形の大きさ', min:4, max:90, step:1, show:'@type=collage&@edge=zigzag|wave|rough'},
+  {sel:'@bstyle', l:'境界線', opts:COLLAGE_BSTYLES, show:'@type=collage'},
+  {r:'@lw', l:'太さ・ぼかし幅', min:0, max:120, step:1, show:'@type=collage&@bstyle=line|gap|glow|blur|shadow'},
+  {c:'@lc', l:'線の色', show:'@type=collage&@bstyle=line|glow'},
+  {chk:'@outer', l:'外枠も付ける（線の色・太さ）', show:'@type=collage'},
+  {r:'@radius', l:'角の丸み', min:0, max:300, step:1, show:'@type=collage'},
+  {sub:'マスの画像', note:'マスをクリックで選択。画像のないマスは画像を選べます', show:'@type=collage'},
+  {cells:true, show:'@type=collage'},
+  {r:'@cell.zoom', l:'画像の大きさ', min:0.2, max:5, step:0.01, show:'@type=collage'},
+  {r:'@cell.ox', l:'画像 左右', min:-1, max:1, step:0.005, show:'@type=collage'},
+  {r:'@cell.oy', l:'画像 上下', min:-1, max:1, step:0.005, show:'@type=collage'},
+  {btns:[['collageEditBtn', 'crop', 'キャンバスでマスの画像を調整']], show:'@type=collage'},
+  {sub:'全体の大きさ', show:'@type=collage'},
+  {r:'@bw', l:'横幅', min:100, max:1920, step:1, show:'@type=collage'},
+  {r:'@bh', l:'高さ', min:100, max:1080, step:1, show:'@type=collage'},
+  {btns:[['collageFill', 'monitor', '画面いっぱいにする']], show:'@type=collage'},
   {chk:'@flip', l:'左右反転', show:'@type=image'},
   {sub:'切り抜きフレーム', note:'図形で切り抜いて枠を付けます。形と枠のデザインは自由に組み合わせOK', show:'@type=image'},
   {frpre:true, show:'@type=image'},
@@ -102,6 +124,8 @@ const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走
   ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'], ['reset', 'リセット']];
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
+  if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
+  if(r.cells) return `<div id="cellBox"${sa}></div>`;
   if(r.frpre){ const nm = Object.fromEntries(FRAME_PRESETS.map(p => [p[0], p[1]]));
     return `<div${sa}>${FRAME_GROUPS.map(([g, ks]) => `<div class="frgrp">${g}</div><div class="pcats frpre">${ks.map(k => `<button data-frpre="${k}">${nm[k]}</button>`).join('')}</div>`).join('')}<div class="pcats frpre"><button data-frpre="off">フレームなし</button></div></div>`; }
   if(r.shapes) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes" data-dseg="@frame.shape">${FRAME_SHAPES.map(([k, t]) => `<button data-v="${k}" title="${t}">${k === 'none' ? '<span>なし</span>' : `<img src="${shapeIcon(k)}" alt="${t}">`}</button>`).join('')}</div></div>`;

@@ -4,7 +4,7 @@ async function thumbBlob(fmt){
   for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style);
   const W = DOC.exportW, H = Math.round(W * 9 / 16), c = mk(W, H);
   if(fmt !== 'png'){ const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }
-  compose(c.getContext('2d'), W, H, false, new Map());
+  exporting = true; try{ compose(c.getContext('2d'), W, H, false, new Map()); } finally { exporting = false; }
   const toB = (t, q) => new Promise(r => c.toBlob(r, t, q));
   if(fmt === 'png') return toB('image/png');
   let q = 0.93, b = await toB('image/jpeg', q);
@@ -23,7 +23,10 @@ async function exportThumb(){
 }
 
 /* ---------- ドキュメント操作 ---------- */
-function dBase(k){ return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k]; }
+function dBase(k){
+  if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.cells ? L.cells[L.ac || 0] : null, k.slice(6)]; }
+  return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k];
+}
 function dGet(k){ const [b, p] = dBase(k); return b ? p.split('.').reduce((o, q) => o?.[q], b) : undefined; }
 function dSet(k, v){
   const [b, p] = dBase(k); if(!b) return;
@@ -53,8 +56,9 @@ function syncDoc(except){
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const L = selLayer();
   $('#selBox').style.display = L ? '' : 'none'; $('#selHint').style.display = L ? 'none' : '';
-  if(L) $('#selTitle').textContent = ({text:'選択中の文字 ― ', image:'選択中の画像 ― ', fx:'選択中のエフェクト ― '}[L.type]) + layerName(L);
+  if(L) $('#selTitle').textContent = ({text:'選択中の文字 ― ', image:'選択中の画像 ― ', fx:'選択中のエフェクト ― ', collage:''}[L.type]) + layerName(L);
   updateEditing();
+  renderCells();
 }
 let lpSliding = false;
 function renderLayers(){
@@ -63,7 +67,7 @@ function renderLayers(){
   const arr = DOC.layers.slice().reverse();
   $('#lpCount').textContent = DOC.layers.length ? `${DOC.layers.length}枚` : '';
   const rows = arr.map(L => {
-    const sub = L.type === 'text' ? '文字' : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
+    const sub = L.type === 'text' ? '文字' : L.type === 'collage' ? `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚` : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
     const mode = L.blend && L.blend !== 'source-over' ? ' ・ ' + (BLEND_NAMES[L.blend] || L.blend) : '';
     const th = L.type === 'fx' ? `<span class="fxth" style="--fxc:${L.p.c || '#fff'}">${ic(FX_ICONS[L.kind])}</span>` : L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${L.id}" width="72" height="72"></canvas>`;
     return `<div class="ly${L.id === DOC.sel ? ' on' : ''}${L.hidden ? ' hid' : ''}${L.locked ? ' locked' : ''}" data-lid="${L.id}" title="ドラッグで重なり順を変更・ダブルクリックで名前を変更">
@@ -136,6 +140,7 @@ document.addEventListener('pointerdown', e => { if(!e.target.closest('#ctxmenu')
 window.addEventListener('blur', hideMenu);
 function selectLayer(id){
   if(frameEdit && id !== frameEdit) setFrameEdit(null);
+  if(collageEdit && id !== collageEdit) setCollageEdit(null);
   DOC.sel = id;
   const L = selLayer();
   if(L && L.type === 'text'){
@@ -171,7 +176,8 @@ function layerAction(id, act){
   }
   syncDoc(); renderLayers(); docChanged(false);
 }
-async function addImageLayers(files){
+async function addImageLayers(files, skipCollage){
+  if(!skipCollage){ files = await collageTakeFiles(files.filter(f => /^image\//.test(f.type))); if(!files.length) return; }
   let last = null;
   for(const f of files){
     if(!/^image\//.test(f.type)) continue;

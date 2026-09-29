@@ -27,10 +27,12 @@ const mkFx = (kind, p = {}, ex = {}) => Object.assign({id:uid(), type:'fx', kind
 const mkTextLayer = (style, x, y, sc) => ({id:uid(), type:'text', x, y, sc, rot:0, op:1, hidden:false, locked:false, blend:'source-over', style});
 const selLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.sel)) || null;
 const textLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.textSel)) || null;
+function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : [])].filter(Boolean)); }
 function layerName(L){
   if(L.label) return L.label;
   if(L.type === 'text') return L.style.text.replace(/[{}]/g, '').replace(/\n/g, ' ').trim().slice(0, 28) || '（空の文字）';
   if(L.type === 'fx') return FX_NAMES[L.kind] || 'エフェクト';
+  if(L.type === 'collage') return `分割フレーム（${collageN(L)}分割）`;
   return L.name || '画像';
 }
 function normalizeDoc(d){
@@ -48,6 +50,7 @@ function normalizeDoc(d){
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
   o.layers = d.layers.filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
     ? Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over'}, L, {style: merged(L.style || {})})
+    : L.type === 'collage' ? (b => Object.assign(b, L, {cells: b.cells.map((c, i) => Object.assign(c, (L.cells || [])[i] || {}))}))(COLLAGE_BASE())
     : L.type === 'fx' ? Object.assign({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'}, L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign({op:1, rot:0, hidden:false, locked:false, blend:'source-over', flip:false}, L, {
         outline: Object.assign({on:true, w:10, c:'#ffffff'}, L.outline || {}),
@@ -100,7 +103,7 @@ async function idbRestore(){
   try{
     const db = await idb(), st = db.transaction('assets').objectStore('assets');
     const [keys, vals] = await Promise.all([idbReq(st.getAllKeys()), idbReq(st.getAll())]);
-    const used = new Set([DOC.bg.asset, ...DOC.layers.filter(l => l.type === 'image').map(l => l.asset)]);
+    const used = usedAssets();
     for(let i = 0; i < keys.length; i++){
       if(used.has(keys[i])){ if(!ASSETS[keys[i]]) await addAsset(vals[i].src, vals[i].name, keys[i], true); }
       else db.transaction('assets', 'readwrite').objectStore('assets').delete(keys[i]);

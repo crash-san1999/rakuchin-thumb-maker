@@ -28,6 +28,8 @@ document.addEventListener('click', e => {
     if(k === 'bg.type' && ds.dataset.v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
     return;
   }
+  if(e.target.closest('#collageEditBtn')){ const L = selLayer(); if(L) setCollageEdit(collageEdit ? null : L.id); return; }
+  if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:960, y:540, bw:1920, bh:1080, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
   if(e.target.closest('#frameEditBtn')){ const L = selLayer(); if(L) setFrameEdit(frameEdit ? null : L.id); return; }
   const frp = e.target.closest('[data-frpre]');
   if(frp){
@@ -122,6 +124,8 @@ document.addEventListener('click', e => {
   $('#lpAddText').onclick = () => $('#addText').click();
   $('#lpAddImg').onclick = () => $('#imgfile').click();
   $('#lpAddFx').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); setTimeout(() => showFxMenu(r.right - 280, r.bottom + 6), 0); };
+  $('#lpAddCollage').onclick = () => addCollage();
+  $('#addCollageBtn').onclick = () => addCollage();
   $('#addFxBtn').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); setTimeout(() => showFxMenu(r.left, r.bottom + 6), 0); };
 }
 $('#addText').onclick = () => {
@@ -134,7 +138,7 @@ $('#addImg').onclick = () => $('#imgfile').click();
 $('#imgfile').onchange = e => { addImageLayers([...e.target.files]); e.target.value = ''; };
 $('#bgimgfile').onchange = e => { const f = e.target.files[0]; if(f) setBgFromFile(f); e.target.value = ''; };
 $('#saveProj').onclick = () => {
-  const used = new Set([DOC.bg.asset, ...DOC.layers.filter(l => l.type === 'image').map(l => l.asset)]), assets = {};
+  const used = usedAssets(), assets = {};
   used.forEach(id => { if(id && ASSETS[id]) assets[id] = ASSETS[id].src; });
   const blob = new Blob([JSON.stringify({app:'rakuchin-thumb', v:1, doc:DOC, assets})], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'rakuchin-thumb-project.json'; a.click();
@@ -185,7 +189,7 @@ async function openProjectFile(f){
     if(!imgs.length){ if(!fontsF.length) toast('画像（PNG / JPG / WebP など）かフォントファイルをドロップしてください', true); return; }
     if(DOC.mode !== 'thumb'){ setMode('thumb'); }
     if(zone === 'bg'){ await setBgFromFile(imgs[0]); goTab('thumb'); toast('背景に設定しました'); if(imgs.length > 1) addImageLayers(imgs.slice(1)); }
-    else addImageLayers(imgs);
+    else { const rest = await collageTakeFiles(imgs, e.clientX, e.clientY); if(rest.length) addImageLayers(rest, true); }
   });
   document.addEventListener('paste', e => {
     if(DOC.mode !== 'thumb') return;
@@ -231,6 +235,7 @@ async function openProjectFile(f){
     if(fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){
       drag = {mode:'fx'}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return;
     }
+    if(collagePointerDown(e, x, y, tv)) return;
     const FE = frameEditLayer();
     if(FE){
       const G = frameGeom(FE), [u, v] = frameLocal(FE, x, y), px = DOC.w / tvCss / FE.sc;
@@ -268,9 +273,10 @@ async function openProjectFile(f){
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
-    if(!drag && frameEditLayer()){ tv.style.cursor = 'move'; return; }
+    if(!drag && (frameEditLayer() || collageEditLayer())){ tv.style.cursor = 'move'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
+    if(drag.mode === 'cpan'){ collagePointerMove(x, y); return; }
     if(drag.mode === 'fmove' || drag.mode === 'fscale'){
       const G = drag.g0;
       // 基準位置に戻してから計算（画像は固定、フレームだけ動く）
@@ -318,6 +324,7 @@ async function openProjectFile(f){
   tv.addEventListener('wheel', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitLayer(x, y), k = Math.exp(-e.deltaY * 0.0015);
+    if(collageWheel(e, x, y, k)) return;
     const FE = frameEditLayer();
     if(FE){ const g0 = frameGeom(FE); FE.frame.fs = Math.round(clamp((FE.frame.fs ?? 1) * k, 0.1, 1) * 1000) / 1000; frameCompensate(FE, g0); e.preventDefault(); syncDoc(); docChanged(true); return; }
     if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
@@ -338,6 +345,7 @@ async function openProjectFile(f){
     const [x, y] = toDoc(e), L = hitLayer(x, y);
     if(L && L.type === 'text'){ selectLayer(L.id); goTab('text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
     else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ selectLayer(L.id); setFrameEdit(L.id); }
+    else if(L && L.type === 'collage' && !collageEdit){ selectLayer(L.id); setCollageEdit(L.id, collageCellAt(L, x, y)); }
   });
   document.addEventListener('keydown', e => {
     if(DOC.mode !== 'thumb') return;
@@ -355,7 +363,7 @@ async function openProjectFile(f){
       e.preventDefault(); const fwd = e.code === 'BracketRight';
       layerAction(L.id, e.shiftKey ? (fwd ? 'front' : 'back') : (fwd ? 'up' : 'down'));
     }
-    else if(e.key === 'Escape'){ hideMenu(); if(frameEdit){ setFrameEdit(null); return; } selectLayer(null); }
+    else if(e.key === 'Escape'){ hideMenu(); if(frameEdit){ setFrameEdit(null); return; } if(collageEdit){ setCollageEdit(null); return; } selectLayer(null); }
   });
 }
 

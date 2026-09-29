@@ -73,7 +73,9 @@ async function shareFile(blob, name){
       e.stopImmediatePropagation(); clearTimeout(lp); drag = null; snapLines = {x:null, y:null};
       const I = pairInfo(), L = selLayer();
       const FE = frameEditLayer();
-      if(FE) pinch = {kind:'frame', L:FE, i:I, fs:FE.frame.fs ?? 1};
+      const CE = collageEditLayer();
+      if(CE) pinch = {kind:'cell', L:CE, i:I, zoom:CE.cells[CE.ac || 0].zoom || 1};
+      else if(FE) pinch = {kind:'frame', L:FE, i:I, fs:FE.frame.fs ?? 1};
       else if(L && !L.locked) pinch = {kind:'layer', L, i:I, sc:L.sc, rot:L.rot || 0, x:L.x, y:L.y};
       else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]) pinch = {kind:'bg', i:I, zoom:DOC.bg.zoom, ox:DOC.bg.ox, oy:DOC.bg.oy};
       return;
@@ -97,6 +99,7 @@ async function shareFile(blob, name){
       const [dx, dy] = toDoc(e.clientX, e.clientY), L = selLayer();
       if(L && L.type === 'text'){ clearTimeout(lp); setTimeout(() => goTab('text'), 30); }
       else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ clearTimeout(lp); setFrameEdit(L.id); }
+      else if(L && L.type === 'collage' && !collageEdit){ clearTimeout(lp); setCollageEdit(L.id, collageCellAt(L, dx, dy)); }
     }
     lastTap = {t:now, x:e.clientX, y:e.clientY};
   }, true);
@@ -108,7 +111,8 @@ async function shareFile(blob, name){
     if(!pinch || pts.size < 2) return;
     e.stopImmediatePropagation();
     const I = pairInfo(), k = I.d / Math.max(1, pinch.i.d), r = tv.getBoundingClientRect(), u = DOC.w / r.width;
-    if(pinch.kind === 'frame'){ const L = pinch.L, g0 = frameGeom(L); L.frame.fs = Math.round(clamp(pinch.fs * k, 0.1, 1) * 1000) / 1000; frameCompensate(L, g0); }
+    if(pinch.kind === 'cell'){ const c = pinch.L.cells[pinch.L.ac || 0]; c.zoom = Math.round(clamp(pinch.zoom * k, 0.2, 8) * 1000) / 1000; }
+    else if(pinch.kind === 'frame'){ const L = pinch.L, g0 = frameGeom(L); L.frame.fs = Math.round(clamp(pinch.fs * k, 0.1, 1) * 1000) / 1000; frameCompensate(L, g0); }
     else if(pinch.kind === 'layer'){
       const L = pinch.L;
       L.sc = Math.round(clamp(pinch.sc * k, 0.05, 10) * 1000) / 1000;
