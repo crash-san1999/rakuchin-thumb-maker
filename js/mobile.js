@@ -33,7 +33,6 @@ function openSheet(name, force){
   document.querySelectorAll('#mbar [data-sheet]').forEach(b => b.classList.toggle('on', b.dataset.sheet === name));
   clearTimeout(openSheet.t); openSheet.t = setTimeout(() => paintPreview(false), 340);
 }
-function goTab(t){ setTab(t); if(isMobile) openSheet('ins', true); }
 $('#mbar').addEventListener('click', e => { const b = e.target.closest('[data-sheet]'); if(!b) return; const n = b.dataset.sheet;
   if(n === 'add'){ openSheet(null); togglePop('addMenu', b); return; }
   if(n === 'bg'){ selectLayer(null); openSheet('ins', true); return; }
@@ -43,7 +42,7 @@ document.addEventListener('click', e => {
   const vb = e.target.closest('#viewSeg [data-view]');
   if(vb){ LS.set('ttm_view', vb.dataset.view); applyView(true); setTimeout(() => paintPreview(false), 60); toast(vb.dataset.view === 'auto' ? '画面を自動判定に戻しました' : vb.dataset.view === 'pc' ? 'PC表示に固定しました' : 'スマホ表示に固定しました'); }
 });
-$('#viewBtn').onclick = () => { LS.set('ttm_view', isMobile ? 'pc' : 'mobile'); applyView(true); setTimeout(() => paintPreview(false), 60); toast(isMobile ? 'スマホ表示に切り替えました（配置・背景 → 保存と書き出し で「自動判定」に戻せます）' : 'PC表示に切り替えました'); };
+$('#viewBtn').onclick = () => { LS.set('ttm_view', isMobile ? 'pc' : 'mobile'); applyView(true); setTimeout(() => paintPreview(false), 60); toast(isMobile ? 'スマホ表示に切り替えました（ファイルメニュー で「自動判定」に戻せます）' : 'PC表示に切り替えました'); };
 /* シートは下へスワイプで閉じる */
 document.querySelectorAll('.sheet-grip').forEach(g => {
   let y0 = null;
@@ -100,7 +99,7 @@ async function shareFile(blob, name){
     const now = Date.now();
     if(now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30){
       const [dx, dy] = toDoc(e.clientX, e.clientY), L = selLayer();
-      if(L && L.type === 'text'){ clearTimeout(lp); setTimeout(() => goTab('text'), 30); }
+      if(L && L.type === 'text'){ clearTimeout(lp); setTimeout(() => openInspector('txt-text'), 30); }
       else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ clearTimeout(lp); setFrameEdit(L.id); }
       else if(L && L.type === 'collage' && !collageEdit){ clearTimeout(lp); setCollageEdit(L.id, collageCellAt(L, dx, dy)); }
     }
@@ -150,10 +149,8 @@ document.addEventListener('keydown', e => {
 });
 
 function thumbInit(){
-  $('#selBox').innerHTML = `<div class="selbox"><div class="subhead" id="selTitle" hidden></div>${SEL_ROWS.map(r => drowPg(r)).join('')}</div>`;
+  $('#selBox').innerHTML = `${SEL_ROWS.map(r => drowPg(r)).join('')}`;
   $('#bgRows').innerHTML = BG_ROWS.map(r => drowPg(r, true)).join('');
-  $('#editText').onclick = () => { goTab('text'); if(!isMobile) $('#text').focus(); };
-  $('#editStyle').onclick = () => goTab('style');
   $('#pickBg').onclick = () => $('#bgimgfile').click();
   $('#fxCenter').onclick = () => { DOC.bg.fcx = 0.5; DOC.bg.fcy = 0.5; syncDoc(); docChanged(false); };
   applyView(true);

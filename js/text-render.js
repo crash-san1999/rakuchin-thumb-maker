@@ -434,7 +434,7 @@ function addReflection(B, body, scale){
 }
 
 /* ---------- 海外リファレンス由来の装飾 ---------- */
-const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
 function makeNoise(seed){
   const R = rng(seed), N = 256, tab = new Float32Array(N * N);
   for(let i = 0; i < tab.length; i++) tab[i] = R();

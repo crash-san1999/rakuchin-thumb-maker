@@ -67,7 +67,6 @@ const SEL_ROWS = [
   {r:'@shadow.blur', l:'影ぼかし', min:0, max:120, step:1, show:'@type=image'},
   {r:'@shadow.y', l:'影の位置', min:-60, max:90, step:1, show:'@type=image'},
   {r:'@shadow.a', l:'影の濃さ', min:0, max:1, step:0.01, show:'@type=image'},
-  {btns:[['editText', 'text', '文字を編集'], ['editStyle', 'palette', 'スタイルを選ぶ']], show:'@type=text'},
 ];
 const BG_ROWS = [
   {sub:'色調は、背景が「画像」のときに使えます', tonenote:true, show:'bg.type=grad|color'},
@@ -136,7 +135,6 @@ function rowPg(r, bg){
   if(k.startsWith('@outline.')) return 'frame|edge';
   if(r.sub === '分割フレーム' || r.layouts || ['@n', '@slant', '@main', '@edge', '@amp', '@bstyle', '@lw', '@lc', '@outer', '@radius'].includes(k)) return 'split';
   if(r.sub === 'マスの画像' || r.cells || k.startsWith('@cell.') || b === 'collageEditBtn') return 'cells';
-  if(b === 'editText') return 'none';
   return 'base';
 }
 const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
@@ -169,7 +167,7 @@ function shapeIcon(k){
 }
 /* ---------- モード・タブ ---------- */
 /* ---------- 選んだものに合わせた設定パネル ---------- */
-let curTab = 'thumb', curPage = null, insKey = '', pendingPage = null;
+let curPage = null, insKey = '', pendingPage = null;
 const lastPage = LS.get('ttm_pages', {});
 const INS_PAGES = {
   textmode:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾']],
@@ -184,7 +182,6 @@ function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = 
 function setPage(page){
   const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);
   const pane = {'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'}[page] || 'thumb';
-  curTab = pane; document.body.dataset.tab = pane;
   document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === pane));
   const tp = document.querySelector('.pane[data-pane=text]'), [ts, fs] = tp.querySelectorAll(':scope > section');
   ts.classList.toggle('secoff', page !== 'txt-text'); fs.classList.toggle('secoff', page !== 'txt-font');
@@ -197,10 +194,10 @@ function setPage(page){
 function renderInspector(force){
   if(!DOC || !$('#insHead')) return;
   const ctx = insCtx(), L = selLayer(), key = ctx + '|' + (L ? L.id : ''), [icn, typ] = INS_INFO[ctx];
-  $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ;
-  $('#insName').textContent = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : layerName(L);
-  $('#insDesel').style.display = L ? '' : 'none';
+  const name = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : layerName(L);
+  if($('#insName').textContent !== name) $('#insName').textContent = name;
   if(key === insKey && !force) return;
+  $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ; $('#insDesel').style.display = L ? '' : 'none';
   insKey = key;
   const pages = INS_PAGES[ctx];
   $('#tabs').innerHTML = pages.map(([p, t]) => `<button data-page="${p}">${t}</button>`).join('');
@@ -209,7 +206,8 @@ function renderInspector(force){
   pendingPage = null; setPage(want);
   if(isMobile && sheet === 'ins') $('#sheetTitle').textContent = typ;
 }
-function setTab(t){ pendingPage = {text:'txt-text', style:'txt-style', design:'txt-deco'}[t] || null; renderInspector(true); }
+// ページを指定して設定パネルを開く（page 省略で、選んだものの既定のページ）
+function openInspector(page){ pendingPage = page || null; renderInspector(true); if(isMobile) openSheet('ins', true); }
 function setMode(m, silent){
   DOC.mode = m;
   document.body.classList.toggle('mode-thumb', m === 'thumb'); document.body.classList.toggle('mode-text', m === 'text');

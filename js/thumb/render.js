@@ -19,11 +19,11 @@ function textCanvas(L, need, live, cache){
   return e;
 }
 function tinted(A, color){
-  A.tint = A.tint || {};
-  if(A.tint[color]) return A.tint[color];
+  // フチ色ごとに作ると色を動かすたびにメモリが増えるので、最後の1色だけ持つ
+  if(A.tintColor === color && A.tintCanvas) return A.tintCanvas;
   const c = mk(A.img.naturalWidth, A.img.naturalHeight), x = c.getContext('2d');
   x.drawImage(A.img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
-  return A.tint[color] = c;
+  A.tintColor = color; return A.tintCanvas = c;
 }
 function imageCanvas(L, f, live, cache){
   const A = ASSETS[L.asset]; if(!A) return null;
@@ -60,19 +60,6 @@ function drawLayer(ctx, L, f, live, cache){
   }
   ctx.drawImage(e.c, -e.c.width / 2, -e.c.height / 2);
   ctx.restore();
-}
-function drawSpeedLines(ctx, W, H){
-  const l = DOC.bg.lines, R = rng(l.seed), cx = W * DOC.bg.fcx, cy = H * DOC.bg.fcy, outer = Math.hypot(W, H) * 1.6;
-  const rx = W / 2 * l.inner, ry = H / 2 * l.inner, step = 2 * PI / l.n, wf = l.w ?? 1, jit = l.len ?? 1;
-  ctx.fillStyle = rgba(l.c, l.a); ctx.beginPath();
-  for(let i = 0; i < l.n; i++){
-    const a = (i + R() * 0.9) * step, w = step * (0.12 + R() * 0.38) * wf, k = 1 + (R() * 0.55 - 0.2) * jit;
-    ctx.moveTo(cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k);
-    ctx.lineTo(cx + Math.cos(a - w) * outer, cy + Math.sin(a - w) * outer);
-    ctx.lineTo(cx + Math.cos(a + w) * outer, cy + Math.sin(a + w) * outer);
-    ctx.closePath();
-  }
-  ctx.fill();
 }
 function duotone(c, c1, c2){
   const x = c.getContext('2d', {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data;
@@ -133,10 +120,6 @@ function bgImageLayer(W, H, f){
   let out = c;
   if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
   if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, clamp(b.fcx, 0, 1) * W, clamp(b.fcy, 0, 1) * H);
-  if(false){
-    const tx = out.getContext('2d'); tx.save(); tx.globalCompositeOperation = b.tint.mode; tx.globalAlpha = b.tint.a;
-    tx.fillStyle = b.tint.c; tx.fillRect(0, 0, W, H); tx.restore();
-  }
   return out;
 }
 const BG_FX = {
@@ -172,16 +155,8 @@ function addFx(kind){
   // 選択中のレイヤーのすぐ下（なければ背景のすぐ上）に入れる
   const si = DOC.layers.findIndex(l => l.id === DOC.sel);
   DOC.layers.splice(si >= 0 ? si : 0, 0, L);
-  selectLayer(L.id); renderLayers(); docChanged(false); goTab('thumb');
+  selectLayer(L.id); renderLayers(); docChanged(false); openInspector();
   toast(`「${FX_NAMES[kind]}」を追加しました。ドラッグで移動、角で拡大縮小、上の○で回転。レイヤーパネルで前後も入れ替えられます`);
-}
-function showFxMenu(x, y){
-  const m = $('#ctxmenu');
-  m.innerHTML = '<div class="ttl">動的エフェクトを追加</div>' + Object.keys(FX_DEF).map(k =>
-    `<button data-addfx="${k}">${ic(FX_ICONS[k])}<span><b style="display:block;font-weight:800">${FX_NAMES[k]}</b><small style="font-weight:500;color:var(--mute);font-size:10.5px;white-space:normal">${FX_HINT[k]}</small></span></button>`).join('');
-  m.dataset.lid = ''; m.classList.add('show');
-  const r = m.getBoundingClientRect();
-  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px'; m.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
 }
 function drawBackground(ctx, W, H, f){
   const b = DOC.bg;
@@ -278,7 +253,7 @@ function layerGeom(L){
   return {pts, d, a, rot};
 }
 const fxHandleOn = () => DOC.guides.fx && (((DOC.bg.type === 'image' && DOC.bg.zb.on) || DOC.bg.vignette > 0) && (!DOC.sel || fxEditing));
-let fxEditing = false;
+let fxEditing = false, fxEditT = null;
 let frameEdit = null;
 const frameEditLayer = () => { if(!frameEdit) return null; const L = DOC.layers.find(l => l.id === frameEdit); return L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !L.hidden && ASSETS[L.asset] ? L : null; };
 function setFrameEdit(id){

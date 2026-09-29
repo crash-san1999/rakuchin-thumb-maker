@@ -110,12 +110,12 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
   const dw = iw * k, dh = ih * k, cx = bx0 + cw / 2 + (cell.ox || 0) * cw, cy = by0 + ch / 2 + (cell.oy || 0) * ch;
   x.drawImage(A.img, cx - dw / 2, cy - dh / 2, dw, dh);
 }
-function collageCanvas(L, W, H, f){
+function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = c.getContext('2d'), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
-  const cells = collageCells(L.layout, n, W, H, L.slant, L.main), A = Math.max(2, (L.amp || 20) * f);
+  const cells = collageCells(lay || L.layout, n, W, H, L.slant, L.main), A = Math.max(2, (L.amp || 20) * f);
   const {polys, lines} = collageShape(cells, W, H, L.edge || 'straight', A);
   const lw = Math.max(0, (L.lw ?? 10) * f), st = L.bstyle || 'line', showEmpty = !exporting;
-  const rad = Math.min(W, H) / 2 * 0 + Math.max(0, (L.radius || 0) * s);
+  const rad = Math.max(0, (L.radius || 0) * s);
   x.save(); x.beginPath(); x.roundRect(0, 0, W, H, Math.min(rad, Math.min(W, H) / 2)); x.clip();
   polys.forEach((p, i) => { x.save(); collagePath(x, p); x.clip(); collageCellImage(x, L, i, p, W, H, showEmpty); x.restore(); });
   const strokeLines = (w, col) => { x.lineWidth = w; x.strokeStyle = col; x.lineJoin = 'round'; x.lineCap = 'round'; x.beginPath(); lines.forEach(pts => pts.forEach(([px, py], j) => j ? x.lineTo(px, py) : x.moveTo(px, py))); x.stroke(); };
@@ -140,14 +140,13 @@ function collageCanvas(L, W, H, f){
   return c;
 }
 function drawCollage(ctx, L, f, live, cache){
-  const n = collageN(L);
-  if(!collageLayoutOk(L.layout, n)) L.layout = 'cols';
+  const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});
-  const sk = JSON.stringify([L.bw, L.bh, n, L.layout, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), exporting]);
+  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), exporting]);
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H))){
-    e = {sk, k: W / w, c: collageCanvas(L, W, H, f)}; cache.set(L.id, e);
+    e = {sk, k: W / w, c: collageCanvas(L, W, H, f, lay)}; cache.set(L.id, e);
   }
   ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
   ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180);
@@ -175,7 +174,7 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
 function addCollage(){
   const L = Object.assign(COLLAGE_BASE(), {id: uid()});
   DOC.layers.unshift(L); if(DOC.mode !== 'thumb') setMode('thumb');
-  goTab('thumb'); selectLayer(L.id); docChanged(false);
+  openInspector(); selectLayer(L.id); docChanged(false);
   toast('分割フレームを追加しました。マスに画像をドロップするか、左の「マスの画像」から選んでください');
 }
 async function collageSetCell(L, i, file){
@@ -198,10 +197,10 @@ async function collageTakeFiles(files, cx, cy){
       }
     }
   }
-  const S = selLayer();
-  if(S && S.type === 'collage'){
-    const n = collageN(S); let filled = 0;
-    for(let i = 0; i < n && rest.length; i++) if(!ASSETS[S.cells[i].asset]){ await collageSetCell(S, i, rest.shift()); S.ac = i; filled++; }
+  const C = selLayer();
+  if(C && C.type === 'collage'){
+    const n = collageN(C); let filled = 0;
+    for(let i = 0; i < n && rest.length; i++) if(!ASSETS[C.cells[i].asset]){ await collageSetCell(C, i, rest.shift()); C.ac = i; filled++; }
     if(filled){ docChanged(false); toast(`分割フレームの空いているマスに ${filled} 枚入れました`); }
   }
   return rest;
@@ -211,6 +210,8 @@ async function collageTakeFiles(files, cx, cy){
 function renderCells(){
   const box = document.getElementById('cellBox'), L = selLayer(); if(!box || !L || L.type !== 'collage') return;
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
+  const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => ASSETS[c.asset] ? c.asset : '')].join('|');
+  if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
     return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" title="マス${i + 1}">${A ? `<img src="${A.thumb}" alt="">` : `<span>${i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
     <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>`;
@@ -280,6 +281,6 @@ const collageIconCache = {};
 function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];
   const c = mk(48, 28), x = c.getContext('2d'), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c'];
-  collageCells(lay, n, 48, 28, lay === 'radial' ? 0 : 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 6]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });
+  collageCells(lay, n, 48, 28, 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 6]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });
   return collageIconCache[k] = c.toDataURL();
 }

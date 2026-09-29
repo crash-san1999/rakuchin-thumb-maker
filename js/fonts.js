@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：フォント管理（Google Fonts・Webフリー・PC内・URL追加） */
 /* ============ フォント管理 ============ */
 const W9 = '100,200,300,400,500,600,700,800,900';
-const FALLBACK = [
+const FEATURED_JP = [
   ['Noto Sans JP','ゴシック',W9],['M PLUS 1p','ゴシック','100,300,400,500,700,800,900'],
   ['M PLUS Rounded 1c','ゴシック','100,300,400,500,700,800,900'],['M PLUS 1','ゴシック',W9],['M PLUS 2','ゴシック',W9],
   ['Zen Maru Gothic','ゴシック','300,400,500,700,900'],['Zen Kaku Gothic New','ゴシック','300,400,500,700,900'],
@@ -72,7 +72,7 @@ const USE_KEYS = {
   'ホラー':['ホラー'], 'レトロ':['レトロ','昭和','ビンテージ'], '手書き':['手書き'],
 };
 const usageOf = f => f.usage || USAGE_JP[f.family] || '';
-function withLatin(list){ const have = new Set(list.map(f => f.family)); return list.concat(LATIN.filter(f => !have.has(f.family))); }
+
 const CAT_MAP = {'sans-serif':'ゴシック', serif:'明朝', display:'デザイン', handwriting:'手書き', monospace:'等幅'};
 const GC = {s:'ゴシック', e:'明朝', d:'デザイン', h:'手書き', m:'等幅'};
 const GC_USE = {s:'モダン', e:'セリフ・高級', d:'デザイン・インパクト', h:'手書き', m:'等幅・テック'};
@@ -154,7 +154,7 @@ function buildBaseFonts(extraJp = []){
   const wOf = new Map(gjp.map(f => [f.family, f.weights]));
   const jpList = [];
   const push = f => { if(!have.has(f.family)){ have.add(f.family); jpList.push(f); } };
-  FALLBACK.forEach(f => push({...f, weights: wOf.get(f.family) || f.weights, src:'google'}));
+  FEATURED_JP.forEach(f => push({...f, weights: wOf.get(f.family) || f.weights, src:'google'}));
   gjp.forEach(f => push({family: f.family, cat: JP_CAT_OVR[f.family] || GC[f.c] || 'デザイン', weights: f.weights, src:'google'}));
   extraJp.forEach(f => push(f));
   FS_FONTS.filter(f => f.cat !== '欧文').forEach(push);
@@ -496,8 +496,6 @@ async function addFontFiles(files){
 }
 const drop = $('#drop');
 drop.onclick = () => $('#ffile').click();
-$('#ffile').onchange = e => addFontFiles(e.target.files);
-['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('hover'); }));
-['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('hover'); }));
-drop.addEventListener('drop', e => addFontFiles(e.dataTransfer.files));
+$('#ffile').onchange = e => { addFontFiles(e.target.files); e.target.value = ''; };
+// ドロップは画面全体のドロップ処理（thumb/events.js）が受け取る
 

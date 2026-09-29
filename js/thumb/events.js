@@ -9,7 +9,7 @@ document.addEventListener('input', e => {
   else v = el.value;
   if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
   else dSet(k, v);
-  if(/^bg\.fc[xy]$/.test(k)){ fxEditing = true; clearTimeout(fxEditing.t); fxEditing.t = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
+  if(/^bg\.fc[xy]$/.test(k)){ fxEditing = true; clearTimeout(fxEditT); fxEditT = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
   syncDoc(el); docChanged(el.type === 'range');
 });
 document.addEventListener('click', e => {
@@ -42,7 +42,7 @@ document.addEventListener('click', e => {
     syncDoc(); docChanged(false); return;
   }
   const afb = e.target.closest('[data-addfx]');
-  if(afb && !afb.closest('#ctxmenu')){ addFx(afb.dataset.addfx); return; }
+  if(afb){ addFx(afb.dataset.addfx); return; }
   const fx = e.target.closest('[data-bgfx]');
   if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
   const dr = e.target.closest('[data-dreroll]');
@@ -128,7 +128,7 @@ $('#addText').onclick = () => {
   const st = clone(S); st.text = 'テキスト';
   const L = mkTextLayer(st, DOC.w / 2, DOC.h / 2, 1.2);
   DOC.layers.push(L); selectLayer(L.id); docChanged(false);
-  goTab('text'); setTimeout(() => { $('#text').focus(); $('#text').select(); }, 60);
+  openInspector('txt-text'); setTimeout(() => { $('#text').focus(); $('#text').select(); }, 60);
 };
 $('#addImg').onclick = () => $('#imgfile').click();
 $('#imgfile').onchange = e => { addImageLayers([...e.target.files]); e.target.value = ''; };
@@ -184,7 +184,7 @@ async function openProjectFile(f){
     if(fontsF.length) addFontFiles(fontsF);
     if(!imgs.length){ if(!fontsF.length) toast('画像（PNG / JPG / WebP など）かフォントファイルをドロップしてください', true); return; }
     if(DOC.mode !== 'thumb'){ setMode('thumb'); }
-    if(zone === 'bg'){ await setBgFromFile(imgs[0]); goTab('thumb'); toast('背景に設定しました'); if(imgs.length > 1) addImageLayers(imgs.slice(1)); }
+    if(zone === 'bg'){ await setBgFromFile(imgs[0]); openInspector(); toast('背景に設定しました'); if(imgs.length > 1) addImageLayers(imgs.slice(1)); }
     else { const rest = await collageTakeFiles(imgs, e.clientX, e.clientY); if(rest.length) addImageLayers(rest, true); }
   });
   document.addEventListener('paste', e => {
@@ -339,13 +339,13 @@ async function openProjectFile(f){
   });
   tv.addEventListener('dblclick', e => {
     const [x, y] = toDoc(e), L = hitLayer(x, y);
-    if(L && L.type === 'text'){ selectLayer(L.id); goTab('text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
+    if(L && L.type === 'text'){ selectLayer(L.id); openInspector('txt-text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
     else if(L && L.type === 'image' && L.frame && L.frame.shape !== 'none' && !frameEdit){ selectLayer(L.id); setFrameEdit(L.id); }
     else if(L && L.type === 'collage' && !collageEdit){ selectLayer(L.id); setCollageEdit(L.id, collageCellAt(L, x, y)); }
   });
   document.addEventListener('keydown', e => {
-    if(DOC.mode !== 'thumb') return;
-    const t = e.target; if(t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT') return;
+    if(DOC.mode !== 'thumb' || $('#help').classList.contains('show') || document.querySelector('.pop.show')) return;
+    if(isTyping(e)) return;
     const L = selLayer(); if(!L) return;
     const st = e.shiftKey ? 10 : 1;
     if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); layerAction(L.id, 'del'); }

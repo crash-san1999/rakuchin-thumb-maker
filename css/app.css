@@ -42,10 +42,6 @@ aside{background:var(--bg);border-right:2px solid var(--ink);display:flex;flex-d
 .tabs button{flex:1;background:#fff;border:2px solid var(--ink);border-radius:999px;padding:7px 0 8px;font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s,background .2s;box-shadow:var(--pop-sm)}
 .tabs button:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
 .tabs button.on{background:var(--acc);color:#fff}
-.editing{display:flex;align-items:center;gap:8px;margin:2px 14px 4px;padding:8px 12px;border-radius:12px;background:var(--acc-2);color:var(--ink);font-size:11.5px;font-weight:700;flex:none;min-width:0;border:2px solid var(--ink)}
-.editing b{color:var(--ink);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;background:#fff;border-radius:6px;padding:1px 7px}
-.editing span{white-space:nowrap}
-body[data-tab=thumb] .editing{display:none}
 .pane{display:none;overflow-y:auto;flex:1;min-height:0;padding:6px 14px 80px}
 .pane.on{display:block;animation:paneIn .35s var(--ease)}
 @keyframes paneIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -222,8 +218,6 @@ svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;strok
 .drop:hover,.drop.hover{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
 
 /* 選択中のレイヤー */
-.selbox{margin-top:16px;padding:14px 14px 6px;border-radius:var(--r);background:var(--surface-2);border:2px solid var(--ink)}
-.selbox .subhead{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .place{display:grid;grid-template-columns:repeat(3,26px);gap:5px}
 .place button{width:26px;height:26px;border-radius:8px;border:2px solid var(--ink);background:#fff;cursor:pointer;position:relative;transition:transform .2s var(--ease),background .15s}
 .place button::after{content:"";position:absolute;inset:7px;border-radius:3px;background:var(--faint)}
@@ -248,9 +242,7 @@ body.mode-thumb .stage{padding:78px 44px 88px}
 .stage.img #pv{box-shadow:none;border:0;border-radius:0;outline:2px dashed rgba(255,255,255,.7)}
 .stage.small #pv{max-width:240px !important;width:auto !important}
 #tv{display:block;border-radius:14px;border:3px solid var(--ink);box-shadow:7px 7px 0 var(--ink);touch-action:none;background:#fff}
-body.mode-thumb #pv, body.mode-text #tv, body.mode-text .dropzone{display:none}
-.dropzone{position:absolute;inset:18px;border:3px dashed var(--acc);border-radius:var(--r-lg);display:grid;place-items:center;color:var(--acc);background:rgba(255,79,139,.08);font-size:16px;font-weight:800;opacity:0;pointer-events:none;transition:.2s}
-.stage.dragover .dropzone{opacity:1}
+body.mode-thumb #pv, body.mode-text #tv{display:none}
 
 /* 浮いているツールバー */
 .float{position:absolute;z-index:2;display:flex;align-items:center;gap:10px;padding:6px 8px 6px 16px;background:#fff;border:2px solid var(--ink);border-radius:999px;box-shadow:var(--pop);max-width:calc(100% - 32px);overflow-x:auto;scrollbar-width:none}
@@ -399,9 +391,7 @@ body.is-mobile #pv{box-shadow:4px 4px 0 var(--ink)}
 /* ボトムシート */
 body.is-mobile aside#side,body.is-mobile .lpanel{position:fixed;left:0;right:0;bottom:calc(62px + env(safe-area-inset-bottom));height:52dvh;width:auto;z-index:20;border:0;border-top:2px solid var(--ink);border-radius:22px 22px 0 0;background:var(--bg);box-shadow:0 -8px 24px rgba(31,27,45,.12);transform:translateY(calc(100% + 80px));transition:transform .32s var(--ease);display:flex;flex-direction:column}
 body.is-mobile aside#side.sheet-on,body.is-mobile .lpanel.sheet-on{transform:none}
-body.is-mobile .tabs{display:flex}
 body.is-mobile .pane{padding:0 12px 40px}
-body.is-mobile .editing{margin:0 12px 4px}
 .sheet-grip{align-items:center;gap:8px;padding:8px 10px 6px 16px;flex:none;position:relative;touch-action:none;cursor:grab}
 .sheet-grip span{position:absolute;left:50%;top:6px;width:42px;height:5px;margin-left:-21px;border-radius:5px;background:var(--line-3)}
 .sheet-grip b{font-size:15px;font-weight:800;margin-top:8px;margin-right:auto}
@@ -409,10 +399,8 @@ body.is-mobile .editing{margin:0 12px 4px}
 body.is-mobile .lp-head{padding-top:4px}
 body.is-mobile .lp-head > .ic,body.is-mobile .lp-head{font-size:0}
 body.is-mobile .lp-head .lp-count{font-size:10.5px;margin-left:4px}
-body.is-mobile .lp-head .icon-btn{font-size:13px}
 /* ボトムバー */
 .mbar{position:fixed;left:0;right:0;bottom:0;z-index:25;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:4px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:#fff;border-top:2px solid var(--ink)}
-body.mode-text .mbar{grid-template-columns:repeat(3,1fr)}
 .mbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:48px;border:2px solid transparent;border-radius:14px;background:transparent;color:var(--sub);font-size:10.5px;font-weight:800;cursor:pointer;transition:transform .2s var(--ease),background .15s}
 .mbar button .ic{width:21px;height:21px}
 .mbar button:active{transform:scale(.92)}
@@ -482,7 +470,7 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
 .lp-sp{flex:1}
 .lp-head .btn.add-btn{padding:4px 10px;font-size:12px}
 /* ポップアップ */
-.pop{position:fixed;z-index:40;display:none;width:340px;max-width:calc(100vw - 16px);max-height:calc(100vh - 80px);overflow:auto;background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:6px 6px 0 var(--ink);padding:12px 14px 14px}
+.pop{position:fixed;z-index:40;display:none;width:380px;max-width:calc(100vw - 16px);max-height:calc(100vh - 80px);overflow:auto;background:#fff;border:2px solid var(--ink);border-radius:16px;box-shadow:6px 6px 0 var(--ink);padding:12px 14px 14px}
 .pop.show{display:block;animation:pop .22s var(--ease)}
 .pop-ttl{font-size:12px;font-weight:800;color:var(--acc);margin:4px 0 8px;letter-spacing:.04em}
 .pop-ttl small{color:var(--mute);font-weight:600;margin-left:6px;letter-spacing:0}
@@ -503,8 +491,5 @@ body.is-mobile .ins-head{padding:4px 12px 2px}
 body.is-mobile .ins-head .ins-title{display:none}
 body.is-mobile .ins-head .tabs{padding:6px 0}
 
-#editing{display:none !important}
-.pop{width:380px}
 body.is-mobile #addBtn{display:none}
-#layerSec .selbox{border:0;padding:0;background:none;box-shadow:none;margin:0}
 @media (max-width:1500px){.brand-sub{display:none}}

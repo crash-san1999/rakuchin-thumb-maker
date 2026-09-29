@@ -32,6 +32,7 @@ function dSet(k, v){
   const [b, p] = dBase(k); if(!b) return;
   const ps = p.split('.'), last = ps.pop(), o = ps.reduce((o, q) => o?.[q], b);
   if(o) o[last] = v;
+  if(k === '@n' && b.type === 'collage' && !collageLayoutOk(b.layout, collageN(b))) b.layout = 'cols';
 }
 function docChanged(live){
   saveDoc(); clearTimeout(histT); histT = setTimeout(pushHist, 450);
@@ -39,10 +40,6 @@ function docChanged(live){
   clearTimeout(schT);
   if(live){ livePaint(); schT = setTimeout(update, 220); } else schT = setTimeout(update, 30);
   clearTimeout(docChanged.t); docChanged.t = setTimeout(renderLayers, 150);
-}
-function updateEditing(){
-  const T = textLayer();
-  $('#editing').innerHTML = T ? `${ic('text')}<span>編集中の文字</span><b>${escapeHtml(layerName(T))}</b>` : `${ic('text')}<span>文字レイヤーがありません（サムネタブで追加）</span>`;
 }
 function syncDoc(except){
   document.querySelectorAll('[data-d]').forEach(el => {
@@ -56,8 +53,6 @@ function syncDoc(except){
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const L = selLayer();
   renderInspector();
-  if(L) $('#selTitle').textContent = ({text:'選択中の文字 ― ', image:'選択中の画像 ― ', fx:'選択中のエフェクト ― ', collage:''}[L.type]) + layerName(L);
-  updateEditing();
   renderCells();
 }
 let lpSliding = false;
@@ -130,7 +125,6 @@ function showMenu(id, cx, cy){
 }
 const hideMenu = () => $('#ctxmenu').classList.remove('show');
 $('#ctxmenu').addEventListener('click', e => {
-  const af = e.target.closest('[data-addfx]'); if(af){ hideMenu(); addFx(af.dataset.addfx); return; }
   const b = e.target.closest('[data-ma]'); if(!b) return;
   const id = $('#ctxmenu').dataset.lid; hideMenu();
   if(b.dataset.ma === 'rename'){ setTimeout(() => startRename(id), 0); return; }
@@ -187,7 +181,7 @@ async function addImageLayers(files, skipCollage){
       hidden:false, locked:false, blend:'source-over', flip:false, outline:{on:true, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:true, blur:30, y:14, a:0.45}};
     DOC.layers.push(L); last = L.id;
   }
-  if(last){ goTab('thumb'); selectLayer(last); docChanged(false); toast('画像を追加しました。ドラッグで移動、角で拡大、上の丸で回転できます'); }
+  if(last){ openInspector(); selectLayer(last); docChanged(false); toast('画像を追加しました。ドラッグで移動、角で拡大、上の丸で回転できます'); }
 }
 async function setBgFromFile(f){
   const id = await addAsset(await fileToSrc(f), f.name);
