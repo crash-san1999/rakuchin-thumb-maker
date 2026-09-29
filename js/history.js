@@ -11,7 +11,8 @@ function restoreHist(i){
   hIdx = i; restoring = true;
   DOC = JSON.parse(hist[i]);
   const T = textLayer(); if(T) S = T.style;
-  resetAdj(); fixWeight(); buildWeight(); syncUI(); renderFontList(); syncDoc(); renderLayers(); setMode(DOC.mode, true); saveDoc();
+  resetAdj(); refreshTextUI(); syncDoc(); renderLayers(); setMode(DOC.mode, true); saveDoc();
+  pruneLayerCaches();
   update().then(() => { restoring = false; });
 }
 $('#undo').onclick = () => restoreHist(hIdx - 1);

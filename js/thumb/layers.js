@@ -82,7 +82,7 @@ function selectLayer(id){
   const L = selLayer();
   if(L && L.type === 'text'){
     DOC.textSel = id;
-    if(L.style !== S){ S = L.style; resetAdj(); fixWeight(); buildWeight(); syncUI(); renderFontList(); }
+    if(L.style !== S){ S = L.style; resetAdj(); refreshTextUI(); }
   }
   syncDoc(); saveDoc();
   const rows = document.querySelectorAll('#layerList .ly[data-lid]');
@@ -108,7 +108,7 @@ function layerAction(id, act){
     if(DOC.textSel === id){
       const T = DOC.layers.filter(l => l.type === 'text').pop();
       DOC.textSel = T ? T.id : null;
-      if(T){ S = T.style; fixWeight(); buildWeight(); syncUI(); renderFontList(); }
+      if(T){ S = T.style; refreshTextUI(); }
     }
   }
   syncDoc(); renderLayers(); docChanged(false);

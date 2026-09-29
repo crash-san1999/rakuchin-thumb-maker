@@ -1,6 +1,8 @@
 /* 楽ちんサムネメーカー：サムネの描画（文字・画像レイヤー・背景・合成） */
 /* ---------- 描画 ---------- */
 const prevCache = new Map(), dims = new Map();
+// 消えたレイヤーの描画キャッシュ・大きさの記録を捨てる（取り消し・削除のあと）
+function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); for(const m of [prevCache, dims]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
 let tvCss = 800, snapLines = {x:null, y:null}, drag = null;
 function fontKey(st){
   const t = st.text.replace(/[{}\n]/g, '').slice(0, 24) || 'あ';

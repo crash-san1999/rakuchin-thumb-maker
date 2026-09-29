@@ -245,12 +245,12 @@ async function openProjectFile(f){
       let fx = x / DOC.w, fy = y / DOC.h;
       if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * 9 / 16 < 8) fy = v; } }
       DOC.bg.fcx = Math.round(clamp(fx, -0.2, 1.2) * 1000) / 1000; DOC.bg.fcy = Math.round(clamp(fy, -0.2, 1.2) * 1000) / 1000;
-      syncDoc(); livePaint(); return;
+      syncDocSoon(); livePaint(); return;
     }
     if(drag.mode === 'bg'){
       DOC.bg.ox = Math.round((drag.ox + (x - drag.x0) / (DOC.w / 2)) * 1000) / 1000;
       DOC.bg.oy = Math.round((drag.oy + (y - drag.y0) / (DOC.h / 2)) * 1000) / 1000;
-      syncDoc(); livePaint(); return;
+      syncDocSoon(); livePaint(); return;
     }
     if(drag.mode === 'move'){
       let nx = drag.lx + x - drag.x0, ny = drag.ly + y - drag.y0; snapLines = {x:null, y:null};
@@ -268,7 +268,7 @@ async function openProjectFile(f){
       if(e.shiftKey) r = Math.round(r / 15) * 15; else for(const s of [0, 90, -90, 180, -180]) if(Math.abs(r - s) < 3) r = s;
       L.rot = Math.round(r * 10) / 10;
     }
-    syncDoc(); livePaint();
+    syncDocSoon(); livePaint();
   });
   const end = () => { if(!drag) return; drag = null; snapLines = {x:null, y:null}; docChanged(false); };
   tv.addEventListener('pointerup', end); tv.addEventListener('pointercancel', end);

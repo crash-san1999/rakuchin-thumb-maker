@@ -106,7 +106,7 @@ function editPointerDown(e, x, y, tv){
   drag = Object.assign({mode:'edit', L, x0:x, y0:y}, d);
   tv.setPointerCapture(e.pointerId); e.preventDefault(); syncDoc(); return true;
 }
-function editPointerMove(x, y){ EDIT_MODES[edit.kind].move(drag.L, x, y, drag); syncDoc(); livePaint(); }
+function editPointerMove(x, y){ EDIT_MODES[edit.kind].move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
 function editWheel(e, x, y, k){
   const L = editLayer(); if(!L) return false;
   if(EDIT_MODES[edit.kind].zoom(L, k, x, y) === false) return false;

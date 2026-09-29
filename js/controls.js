@@ -193,5 +193,10 @@ $('#savePreset').onclick = () => {
   const s = clone(S); delete s.text; delete s.pad; delete s.scale; delete s.size;
   myPresets.push({name: name.slice(0, 12), s}); LS.set('ttm_mypresets', myPresets); renderPresets(); toast('保存しました');
 };
-$('#resetAll').onclick = () => { if(confirm('設定を初期状態に戻しますか？')){ S = clone(DEFAULT); fixWeight(); syncUI(); buildWeight(); renderFontList(); schedule(); } };
+// スタイルを初期状態に戻す。サムネ作成では S がレイヤーのスタイルそのものなので、入れ物は替えずに中身を戻す（文字はそのまま）
+$('#resetAll').onclick = () => {
+  if(!confirm('スタイルを初期状態に戻しますか？（文字はそのまま）')) return;
+  const text = S.text; for(const k of Object.keys(S)) delete S[k]; Object.assign(S, clone(DEFAULT), {text});
+  resetAdj(); refreshTextUI(); schedule(); if(DOC.mode === 'thumb') docChanged(false);
+};
 

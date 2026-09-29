@@ -98,6 +98,9 @@ const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:
   },
   onReroll(k){ dSet(k, Math.floor(Math.random() * 1e6)); docChanged(false); },
 });
+// ドラッグ中など、何度も続けて呼ばれるときは1フレームに1回だけ同期する
+let syncRaf = 0;
+function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syncRaf = 0; syncDoc(); }); }
 function syncDoc(except){
   DB.sync(except);
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));

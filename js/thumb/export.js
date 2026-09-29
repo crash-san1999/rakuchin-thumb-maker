@@ -23,7 +23,7 @@ function loadDocObj(d){
   DOC = normalizeDoc(d);
   const T = textLayer(); if(T) S = T.style;
   prevCache.clear(); dims.clear(); resetAdj();
-  fixWeight(); buildWeight(); syncUI(); renderFontList(); syncDoc(); renderLayers(); setMode(DOC.mode); saveDoc(); pushHist();
+  refreshTextUI(); syncDoc(); renderLayers(); setMode(DOC.mode); saveDoc(); pushHist();
 }
 /* 共有（スマホ：写真アプリに保存できる） */
 async function shareFile(blob, name){

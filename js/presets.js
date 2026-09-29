@@ -204,6 +204,6 @@ function applyPreset(p){
   const keep = {text:S.text, size:S.size, pad:S.pad, scale:S.scale, fontLatin:S.fontLatin};
   S = Object.assign(merged(p), keep); resetAdj();
   if(!findFont(S.font)) toast(`フォント「${S.font}」が一覧にないため代替表示になります`, true);
-  fixWeight(); syncUI(); buildWeight(); renderFontList(); schedule();
+  refreshTextUI(); schedule();
 }
 

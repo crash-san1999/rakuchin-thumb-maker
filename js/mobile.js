@@ -113,7 +113,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
       const b = DOC.bg; b.zoom = clamp(pinch.zoom * k, 0.2, 4);
       b.ox = pinch.ox + (I.cx - pinch.i.cx) * u / (DOC.w / 2); b.oy = pinch.oy + (I.cy - pinch.i.cy) * u / (DOC.h / 2);
     }
-    syncDoc(); livePaint();
+    syncDocSoon(); livePaint();
   }, true);
   const up = e => {
     if(!pts.has(e.pointerId)) return;

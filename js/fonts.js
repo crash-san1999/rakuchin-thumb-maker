@@ -309,6 +309,8 @@ function updateTextTip(){
 }
 
 function weightsOf(f){ return f ? (f.weights && f.weights.length && f.src !== 'local' && f.src !== 'file' ? f.weights : W9.split(',').map(Number)) : [400,700,900]; }
+// 文字パネル全体（太さの選択肢・入力欄・フォント一覧）を、今の S に合わせて表示し直す
+function refreshTextUI(){ fixWeight(); buildWeight(); syncUI(); renderFontList(); }
 function fixWeight(){
   const ws = weightsOf(findFont(S.font));
   if(!ws.includes(S.weight)) S.weight = ws.reduce((a, b) => Math.abs(b - S.weight) < Math.abs(a - S.weight) ? b : a, ws[0]);
