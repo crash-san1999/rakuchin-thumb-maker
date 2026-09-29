@@ -1,6 +1,8 @@
 /* 楽ちんサムネメーカー：起動 */
-/* ============ 起動 ============ */
-initFonts(); restoreLocalFonts(); fixWeight(); buildWeight(); syncUI(); renderPresets(); renderFontList();
+/*
+  ほかのファイルは「定義」と「操作の受け付け」だけを持ち、起動時の処理はここにまとめる。
+  ここは最後に読み込まれるので、すべてのファイルの関数・定数を使える。
+*/
 function thumbInit(){
   $('#selBox').innerHTML = `${SEL_ROWS.map(r => drowPg(r)).join('')}`;
   $('#bgRows').innerHTML = BG_ROWS.map(r => drowPg(r, true)).join('');
@@ -15,6 +17,14 @@ function thumbInit(){
   window.addEventListener('resize', () => { clearTimeout(thumbInit.r); thumbInit.r = setTimeout(() => paintPreview(false), 60); });
   document.fonts.addEventListener('loadingdone', () => { if(DOC.mode === 'thumb'){ clearTimeout(thumbInit.f); thumbInit.f = setTimeout(() => paintPreview(false), 150); } });
 }
-document.querySelectorAll('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
-thumbInit();
-update(); pushHist();
+function boot(){
+  paintIcons();
+  loadSavedDoc();
+  buildTextControls();
+  initFonts(); restoreLocalFonts(); fixWeight(); buildWeight(); syncUI(); renderPresets(); renderFontList();
+  renderThemes();
+  thumbInit();
+  update(); pushHist();
+  scheduleFontListCheck();
+}
+boot();

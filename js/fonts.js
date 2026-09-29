@@ -342,7 +342,8 @@ async function updateFontList(manual){
   if(manual) btn.disabled = false;
 }
 $('#fetchG').onclick = () => updateFontList(true);
-setTimeout(() => { const u = LS.get('ttm_fsupd', null); if(!u || Date.now() - u.at > 7 * 864e5) updateFontList(false); }, 4000);
+// 起動して少したってから、週に1回だけフォント一覧の更新を確認する
+function scheduleFontListCheck(){ setTimeout(() => { const u = LS.get('ttm_fsupd', null); if(!u || Date.now() - u.at > 7 * 864e5) updateFontList(false); }, 4000); }
 
 /* WebフォントのURLから追加 */
 function restoreWebFonts(){

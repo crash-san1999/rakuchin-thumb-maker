@@ -70,7 +70,8 @@ const ICONS = {
   palette:'<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.4-1.3-1.7-1.3-3 0-.9.8-1.6 1.7-1.6h2.3a4 4 0 0 0 4-4c0-3.7-3.8-6.7-8.5-6.7z"/><circle cx="7.8" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.8" r="1.1" fill="currentColor" stroke="none"/>',
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
-document.querySelectorAll('[data-ic]').forEach(el => { el.outerHTML = ic(el.dataset.ic); });
+// HTML に書いた <i data-ic="名前"> をアイコンの SVG に置き換える
+const paintIcons = (root = document) => root.querySelectorAll('[data-ic]').forEach(el => { el.outerHTML = ic(el.dataset.ic); });
 function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((el.value - mn) / (mx - mn)) * 100 + '%'); }
 function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
 document.addEventListener('input', e => { if(e.target.type === 'range') paintRange(e.target); });

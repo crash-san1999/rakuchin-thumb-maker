@@ -171,4 +171,3 @@ $('#fromBg').onclick = () => {
   wantBgPalette = true; toast('サムネに使う背景画像を選んでください'); (th ? $('#bgimgfile') : $('#bgfile')).click();
 };
 
-renderThemes();

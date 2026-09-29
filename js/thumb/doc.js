@@ -50,8 +50,11 @@ function normalizeDoc(d){
   if(o.sel && !o.layers.find(l => l.id === o.sel)) o.sel = null;
   return o;
 }
-DOC = normalizeDoc(LS.get('ttm_doc', null));
-{ const T = textLayer(); if(T) S = T.style; }
+// 保存しておいた作業を読み込み、選択中の文字レイヤーのスタイルを文字パネルにつなぐ
+function loadSavedDoc(){
+  DOC = normalizeDoc(LS.get('ttm_doc', null));
+  const T = textLayer(); if(T) S = T.style;
+}
 
 function saveDoc(){
   clearTimeout(saveDoc.t);

@@ -151,12 +151,16 @@ function strokeHTML(i){
     <input type="range" data-k="strokes.${i}.w" min="0" max="40" step="0.5"><input type="number" class="num" data-k="strokes.${i}.w" min="0" max="40" step="0.5">
     <input type="color" data-k="strokes.${i}.c"></div>`;
 }
-$('#textRows').innerHTML = TEXT_ROWS.map(rowHTML).join('');
-$('#genSections').innerHTML = SECTIONS.map(s => `
-  <section ${s.on ? `data-on="${s.on}"` : ''}>
-    <h3>${s.on ? `<label class="sw"><input type="checkbox" data-k="${s.on}"><span></span></label>` : ''}${s.t}${s.hint ? ` <span class="hint">${s.hint}</span>` : ''}</h3>
-    <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : s.rows.map(rowHTML).join('')}</div>
-  </section>`).join('');
+// 文字パネル（テキストの行・装飾のセクション）を組み立てる
+function buildTextControls(){
+  $('#textRows').innerHTML = TEXT_ROWS.map(rowHTML).join('');
+  $('#genSections').innerHTML = SECTIONS.map(s => `
+    <section ${s.on ? `data-on="${s.on}"` : ''}>
+      <h3>${s.on ? `<label class="sw"><input type="checkbox" data-k="${s.on}"><span></span></label>` : ''}${s.t}${s.hint ? ` <span class="hint">${s.hint}</span>` : ''}</h3>
+      <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : s.rows.map(rowHTML).join('')}</div>
+    </section>`).join('');
+  document.querySelectorAll('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
+}
 
 function syncUI(except){
   KB.sync(except);
