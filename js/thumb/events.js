@@ -222,10 +222,11 @@ async function openProjectFile(f){
     if(hs.length < 2) return hs[0] || null;
     const cur = hs.find(l => l.id === DOC.sel);
     // 見えている一番手前の絵を優先。絵に当たっていなければ、選択中→近いもの→枠の手前、の順
+    if(cur && r.get(cur.id) === 2) return cur;   // 選択中のレイヤーの絵の上なら、手前に別の絵が重なっていても選択中を優先
     const exact = hs.find(l => r.get(l.id) === 2);
-    if(exact) return cur && lastAltPick === cur.id ? cur : exact;
+    if(exact) return exact;
     if(cur && r.get(cur.id) === 1) return cur;
-    return hs.find(l => r.get(l.id) === 1) || (cur && lastAltPick === cur.id ? cur : cur || hs[0]);
+    return hs.find(l => r.get(l.id) === 1) || (cur || hs[0]);
   };
   // ホイールの拡大縮小は、選択中のレイヤーの絵の上（または近く）なら、手前に別のレイヤーがあっても選択中のほうを優先
   const hitForWheel = (x, y) => {

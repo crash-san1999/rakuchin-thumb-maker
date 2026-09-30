@@ -18,9 +18,14 @@ async def run(p):
     # 文字の枠の真ん中（透明）→ 下の画像
     got = await click_at(info['x'], info['y'])
     assert got == 'image', f'透明な部分で下の画像を掴めない {got}'
-    # 左端の文字の上 → 文字
+    # 左端の文字の上 → 文字（何も選んでいないとき）
+    await pg.evaluate("selectLayer(null)")
     got = await click_at(info['x'] - info['w'] / 2 + info['h'] * 0.45, info['y'])
     assert got == 'text', f'文字の上で文字を掴めない {got}'
+    # 画像を選択中は、文字と重なる位置でも画像の絵の上なら選択中の画像を優先（文字の上をクリックしても選択は変わらない）
+    await pg.evaluate("selectLayer(IMGID)")
+    got = await click_at(info['x'] - info['w'] / 2 + info['h'] * 0.45, info['y'])
+    assert got == 'image', f'選択中のレイヤーが優先されない {got}'
     # 画像を選択中に文字の上でホイール → 選択中の画像が拡大縮小される
     await pg.evaluate("selectLayer(IMGID)"); sc0 = await pg.evaluate("[DOC.layers.find(l => l.id === IMGID).sc, DOC.layers.find(l => l.id === TXTID).sc]")
     cx, cy = px(info['x'] - info['w'] / 2 + info['h'] * 0.45, info['y']); await pg.mouse.move(cx, cy); await pg.mouse.wheel(0, -200); await pg.wait_for_timeout(300)
