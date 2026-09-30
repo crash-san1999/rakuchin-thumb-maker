@@ -74,6 +74,7 @@ h3 .sw{order:2;margin-left:auto}
 .adj output{font-size:11.5px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;font-family:Inter,sans-serif;font-weight:600}
 .crow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
 .crow select{width:auto;flex:1}
+.crow.flips{margin:0;flex-wrap:nowrap}
 
 /* ---------- 入力 ---------- */
 input[type=number],input[type=text],input[type=password],input[type=search],select,textarea{

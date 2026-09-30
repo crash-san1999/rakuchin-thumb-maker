@@ -29,6 +29,7 @@ const CFX_ROWS = (P, S) => [
 const SEL_ROWS = [
   {pg:'base', r:'@sc', l:'大きさ', min:0.05, max:10, step:0.01},
   {pg:'base', r:'@rot', l:'回転', min:-180, max:180, step:1},
+  {pg:'base', flips:true, l:'反転', show:'@type=image'},
   {pg:'fx', c:'@p.c', l:'色', show:'@type=fx'},
   {pg:'fx', r:'@p.n', l:'本数', min:20, max:300, step:1, show:'@kind=lines'},
   {pg:'fx', r:'@p.inner', l:'中心の空き', min:0.02, max:1.5, step:0.01, show:'@kind=lines'},
@@ -83,7 +84,6 @@ const SEL_ROWS = [
   {pg:'base', r:'@bw', l:'横幅', min:100, max:1920, step:1, show:'@type=collage'},
   {pg:'base', r:'@bh', l:'高さ', min:100, max:1080, step:1, show:'@type=collage'},
   {pg:'base', btns:[['collageFill', 'monitor', '画面いっぱいにする']], show:'@type=collage'},
-  {pg:'base', chk:'@flip', l:'左右反転', show:'@type=image'},
   {pg:'frame', sub:'切り抜きフレーム', note:'図形で切り抜いて枠を付けます。形と枠のデザインは自由に組み合わせOK', show:'@type=image'},
   {pg:'frame', frpre:true, show:'@type=image'},
   {pg:'frame', shapes:true, l:'形', show:'@type=image'},
@@ -164,6 +164,7 @@ const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
+  if(r.flips) return `<div class="row"${sa}><label>${r.l}</label><div class="crow flips"><button class="btn sm" data-flip="flip" title="左右反転（H）">${ic('fliph')}左右</button><button class="btn sm" data-flip="flipV" title="上下反転（V）">${ic('flipv')}上下</button></div></div>`;
   if(r.cells) return `<div class="cellBox"${sa}></div>`;
   if(r.cfxchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック効果</div><div class="pcats fxchips">${CELL_FX_CHIPS.map(([k, t]) => `<button data-cfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.frpre){ const nm = Object.fromEntries(FRAME_PRESETS.map(p => [p[0], p[1]]));

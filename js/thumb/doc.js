@@ -106,6 +106,7 @@ function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syn
 function syncDoc(except){
   DB.sync(except);
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
+  const L = selLayer(); document.querySelectorAll('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
   renderInspector();
   renderCells();
 }

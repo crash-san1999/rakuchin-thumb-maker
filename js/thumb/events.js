@@ -311,6 +311,9 @@ async function openProjectFile(f){
       e.preventDefault(); const fwd = e.code === 'BracketRight';
       layerAction(L.id, e.shiftKey ? (fwd ? 'front' : 'back') : (fwd ? 'up' : 'down'));
     }
+    else if(!e.ctrlKey && !e.metaKey && !e.altKey && L.type === 'image' && (e.key === 'h' || e.key === 'H' || e.key === 'v' || e.key === 'V')){
+      e.preventDefault(); layerAction(L.id, /h/i.test(e.key) ? 'flip' : 'flipV');
+    }
     else if(e.key === 'Escape'){ hideMenu(); if(edit){ setEdit(null); return; } selectLayer(null); }
   });
 }

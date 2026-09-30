@@ -15,7 +15,7 @@ const EDIT_MODES = {
     down(L, x, y){
       const G = frameGeom(L), [u, v] = frameLocal(L, x, y), px = DOC.w / tvCss / L.sc;
       const corner = [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([sx, sy]) => Math.hypot(u - sx * G.fw / 2, v - sy * G.fh / 2) < 14 * px);
-      const inImg = Math.abs((L.flip ? -u : u) + G.cxp - G.iw / 2) <= G.iw / 2 && Math.abs(v + G.cyp - G.ih / 2) <= G.ih / 2;
+      const inImg = Math.abs((L.flip ? -u : u) + G.cxp - G.iw / 2) <= G.iw / 2 && Math.abs((L.flipV ? -v : v) + G.cyp - G.ih / 2) <= G.ih / 2;
       if(!corner && !inImg) return null;
       return {sub: corner ? 'scale' : 'move', g0:G, fs0:L.frame.fs ?? 1, cx0:G.cxp / G.iw, cy0:G.cyp / G.ih, base:{x:L.x, y:L.y}, r0:Math.max(1, Math.hypot(u, v))};
     },
@@ -24,7 +24,7 @@ const EDIT_MODES = {
       // 開始時の位置を基準に計算する（画像は固定、フレームだけ動く）
       if(d.sub === 'move'){
         const [du, dv] = rotLocal(L, x - d.x0, y - d.y0);
-        L.frame.cx = r3(clamp(d.cx0 + du / L.sc * (L.flip ? -1 : 1) / G.iw, 0, 1)); L.frame.cy = r3(clamp(d.cy0 + dv / L.sc / G.ih, 0, 1));
+        L.frame.cx = r3(clamp(d.cx0 + du / L.sc * (L.flip ? -1 : 1) / G.iw, 0, 1)); L.frame.cy = r3(clamp(d.cy0 + dv / L.sc * (L.flipV ? -1 : 1) / G.ih, 0, 1));
       }else{
         const [u, v] = frameLocal(Object.assign({}, L, d.base), x, y);
         L.frame.fs = r3(clamp(d.fs0 * Math.hypot(u, v) / d.r0, 0.1, 1));
@@ -37,7 +37,7 @@ const EDIT_MODES = {
     overlay(ctx, L, f, dpr){
       const G = frameGeom(L);
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
-      ctx.save(); if(L.flip) ctx.scale(-1, 1); ctx.globalAlpha = 0.38; ctx.drawImage(G.A.img, -G.cxp, -G.cyp, G.iw, G.ih); ctx.restore();
+      ctx.save(); if(L.flip || L.flipV) ctx.scale(L.flip ? -1 : 1, L.flipV ? -1 : 1); ctx.globalAlpha = 0.38; ctx.drawImage(G.A.img, -G.cxp, -G.cyp, G.iw, G.ih); ctx.restore();
       const k = 1 / (L.sc * f), hw = G.fw / 2, hh = G.fh / 2;
       ctx.lineWidth = 2 * dpr * k; ctx.strokeStyle = '#ffb800'; ctx.setLineDash([7 * dpr * k, 5 * dpr * k]); ctx.strokeRect(-hw, -hh, hw * 2, hh * 2); ctx.setLineDash([]);
       ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = dpr * k; ctx.beginPath(); framePath(ctx, L.frame.shape, G.fw, G.fh, L.frame.r, L.frame.seed); ctx.stroke();

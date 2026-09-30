@@ -152,13 +152,13 @@ function frameGeom(L){
 /* フレームを動かしても、画像がキャンバス上で動かないようにレイヤーの位置を補正 */
 function frameCompensate(L, g0, base){
   const g1 = frameGeom(L); if(!g0 || !g1) return;
-  const dx = (g1.cxp - g0.cxp) * (L.flip ? -1 : 1) * L.sc, dy = (g1.cyp - g0.cyp) * L.sc, a = (L.rot || 0) * PI / 180;
+  const dx = (g1.cxp - g0.cxp) * (L.flip ? -1 : 1) * L.sc, dy = (g1.cyp - g0.cyp) * (L.flipV ? -1 : 1) * L.sc, a = (L.rot || 0) * PI / 180;
   const bx = base ? base.x : L.x, by = base ? base.y : L.y;
   L.x = bx + dx * Math.cos(a) - dy * Math.sin(a); L.y = by + dx * Math.sin(a) + dy * Math.cos(a);
 }
 function framedCanvas(L, f, live, cache){
   const A = ASSETS[L.asset], fr = L.frame, o = L.outline, need = L.sc * f;
-  const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip]);
+  const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip, L.flipV]);
   let e = cache.get(L.id);
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const G = frameGeom(L), iw = G.iw, ih = G.ih;
@@ -219,7 +219,7 @@ function framedCanvas(L, f, live, cache){
     else stroke(2 * E, o.c);
   }
   x.save(); P(); x.clip();
-  if(L.flip) x.scale(-1, 1);
+  if(L.flip || L.flipV) x.scale(L.flip ? -1 : 1, L.flipV ? -1 : 1);
   x.drawImage(A.img, -G.cxp * need, -G.cyp * need, iw * need, ih * need);
   x.restore();
   if(st === 'sticker' && E > 0){ x.save(); P(); x.clip(); const g = x.createLinearGradient(-FW / 2, -FH / 2, FW * 0.1, FH * 0.1); g.addColorStop(0, 'rgba(255,255,255,.38)'); g.addColorStop(0.55, 'rgba(255,255,255,.08)'); g.addColorStop(0.56, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW, FH); x.restore(); }

@@ -62,7 +62,8 @@ function showMenu(id, cx, cy){
     b('front', 'front', '最前面へ', 'Ctrl+Shift+]', '', i === n - 1) + b('up', 'up', '前面へ', 'Ctrl+]', '', i === n - 1) +
     b('down', 'down', '背面へ', 'Ctrl+[', '', i === 0) + b('back', 'back', '最背面へ', 'Ctrl+Shift+[', '', i === 0) + '<hr>' +
     b('dup', 'dup', '複製', 'Ctrl+D') + b('rename', 'pen', '名前を変更') + b('lock', L.locked ? 'unlock' : 'lock', L.locked ? 'ロックを解除' : 'ロック') +
-    b('eye', L.hidden ? 'eye' : 'eyeoff', L.hidden ? '表示する' : '隠す') + '<hr>' + b('del', 'trash', '削除', 'Delete', 'danger');
+    b('eye', L.hidden ? 'eye' : 'eyeoff', L.hidden ? '表示する' : '隠す') +
+    (L.type === 'image' ? '<hr>' + b('flip', 'fliph', '左右反転', 'H') + b('flipV', 'flipv', '上下反転', 'V') : '') + '<hr>' + b('del', 'trash', '削除', 'Delete', 'danger');
   m.dataset.lid = id; m.classList.add('show');
   const r = m.getBoundingClientRect();
   m.style.left = Math.min(cx, innerWidth - r.width - 8) + 'px'; m.style.top = Math.min(cy, innerHeight - r.height - 8) + 'px';
@@ -97,6 +98,7 @@ function layerAction(id, act){
   else if(act === 'front'){ DOC.layers.splice(i, 1); DOC.layers.push(L); }
   else if(act === 'back'){ DOC.layers.splice(i, 1); DOC.layers.unshift(L); }
   else if(act === 'eye') L.hidden = !L.hidden;
+  else if(act === 'flip' || act === 'flipV'){ if(L.type !== 'image') return; flipLayer(L, act); }
   else if(act === 'lock'){ L.locked = !L.locked; toast(L.locked ? `「${layerName(L)}」をロックしました（キャンバス上では選択されません）` : 'ロックを解除しました'); }
   else if(act === 'rename'){ startRename(id); return; }
   else if(act === 'dup'){
@@ -113,3 +115,10 @@ function layerAction(id, act){
   }
   syncDoc(); renderLayers(); docChanged(false);
 }
+
+// 画像の反転（key = 'flip' 左右／'flipV' 上下）。切り抜きフレームがあるときは、フレームの中の絵がその場で反転する
+function flipLayer(L, key){ L[key] = !L[key]; }
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-flip]'); const L = selLayer(); if(!b || !L || L.type !== 'image') return;
+  flipLayer(L, b.dataset.flip); syncDoc(); docChanged(false);
+});
