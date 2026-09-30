@@ -6,6 +6,11 @@ async def run(p):
     await pg.set_input_files('#bgimgfile', IMG['city.jpg']); await settle(pg, 1000)
     await pg.evaluate("addFx('lines')"); await settle(pg, 1000)
     full = await pg.evaluate("dims.get(selLayer().id).w")
+    await page(pg, 'lay-fx')
+    assert await pg.evaluate("[...document.querySelectorAll('[data-d=\"@p.reach\"]')].some(e => e.offsetParent)"), '最大サイズのスライダーが最初から見えない'
+    await pg.evaluate("(() => { const el = [...document.querySelectorAll('[data-d=\"@p.reach\"]')].find(e => e.offsetParent); el.value = 3; el.dispatchEvent(new Event('input', {bubbles:true})); })()"); await settle(pg, 700)
+    assert await pg.evaluate("[selLayer().p.full, selLayer().p.reach]") == [False, 3], '最大サイズを動かしても指定に切り替わらない'
+    await pg.evaluate("selLayer().p.full = true; selLayer().p.reach = 1.8; syncDoc(); docChanged(false)"); await settle(pg, 700)
     await page(pg, 'lay-fx'); await pg.click('input[type=checkbox][data-d="@p.full"]'); await settle(pg, 1000)
     assert await pg.evaluate("selLayer().p.full") is False
     assert await pg.evaluate("dims.get(selLayer().id).w") > full, '最大サイズ指定で選択枠が広がらない'

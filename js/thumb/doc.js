@@ -98,6 +98,7 @@ function setD(k, v){
 const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:dGet,
   onInput(k, v, el){
     setD(k, v);
+    if(k === '@p.reach'){ const L = selLayer(); if(L && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');
   },
