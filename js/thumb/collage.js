@@ -1,8 +1,36 @@
 /* 楽ちんサムネメーカー：分割フレーム（複数の画像を2〜6分割で並べる） */
+/* マスの画像にかける効果（色調・ぼかし・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる） */
+const CELL_FX_BASE = () => ({bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
+  zb:{on:false, amt:0.25}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28}, dim:0, vignette:0, tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}});
+// 保存データの効果を既定値と合わせる（入れ子の項目も）
+function mergeCellFx(o){
+  const b = CELL_FX_BASE(); o = o || {};
+  for(const k in b) if(o[k] != null) b[k] = b[k] && typeof b[k] === 'object' ? Object.assign(b[k], o[k]) : o[k];
+  return b;
+}
+const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on);
+// マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
+const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
+const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
+  ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'], ['reset', 'なし']];
+const CELL_FX_PRESETS = {
+  reset:{}, vivid:{sat:0.45, contrast:0.18}, soft:{blur:6, bright:0.05, vignette:0.3}, mono:{tone:'mono', contrast:0.25, vignette:0.4},
+  retro:{tone:'sepia', contrast:0.08, vignette:0.55}, duo:{tone:'duotone', contrast:0.1}, red:{tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}},
+  dark:{dim:0.45, vignette:0.4}, focus:{zb:{on:true, amt:0.25}, contrast:0.1, vignette:0.45}, speed:{mb:{on:true, dist:120, angle:0}, contrast:0.1}, mosaic:{mosaic:{on:true, size:28}},
+};
 function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:1920, bh:1080, n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
-    outer:false, radius:0, ac:0, cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0}))});
+    outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
+    cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}))});
+}
+// 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
+function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
+function applyCellFx(name){
+  const L = selLayer(); if(!L || L.type !== 'collage') return;
+  const fx = mergeCellFx(JSON.parse(JSON.stringify(CELL_FX_PRESETS[name] || {})));
+  if(L.fxMode === 'cell') L.cells[L.ac || 0].fx = fx; else L.fx = fx;
+  syncDoc(); docChanged(false);
 }
 const COLLAGE_LAYOUTS = [
   ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6], ['grid2', 'グリッド（縦長）', n => n === 6],
@@ -108,7 +136,22 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
   }
   const iw = A.img.naturalWidth, ih = A.img.naturalHeight, k = Math.max(cw / iw, ch / ih) * clamp(cell.zoom || 1, 0.2, 8);
   const dw = iw * k, dh = ih * k, cx = bx0 + cw / 2 + (cell.ox || 0) * cw, cy = by0 + ch / 2 + (cell.oy || 0) * ch;
-  x.drawImage(A.img, cx - dw / 2, cy - dh / 2, dw, dh);
+  const fx = collageFx(L, i);
+  if(!cellFxOn(fx)){ x.drawImage(A.img, cx - dw / 2, cy - dh / 2, dw, dh); return; }
+  // 効果あり：マスの範囲（ぼかし・ブラーのぶん少し広め）を別のキャンバスで作ってから置く
+  const f = W / (L.bw * L.sc), m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0));
+  const t = mk(Math.ceil(cw) + m * 2, Math.ceil(ch) + m * 2), tx = t.getContext('2d'), ox = m - bx0, oy = m - by0;
+  tx.filter = toneFilter(fx, f); tx.drawImage(A.img, cx - dw / 2 + ox, cy - dh / 2 + oy, dw, dh); tx.filter = 'none';
+  const o = postFx(t, fx, f, bx0 + cw / 2 + ox, by0 + ch / 2 + oy), ox2 = o.getContext('2d');
+  ox2.save(); ox2.globalCompositeOperation = 'source-atop';
+  if(fx.dim > 0){ ox2.fillStyle = `rgba(0,0,0,${fx.dim})`; ox2.fillRect(0, 0, o.width, o.height); }
+  if(fx.tint.on && fx.tint.a > 0){ ox2.globalCompositeOperation = fx.tint.mode; ox2.globalAlpha = fx.tint.a; ox2.fillStyle = fx.tint.c; ox2.fillRect(0, 0, o.width, o.height); ox2.globalAlpha = 1; ox2.globalCompositeOperation = 'source-atop'; }
+  if(fx.vignette > 0){
+    const vx = bx0 + cw / 2 + ox, vy = by0 + ch / 2 + oy, g = ox2.createRadialGradient(vx, vy, Math.min(cw, ch) * 0.3, vx, vy, Math.hypot(cw, ch) / 2);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox2.fillStyle = g; ox2.fillRect(0, 0, o.width, o.height);
+  }
+  ox2.restore();
+  x.drawImage(o, bx0 - m, by0 - m);
 }
 function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = c.getContext('2d'), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
@@ -143,13 +186,14 @@ function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});
-  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), exporting]);
+  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), exporting]);
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H))){
     e = {sk, k: W / w, c: collageCanvas(L, W, H, f, lay)}; cache.set(L.id, e);
   }
   ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
   ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180);
+  const sh = L.shadow; if(sh && sh.on && sh.a > 0){ ctx.shadowColor = `rgba(0,0,0,${sh.a})`; ctx.shadowBlur = sh.blur * f; ctx.shadowOffsetY = sh.y * f; }
   ctx.drawImage(e.c, -w * f / 2, -h * f / 2, w * f, h * f);
   ctx.restore();
 }
@@ -179,7 +223,7 @@ function addCollage(){
 }
 async function collageSetCell(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
-  L.cells[i] = Object.assign({zoom:1, ox:0, oy:0}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0});
+  L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0});
 }
 // ドロップ位置のマス、なければ選択中の分割フレームの空いているマスに順に入れる。残りを返す
 async function collageTakeFiles(files, cx, cy){
@@ -208,14 +252,17 @@ async function collageTakeFiles(files, cx, cy){
 
 /* マスの一覧（操作パネル） */
 function renderCells(){
-  const box = document.getElementById('cellBox'), L = selLayer(); if(!box || !L || L.type !== 'collage') return;
+  const L = selLayer(); if(!L || L.type !== 'collage') return;
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
   const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => ASSETS[c.asset] ? c.asset : '')].join('|');
+  document.querySelectorAll('.cellBox').forEach(box => {
   if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
     return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" title="マス${i + 1}">${A ? `<img src="${A.thumb}" alt="">` : `<span>${i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
     <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>`;
+  });
 }
+document.addEventListener('click', e => { const b = e.target.closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
 document.addEventListener('click', e => {
   const cb = e.target.closest('[data-cell]'), ca = e.target.closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;

@@ -1,5 +1,31 @@
 /* 楽ちんサムネメーカー：操作パネル・モード・タブ */
 /* ---------- パネル ---------- */
+// 分割フレームの「効果」ページ。共通（@fx.）とマスごと（@cell.fx.）で同じ行を作り、切り替えで出し分ける
+const CFX_ROWS = (P, S) => [
+  {pg:'cfx', cfxchips:true, show:S},
+  {pg:'cfx', sub:'色調', show:S},
+  {pg:'cfx', r:P + 'bright', l:'明るさ', min:-0.6, max:0.6, step:0.01, show:S},
+  {pg:'cfx', r:P + 'contrast', l:'コントラスト', min:-0.8, max:1, step:0.01, show:S},
+  {pg:'cfx', r:P + 'sat', l:'彩度', min:-1, max:1, step:0.01, show:S},
+  {pg:'cfx', r:P + 'hue', l:'色相', min:-180, max:180, step:1, show:S},
+  {pg:'cfx', r:P + 'blur', l:'ぼかし', min:0, max:40, step:0.5, show:S},
+  {pg:'cfx', seg:P + 'tone', l:'トーン', opts:[['none', 'なし'], ['mono', 'モノクロ'], ['sepia', 'セピア'], ['duotone', '2色']], show:S},
+  {pg:'cfx', c:P + 'duo1', l:'暗い色', show:S + '&' + P + 'tone=duotone'}, {pg:'cfx', c:P + 'duo2', l:'明るい色', show:S + '&' + P + 'tone=duotone'},
+  {pg:'cfx', sub:'エフェクト', show:S},
+  {pg:'cfx', chk:P + 'zb.on', l:'ズームブラー（マスの中心へ吸い込まれる）', show:S},
+  {pg:'cfx', r:P + 'zb.amt', l:'強さ', min:0.02, max:0.8, step:0.01, show:S + '&' + P + 'zb.on=true'},
+  {pg:'cfx', chk:P + 'mb.on', l:'モーションブラー（流れる）', show:S},
+  {pg:'cfx', r:P + 'mb.dist', l:'距離', min:5, max:400, step:1, show:S + '&' + P + 'mb.on=true'},
+  {pg:'cfx', r:P + 'mb.angle', l:'方向', min:-90, max:90, step:1, show:S + '&' + P + 'mb.on=true'},
+  {pg:'cfx', chk:P + 'mosaic.on', l:'モザイク', show:S},
+  {pg:'cfx', r:P + 'mosaic.size', l:'粗さ', min:4, max:120, step:1, show:S + '&' + P + 'mosaic.on=true'},
+  {pg:'cfx', r:P + 'dim', l:'暗くする', min:0, max:0.85, step:0.01, show:S},
+  {pg:'cfx', r:P + 'vignette', l:'周辺減光', min:0, max:1, step:0.01, show:S},
+  {pg:'cfx', chk:P + 'tint.on', l:'色を重ねる', show:S},
+  {pg:'cfx', c:P + 'tint.c', l:'色', show:S + '&' + P + 'tint.on=true'},
+  {pg:'cfx', r:P + 'tint.a', l:'濃さ', min:0, max:1, step:0.01, show:S + '&' + P + 'tint.on=true'},
+  {pg:'cfx', sel:P + 'tint.mode', l:'重ね方', opts:[['overlay', 'オーバーレイ'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['soft-light', 'ソフトライト'], ['color', 'カラー（単色化）']], show:S + '&' + P + 'tint.on=true'},
+];
 const SEL_ROWS = [
   {pg:'base', r:'@sc', l:'大きさ', min:0.05, max:10, step:0.01},
   {pg:'base', r:'@rot', l:'回転', min:-180, max:180, step:1},
@@ -43,6 +69,16 @@ const SEL_ROWS = [
   {pg:'cells', r:'@cell.ox', l:'画像 左右', min:-1, max:1, step:0.005, show:'@type=collage'},
   {pg:'cells', r:'@cell.oy', l:'画像 上下', min:-1, max:1, step:0.005, show:'@type=collage'},
   {pg:'cells', btns:[['collageEditBtn', 'crop', 'キャンバスでマスの画像を調整']], show:'@type=collage'},
+  {pg:'cfx', sub:'効果', note:'マスの画像に色調やエフェクトをかけます', show:'@type=collage'},
+  {pg:'cfx', seg:'@fxMode', l:'かける対象', opts:[['all', '全部のマス'], ['cell', 'マスごと']], show:'@type=collage'},
+  {pg:'cfx', cells:true, show:'@type=collage&@fxMode=cell'},
+  ...CFX_ROWS('@fx.', '@type=collage&@fxMode=all'),
+  ...CFX_ROWS('@cell.fx.', '@type=collage&@fxMode=cell'),
+  {pg:'cfx', sub:'全体の影', show:'@type=collage'},
+  {pg:'cfx', chk:'@shadow.on', l:'影を付ける', show:'@type=collage'},
+  {pg:'cfx', r:'@shadow.blur', l:'影ぼかし', min:0, max:120, step:1, show:'@type=collage&@shadow.on=true'},
+  {pg:'cfx', r:'@shadow.y', l:'影の位置', min:-60, max:90, step:1, show:'@type=collage&@shadow.on=true'},
+  {pg:'cfx', r:'@shadow.a', l:'影の濃さ', min:0, max:1, step:0.01, show:'@type=collage&@shadow.on=true'},
   {pg:'base', sub:'全体の大きさ', show:'@type=collage'},
   {pg:'base', r:'@bw', l:'横幅', min:100, max:1920, step:1, show:'@type=collage'},
   {pg:'base', r:'@bh', l:'高さ', min:100, max:1080, step:1, show:'@type=collage'},
@@ -60,7 +96,7 @@ const SEL_ROWS = [
   {pg:'frame', r:'@frame.cx', l:'位置 左右', min:0, max:1, step:0.002, show:'@type=image&@frame.shape!=none'},
   {pg:'frame', r:'@frame.cy', l:'位置 上下', min:0, max:1, step:0.002, show:'@type=image&@frame.shape!=none'},
   {pg:'edge', chk:'@outline.on', l:'フチを付ける（切り抜き画像向け）', show:'@type=image&@frame.shape=none'},
-  {pg:'frame|edge', r:'@outline.w', l:'フチ太さ', min:1, max:50, step:0.5, show:'@type=image'},
+  {pg:'frame|edge', r:'@outline.w', l:'フチ太さ', min:0.05, max:50, step:0.01, show:'@type=image'},
   {pg:'frame|edge', c:'@outline.c', l:'フチ色', show:'@type=image'},
   {pg:'frame', c:'@frame.c2', l:'2色目', show:'@type=image&@frame.style=pop|grad|tape|neon2|block|triple|stitch|halftone|pixel'},
   {pg:'edge', chk:'@shadow.on', l:'影を付ける', show:'@type=image'},
@@ -128,7 +164,8 @@ const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
-  if(r.cells) return `<div id="cellBox"${sa}></div>`;
+  if(r.cells) return `<div class="cellBox"${sa}></div>`;
+  if(r.cfxchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック効果</div><div class="pcats fxchips">${CELL_FX_CHIPS.map(([k, t]) => `<button data-cfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.frpre){ const nm = Object.fromEntries(FRAME_PRESETS.map(p => [p[0], p[1]]));
     return `<div${sa}>${FRAME_GROUPS.map(([g, ks]) => `<div class="frgrp">${g}</div><div class="pcats frpre">${ks.map(k => `<button data-frpre="${k}">${nm[k]}</button>`).join('')}</div>`).join('')}<div class="pcats frpre"><button data-frpre="off">フレームなし</button></div></div>`; }
   if(r.shapes) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes" data-dseg="@frame.shape">${FRAME_SHAPES.map(([k, t]) => `<button data-v="${k}" title="${t}">${k === 'none' ? '<span>なし</span>' : `<img src="${shapeIcon(k)}" alt="${t}">`}</button>`).join('')}</div></div>`;
@@ -154,7 +191,7 @@ const INS_PAGES = {
   textmode:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾']],
   text:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾'], ['lay-base', '配置']],
   image:[['lay-base', '配置'], ['lay-frame', 'フレーム'], ['lay-edge', 'フチ・影']],
-  collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-base', '配置']],
+  collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-cfx', '効果'], ['lay-base', '配置']],
   fx:[['lay-fx', 'エフェクト'], ['lay-base', '配置']],
   bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果']],
 };

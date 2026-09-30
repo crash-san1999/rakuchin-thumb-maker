@@ -96,6 +96,26 @@ function motionBlur(src, dist, angle){
   x.globalAlpha = 1;
   return o;
 }
+/* 画像の色調・効果（背景と分割フレームのマスで共通。b は bright/contrast/sat/hue/blur/tone/duo1/duo2/mosaic/mb/zb を持つ） */
+function toneFilter(b, f){
+  const fl = [];
+  if(b.bright) fl.push(`brightness(${1 + b.bright})`);
+  if(b.contrast) fl.push(`contrast(${Math.max(0, 1 + b.contrast)})`);
+  if(b.sat) fl.push(`saturate(${Math.max(0, 1 + b.sat)})`);
+  if(b.hue) fl.push(`hue-rotate(${b.hue}deg)`);
+  if(b.tone === 'mono') fl.push('grayscale(1)'); else if(b.tone === 'sepia') fl.push('sepia(.9)');
+  if(b.blur > 0) fl.push(`blur(${b.blur * f}px)`);
+  return fl.join(' ') || 'none';
+}
+// 描き終えた画像にかける効果（2色・モザイク・モーションブラー・ズームブラー）。cx, cy はズームブラーの中心
+function postFx(c, b, f, cx, cy){
+  if(b.tone === 'duotone') duotone(c, b.duo1, b.duo2);
+  if(b.mosaic.on) mosaic(c, b.mosaic.size * f);
+  let out = c;
+  if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
+  if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, cx, cy);
+  return out;
+}
 function bgImageLayer(W, H, f){
   const b = DOC.bg, A = ASSETS[b.asset], c = mk(W, H), x = c.getContext('2d');
   x.fillStyle = '#101014'; x.fillRect(0, 0, W, H);
@@ -107,21 +127,9 @@ function bgImageLayer(W, H, f){
     x.drawImage(A.img, (W - iw * cover) / 2 - m, (H - ih * cover) / 2 - m, iw * cover + 2 * m, ih * cover + 2 * m); x.restore();
   }else{ x.fillStyle = b.gapColor; x.fillRect(0, 0, W, H); }
   const s = (b.fit === 'contain' ? Math.min(W / iw, H / ih) : cover) * b.zoom, dw = iw * s, dh = ih * s;
-  const fl = [];
-  if(b.bright) fl.push(`brightness(${1 + b.bright})`);
-  if(b.contrast) fl.push(`contrast(${Math.max(0, 1 + b.contrast)})`);
-  if(b.sat) fl.push(`saturate(${Math.max(0, 1 + b.sat)})`);
-  if(b.hue) fl.push(`hue-rotate(${b.hue}deg)`);
-  if(b.tone === 'mono') fl.push('grayscale(1)'); else if(b.tone === 'sepia') fl.push('sepia(.9)');
-  if(b.blur > 0) fl.push(`blur(${b.blur * f}px)`);
   x.save(); x.translate(W / 2 + b.ox * W / 2, H / 2 + b.oy * H / 2); x.rotate((b.rot || 0) * PI / 180); if(b.flip) x.scale(-1, 1);
-  x.filter = fl.join(' ') || 'none'; x.drawImage(A.img, -dw / 2, -dh / 2, dw, dh); x.restore();
-  if(b.tone === 'duotone') duotone(c, b.duo1, b.duo2);
-  if(b.mosaic.on) mosaic(c, b.mosaic.size * f);
-  let out = c;
-  if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
-  if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, clamp(b.fcx, 0, 1) * W, clamp(b.fcy, 0, 1) * H);
-  return out;
+  x.filter = toneFilter(b, f); x.drawImage(A.img, -dw / 2, -dh / 2, dw, dh); x.restore();
+  return postFx(c, b, f, clamp(b.fcx, 0, 1) * W, clamp(b.fcy, 0, 1) * H);
 }
 function drawBackground(ctx, W, H, f){
   const b = DOC.bg;

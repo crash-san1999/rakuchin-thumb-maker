@@ -48,6 +48,9 @@ async def main_screens(p):
     await page(pg, 'lay-cells'); await pg.click('[data-cell="0"]'); await pg.set_input_files('#cellfile', [IMG['synth.jpg'], IMG['night.jpg']]); await settle(pg, 2200)
     await page(pg, 'lay-split'); await settle(pg, 600); await shot(pg, 'collage.png')
     await page(pg, 'lay-cells'); await shot(pg, 'ins-cells.png', clip=SIDE)
+    await page(pg, 'lay-cfx'); await pg.click('.seg[data-dseg="@fxMode"] [data-v="cell"]')
+    await pg.click('.cellBox:visible [data-cell="0"]'); await pg.click('[data-cfx="red"]:visible')
+    await pg.click('.cellBox:visible [data-cell="1"]'); await pg.click('[data-cfx="focus"]:visible'); await settle(pg, 1200); await shot(pg, 'collage-fx.png')
     await pg.click('#modeSeg [data-mode=text]'); await settle(pg, 1400); await shot(pg, 'text-mode.png')
     await close(pg)
 

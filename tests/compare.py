@@ -54,6 +54,11 @@ async def main(ref):
             same = len(A['presets']) == len(B['presets']) and not pd
             print(f"{'✔' if same else '✘'} プリセットの描画 {len(B['presets'])} 件{'' if same else '  違う番号 ' + str(pd)}"); ok &= same
             print(f"{'✔' if A['pages'] == B['pages'] else '✘'} 設定パネルのページごとの項目"); ok &= A['pages'] == B['pages']
+            for pgk in sorted(set(A['pages']) | set(B['pages'])):
+                a, b = A['pages'].get(pgk, []), B['pages'].get(pgk, [])
+                if a != b:
+                    add, rem = [x for x in b if x not in a], [x for x in a if x not in b]
+                    print(f"    {pgk}: 追加 {len(add)} {add[:6]}{'…' if len(add) > 6 else ''} / 削除 {len(rem)} {rem[:6]}" + ('' if add or rem else ' / 並び順のみ'))
             print('\n変化なし' if ok else '\n違いがあります（意図した変更か確認してください）')
             return 0 if ok else 1
         finally:

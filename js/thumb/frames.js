@@ -163,7 +163,7 @@ function framedCanvas(L, f, live, cache){
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const G = frameGeom(L), iw = G.iw, ih = G.ih;
   const FW = Math.max(2, G.fw * need), FH = Math.max(2, G.fh * need);
-  const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.5, o.w * f);
+  const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.05, o.w * f);
   const tw = Math.min(FW, FH) * 0.36;
   const pad = Math.ceil(E * ({photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4, rgb:3.2, halftone:5.4, brush:2.8, film:4, stitch:1.4, sticker:2, crt:1.8, pixel:1.8, aura:8, triple:2.4}[st] || 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
   const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');

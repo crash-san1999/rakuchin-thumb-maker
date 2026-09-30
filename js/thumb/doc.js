@@ -37,7 +37,8 @@ function normalizeDoc(d){
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
   o.layers = d.layers.filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
     ? Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})})
-    : L.type === 'collage' ? (b => Object.assign(b, L, {cells: b.cells.map((c, i) => Object.assign(c, (L.cells || [])[i] || {}))}))(COLLAGE_BASE())
+    : L.type === 'collage' ? (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}),
+        cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx)}); })}))(COLLAGE_BASE())
     : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
         outline: Object.assign(IMAGE_BASE().outline, L.outline || {}),
@@ -72,6 +73,7 @@ function dSet(k, v){
   const ps = p.split('.'), last = ps.pop(), o = ps.reduce((o, q) => o?.[q], b);
   if(o) o[last] = v;
   if(k === '@n' && b.type === 'collage' && !collageLayoutOk(b.layout, collageN(b))) b.layout = 'cols';
+  if(k === '@fxMode' && b.type === 'collage') collageFxModeChanged(b);
 }
 function docChanged(live){
   saveDoc(); clearTimeout(histT); histT = setTimeout(pushHist, 450);
