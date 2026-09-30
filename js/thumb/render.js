@@ -29,10 +29,10 @@ function tinted(A, color){
 // 画像の明度・彩度（0 で元のまま）。フチ・影にはかけず、絵だけにかける
 const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.max(0, 1 + L.bright)})`); if(L.sat) f.push(`saturate(${Math.max(0, 1 + L.sat)})`); return f.join(' ') || 'none'; };
 function imageCanvas(L, f, live, cache){
-  const A = ASSETS[L.asset]; if(!A) return null;
+  const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
   const need = L.sc * f, o = L.outline, ow = o.on ? o.w : 0;
-  const sk = [L.asset, o.on, o.w, o.c, L.flip, L.flipV, L.bright, L.sat].join('|');
+  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, L.flip, L.flipV, L.bright, L.sat].join('|');
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
     const iw = A.img.naturalWidth, ih = A.img.naturalHeight, r = ow * f, pad = Math.ceil(r) + 2;

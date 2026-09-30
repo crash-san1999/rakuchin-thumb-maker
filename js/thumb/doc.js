@@ -43,7 +43,7 @@ function normalizeDoc(d){
     : L.type === 'group' ? (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE()))
     : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
-        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}),
+        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: Object.assign(IMAGE_BASE().crop, L.crop || {}),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
         shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {})}));
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
@@ -97,7 +97,10 @@ function setD(k, v){
 }
 const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:dGet,
   onInput(k, v, el){
+    const cL = /^@crop\./.test(k) ? selLayer() : null, c0 = cL && cropCentre(cL);
     setD(k, v);
+    if(cL && c0){ const c1 = cropCentre(cL), a = (cL.rot || 0) * PI / 180, dx = (c1[0] - c0[0]) * cL.sc, dy = (c1[1] - c0[1]) * cL.sc;   // 見えている部分が動かないように位置を補正
+      cL.x += dx * Math.cos(a) - dy * Math.sin(a); cL.y += dx * Math.sin(a) + dy * Math.cos(a); }
     if(k === '@p.reach'){ const L = selLayer(); if(L && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');
@@ -118,4 +121,11 @@ function syncDoc(except){
   renderInspector();
   renderCells();
   refreshSizeUI();
+}
+
+// トリミング後の絵の中心（元の画像の中心からのずれ。画像の座標）。反転も考えに入れる
+function cropCentre(L){
+  const A = ASSETS[L.asset]; if(!A) return [0, 0];
+  const c = cropOf(L), iw = A.img.naturalWidth, ih = A.img.naturalHeight;
+  return [(c.l - c.r) / 2 * iw * (L.flip ? -1 : 1), (c.t - c.b) / 2 * ih * (L.flipV ? -1 : 1)];
 }

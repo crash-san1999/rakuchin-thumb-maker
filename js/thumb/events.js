@@ -119,6 +119,7 @@ document.addEventListener('click', e => {
     showMenu(row.dataset.lid, e.clientX, e.clientY);
   });
   $('#addCollageBtn').onclick = () => addCollage();
+  document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ const c0 = cropCentre(L); L.crop = {t:0, b:0, l:0, r:0}; const a = (L.rot || 0) * PI / 180, dx = -c0[0] * L.sc, dy = -c0[1] * L.sc; L.x += dx * Math.cos(a) - dy * Math.sin(a); L.y += dx * Math.sin(a) + dy * Math.cos(a); syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
 }

@@ -142,7 +142,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
 function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; }
 /* フレームの形の位置（画像のピクセル座標）：fs=大きさ、cx/cy=画像のどこを中心に切り抜くか */
 function frameGeom(L){
-  const A = ASSETS[L.asset]; if(!A) return null;
+  const A = layerSrc(L); if(!A) return null;
   const fr = L.frame, iw = A.img.naturalWidth, ih = A.img.naturalHeight;
   const ar = fr.ar && fr.ar !== 'auto' ? parseFloat(fr.ar) || 1 : (FRAME_AUTO.has(fr.shape) ? iw / ih : 1);
   const fw0 = Math.min(iw, ih * ar), fs = clamp(fr.fs ?? 1, 0.05, 1), fw = fw0 * fs, fh = fw / ar;
@@ -157,8 +157,8 @@ function frameCompensate(L, g0, base){
   L.x = bx + dx * Math.cos(a) - dy * Math.sin(a); L.y = by + dx * Math.sin(a) + dy * Math.cos(a);
 }
 function framedCanvas(L, f, live, cache){
-  const A = ASSETS[L.asset], fr = L.frame, o = L.outline, need = L.sc * f;
-  const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat]);
+  const A = layerSrc(L), fr = L.frame, o = L.outline, need = L.sc * f;
+  const sk = JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat]);
   let e = cache.get(L.id);
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const G = frameGeom(L), iw = G.iw, ih = G.ih;

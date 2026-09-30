@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：画像アセット（IndexedDBに保存）・画像や背景の追加 */
 /* ---------- 画像アセット（IndexedDBに保存） ---------- */
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）
-const IMAGE_BASE = () => ({flip:false, flipV:false, bright:0, sat:0, outline:{on:true, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:true, blur:30, y:14, a:0.45}});
+const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, flip:false, flipV:false, bright:0, sat:0, outline:{on:true, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:true, blur:30, y:14, a:0.45}});
 const ASSETS = {};
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
@@ -59,4 +59,19 @@ async function setBgFromFile(f){
   Object.assign(DOC.bg, {asset:id, type:'image', zoom:1, ox:0, oy:0});
   syncDoc(); docChanged(false);
   if(wantBgPalette){ wantBgPalette = false; bgImg = ASSETS[id].img; paletteFromBg(); }
+}
+
+// 画像の表示範囲（上下左右のトリミング）。切り取った絵を持つ、元の画像と同じ形の入れ物を返す（トリミングなしなら元のまま）
+const cropOf = L => L.crop || {t:0, b:0, l:0, r:0};
+const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 || c.r > 0; };
+function layerSrc(L){
+  const A = ASSETS[L.asset]; if(!A || !cropOn(L)) return A;
+  const c = cropOf(L), iw = A.img.naturalWidth, ih = A.img.naturalHeight;
+  const sx = Math.round(clamp(c.l, 0, 0.9) * iw), sy = Math.round(clamp(c.t, 0, 0.9) * ih);
+  const sw = Math.max(8, Math.round(iw * (1 - clamp(c.l, 0, 0.9) - clamp(c.r, 0, 0.9)))), sh = Math.max(8, Math.round(ih * (1 - clamp(c.t, 0, 0.9) - clamp(c.b, 0, 0.9))));
+  const key = [sx, sy, sw, sh].join(',');
+  if(A.cropKey === key && A.cropObj) return A.cropObj;
+  const cv = mk(sw, sh); cv.getContext('2d').drawImage(A.img, sx, sy, sw, sh, 0, 0, sw, sh);
+  cv.naturalWidth = sw; cv.naturalHeight = sh;
+  A.cropKey = key; return A.cropObj = {img: cv, name: A.name};
 }
