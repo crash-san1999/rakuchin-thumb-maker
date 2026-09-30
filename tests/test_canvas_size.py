@@ -7,7 +7,7 @@ async def run(p):
     await pg.evaluate("(() => { const L = DOC.layers[0]; L.x = 480; L.y = 270; L.sc = 1; docChanged(false); })()")
     before = await pg.evaluate("(() => { const L = DOC.layers[0]; return [L.x, L.y, L.sc]; })()")
 
-    await pg.click('#fileBtn'); await pg.wait_for_timeout(300)
+    await pg.click('#canvasBtn'); await pg.wait_for_timeout(300)
     # プリセットで縦配信サイズへ
     await pg.select_option('#canvasPreset', '1080x1920'); await settle(pg, 900)
     assert await pg.evaluate("[DOC.w, DOC.h]") == [1080, 1920], 'プリセットが反映されない'

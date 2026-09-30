@@ -23,6 +23,7 @@ function togglePop(id, anchor){
 }
 document.addEventListener('click', e => {
   const a = e.target.closest('#addBtn, #lpAdd'); if(a){ togglePop('addMenu', a); return; }
+  const cv = e.target.closest('#canvasBtn, #openCanvasMenu'); if(cv){ togglePop('canvasMenu', $('#canvasBtn').offsetParent ? $('#canvasBtn') : $('#fileBtn')); return; }
   const f = e.target.closest('#fileBtn'); if(f){ togglePop('fileMenu', f); return; }
   if(e.target.closest('#addBgImg')){ $('#bgimgfile').click(); }
   if(e.target.closest('#mbar [data-sheet=add]')) return;

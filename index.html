@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=f7389e22">
+<link rel="stylesheet" href="css/app.css?v=6e4dc971">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -30,6 +30,7 @@
     <button class="icon-btn" id="redo" title="やり直し（Ctrl+Shift+Z）"><i data-ic="redo"></i></button>
     <span class="divider"></span>
     <div class="only-thumb head-group">
+      <button class="btn ghost" id="canvasBtn" title="キャンバスのサイズ（縦配信 1080×1920 など）"><i data-ic="crop"></i><span class="hide-sm">キャンバスのサイズ</span></button>
       <select id="exportW" class="compact" data-d="exportW" data-num="1" title="書き出しサイズ">
         <option value="1920">1920×1080（フルHD）</option><option value="1280">1280×720</option><option value="2560">2560×1440</option><option value="3840">3840×2160（4K）</option>
       </select>
@@ -208,14 +209,20 @@
   </div>
   <input type="file" id="imgfile" accept="image/*" multiple hidden>
 </div>
-<div class="pop" id="fileMenu">
-  <div class="pop-ttl">ファイル・書き出し設定</div>
-    <div id="fileSec">
-      <h3>キャンバスのサイズ <span class="hint" id="cvNow"></span></h3>
+<div class="pop" id="canvasMenu">
+  <div class="pop-ttl">キャンバスのサイズ</div>
+    <div id="canvasSec">
+      <h3>いまのサイズ <span class="hint" id="cvNow"></span></h3>
       <div class="row"><label>形</label><select id="canvasPreset"></select></div>
       <div class="row"><label>自由指定</label><span class="sizein"><input type="number" id="cvW" min="200" max="5000" step="1" inputmode="numeric" aria-label="横"><i>×</i><input type="number" id="cvH" min="200" max="5000" step="1" inputmode="numeric" aria-label="縦"><button class="btn sm" id="cvApply">適用</button></span></div>
       <label class="chk"><input type="checkbox" id="cvFit" checked> 今ある内容も、新しいサイズに合わせて置き直す</label>
       <p class="note">縦配信（1080×1920）などに切り替えられます。200〜5000 px で自由にも指定できます。取り消し（Ctrl+Z）で戻せます。</p>
+    </div>
+</div>
+<div class="pop" id="fileMenu">
+  <div class="pop-ttl">ファイル・書き出し設定</div>
+    <div id="fileSec">
+      <button class="btn sm" id="openCanvasMenu"><i data-ic="crop"></i>キャンバスのサイズを変える…</button>
       <h3>保存と書き出し</h3>
       <div class="crow">
         <button class="btn sm" id="saveProj"><i data-ic="save"></i>プロジェクトを保存</button>
@@ -292,32 +299,32 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=f7389e22"></script>
-<script src="js/bind.js?v=f7389e22"></script>
-<script src="js/presets.js?v=f7389e22"></script>
-<script src="js/data/font-list.js?v=f7389e22"></script>
-<script src="js/fonts.js?v=f7389e22"></script>
-<script src="js/controls.js?v=f7389e22"></script>
-<script src="js/text-render.js?v=f7389e22"></script>
-<script src="js/preview.js?v=f7389e22"></script>
-<script src="js/colors.js?v=f7389e22"></script>
-<script src="js/history.js?v=f7389e22"></script>
-<script src="js/thumb/frames.js?v=f7389e22"></script>
-<script src="js/thumb/collage.js?v=f7389e22"></script>
-<script src="js/thumb/canvas.js?v=f7389e22"></script>
-<script src="js/thumb/group.js?v=f7389e22"></script>
-<script src="js/thumb/fx.js?v=f7389e22"></script>
-<script src="js/thumb/assets.js?v=f7389e22"></script>
-<script src="js/thumb/doc.js?v=f7389e22"></script>
-<script src="js/thumb/render.js?v=f7389e22"></script>
-<script src="js/thumb/overlay.js?v=f7389e22"></script>
-<script src="js/thumb/editmodes.js?v=f7389e22"></script>
-<script src="js/thumb/layers.js?v=f7389e22"></script>
-<script src="js/thumb/export.js?v=f7389e22"></script>
-<script src="js/thumb/inspector.js?v=f7389e22"></script>
-<script src="js/thumb/events.js?v=f7389e22"></script>
-<script src="js/mobile.js?v=f7389e22"></script>
-<script src="js/popups.js?v=f7389e22"></script>
-<script src="js/main.js?v=f7389e22"></script>
+<script src="js/core.js?v=6e4dc971"></script>
+<script src="js/bind.js?v=6e4dc971"></script>
+<script src="js/presets.js?v=6e4dc971"></script>
+<script src="js/data/font-list.js?v=6e4dc971"></script>
+<script src="js/fonts.js?v=6e4dc971"></script>
+<script src="js/controls.js?v=6e4dc971"></script>
+<script src="js/text-render.js?v=6e4dc971"></script>
+<script src="js/preview.js?v=6e4dc971"></script>
+<script src="js/colors.js?v=6e4dc971"></script>
+<script src="js/history.js?v=6e4dc971"></script>
+<script src="js/thumb/frames.js?v=6e4dc971"></script>
+<script src="js/thumb/collage.js?v=6e4dc971"></script>
+<script src="js/thumb/canvas.js?v=6e4dc971"></script>
+<script src="js/thumb/group.js?v=6e4dc971"></script>
+<script src="js/thumb/fx.js?v=6e4dc971"></script>
+<script src="js/thumb/assets.js?v=6e4dc971"></script>
+<script src="js/thumb/doc.js?v=6e4dc971"></script>
+<script src="js/thumb/render.js?v=6e4dc971"></script>
+<script src="js/thumb/overlay.js?v=6e4dc971"></script>
+<script src="js/thumb/editmodes.js?v=6e4dc971"></script>
+<script src="js/thumb/layers.js?v=6e4dc971"></script>
+<script src="js/thumb/export.js?v=6e4dc971"></script>
+<script src="js/thumb/inspector.js?v=6e4dc971"></script>
+<script src="js/thumb/events.js?v=6e4dc971"></script>
+<script src="js/mobile.js?v=6e4dc971"></script>
+<script src="js/popups.js?v=6e4dc971"></script>
+<script src="js/main.js?v=6e4dc971"></script>
 </body>
 </html>

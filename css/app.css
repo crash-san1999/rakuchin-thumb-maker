@@ -486,7 +486,8 @@ body.is-mobile.sheet-open .stage,body.is-mobile.sheet-open.mode-thumb .stage{pad
 .pop-chip .ic{width:15px;height:15px}
 .pop-chip:hover{background:var(--acc-2)}
 #fileMenu{width:380px}
-#fileMenu #fileSec{padding:0}
+#fileMenu #fileSec,#canvasMenu #canvasSec{padding:0}
+#canvasMenu{width:380px}
 body.is-mobile .pop{left:8px !important;right:8px;top:auto !important;bottom:78px;width:auto;max-height:70vh}
 body.is-mobile .ins-head{padding:4px 12px 2px}
 body.is-mobile .ins-head .ins-title{display:none}
@@ -512,3 +513,5 @@ body.is-mobile #addBtn{display:none}
 .sizein input{width:76px;min-width:0}
 .sizein i{font-style:normal;color:var(--mute)}
 .sizein .btn{margin-left:auto}
+/* 幅がせまいPCでは、ヘッダーの余白と「コピー」の文字を減らしてロゴが切れないようにする */
+@media (max-width:1560px){ .app-head{gap:8px} body:not(.is-mobile) #copyBtn .hide-sm{display:none} }
