@@ -25,6 +25,6 @@ function boot(){
   renderThemes();
   thumbInit();
   update(); pushHist();
-  scheduleFontListCheck();
+  scheduleFontListCheck(); registerFontCache(); preloadFavFonts();
 }
 boot();

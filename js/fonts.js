@@ -320,7 +320,9 @@ $('#flist').addEventListener('click', e => {
   const fb = e.target.closest('.fav');
   if(fb){
     favs.has(fam) ? favs.delete(fam) : favs.add(fam); LS.set('ttm_favs', [...favs]);
-    fb.classList.toggle('on'); return;
+    fb.classList.toggle('on');
+    const ff = favs.has(fam) && findFont(fam); if(ff && WEB_SRC.includes(ff.src) && !cssState.has(fam)){ if(ff.mb > 1) toast(`「${fam}」を先に読み込んでおきます（約${ff.mb}MB）`); ensureCss(ff, 400); }
+    return;
   }
   S.font = fam; fixWeight(); buildWeight();
   const ff = findFont(fam); if(ff && ff.mb > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = it.querySelectorAll('.tag'); t.length > 1 && t[t.length - 1].remove(); }); }
@@ -383,6 +385,15 @@ async function updateFontList(manual){
 }
 $('#fetchG').onclick = () => updateFontList(true);
 // 起動して少したってから、週に1回だけフォント一覧の更新を確認する
+/* お気に入りのフォントを、起動後のひまな時間に先に読み込んでおく（通信量を抑える設定・モバイル回線のときはしない）。
+   Service Worker が端末に保存するので、次の起動からはすぐ使える */
+function preloadFavFonts(){
+  const c = navigator.connection; if(c && (c.saveData || c.type === 'cellular')) return;
+  setTimeout(() => { [...favs].map(findFont).filter(f => f && WEB_SRC.includes(f.src) && !cssState.has(f.family)).forEach((f, i) => setTimeout(() => ensureCss(f, 400), i * 1500)); }, 3000);
+}
+function registerFontCache(){
+  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 function scheduleFontListCheck(){ setTimeout(() => { const u = LS.get('ttm_fsupd', null); if(!u || Date.now() - u.at > 7 * 864e5) updateFontList(false); }, 4000); }
 
 /* WebフォントのURLから追加 */

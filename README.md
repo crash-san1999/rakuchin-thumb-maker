@@ -39,6 +39,7 @@ js/bind.js                 入力欄と値をつなぐしくみ（文字パネ�
 js/presets.js              文字スタイルのプリセット
 js/data/font-list.js       Google Fonts 全書体の一覧データ
 fonts/                     同梱フォント（フロップデザイン系ほか。ライセンス付き）
+sw.js                      フォントの端末保存（Service Worker）
 js/fonts.js                フォント管理（Google Fonts・Webフリー・PC内・URL追加）
 js/controls.js             文字の操作パネル（テキスト・装飾）の生成と同期
 js/text-render.js          文字の描画エンジン・装飾
