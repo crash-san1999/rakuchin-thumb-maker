@@ -68,7 +68,7 @@ h3 .sw{order:2;margin-left:auto}
 
 /* ---------- 行 ---------- */
 .row{display:grid;grid-template-columns:74px 1fr 50px;align-items:center;gap:12px;margin:11px 0}
-.row>label:first-child{color:var(--sub);font-size:12px;font-weight:700;white-space:nowrap}
+.row>label:first-child{color:var(--sub);font-size:12px;font-weight:700;line-height:1.3;min-width:0;overflow-wrap:anywhere}
 .row .seg,.row .cpick,.row .chk,.row select,.row .reroll,.row .place{grid-column:2 / 4}
 .row .reroll{justify-self:start}
 .adj output{font-size:11.5px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;font-family:Inter,sans-serif;font-weight:600}
