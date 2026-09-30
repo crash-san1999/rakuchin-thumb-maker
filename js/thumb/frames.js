@@ -158,7 +158,7 @@ function frameCompensate(L, g0, base){
 }
 function framedCanvas(L, f, live, cache){
   const A = ASSETS[L.asset], fr = L.frame, o = L.outline, need = L.sc * f;
-  const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip, L.flipV]);
+  const sk = JSON.stringify([L.asset, fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat]);
   let e = cache.get(L.id);
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const G = frameGeom(L), iw = G.iw, ih = G.ih;
@@ -220,7 +220,7 @@ function framedCanvas(L, f, live, cache){
   }
   x.save(); P(); x.clip();
   if(L.flip || L.flipV) x.scale(L.flip ? -1 : 1, L.flipV ? -1 : 1);
-  x.drawImage(A.img, -G.cxp * need, -G.cyp * need, iw * need, ih * need);
+  x.filter = imgFilter(L); x.drawImage(A.img, -G.cxp * need, -G.cyp * need, iw * need, ih * need); x.filter = 'none';
   x.restore();
   if(st === 'sticker' && E > 0){ x.save(); P(); x.clip(); const g = x.createLinearGradient(-FW / 2, -FH / 2, FW * 0.1, FH * 0.1); g.addColorStop(0, 'rgba(255,255,255,.38)'); g.addColorStop(0.55, 'rgba(255,255,255,.08)'); g.addColorStop(0.56, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW, FH); x.restore(); }
   if(st === 'stitch' && E > 0){ x.save(); const sx = Math.max(0.1, (FW - E * 3.2) / FW), sy = Math.max(0.1, (FH - E * 3.2) / FH); x.scale(sx, sy); P(); x.lineWidth = E * 0.55 / Math.min(sx, sy); x.setLineDash([E * 1.5 / sx, E * 1.1 / sx]); x.strokeStyle = o.c; x.stroke(); x.restore(); }

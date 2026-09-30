@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：画像アセット（IndexedDBに保存）・画像や背景の追加 */
 /* ---------- 画像アセット（IndexedDBに保存） ---------- */
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）
-const IMAGE_BASE = () => ({flip:false, flipV:false, outline:{on:true, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:true, blur:30, y:14, a:0.45}});
+const IMAGE_BASE = () => ({flip:false, flipV:false, bright:0, sat:0, outline:{on:true, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:true, blur:30, y:14, a:0.45}});
 const ASSETS = {};
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
