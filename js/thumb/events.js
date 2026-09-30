@@ -37,21 +37,31 @@ document.addEventListener('click', e => {
 });
 {
   const list = $('#layerList');
-  let ld = null, suppressClick = false;
+  let ld = null, suppressClick = false, lpT = 0, lpFired = false;
   list.addEventListener('pointerdown', e => {
     if(e.button !== 0) return;
+    lpFired = false;
     const row = e.target.closest('.ly[data-lid]'); if(!row || e.target.closest('[data-la]') || e.target.closest('input')) return;
-    const rows = [...list.querySelectorAll('.ly[data-lid]')], from = rows.indexOf(row);
-    ld = {row, id:row.dataset.lid, y0:e.clientY, started:false, rows, rects:rows.map(r => r.getBoundingClientRect()), from, to:from, pid:e.pointerId};
+    // 入れ替えできるのは同じ階層（同じグループの中、またはグループの外）のレイヤーどうし
+    const rows = [...list.querySelectorAll('.ly[data-lid]')].filter(r => (r.dataset.gid || '') === (row.dataset.gid || '')), from = rows.indexOf(row);
+    ld = {row, id:row.dataset.lid, y0:e.clientY, started:false, rows, rects:null, from, to:from, pid:e.pointerId};
+    clearTimeout(lpT);
+    if(e.pointerType !== 'mouse') lpT = setTimeout(() => { if(ld && !ld.started){ ld = null; lpFired = true; toggleMulti(row.dataset.lid); if(navigator.vibrate) navigator.vibrate(12); } }, 480);
   });
   list.addEventListener('pointermove', e => {
     if(!ld) return;
     const dy = e.clientY - ld.y0;
-    if(!ld.started){ if(Math.abs(dy) < 5) return; ld.started = true; ld.row.classList.add('dragging'); ld.row.setPointerCapture(ld.pid); }
+    if(!ld.started){
+      if(Math.abs(dy) < 5) return;
+      clearTimeout(lpT); ld.started = true;
+      if(!ld.row.classList.contains('kid')) list.classList.add('dragunits');   // グループの中身をたたんで、同じ階層だけを並べ替える
+      ld.rects = ld.rows.map(r => r.getBoundingClientRect()); ld.row.classList.add('dragging'); ld.row.setPointerCapture(ld.pid);
+    }
     const {rects, from, rows} = ld, R = rects[from], lo = rects[0].top - R.top, hi = rects[rects.length - 1].bottom - R.bottom;
     const d = clamp(dy, lo, hi); ld.row.style.transform = `translateY(${d}px)`;
     const cy = R.top + R.height / 2 + d; let to = 0;
     rects.forEach((r, i) => { if(i !== from && r.top + r.height / 2 < cy) to++; });
+    if(d <= lo) to = 0; else if(d >= hi) to = rows.length - 1;   // 端までドラッグしたら、行の高さが違っても端に置く
     const h = R.height + 2;
     rows.forEach((r, i) => {
       if(i === from) return;
@@ -65,12 +75,13 @@ document.addEventListener('click', e => {
   });
   const endDrag = () => {
     if(!ld) return;
+    clearTimeout(lpT);
     const {started, from, to, id, rows} = ld; ld = null;
+    list.classList.remove('dragunits');
     if(!started) return;
     suppressClick = true; setTimeout(() => suppressClick = false, 0);
     rows.forEach(r => { r.style.transform = ''; r.classList.remove('dragging'); });
-    const n = DOC.layers.length;
-    if(to !== from){ moveLayer(id, n - 1 - to); const L = DOC.layers.find(l => l.id === id); toast(`「${layerName(L)}」を${to < from ? '前面' : '背面'}へ移動しました`); }
+    if(to !== from){ movePeer(id, to); const L = DOC.layers.find(l => l.id === id); toast(`「${layerName(L)}」を${to < from ? '前面' : '背面'}へ移動しました`); }
     else renderLayers();
     if(DOC.sel !== id) selectLayer(id);
   };
@@ -79,7 +90,10 @@ document.addEventListener('click', e => {
   window.addEventListener('pointerup', () => { lpSliding = false; });
   list.addEventListener('input', e => { const op = e.target.closest('.ly-op'); if(op) op.querySelector('b').textContent = Math.round(parseFloat(e.target.value) * 100) + '%'; });
   list.addEventListener('click', e => {
+    if(lpFired){ lpFired = false; return; }
     if(suppressClick) return;
+    const mb = e.target.closest('[data-multi]');
+    if(mb){ if(mb.dataset.multi === 'group') groupLayers(DOC.msel); else selectLayer(DOC.sel); return; }
     const bga = e.target.closest('[data-bga]');
     if(bga){ DOC.bg.hidden = !DOC.bg.hidden; renderLayers(); syncDoc(); docChanged(false); toast(DOC.bg.hidden ? '背景を非表示にしました（PNGで保存すると背景が透明になります）' : '背景を表示しました'); return; }
     if(e.target.closest('.ly-op')) return;
@@ -87,10 +101,12 @@ document.addEventListener('click', e => {
     const row = e.target.closest('[data-lid]'); if(!row) return;
     const act = e.target.closest('[data-la]');
     if(act){
-      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(); if(row.dataset.lid !== DOC.sel) selectLayer(row.dataset.lid); setTimeout(() => showMenu(row.dataset.lid, r.left - 150, r.bottom + 4), 0); return; }
+      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(); if(row.dataset.lid !== DOC.sel && !(DOC.msel || []).includes(row.dataset.lid)) selectLayer(row.dataset.lid); setTimeout(() => showMenu(row.dataset.lid, r.left - 150, r.bottom + 4), 0); return; }
       layerAction(row.dataset.lid, act.dataset.la); return;
     }
     if(e.target.closest('input')) return;
+    // Ctrl／Shift＋クリック（スマホは、選択中にタップ）で複数選択
+    if(e.ctrlKey || e.metaKey || e.shiftKey || (isMobile && DOC.msel && DOC.msel.length)){ toggleMulti(row.dataset.lid); return; }
     selectLayer(row.dataset.lid);
   });
   list.addEventListener('dblclick', e => {
@@ -99,10 +115,11 @@ document.addEventListener('click', e => {
   });
   list.addEventListener('contextmenu', e => {
     const row = e.target.closest('[data-lid]'); if(!row) return;
-    e.preventDefault(); if(row.dataset.lid !== DOC.sel) selectLayer(row.dataset.lid);
+    e.preventDefault(); if(row.dataset.lid !== DOC.sel && !(DOC.msel || []).includes(row.dataset.lid)) selectLayer(row.dataset.lid);
     showMenu(row.dataset.lid, e.clientX, e.clientY);
   });
   $('#addCollageBtn').onclick = () => addCollage();
+  document.addEventListener('click', e => { if(e.target.closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
 }
 $('#addText').onclick = () => {
   const st = clone(S); st.text = 'テキスト';
@@ -183,11 +200,11 @@ async function openProjectFile(f){
      2 = その位置に絵がある／1 = すぐ近く（細い文字を掴みやすくするための余裕）／0 = 枠の中だけ */
   const MASK_K = 0.25, NEAR = 4, maskCache = new Map(), maskFx = new Map();
   const layerMask = L => {
-    const key = JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0);
+    const key = JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
     let m = maskCache.get(L.id);
     if(m && m.key === key) return m;
     const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = c.getContext('2d', {willReadFrequently:true});
-    try{ drawLayer(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}}, MASK_K, false, maskFx); }catch{}
+    try{ drawOne(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}}, MASK_K, false, maskFx); }catch{}
     m = {key, W, H, a: x.getImageData(0, 0, W, H).data};
     maskCache.set(L.id, m);
     return m;
@@ -205,6 +222,7 @@ async function openProjectFile(f){
     const out = [];
     for(let i = DOC.layers.length - 1; i >= 0; i--){
       const L = DOC.layers[i]; if(L.hidden || (L.locked && !all)) continue;
+      if(L.gid){ const G = layerById(L.gid); if(!G || G.hidden || L.id !== DOC.sel) continue; }   // グループの中身は、単独で選んでいるときだけ
       const d = dims.get(L.id); if(!d) continue;
       const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y;
       const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
@@ -235,6 +253,7 @@ async function openProjectFile(f){
   };
   let lastAltPick = null;
   const handleAt = (x, y) => {
+    if(DOC.msel && DOC.msel.length >= 2) return null;
     const L = selLayer(), g = L && !L.hidden && !L.locked && layerGeom(L); if(!g) return null;
     const px = DOC.w / tvCss;
     if(Math.hypot(x - g.rot[0], y - g.rot[1]) < 11 * px) return 'rot';
@@ -255,20 +274,27 @@ async function openProjectFile(f){
       const {hs: all, r} = hitRanked(x, y), vis = all.filter(l => r.get(l.id) > 0), hs = vis.length ? vis : all;
       if(hs.length){ const k = hs.findIndex(l => l.id === DOC.sel); const nx = hs[(k + 1) % hs.length]; lastAltPick = nx.id; selectLayer(nx.id); T = nx; mode = 'move'; }
     }
+    if(!mode && (e.shiftKey || e.ctrlKey || e.metaKey)){
+      // Shift／Ctrl＋クリック：複数選択に入れる・外す
+      const h = hitLayer(x, y); if(h){ toggleMulti(h.id); e.preventDefault(); return; }
+    }
     if(!mode){
       lastAltPick = null;
       T = hitLayer(x, y);
       if(!T){
-        if(DOC.sel) selectLayer(null);
+        if(DOC.sel || (DOC.msel || []).length) selectLayer(null);
         if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
           drag = {mode:'bg', x0:x, y0:y, ox:DOC.bg.ox, oy:DOC.bg.oy}; tv.style.cursor = 'grabbing';
           tv.setPointerCapture(e.pointerId); e.preventDefault();
         }
         return;
       }
-      mode = 'move'; if(T.id !== DOC.sel) selectLayer(T.id);
+      mode = 'move'; if(T.id !== DOC.sel && !(DOC.msel || []).includes(T.id)) selectLayer(T.id);
     }
-    drag = {mode, L:T, x0:x, y0:y, lx:T.x, ly:T.y, sc:T.sc, rot:T.rot || 0, d0:Math.hypot(x - T.x, y - T.y), a0:Math.atan2(y - T.y, x - T.x)};
+    // グループ・複数選択は、中身のレイヤーをまとめて動かす
+    const multi = (DOC.msel || []).length >= 2 && DOC.msel.includes(T.id);
+    const snap = multi ? xformSnap(DOC.msel.map(layerById).filter(l => l && !l.locked), T.x, T.y) : isGroup(T) ? xformSnap([T], T.x, T.y) : null;
+    drag = {mode, L:T, snap, x0:x, y0:y, lx:T.x, ly:T.y, sc:T.sc, rot:T.rot || 0, d0:Math.hypot(x - T.x, y - T.y), a0:Math.atan2(y - T.y, x - T.x)};
     tv.setPointerCapture(e.pointerId); e.preventDefault();
   });
   tv.addEventListener('pointermove', e => {
@@ -297,9 +323,15 @@ async function openProjectFile(f){
         for(const sx of [DOC.w / 2, DOC.w / 3, DOC.w * 2 / 3]) if(Math.abs(nx - sx) < th){ nx = sx; snapLines.x = sx; break; }
         for(const sy of [DOC.h / 2, DOC.h / 3, DOC.h * 2 / 3]) if(Math.abs(ny - sy) < th){ ny = sy; snapLines.y = sy; break; }
       }
-      L.x = Math.round(nx); L.y = Math.round(ny);
+      if(drag.snap) xformApply(drag.snap, nx - drag.lx, ny - drag.ly); else{ L.x = Math.round(nx); L.y = Math.round(ny); }
+    }else if(drag.mode === 'scale' && drag.snap){
+      xformApply(drag.snap, 0, 0, clamp(Math.hypot(x - drag.snap.cx, y - drag.snap.cy) / Math.max(1, drag.d0), 0.05, 10), 0);
     }else if(drag.mode === 'scale'){
       L.sc = Math.round(clamp(drag.sc * Math.hypot(x - L.x, y - L.y) / Math.max(1, drag.d0), 0.05, 10) * 1000) / 1000;
+    }else if(drag.snap){
+      let dr = (Math.atan2(y - drag.snap.cy, x - drag.snap.cx) - drag.a0) * 180 / PI;
+      if(e.shiftKey) dr = Math.round(dr / 15) * 15; else if(Math.abs(dr) < 3) dr = 0;
+      xformApply(drag.snap, 0, 0, 1, dr);
     }else{
       let r = drag.rot + (Math.atan2(y - L.y, x - L.x) - drag.a0) * 180 / PI;
       r = ((r + 540) % 360) - 180;
@@ -314,7 +346,8 @@ async function openProjectFile(f){
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitForWheel(x, y), k = Math.exp(-e.deltaY * 0.0015);
     if(editWheel(e, x, y, k)) return;
-    if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
+    if(L && isGroup(L)){ if(L.id !== DOC.sel) selectLayer(L.id); xformApply(xformSnap([L], L.x, L.y), 0, 0, clamp(k, 0.2, 5), 0); }
+    else if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
     else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
       const b = DOC.bg, nz = clamp(b.zoom * k, 0.2, 4), r = nz / b.zoom;
       // カーソル位置を基準に拡大縮小
@@ -326,10 +359,15 @@ async function openProjectFile(f){
   tv.addEventListener('contextmenu', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitLayers(x, y, true)[0]; if(!L) return;
-    e.preventDefault(); if(L.id !== DOC.sel) selectLayer(L.id); showMenu(L.id, e.clientX, e.clientY);
+    e.preventDefault(); if(L.id !== DOC.sel && !(DOC.msel || []).includes(L.id)) selectLayer(L.id); showMenu(L.id, e.clientX, e.clientY);
   });
   tv.addEventListener('dblclick', e => {
     const [x, y] = toDoc(e), L = hitLayer(x, y);
+    if(L && isGroup(L)){   // グループの中のレイヤーを、単独で選ぶ
+      const k = groupKids(L).filter(k => !k.hidden).reverse().find(k => pixelRank(k, x, y) > 0);
+      if(k) selectLayer(k.id);
+      return;
+    }
     if(L && L.type === 'text'){ selectLayer(L.id); openInspector('txt-text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
     else if(L) enterEditAt(L, x, y);
   });
@@ -341,9 +379,12 @@ async function openProjectFile(f){
     if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); layerAction(L.id, 'del'); }
     else if(e.key.startsWith('Arrow')){
       e.preventDefault(); if(L.locked) return;
-      if(e.key === 'ArrowLeft') L.x -= st; if(e.key === 'ArrowRight') L.x += st;
-      if(e.key === 'ArrowUp') L.y -= st; if(e.key === 'ArrowDown') L.y += st;
+      const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0;
+      const ms = (DOC.msel || []).length >= 2 ? DOC.msel.map(layerById).filter(Boolean) : [L];
+      xformSnap(ms, L.x, L.y).kids.forEach(o => { o.L.x += dx; o.L.y += dy; });
       docChanged(true);
+    }else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g'){
+      e.preventDefault(); if(e.shiftKey){ if(isGroup(L)) ungroupLayers(L); } else groupLayers((DOC.msel || []).length >= 2 ? DOC.msel : [L.id]);
     }else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd'){ e.preventDefault(); layerAction(L.id, 'dup'); }
     else if((e.ctrlKey || e.metaKey) && (e.code === 'BracketRight' || e.code === 'BracketLeft')){
       e.preventDefault(); const fwd = e.code === 'BracketRight';

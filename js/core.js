@@ -30,6 +30,8 @@ function toast(msg, err){
 const ICONS = {
   grid:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h8.5"/>',
   crop:'<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
+  group:'<rect x="3.5" y="3.5" width="10" height="10" rx="2"/><rect x="10.5" y="10.5" width="10" height="10" rx="2"/>',
+  ungroup:'<rect x="3.5" y="3.5" width="8" height="8" rx="2"/><rect x="12.5" y="12.5" width="8" height="8" rx="2"/><path d="M15 8.5h5M8.5 15v5"/>',
   fliph:'<path d="M12 3v18"/><path d="M9 7 4 12l5 5z"/><path d="m15 7 5 5-5 5"/>',
   flipv:'<path d="M3 12h18"/><path d="M7 9l5-5 5 5z"/><path d="m7 15 5 5 5-5"/>',
   dice:'<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.6" cy="8.6" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.2" fill="currentColor" stroke="none"/>',

@@ -46,7 +46,13 @@ function drawOverlay(ctx, W, H, dpr){
     ctx.stroke();
   }
   if(drawEditOverlay(ctx, W, H, dpr)){ ctx.restore(); return; }
+  const outline = (l, col, dash) => { const q = l && !l.hidden && layerGeom(l); if(!q) return; ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash(dash.map(v => v * dpr)); ctx.beginPath(); q.pts.forEach(([x, y], i) => i ? ctx.lineTo(x * f, y * f) : ctx.moveTo(x * f, y * f)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); };
+  if((DOC.msel || []).length >= 2){   // 複数選択：選んだレイヤーそれぞれに枠（動かすだけ。まとめて拡大縮小するにはグループにする）
+    DOC.msel.forEach(id => outline(layerById(id), '#ff4f8b', [6, 4]));
+    ctx.restore(); return;
+  }
   const L = selLayer(), g = L && !L.hidden && layerGeom(L);
+  if(L && isGroup(L)) groupKids(L).forEach(k => outline(k, 'rgba(255,79,139,.55)', [3, 3]));   // グループ：中身の位置を薄く表示
   if(g && L.locked){
     ctx.strokeStyle = '#ffb800'; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash([6 * dpr, 5 * dpr]); ctx.beginPath();
     g.pts.forEach(([x, y], i) => i ? ctx.lineTo(x * f, y * f) : ctx.moveTo(x * f, y * f)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);

@@ -8,7 +8,7 @@ const DOC_BASE = () => ({
       dim:0, vignette:0, fcx:0.5, fcy:0.5, shade:{on:false, c:'#000000', amt:0.75, angle:90, cover:0.55},
       zb:{on:false, amt:0.25, cx:0.5, cy:0.5}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28},
       tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}},
-  layers:[], sel:null, textSel:null,
+  layers:[], sel:null, textSel:null, msel:[],
 });
 const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:'text', x, y, sc, style});
@@ -18,6 +18,7 @@ function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => 
 function layerName(L){
   if(L.label) return L.label;
   if(L.type === 'text') return L.style.text.replace(/[{}]/g, '').replace(/\n/g, ' ').trim().slice(0, 28) || '（空の文字）';
+  if(L.type === 'group') return `グループ（${groupKids(L).length}個）`;
   if(L.type === 'fx') return FX_NAMES[L.kind] || 'エフェクト';
   if(L.type === 'collage') return `分割フレーム（${collageN(L)}分割）`;
   return L.name || '画像';
@@ -39,11 +40,17 @@ function normalizeDoc(d){
     ? Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})})
     : L.type === 'collage' ? (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}),
         cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx)}); })}))(COLLAGE_BASE())
+    : L.type === 'group' ? (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE()))
     : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
         outline: Object.assign(IMAGE_BASE().outline, L.outline || {}),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
         shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {})}));
+  // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
+  const gids = new Set(o.layers.filter(l => l.type === 'group').map(l => l.id));
+  o.layers.forEach(l => { if(l.gid && (!gids.has(l.gid) || l.type === 'group')) delete l.gid; if(!l.gid) delete l.gid; });
+  o.layers = o.layers.filter(l => l.type !== 'group' || o.layers.some(k => k.gid === l.id));
+  o.msel = [];
   // 以前の「背景の集中線」を動的エフェクトのレイヤーに移す
   const oldLines = (d.bg || {}).lines; delete o.bg.lines;
   if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * 1920, y:(o.bg.fcy ?? 0.5) * 1080})); }

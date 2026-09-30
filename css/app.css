@@ -494,3 +494,15 @@ body.is-mobile .ins-head .tabs{padding:6px 0}
 
 body.is-mobile #addBtn{display:none}
 @media (max-width:1500px){.brand-sub{display:none}}
+
+/* グループ・複数選択 */
+.ly.kid{margin-left:22px;padding-left:3px;border-style:solid;background:var(--surface-2)}
+.ly.kid.on{background:var(--acc-soft)}
+.ly.grp{border-color:var(--ink)}
+.ly.multi{border-color:var(--acc);box-shadow:3px 3px 0 var(--acc-2)}
+.ly-th .grpth{background:linear-gradient(135deg,#7a5cff,#ff4f8b)}
+.ly-act button[data-la="fold"]{font-size:13px;font-weight:800;line-height:1;width:24px;opacity:1}
+#layerList.dragunits .ly.kid{display:none}
+.lp-multi{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;margin:0 0 8px;border:2px solid var(--acc);border-radius:14px;background:var(--acc-soft);font-size:12px}
+.lp-multi b{flex:1 1 100%}
+.lp-multi .btn{flex:1 1 auto;justify-content:center}

@@ -162,7 +162,7 @@ function compose(ctx, W, H, live, cache){
   let b = cache.get('__bg');
   if(!b || b.key !== key){ const c = mk(W, H); drawBackground(c.getContext('2d'), W, H, f); b = {key, c}; cache.set('__bg', b); }
   if(!DOC.bg.hidden){ ctx.save(); ctx.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); ctx.drawImage(b.c, 0, 0); ctx.restore(); }
-  for(const L of DOC.layers) if(!L.hidden){ if(L.type === 'fx') drawFx(ctx, L, f); else if(L.type === 'collage') drawCollage(ctx, L, f, live, cache); else drawLayer(ctx, L, f, live, cache); }
+  for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(ctx, L, f, live, cache);
 }
 function paintPreview(live){
   if(!DOC || DOC.mode !== 'thumb') return;

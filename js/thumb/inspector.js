@@ -27,8 +27,10 @@ const CFX_ROWS = (P, S) => [
   {pg:'cfx', sel:P + 'tint.mode', l:'重ね方', opts:[['overlay', 'オーバーレイ'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['soft-light', 'ソフトライト'], ['color', 'カラー（単色化）']], show:S + '&' + P + 'tint.on=true'},
 ];
 const SEL_ROWS = [
-  {pg:'base', r:'@sc', l:'大きさ', min:0.05, max:10, step:0.01},
-  {pg:'base', r:'@rot', l:'回転', min:-180, max:180, step:1},
+  {pg:'base', sub:'グループ', note:'中のレイヤーをまとめて動かします。ダブルクリックで中のレイヤーを1つだけ選べます。効果は「効果」タブから', show:'@type=group'},
+  {pg:'base', btns:[['ungroupBtn', 'ungroup', 'グループを解除']], show:'@type=group'},
+  {pg:'base', r:'@sc', l:'大きさ', min:0.05, max:10, step:0.01, show:'@type!=group'},
+  {pg:'base', r:'@rot', l:'回転', min:-180, max:180, step:1, show:'@type!=group'},
   {pg:'base', flips:true, l:'反転', show:'@type=image'},
   {pg:'fx', c:'@p.c', l:'色', show:'@type=fx'},
   {pg:'fx', r:'@p.n', l:'本数', min:20, max:300, step:1, show:'@kind=lines'},
@@ -51,7 +53,7 @@ const SEL_ROWS = [
   {pg:'base', r:'@op', l:'不透明度', min:0.05, max:1, step:0.01},
   {pg:'base', sel:'@blend', l:'描画モード', opts:Object.entries({'source-over':'通常', multiply:'乗算（暗く重ねる）', screen:'スクリーン（明るく重ねる）', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト', 'color-dodge':'覆い焼き（光る）', lighter:'加算（発光）', difference:'差の絶対値', luminosity:'輝度'})},
   {pg:'base', chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
-  {pg:'base', place:true, l:'配置'},
+  {pg:'base', place:true, l:'配置', show:'@type!=group'},
   {pg:'split', sub:'分割フレーム', note:'複数の画像を並べます。マスに画像をドロップするか、下の一覧から選んでください', show:'@type=collage'},
   {pg:'split', seg:'@n', l:'分割数', opts:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']], show:'@type=collage'},
   {pg:'split', layouts:true, l:'分割のしかた', show:'@type=collage'},
@@ -71,15 +73,16 @@ const SEL_ROWS = [
   {pg:'cells', r:'@cell.oy', l:'画像 上下', min:-1, max:1, step:0.005, show:'@type=collage'},
   {pg:'cells', btns:[['collageEditBtn', 'crop', 'キャンバスでマスの画像を調整']], show:'@type=collage'},
   {pg:'cfx', sub:'効果', note:'マスの画像に色調やエフェクトをかけます', show:'@type=collage'},
+  {pg:'cfx', sub:'グループの効果', note:'中のレイヤーを1枚の絵にまとめて、色調やエフェクトをかけます', show:'@type=group'},
   {pg:'cfx', seg:'@fxMode', l:'かける対象', opts:[['all', '全部のマス'], ['cell', 'マスごと']], show:'@type=collage'},
   {pg:'cfx', cells:true, show:'@type=collage&@fxMode=cell'},
-  ...CFX_ROWS('@fx.', '@type=collage&@fxMode=all'),
+  ...CFX_ROWS('@fx.', '@type=collage|group&@fxMode=all'),
   ...CFX_ROWS('@cell.fx.', '@type=collage&@fxMode=cell'),
-  {pg:'cfx', sub:'全体の影', show:'@type=collage'},
-  {pg:'cfx', chk:'@shadow.on', l:'影を付ける', show:'@type=collage'},
-  {pg:'cfx', r:'@shadow.blur', l:'影ぼかし', min:0, max:120, step:1, show:'@type=collage&@shadow.on=true'},
-  {pg:'cfx', r:'@shadow.y', l:'影の位置', min:-60, max:90, step:1, show:'@type=collage&@shadow.on=true'},
-  {pg:'cfx', r:'@shadow.a', l:'影の濃さ', min:0, max:1, step:0.01, show:'@type=collage&@shadow.on=true'},
+  {pg:'cfx', sub:'全体の影', show:'@type=collage|group'},
+  {pg:'cfx', chk:'@shadow.on', l:'影を付ける', show:'@type=collage|group'},
+  {pg:'cfx', r:'@shadow.blur', l:'影ぼかし', min:0, max:120, step:1, show:'@type=collage|group&@shadow.on=true'},
+  {pg:'cfx', r:'@shadow.y', l:'影の位置', min:-60, max:90, step:1, show:'@type=collage|group&@shadow.on=true'},
+  {pg:'cfx', r:'@shadow.a', l:'影の濃さ', min:0, max:1, step:0.01, show:'@type=collage|group&@shadow.on=true'},
   {pg:'base', sub:'全体の大きさ', show:'@type=collage'},
   {pg:'base', r:'@bw', l:'横幅', min:100, max:1920, step:1, show:'@type=collage'},
   {pg:'base', r:'@bh', l:'高さ', min:100, max:1080, step:1, show:'@type=collage'},
@@ -194,9 +197,10 @@ const INS_PAGES = {
   image:[['lay-base', '配置'], ['lay-frame', 'フレーム'], ['lay-edge', 'フチ・影']],
   collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-cfx', '効果'], ['lay-base', '配置']],
   fx:[['lay-fx', 'エフェクト'], ['lay-base', '配置']],
+  group:[['lay-cfx', '効果'], ['lay-base', '配置']],
   bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果']],
 };
-const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
+const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], group:['group', 'グループ'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
 function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = selLayer(); return L ? L.type : 'bg'; }
 function setPage(page){
   const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);

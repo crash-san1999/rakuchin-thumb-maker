@@ -67,7 +67,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
       const I = pairInfo(), L = selLayer();
       const EP = editPinchStart(I);
       if(EP) pinch = EP;
-      else if(L && !L.locked) pinch = {kind:'layer', L, i:I, sc:L.sc, rot:L.rot || 0, x:L.x, y:L.y};
+      else if(L && !L.locked) pinch = {kind:'layer', L, i:I, sc:L.sc, rot:L.rot || 0, x:L.x, y:L.y, snap: isGroup(L) ? xformSnap([L], L.x, L.y) : null};
       else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]) pinch = {kind:'bg', i:I, zoom:DOC.bg.zoom, ox:DOC.bg.ox, oy:DOC.bg.oy};
       return;
     }
@@ -77,10 +77,10 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
     lp = setTimeout(() => {
       if(pts.size !== 1) return;
       const [dx, dy] = toDoc(x0, y0);
-      const L = [...DOC.layers].reverse().find(l => { if(l.hidden) return false; const d = dims.get(l.id); if(!d) return false; const a = -(l.rot || 0) * PI / 180, X = dx - l.x, Y = dy - l.y; return Math.abs(X * Math.cos(a) - Y * Math.sin(a)) <= d.w / 2 && Math.abs(X * Math.sin(a) + Y * Math.cos(a)) <= d.h / 2; });
+      const L = [...DOC.layers].reverse().find(l => { if(l.hidden || (l.gid && l.id !== DOC.sel)) return false; const d = dims.get(l.id); if(!d) return false; const a = -(l.rot || 0) * PI / 180, X = dx - l.x, Y = dy - l.y; return Math.abs(X * Math.cos(a) - Y * Math.sin(a)) <= d.w / 2 && Math.abs(X * Math.sin(a) + Y * Math.cos(a)) <= d.h / 2; });
       if(!L) return;
       if(drag && drag.L){ drag.L.x = drag.lx; drag.L.y = drag.ly; }
-      drag = null; if(L.id !== DOC.sel) selectLayer(L.id);
+      drag = null; if(L.id !== DOC.sel && !(DOC.msel || []).includes(L.id)) selectLayer(L.id);
       if(navigator.vibrate) navigator.vibrate(12);
       showMenu(L.id, x0 - 100, y0 + 12);
     }, 520);
@@ -104,6 +104,11 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
     if(pinch.kind === 'edit') editPinch(pinch, k);
     else if(pinch.kind === 'layer'){
       const L = pinch.L;
+      if(pinch.snap){   // グループ：中のレイヤーをまとめて拡大縮小・回転・移動
+        let dr = (I.a - pinch.i.a) * 180 / PI; if(Math.abs(dr) < 4) dr = 0;
+        xformApply(pinch.snap, (I.cx - pinch.i.cx) * u, (I.cy - pinch.i.cy) * u, clamp(k, 0.05, 10), dr);
+        syncDocSoon(); livePaint(); return;
+      }
       L.sc = Math.round(clamp(pinch.sc * k, 0.05, 10) * 1000) / 1000;
       let rot = pinch.rot + (I.a - pinch.i.a) * 180 / PI; rot = ((rot + 540) % 360) - 180;
       for(const s of [0, 90, -90, 180, -180]) if(Math.abs(rot - s) < 4) rot = s;
