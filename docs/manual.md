@@ -174,7 +174,7 @@
 |---|---|---|
 | Google Fonts 日本語 | 68 | Dela Gothic One、LINE Seed JP、BIZ UDゴシック、Rock 3D など日本語対応の全書体 |
 | Google Fonts 欧文 | 約1,860 | 英数字用。「すべて」には厳選した書体だけが出ます。全書体は「欧文」を選ぶか名前で検索 |
-| Webフリー | 43 | Google 以外で配信されているフリーフォント（下の表） |
+| Webフリー | 44 | Google 以外で配信されているフリーフォント（下の表） |
 
 **Webフリーのおもな書体**（カテゴリ「Webフリー」で絞り込めます）
 
@@ -191,6 +191,7 @@
 | 源様明朝（GenYoMin 2 PJP）／ 源起明朝（GenKiMin 2 PJP） | 活字風の明朝体。かなが比例幅で、タイトル向き。太さ 200〜900 の7段階（1書体約13〜16MB） |
 | 原ノ味ゴシック（Harano Aji Gothic）／ 原ノ味明朝（Harano Aji Mincho） | 源ノ角ゴシック・源ノ明朝をもとに、日本語向けに字形を整えたもの。ゴシックは6段階（約5MB）、明朝は7段階（約6MB） |
 | Gen Interface JP ／ Gen Interface JP Display | 欧文は Inter 風、日本語は Noto Sans JP のゴシック。太さ 100〜800 の8段階。「Display」は見出し向け。文字ごとに分割して配信されるので軽い |
+| にくまるフォント | フロップデザインさんの丸ゴシック（M+ FONT ベース）。かわいくポップな見出し向け。太さは1種類（約3MB）。**このリポジトリに同梱**（`fonts/nikumaru/`）しているので、外部サーバーは使いません |
 | Notofit JP | 欧文は Outfit 風の丸いゴシック。太さ 100〜900 の9段階。軽い |
 | TJ Plus Sans | 丸みのある欧文と M PLUS / Noto Sans JP を合わせたゴシック。太さ 300〜800。軽い |
 | Fusion Kai J | 楷書体（約5.7MB・選んだときに読み込み） |
@@ -208,6 +209,7 @@ Webフリーのフォントは、それぞれのライセンスで配布され�
 | 源柔ゴシック | 自家製フォント工房 | SIL OFL 1.1 |
 | Fusion Pixel / Fusion Kai | TakWolf、lxgw | SIL OFL 1.1 |
 | PixelMplus | itouhiro、M+ FONTS PROJECT | M+ FONT LICENSE |
+| にくまるフォント | フロップデザイン（Fontna.com）、M+ FONTS PROJECT | M+ FONT LICENSE（商用・再配布可。`fonts/nikumaru/` にライセンスを同梱） |
 | マルモニカ・まるみーにゃ | hicc（[x0y0pxFreeFont](https://hicchicc.github.io/00ff/)） | 作者独自ライセンス（商用・再配布可） |
 | 築豊明朝 | iose-sakana | SIL OFL 1.1 |
 | 源泉丸ゴシック・源石ゴシック・源流明朝・源様明朝・源起明朝 | ButTaiwan | SIL OFL 1.1 |

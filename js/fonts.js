@@ -155,6 +155,10 @@ const NPM_FONTS = [
   ['Notofit JP','ゴシック','モダン・解説・テック（Outfit風の欧文＋Noto Sans JP）','notofit-jp@0.2.0/{w}.css','100,200,300,400,500,600,700,800,900'],
   ['TJ Plus Sans','ゴシック','ポップ・モダン・解説（丸みのある欧文＋M PLUS/Noto Sans JP）','tj-plus-sans@0.2.1/index.css','300,400,500,600,700,800'],
 ].map(([family, cat, usage, css, w]) => ({family, cat, usage, css: NPM + css, weights: w.split(',').map(Number), src:'npm'}));
+/* このリポジトリに同梱しているフォント（fonts/ 内・ライセンスも同梱）。読み込み方は URL 追加フォントと同じ */
+const SELF_FONTS = [
+  {family:'にくまるフォント', cat:'デザイン', usage:'かわいい・ポップ・やさしい（丸ゴシック／M+ FONT LICENSE・フロップデザイン）', weights:[400], src:'url', file:'fonts/nikumaru/Nikumaru.otf', mb:3.1},
+];
 const npmState = new Map();
 function ensureNpm(f, w = 400){
   const ws = f.weights, ww = ws.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, ws[0]), url = f.css.replace('{w}', ww);
@@ -182,6 +186,7 @@ function buildBaseFonts(extraJp = []){
   FS_FONTS.filter(f => f.cat !== '欧文').forEach(push);
   GH_FONTS.forEach(push);
   NPM_FONTS.forEach(push);
+  SELF_FONTS.forEach(push);
   EA_FONTS.forEach(push);
   const lat = LATIN.concat(FS_FONTS.filter(f => f.cat === '欧文').map(f => ({...f, cat:'欧文'})));
   lat.forEach(f => have.add(f.family));
