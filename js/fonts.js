@@ -138,7 +138,29 @@ const GH_FONTS = [
     {400:'ButTaiwan/genseki-font@a262f8b764078353bbfa4f1124c46dd585594601/otf/JP/GenSekiGothic2JP-R.otf', 700:'ButTaiwan/genseki-font@a262f8b764078353bbfa4f1124c46dd585594601/otf/JP/GenSekiGothic2JP-B.otf', 900:'ButTaiwan/genseki-font@a262f8b764078353bbfa4f1124c46dd585594601/otf/JP/GenSekiGothic2JP-H.otf'}, 16],
   ['GenRyuMin 2 JP','明朝','高級・物語・エモ（源流明朝）',
     {400:'ButTaiwan/genryu-font@030cd4fa3dd6b0607c5e7f35f13977a2e0a10522/otf/JP/GenRyuMin2JP-R.otf', 700:'ButTaiwan/genryu-font@030cd4fa3dd6b0607c5e7f35f13977a2e0a10522/otf/JP/GenRyuMin2JP-B.otf', 900:'ButTaiwan/genryu-font@030cd4fa3dd6b0607c5e7f35f13977a2e0a10522/otf/JP/GenRyuMin2JP-H.otf'}, 16],
+  ['Harano Aji Gothic','ゴシック','解説・読みやすい・万能（原ノ味ゴシック）',
+    {200:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiGothic-ExtraLight.otf', 300:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiGothic-Light.otf', 400:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiGothic-Regular.otf', 500:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiGothic-Medium.otf', 700:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiGothic-Bold.otf', 900:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiGothic-Heavy.otf'}, 4.6],
+  ['Harano Aji Mincho','明朝','高級・物語・解説（原ノ味明朝）',
+    {200:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-ExtraLight.otf', 300:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-Light.otf', 400:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-Regular.otf', 500:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-Medium.otf', 600:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-SemiBold.otf', 700:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-Bold.otf', 900:'trueroad/HaranoAjiFonts@f0f692c1e39593751a4796082fa5232185d91ecd/HaranoAjiMincho-Heavy.otf'}, 6.2],
+  ['GenYoMin 2 PJP','明朝','高級・物語・エモ（源様明朝・かなが比例幅）',
+    {200:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-EL.otf', 300:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-L.otf', 400:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-R.otf', 500:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-M.otf', 600:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-SB.otf', 700:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-B.otf', 900:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-H.otf'}, 15.5],
+  ['GenKiMin 2 PJP','明朝','高級・物語・エモ（源起明朝・かなが比例幅）',
+    {200:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-EL.otf', 300:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-L.otf', 400:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-R.otf', 500:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-M.otf', 600:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-SB.otf', 700:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-B.otf', 900:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-H.otf'}, 12.8],
 ].map(([family, cat, usage, files, mb]) => ({family, cat, usage, files, weights: Object.keys(files).map(Number), src:'gh', mb}));
+/* npm 配布の日本語フォント（jsDelivr）。文字ごとに分割された woff2 を必要な分だけ読み込むので軽い。{w} は太さごとのCSS */
+const NPM = 'https://cdn.jsdelivr.net/npm/';
+const NPM_FONTS = [
+  ['Gen Interface JP','ゴシック','解説・モダン・クール（Inter風の欧文＋Noto Sans JP）','gen-interface-jp@0.1.2/{w}.css','100,200,300,400,500,600,700,800'],
+  ['Gen Interface JP Display','ゴシック','見出し・クール・モダン（大きい文字向けのGen Interface）','gen-interface-jp@0.1.2/display-{w}.css','100,200,300,400,500,600,700,800'],
+  ['Notofit JP','ゴシック','モダン・解説・テック（Outfit風の欧文＋Noto Sans JP）','notofit-jp@0.2.0/{w}.css','100,200,300,400,500,600,700,800,900'],
+  ['TJ Plus Sans','ゴシック','ポップ・モダン・解説（丸みのある欧文＋M PLUS/Noto Sans JP）','tj-plus-sans@0.2.1/index.css','300,400,500,600,700,800'],
+].map(([family, cat, usage, css, w]) => ({family, cat, usage, css: NPM + css, weights: w.split(',').map(Number), src:'npm'}));
+const npmState = new Map();
+function ensureNpm(f, w = 400){
+  const ws = f.weights, ww = ws.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, ws[0]), url = f.css.replace('{w}', ww);
+  if(!npmState.has(url)) npmState.set(url, addCss(url).then(ok => ok ? document.fonts.load(`${ww} 20px "${f.family}"`, 'あ').catch(() => {}) : null));
+  return npmState.get(url);
+}
 const ghState = new Map();
 function ensureGh(f, w = 400){
   const ws = f.weights, ww = ws.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, ws[0]);
@@ -159,13 +181,14 @@ function buildBaseFonts(extraJp = []){
   extraJp.forEach(f => push(f));
   FS_FONTS.filter(f => f.cat !== '欧文').forEach(push);
   GH_FONTS.forEach(push);
+  NPM_FONTS.forEach(push);
   EA_FONTS.forEach(push);
   const lat = LATIN.concat(FS_FONTS.filter(f => f.cat === '欧文').map(f => ({...f, cat:'欧文'})));
   lat.forEach(f => have.add(f.family));
   const more = decodeGF(GF_LATIN).filter(f => !have.has(f.family)).map(f => ({family: f.family, cat:'欧文', usage: GC_USE[f.c] || '', weights: f.weights, src:'google', more:true}));
   return jpList.concat(lat, more);
 }
-const WEB_SRC = ['fontsource', 'ea', 'url', 'gh'];
+const WEB_SRC = ['fontsource', 'ea', 'url', 'gh', 'npm'];
 function fontInfoText(){
   const n = src => fonts.filter(f => f.src === src).length;
   const jp = fonts.filter(f => f.src === 'google' && f.cat !== '欧文').length, lat = fonts.filter(f => f.cat === '欧文').length;
@@ -188,6 +211,7 @@ const addCss = href => new Promise(res => {
 });
 function ensureCss(f, w){
   if(f && f.src === 'gh'){ const p = ensureGh(f, w); if(!cssState.has(f.family)) cssState.set(f.family, p); return p; }
+  if(f && f.src === 'npm'){ const p = ensureNpm(f, w); if(!cssState.has(f.family)) cssState.set(f.family, p); return p; }
   if(!f || !['google', 'ea', 'fontsource', 'url'].includes(f.src)) return Promise.resolve();
   if(cssState.has(f.family)) return cssState.get(f.family);
   if(f.src !== 'google'){
