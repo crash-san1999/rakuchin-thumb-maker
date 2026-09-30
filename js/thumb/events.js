@@ -178,6 +178,29 @@ async function openProjectFile(f){
 {
   const tv = $('#tv');
   const toDoc = e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };
+  /* 当たり判定：枠（四角）の中でも、透明な部分は「当たり」にしない。
+     レイヤーを単独で小さく描いた透明度マスクを作って調べる（変更がなければ使い回す）。
+     2 = その位置に絵がある／1 = すぐ近く（細い文字を掴みやすくするための余裕）／0 = 枠の中だけ */
+  const MASK_K = 0.25, NEAR = 4, maskCache = new Map(), maskFx = new Map();
+  const layerMask = L => {
+    const key = JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0);
+    let m = maskCache.get(L.id);
+    if(m && m.key === key) return m;
+    const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = c.getContext('2d', {willReadFrequently:true});
+    try{ drawLayer(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}}, MASK_K, false, maskFx); }catch{}
+    m = {key, W, H, a: x.getImageData(0, 0, W, H).data};
+    maskCache.set(L.id, m);
+    return m;
+  };
+  const pixelRank = (L, x, y) => {
+    let m; try{ m = layerMask(L); }catch{ return 0; }
+    const cx = Math.round(x * MASK_K), cy = Math.round(y * MASK_K);
+    const at = (px, py) => px >= 0 && py >= 0 && px < m.W && py < m.H && m.a[(py * m.W + px) * 4 + 3] > 24;
+    if(at(cx, cy)) return 2;
+    for(let dy = -NEAR; dy <= NEAR; dy++) for(let dx = -NEAR; dx <= NEAR; dx++) if(at(cx + dx, cy + dy)) return 1;
+    return 0;
+  };
+  // 枠の中にある重なり順（手前が先）。rank 付き
   const hitLayers = (x, y, all) => {
     const out = [];
     for(let i = DOC.layers.length - 1; i >= 0; i--){
@@ -189,11 +212,25 @@ async function openProjectFile(f){
     }
     return out;
   };
+  // 実際に絵がある（または近い）レイヤーだけ。なければ枠の中のレイヤー全部
+  const hitRanked = (x, y, all) => {
+    const hs = hitLayers(x, y, all), r = new Map(hs.map(l => [l.id, pixelRank(l, x, y)]));
+    return {hs, r};
+  };
   const hitLayer = (x, y) => {
-    const hs = hitLayers(x, y);
-    // 選択中のレイヤーが重なりの中にあれば優先（手前のレイヤーに邪魔されずに動かせる）
+    const {hs, r} = hitRanked(x, y);
+    if(hs.length < 2) return hs[0] || null;
     const cur = hs.find(l => l.id === DOC.sel);
-    return cur && hs.length > 1 && lastAltPick === cur.id ? cur : hs[0] || null;
+    // 見えている一番手前の絵を優先。絵に当たっていなければ、選択中→近いもの→枠の手前、の順
+    const exact = hs.find(l => r.get(l.id) === 2);
+    if(exact) return cur && lastAltPick === cur.id ? cur : exact;
+    if(cur && r.get(cur.id) === 1) return cur;
+    return hs.find(l => r.get(l.id) === 1) || (cur && lastAltPick === cur.id ? cur : cur || hs[0]);
+  };
+  // ホイールの拡大縮小は、選択中のレイヤーの絵の上（または近く）なら、手前に別のレイヤーがあっても選択中のほうを優先
+  const hitForWheel = (x, y) => {
+    const {hs, r} = hitRanked(x, y), cur = hs.find(l => l.id === DOC.sel);
+    return cur && r.get(cur.id) > 0 ? cur : hitLayer(x, y);
   };
   let lastAltPick = null;
   const handleAt = (x, y) => {
@@ -214,7 +251,7 @@ async function openProjectFile(f){
     let mode = handleAt(x, y), T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
-      const hs = hitLayers(x, y);
+      const {hs: all, r} = hitRanked(x, y), vis = all.filter(l => r.get(l.id) > 0), hs = vis.length ? vis : all;
       if(hs.length){ const k = hs.findIndex(l => l.id === DOC.sel); const nx = hs[(k + 1) % hs.length]; lastAltPick = nx.id; selectLayer(nx.id); T = nx; mode = 'move'; }
     }
     if(!mode){
@@ -274,7 +311,7 @@ async function openProjectFile(f){
   tv.addEventListener('pointerup', end); tv.addEventListener('pointercancel', end);
   tv.addEventListener('wheel', e => {
     if(DOC.mode !== 'thumb') return;
-    const [x, y] = toDoc(e), L = hitLayer(x, y), k = Math.exp(-e.deltaY * 0.0015);
+    const [x, y] = toDoc(e), L = hitForWheel(x, y), k = Math.exp(-e.deltaY * 0.0015);
     if(editWheel(e, x, y, k)) return;
     if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
     else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
