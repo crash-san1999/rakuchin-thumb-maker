@@ -157,8 +157,17 @@ const NPM_FONTS = [
 ].map(([family, cat, usage, css, w]) => ({family, cat, usage, css: NPM + css, weights: w.split(',').map(Number), src:'npm'}));
 /* このリポジトリに同梱しているフォント（fonts/ 内・ライセンスも同梱）。読み込み方は URL 追加フォントと同じ */
 const SELF_FONTS = [
-  {family:'にくまるフォント', cat:'デザイン', usage:'かわいい・ポップ・やさしい（丸ゴシック／M+ FONT LICENSE・フロップデザイン）', weights:[400], src:'url', file:'fonts/nikumaru/Nikumaru.otf', mb:3.1},
-];
+  ['にくまるフォント','デザイン','かわいい・ポップ・やさしい（丸ゴシック／フロップデザイン・M+ FONT LICENSE）','nikumaru/Nikumaru.otf',3.1],
+  ['ラノベPOPv2','デザイン','ポップ・ゲーム・元気（ラノベ風POP体／フロップデザイン・M+ FONT LICENSE）','lanobe-pop/LightNovelPOPv2.woff',1.6],
+  ['07やさしさゴシック','ゴシック','やさしい・かわいい・解説（丸みのあるゴシック／フォントな・M+ FONT／IPA LICENSE）','yasashisa/Yasashisa.woff',2.9],
+  ['07やさしさゴシックボールド','ゴシック','やさしい・かわいい・ポップ（太い丸ゴシック／フォントな・M+ FONT LICENSE）','yasashisa-bold/YasashisaBold.woff',1.3],
+  ['どきどきファンタジア','ゴシック','かわいい・ポップ・ゲーム（極太の丸ゴシック／フロップデザイン・SIL OFL 1.1）','dokidoki/DokiDokiFantasia.woff',3.1],
+  ['零ゴシック','ゴシック','クール・解説・ゲーム（源ノ角ゴシック派生／フロップデザイン・SIL OFL 1.1）','zero-gothic/ZeroGothic.woff',3.9],
+  ['異世ゴ','ゴシック','ファンタジー・ゲーム・インパクト（源ノ角ゴシック派生／フロップデザイン・SIL OFL 1.1）','isego/Isego.woff',5.2],
+  ['異世明','明朝','ファンタジー・物語・エモ（源ノ明朝派生／フロップデザイン・SIL OFL 1.1）','isemin/Isemin.woff',5.3],
+  ['装甲明朝','明朝','ゲーム・ダーク・インパクト（源ノ明朝派生／フロップデザイン・SIL OFL 1.1）','soukou/SoukouMincho.woff',5.7],
+  ['瞬きノ明朝','明朝','繊細・物語・エモ（源ノ明朝派生／フロップデザイン・SIL OFL 1.1）','matataki/MatatakiMincho.woff',26.4],
+].map(([family, cat, usage, file, mb]) => ({family, cat, usage, weights:[400], src:'url', file:'fonts/' + file, mb}));
 const npmState = new Map();
 function ensureNpm(f, w = 400){
   const ws = f.weights, ww = ws.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, ws[0]), url = f.css.replace('{w}', ww);

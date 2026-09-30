@@ -174,7 +174,7 @@
 |---|---|---|
 | Google Fonts 日本語 | 68 | Dela Gothic One、LINE Seed JP、BIZ UDゴシック、Rock 3D など日本語対応の全書体 |
 | Google Fonts 欧文 | 約1,860 | 英数字用。「すべて」には厳選した書体だけが出ます。全書体は「欧文」を選ぶか名前で検索 |
-| Webフリー | 44 | Google 以外で配信されているフリーフォント（下の表） |
+| Webフリー | 53 | Google 以外で配信されているフリーフォント（下の表） |
 
 **Webフリーのおもな書体**（カテゴリ「Webフリー」で絞り込めます）
 
@@ -192,6 +192,11 @@
 | 原ノ味ゴシック（Harano Aji Gothic）／ 原ノ味明朝（Harano Aji Mincho） | 源ノ角ゴシック・源ノ明朝をもとに、日本語向けに字形を整えたもの。ゴシックは6段階（約5MB）、明朝は7段階（約6MB） |
 | Gen Interface JP ／ Gen Interface JP Display | 欧文は Inter 風、日本語は Noto Sans JP のゴシック。太さ 100〜800 の8段階。「Display」は見出し向け。文字ごとに分割して配信されるので軽い |
 | にくまるフォント | フロップデザインさんの丸ゴシック（M+ FONT ベース）。かわいくポップな見出し向け。太さは1種類（約3MB）。**このリポジトリに同梱**（`fonts/nikumaru/`）しているので、外部サーバーは使いません |
+| ラノベPOPv2 | ラノベ風のポップ体（フロップデザイン）。太さ1種類（約2MB）。同梱 |
+| 07やさしさゴシック ／ 07やさしさゴシックボールド | 丸みのあるやさしいゴシック（フォントな）。通常は約3MB、ボールドは約1MB。同梱 |
+| どきどきファンタジア | 極太の丸ゴシック（Zen Maru Gothic 派生・フロップデザイン）。約3MB。同梱 |
+| 零ゴシック ／ 異世ゴ | 源ノ角ゴシック派生のゴシック（フロップデザイン）。約4〜5MB。同梱 |
+| 異世明 ／ 装甲明朝 ／ 瞬きノ明朝 | 源ノ明朝派生の明朝（フロップデザイン）。約5MB、瞬きノ明朝だけ約26MB。同梱 |
 | Notofit JP | 欧文は Outfit 風の丸いゴシック。太さ 100〜900 の9段階。軽い |
 | TJ Plus Sans | 丸みのある欧文と M PLUS / Noto Sans JP を合わせたゴシック。太さ 300〜800。軽い |
 | Fusion Kai J | 楷書体（約5.7MB・選んだときに読み込み） |
@@ -202,7 +207,7 @@
 
 1MB を超えるフォントは、一覧をスクロールしただけでは読み込まず、選んだときに読み込みます（「選ぶと読込」と表示）。一度読み込めば、次からはすぐに表示されます。約16MBの源泉丸ゴシックなどは、スマホの通信量に気をつけてください。太さごとにファイルが分かれているので、使う太さの分だけ読み込まれます。Gen Interface JP などの「分割配信」のフォントは、使う文字の分だけ読み込むため軽く、そのまま一覧で試せます。
 
-Webフリーのフォントは、それぞれのライセンスで配布されています。原本のファイルをそのまま、配布元（Google Fonts、Fontsource、作者の GitHub リポジトリ）から jsDelivr 経由で読み込んでいます。
+Webフリーのフォントは、それぞれのライセンスで配布されています。原本のファイルをそのまま、配布元（Google Fonts、Fontsource、作者の GitHub リポジトリ）から jsDelivr 経由で読み込んでいます。ただし「同梱」と書いてある書体は、このリポジトリの `fonts/` に、ライセンス文とあわせて入れてあります（配信サイズを抑えるため、中身を変えずに WOFF 形式へ変換）。
 
 | フォント | 作者・配布元 | ライセンス |
 |---|---|---|
@@ -210,6 +215,10 @@ Webフリーのフォントは、それぞれのライセンスで配布され�
 | Fusion Pixel / Fusion Kai | TakWolf、lxgw | SIL OFL 1.1 |
 | PixelMplus | itouhiro、M+ FONTS PROJECT | M+ FONT LICENSE |
 | にくまるフォント | フロップデザイン（Fontna.com）、M+ FONTS PROJECT | M+ FONT LICENSE（商用・再配布可。`fonts/nikumaru/` にライセンスを同梱） |
+| ラノベPOPv2 | フロップデザイン、M+ FONTS PROJECT | M+ FONT LICENSE |
+| 07やさしさゴシック | Fontna.com、M+ FONTS PROJECT、IPA | M+ FONT LICENSE ／ IPAフォントライセンス v1.0 |
+| 07やさしさゴシックボールド | Fontna.com、M+ FONTS PROJECT | M+ FONT LICENSE |
+| どきどきファンタジア・零ゴシック・異世ゴ・異世明・装甲明朝・瞬きノ明朝 | フロップデザイン（元: Zen Project／Adobe） | SIL OFL 1.1 |
 | マルモニカ・まるみーにゃ | hicc（[x0y0pxFreeFont](https://hicchicc.github.io/00ff/)） | 作者独自ライセンス（商用・再配布可） |
 | 築豊明朝 | iose-sakana | SIL OFL 1.1 |
 | 源泉丸ゴシック・源石ゴシック・源流明朝・源様明朝・源起明朝 | ButTaiwan | SIL OFL 1.1 |
