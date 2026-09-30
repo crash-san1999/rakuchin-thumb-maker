@@ -29,6 +29,13 @@ async def run(p):
     # 元に戻す
     await pg.evaluate("pushHist()"); await pg.keyboard.press('Control+z'); await settle(pg, 600)
 
+    # サイズ変更を元に戻すと、プレビューも元の縦横比に戻る
+    await pg.evaluate("pushHist()"); await pg.evaluate("setCanvasSize(1080, 1080, true)"); await settle(pg, 700)
+    await pg.evaluate("pushHist()"); await pg.keyboard.press('Control+z'); await settle(pg, 1500)
+    assert await pg.evaluate("[DOC.w, DOC.h]") == [1080, 1920], f'元に戻してもサイズが戻らない {await pg.evaluate("[DOC.w, DOC.h]")}'
+    bgk = await pg.evaluate("(() => { const b = prevCache.get('__bg'); return b ? [b.c.width, b.c.height] : null; })()")
+    tv = await pg.evaluate("(() => { const c = document.querySelector('#tv'); return [c.width, c.height]; })()")
+    assert bgk is None or abs(bgk[0] / bgk[1] - tv[0] / tv[1]) < 0.02, f'背景の絵の縦横比が合っていない {bgk} {tv}'
     # 自由指定
     await pg.fill('#cvW', '1500'); await pg.fill('#cvH', '600'); await pg.click('#cvApply'); await settle(pg, 900)
     assert await pg.evaluate("[DOC.w, DOC.h]") == [1500, 600], '自由指定が反映されない'
@@ -45,6 +52,9 @@ async def run(p):
     # 古い保存データ・不正な値
     r = await pg.evaluate("(() => { const d = JSON.parse(JSON.stringify(DOC)); delete d.w; delete d.h; const a = normalizeDoc(d); const e = JSON.parse(JSON.stringify(DOC)); e.w = 99999; e.h = -5; const b = normalizeDoc(e); return [a.w, a.h, b.w, b.h]; })()")
     assert r == [1920, 1080, 5000, 200], f'読み込み時の補正 {r}'
+    # 書き出しサイズの検証
+    r = await pg.evaluate("(() => { const m = d => normalizeDoc(Object.assign(JSON.parse(JSON.stringify(DOC)), d)).exportW; return [m({exportW:null}), m({exportW:'abc'}), m({exportW:-5}), m({exportW:1e6}), m({w:200, h:5000, exportW:1920})]; })()")
+    assert r[0] == 1920 and r[1] == 1920 and r[2] == 1920 and r[3] * r[3] * 1080 / 1920 <= 36e6 * 1.01 and r[4] * r[4] * 5000 / 200 <= 36e6 * 1.01, f'exportW の補正 {r}'
     await close(pg)
 
     # スマホ（縦配信サイズ）

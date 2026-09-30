@@ -31,19 +31,23 @@ function normalizeDoc(d){
   }
   const o = Object.assign(b, d);
   o.w = clamp(Math.round(d.w) || 1920, 200, 5000); o.h = clamp(Math.round(d.h) || 1080, 200, 5000);
+  // 書き出しの横幅：数でなければ等倍、大きすぎるときは面積の上限に収まるまで小さくする
+  let ex = Math.round(+d.exportW); if(!(ex >= 100)) ex = o.w;
+  while(ex > 200 && ex * ex * o.h / o.w > EXPORT_MAX_PX) ex = Math.floor(ex * 0.9);
+  o.exportW = ex;
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
   for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
-  o.layers = d.layers.filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
+  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
     ? Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})})
     : L.type === 'collage' ? (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}),
         cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx)}); })}))(COLLAGE_BASE())
     : L.type === 'group' ? (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE()))
     : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
-        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: Object.assign(IMAGE_BASE().crop, L.crop || {}),
+        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
         shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {})}));
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
@@ -53,14 +57,14 @@ function normalizeDoc(d){
   o.msel = [];
   // 以前の「背景の集中線」を動的エフェクトのレイヤーに移す
   const oldLines = (d.bg || {}).lines; delete o.bg.lines;
-  if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * 1920, y:(o.bg.fcy ?? 0.5) * 1080})); }
+  if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * o.w, y:(o.bg.fcy ?? 0.5) * o.h})); }
   if(!o.layers.find(l => l.id === o.textSel)){ const T = o.layers.find(l => l.type === 'text'); o.textSel = T ? T.id : null; }
   if(o.sel && !o.layers.find(l => l.id === o.sel)) o.sel = null;
   return o;
 }
 // 保存しておいた作業を読み込み、選択中の文字レイヤーのスタイルを文字パネルにつなぐ
 function loadSavedDoc(){
-  DOC = normalizeDoc(LS.get('ttm_doc', null));
+  try{ DOC = normalizeDoc(LS.get('ttm_doc', null)); }catch(e){ console.warn('保存データを読み込めませんでした', e); DOC = normalizeDoc(null); }
   const T = textLayer(); if(T) S = T.style;
 }
 
@@ -97,10 +101,8 @@ function setD(k, v){
 }
 const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:dGet,
   onInput(k, v, el){
-    const cL = /^@crop\./.test(k) ? selLayer() : null, c0 = cL && cropCentre(cL);
-    setD(k, v);
-    if(cL && c0){ const c1 = cropCentre(cL), a = (cL.rot || 0) * PI / 180, dx = (c1[0] - c0[0]) * cL.sc, dy = (c1[1] - c0[1]) * cL.sc;   // 見えている部分が動かないように位置を補正
-      cL.x += dx * Math.cos(a) - dy * Math.sin(a); cL.y += dx * Math.sin(a) + dy * Math.cos(a); }
+    const cL = /^@crop\./.test(k) ? selLayer() : null;
+    if(cL) applyCropChange(cL, () => setD(k, v)); else setD(k, v);
     if(k === '@p.reach'){ const L = selLayer(); if(L && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');
@@ -123,9 +125,3 @@ function syncDoc(except){
   refreshSizeUI();
 }
 
-// トリミング後の絵の中心（元の画像の中心からのずれ。画像の座標）。反転も考えに入れる
-function cropCentre(L){
-  const A = ASSETS[L.asset]; if(!A) return [0, 0];
-  const c = cropOf(L), iw = A.img.naturalWidth, ih = A.img.naturalHeight;
-  return [(c.l - c.r) / 2 * iw * (L.flip ? -1 : 1), (c.t - c.b) / 2 * ih * (L.flipV ? -1 : 1)];
-}

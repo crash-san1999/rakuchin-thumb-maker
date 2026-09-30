@@ -61,17 +61,37 @@ async function setBgFromFile(f){
   if(wantBgPalette){ wantBgPalette = false; bgImg = ASSETS[id].img; paletteFromBg(); }
 }
 
-// 画像の表示範囲（上下左右のトリミング）。切り取った絵を持つ、元の画像と同じ形の入れ物を返す（トリミングなしなら元のまま）
-const cropOf = L => L.crop || {t:0, b:0, l:0, r:0};
+// 画像の表示範囲（上下左右のトリミング）。値は 0〜0.9、向かい合う辺の合計は 0.95 まで
+function cropClamp(c){
+  const n = v => clamp(+v || 0, 0, 0.9), o = {t:n(c && c.t), b:n(c && c.b), l:n(c && c.l), r:n(c && c.r)};
+  o.b = Math.min(o.b, 0.95 - o.t); o.r = Math.min(o.r, 0.95 - o.l); return o;
+}
+const cropOf = L => cropClamp(L.crop);
 const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 || c.r > 0; };
+// 元の画像のどこを使うか（ピクセル）
+function cropRect(L, iw, ih){
+  const c = cropOf(L), sx = Math.round(c.l * iw), sy = Math.round(c.t * ih);
+  return {sx, sy, sw: Math.max(8, Math.round(iw * (1 - c.l - c.r))), sh: Math.max(8, Math.round(ih * (1 - c.t - c.b)))};
+}
+// 切り取った絵を持つ、元の画像と同じ形の入れ物を返す（トリミングなしなら元のまま）。レイヤーごとに1枚だけ持つ
+const cropCache = new Map();
 function layerSrc(L){
   const A = ASSETS[L.asset]; if(!A || !cropOn(L)) return A;
-  const c = cropOf(L), iw = A.img.naturalWidth, ih = A.img.naturalHeight;
-  const sx = Math.round(clamp(c.l, 0, 0.9) * iw), sy = Math.round(clamp(c.t, 0, 0.9) * ih);
-  const sw = Math.max(8, Math.round(iw * (1 - clamp(c.l, 0, 0.9) - clamp(c.r, 0, 0.9)))), sh = Math.max(8, Math.round(ih * (1 - clamp(c.t, 0, 0.9) - clamp(c.b, 0, 0.9))));
-  const key = [sx, sy, sw, sh].join(',');
-  if(A.cropKey === key && A.cropObj) return A.cropObj;
-  const cv = mk(sw, sh); cv.getContext('2d').drawImage(A.img, sx, sy, sw, sh, 0, 0, sw, sh);
-  cv.naturalWidth = sw; cv.naturalHeight = sh;
-  A.cropKey = key; return A.cropObj = {img: cv, name: A.name};
+  const r = cropRect(L, A.img.naturalWidth, A.img.naturalHeight), key = [L.asset, r.sx, r.sy, r.sw, r.sh].join(',');
+  const e = cropCache.get(L.id); if(e && e.key === key) return e.obj;
+  const cv = mk(r.sw, r.sh); cv.getContext('2d').drawImage(A.img, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
+  cv.naturalWidth = r.sw; cv.naturalHeight = r.sh;
+  const obj = {img: cv, name: A.name}; cropCache.set(L.id, {key, obj}); return obj;
+}
+// トリミングを変える。見えている部分が動かないように、レイヤーの位置（フレームがあるときはフレームの中心）を補正する
+function applyCropChange(L, change){
+  const A = ASSETS[L.asset], iw = A ? A.img.naturalWidth : 1, ih = A ? A.img.naturalHeight : 1;
+  const r0 = cropRect(L, iw, ih), fr = L.frame && L.frame.shape !== 'none' ? L.frame : null;
+  const P = fr ? [r0.sx + (fr.cx ?? 0.5) * r0.sw, r0.sy + (fr.cy ?? 0.5) * r0.sh] : null;
+  change(); L.crop = cropClamp(L.crop);
+  const r1 = cropRect(L, iw, ih);
+  if(fr){ fr.cx = Math.round(clamp((P[0] - r1.sx) / r1.sw, 0, 1) * 1000) / 1000; fr.cy = Math.round(clamp((P[1] - r1.sy) / r1.sh, 0, 1) * 1000) / 1000; return; }
+  const u = (r1.sx + r1.sw / 2 - r0.sx - r0.sw / 2) * (L.flip ? -1 : 1), v = (r1.sy + r1.sh / 2 - r0.sy - r0.sh / 2) * (L.flipV ? -1 : 1);
+  const a = (L.rot || 0) * PI / 180, dx = u * L.sc, dy = v * L.sc;
+  L.x += dx * Math.cos(a) - dy * Math.sin(a); L.y += dx * Math.sin(a) + dy * Math.cos(a);
 }

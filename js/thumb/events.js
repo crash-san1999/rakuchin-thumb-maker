@@ -119,7 +119,7 @@ document.addEventListener('click', e => {
     showMenu(row.dataset.lid, e.clientX, e.clientY);
   });
   $('#addCollageBtn').onclick = () => addCollage();
-  document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ const c0 = cropCentre(L); L.crop = {t:0, b:0, l:0, r:0}; const a = (L.rot || 0) * PI / 180, dx = -c0[0] * L.sc, dy = -c0[1] * L.sc; L.x += dx * Math.cos(a) - dy * Math.sin(a); L.y += dx * Math.sin(a) + dy * Math.cos(a); syncDoc(); docChanged(false); } } });
+  document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ applyCropChange(L, () => { L.crop = {t:0, b:0, l:0, r:0}; }); syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
 }
@@ -202,15 +202,18 @@ async function openProjectFile(f){
      2 = その位置に絵がある／1 = すぐ近く（細い文字を掴みやすくするための余裕）／0 = 枠の中だけ */
   const MASK_K = 0.25, NEAR = 4, maskCache = new Map(), maskFx = new Map();
   const layerMask = L => {
-    const key = JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
+    const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
     let m = maskCache.get(L.id);
     if(m && m.key === key) return m;
     const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = c.getContext('2d', {willReadFrequently:true});
-    try{ drawOne(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}}, MASK_K, false, maskFx); }catch{}
+    const keep = new Map(dims);   // 小さく描くと選択枠の大きさ（dims）も書き換わるので、終わったら戻す
+    try{ drawOne(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}}, MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
+    finally{ dims.clear(); keep.forEach((v, k) => dims.set(k, v)); }
     m = {key, W, H, a: x.getImageData(0, 0, W, H).data};
     maskCache.set(L.id, m);
     return m;
   };
+  globalThis.pruneMasks = ids => { for(const m of [maskCache, maskFx]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); };
   const pixelRank = (L, x, y) => {
     let m; try{ m = layerMask(L); }catch{ return 0; }
     const cx = Math.round(x * MASK_K), cy = Math.round(y * MASK_K);
@@ -253,7 +256,6 @@ async function openProjectFile(f){
     const {hs, r} = hitRanked(x, y), cur = hs.find(l => l.id === DOC.sel);
     return cur && r.get(cur.id) > 0 ? cur : hitLayer(x, y);
   };
-  let lastAltPick = null;
   const handleAt = (x, y) => {
     if(DOC.msel && DOC.msel.length >= 2) return null;
     const L = selLayer(), g = L && !L.hidden && !L.locked && layerGeom(L); if(!g) return null;
@@ -274,14 +276,13 @@ async function openProjectFile(f){
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
       const {hs: all, r} = hitRanked(x, y), vis = all.filter(l => r.get(l.id) > 0), hs = vis.length ? vis : all;
-      if(hs.length){ const k = hs.findIndex(l => l.id === DOC.sel); const nx = hs[(k + 1) % hs.length]; lastAltPick = nx.id; selectLayer(nx.id); T = nx; mode = 'move'; }
+      if(hs.length){ const k = hs.findIndex(l => l.id === DOC.sel); const nx = hs[(k + 1) % hs.length]; selectLayer(nx.id); T = nx; mode = 'move'; }
     }
     if(!mode && (e.shiftKey || e.ctrlKey || e.metaKey)){
       // Shift／Ctrl＋クリック：複数選択に入れる・外す
       const h = hitLayer(x, y); if(h){ toggleMulti(h.id); e.preventDefault(); return; }
     }
     if(!mode){
-      lastAltPick = null;
       T = hitLayer(x, y);
       if(!T){
         if(DOC.sel || (DOC.msel || []).length) selectLayer(null);
@@ -344,11 +345,16 @@ async function openProjectFile(f){
   });
   const end = () => { if(!drag) return; drag = null; snapLines = {x:null, y:null}; docChanged(false); };
   tv.addEventListener('pointerup', end); tv.addEventListener('pointercancel', end);
+  let wheelGrp = null;
   tv.addEventListener('wheel', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitForWheel(x, y), k = Math.exp(-e.deltaY * 0.0015);
     if(editWheel(e, x, y, k)) return;
-    if(L && isGroup(L)){ if(L.id !== DOC.sel) selectLayer(L.id); xformApply(xformSnap([L], L.x, L.y), 0, 0, clamp(k, 0.2, 5), 0); }
+    if(L && isGroup(L)){   // 位置を整数に丸めるので、ホイールの間は最初の状態から数えて拡大縮小する
+      if(L.id !== DOC.sel) selectLayer(L.id);
+      const now = performance.now(), w = wheelGrp; if(!w || w.id !== L.id || now - w.t > 500) wheelGrp = {id:L.id, t:now, k:1, s:xformSnap([L], L.x, L.y)};
+      wheelGrp.t = now; wheelGrp.k = clamp(wheelGrp.k * k, 0.2, 5); xformApply(wheelGrp.s, 0, 0, wheelGrp.k, 0);
+    }
     else if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
     else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
       const b = DOC.bg, nz = clamp(b.zoom * k, 0.2, 4), r = nz / b.zoom;

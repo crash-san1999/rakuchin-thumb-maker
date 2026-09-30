@@ -63,7 +63,7 @@ function drawGroup(ctx, G, f, live, cache){
 // 動かす対象（グループなら中のレイヤー）の今の状態を控える
 function xformSnap(ls, cx, cy){
   const kids = ls.flatMap(l => isGroup(l) ? groupKids(l) : [l]);
-  return {cx, cy, kids: [...new Set(kids)].map(L => ({L, x:L.x, y:L.y, sc:L.sc, rot:L.rot || 0}))};
+  return {cx, cy, kids: [...new Set(kids)].filter(L => !L.locked).map(L => ({L, x:L.x, y:L.y, sc:L.sc, rot:L.rot || 0}))};
 }
 // 中心 (cx, cy) を基準に、dx, dy だけ動かし・k 倍にし・dr 度回す
 function xformApply(s, dx, dy, k = 1, dr = 0){
@@ -79,6 +79,7 @@ function xformApply(s, dx, dy, k = 1, dr = 0){
 /* ---------- グループの作成・解除 ---------- */
 function groupLayers(ids){
   const set = new Set(ids), src = DOC.layers.filter(l => set.has(l.id));
+  if(src.length === 1 && isGroup(src[0])){ toast('すでにグループです。ほかのレイヤーも選んでから、まとめてください', true); return null; }
   // グループを選んでいれば、その中身を取り出して1つにまとめ直す
   const kidsIds = new Set(src.flatMap(l => isGroup(l) ? groupKids(l).map(k => k.id) : [l.id]));
   const kids = DOC.layers.filter(l => kidsIds.has(l.id) && !isGroup(l));

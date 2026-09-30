@@ -8,12 +8,14 @@ async function thumbBlob(fmt){
   const toB = (t, q) => new Promise(r => c.toBlob(r, t, q));
   if(fmt === 'png') return toB('image/png');
   let q = 0.93, b = await toB('image/jpeg', q);
-  while(DOC.limit2mb && b.size > 2e6 && q > 0.45){ q -= 0.08; b = await toB('image/jpeg', q); }
+  while(b && DOC.limit2mb && b.size > 2e6 && q > 0.45){ q -= 0.08; b = await toB('image/jpeg', q); }
   return b;
 }
 async function exportThumb(){
   toast('書き出し中…');
-  const b = await thumbBlob(DOC.fmt), name = `thumbnail_${DOC.exportW}x${Math.round(DOC.exportW * DOC.h / DOC.w)}_${stamp()}.${DOC.fmt}`;
+  let b; try{ b = await thumbBlob(DOC.fmt); }catch(err){ console.warn(err); }
+  if(!b){ toast('書き出せませんでした。書き出しサイズを小さくしてもう一度お試しください', true); return; }
+  const name = `thumbnail_${DOC.exportW}x${Math.round(DOC.exportW * DOC.h / DOC.w)}_${stamp()}.${DOC.fmt}`;
   if(await shareFile(b, name)) return;
   downloadBlob(b, name);
   toast(`サムネを保存しました（${DOC.exportW}×${Math.round(DOC.exportW * DOC.h / DOC.w)}・${(b.size / 1048576).toFixed(2)}MB）`);

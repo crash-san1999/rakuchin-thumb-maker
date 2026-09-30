@@ -34,7 +34,15 @@ async def run(p):
     assert await pg.evaluate("selLayer().crop") == {'t': 0, 'b': 0, 'l': 0, 'r': 0}, '戻せない'
     w2 = await pg.evaluate("dims.get(selLayer().id).w"); assert abs(w2 - w0) < 2, f'戻しても元の大きさにならない {w0} {w2}'
     c = await pg.evaluate("[selLayer().x, selLayer().y]"); assert abs(c[0] - 960) < 2 and abs(c[1] - 540) < 2, f'戻しても元の位置にならない {c}'
-    # 古い保存データ・不正値
     ok = await pg.evaluate("(() => { const d = JSON.parse(JSON.stringify(DOC)); d.layers.forEach(l => { delete l.crop; }); return normalizeDoc(d).layers.filter(l => l.type === 'image').every(l => l.crop.t === 0 && l.crop.r === 0); })()")
     assert ok, '古い保存データを読み込めない'
+    # フレーム付きでトリミングしても、レイヤーの位置は動かない（フレームの絵が保たれる）
+    await pg.evaluate("(() => { const L = selLayer(); L.frame.shape = 'circle'; L.frame.fs = 0.5; docChanged(false); })()"); await settle(pg, 900)
+    await page(pg, 'lay-frame')
+    p0 = await pg.evaluate("[selLayer().x, selLayer().y]")
+    await slide('@crop.l', 0.3)
+    p1 = await pg.evaluate("[selLayer().x, selLayer().y]"); assert p0 == p1, f'フレーム付きでトリミングするとレイヤーが動く {p0} {p1}'
+    # 範囲外の値は補正される
+    r = await pg.evaluate("(() => { const d = JSON.parse(JSON.stringify(DOC)); const I = d.layers.find(l => l.type === 'image'); I.crop = {t:-1, b:5, l:0.9, r:0.9}; const c = normalizeDoc(d).layers.find(l => l.type === 'image').crop; return [c.t, c.b, c.l, c.r]; })()")
+    assert r[0] == 0 and r[1] <= 0.9 and r[2] <= 0.9 and r[2] + r[3] <= 0.951, f'範囲外の値が補正されない {r}'
     await close(pg)

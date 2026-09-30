@@ -9,7 +9,7 @@ function pushHist(){
 function restoreHist(i){
   if(i < 0 || i >= hist.length) return;
   hIdx = i; restoring = true;
-  DOC = JSON.parse(hist[i]);
+  DOC = JSON.parse(hist[i]); DOC.msel = [];
   const T = textLayer(); if(T) S = T.style;
   resetAdj(); refreshTextUI(); syncDoc(); renderLayers(); setMode(DOC.mode, true); saveDoc();
   pruneLayerCaches();

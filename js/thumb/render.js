@@ -2,7 +2,7 @@
 /* ---------- 描画 ---------- */
 const prevCache = new Map(), dims = new Map();
 // 消えたレイヤーの描画キャッシュ・大きさの記録を捨てる（取り消し・削除のあと）
-function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); for(const m of [prevCache, dims]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
+function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); if(globalThis.pruneMasks) pruneMasks(ids); for(const m of [prevCache, dims, cropCache]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
 let tvCss = 800, snapLines = {x:null, y:null}, drag = null;
 function fontKey(st){
   const t = st.text.replace(/[{}\n]/g, '').slice(0, 24) || 'あ';
@@ -160,7 +160,7 @@ function drawBackground(ctx, W, H, f){
   }
 }
 function compose(ctx, W, H, live, cache){
-  const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
+  const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
   let b = cache.get('__bg');
   if(!b || b.key !== key){ const c = mk(W, H); drawBackground(c.getContext('2d'), W, H, f); b = {key, c}; cache.set('__bg', b); }
   if(!DOC.bg.hidden){ ctx.save(); ctx.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); ctx.drawImage(b.c, 0, 0); ctx.restore(); }

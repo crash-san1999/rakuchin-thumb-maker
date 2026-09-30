@@ -125,4 +125,7 @@ async def run(p):
     # 解除：見た目と中身が戻る
     await pg.evaluate(f"ungroupLayers(layerById('{gid}'))"); await settle(pg, 500)
     assert await pg.evaluate("[DOC.layers.filter(l => l.type === 'group').length, DOC.layers.filter(l => l.gid).length]") == [0, 0], 'グループを解除できない'
+    # グループ1つだけを選んで「グループ化」しても、設定は消えない（何もしない）
+    r = await pg.evaluate("(() => { const G = DOC.layers.find(l => l.type === 'group'); if(!G) return null; G.op = 0.5; const n = DOC.layers.length; const out = groupLayers([G.id]); return [out, DOC.layers.length === n, DOC.layers.find(l => l.id === G.id).op]; })()")
+    assert r is None or r == [None, True, 0.5], f'グループ1つのグループ化で設定が消えた {r}'
     await close(pg)

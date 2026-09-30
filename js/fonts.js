@@ -178,7 +178,7 @@ const ghState = new Map();
 function ensureGh(f, w = 400){
   const ws = f.weights, ww = ws.reduce((a, b) => Math.abs(b - w) < Math.abs(a - w) ? b : a, ws[0]);
   const k = f.family + '|' + ww;
-  if(!ghState.has(k)) ghState.set(k, new FontFace(f.family, `url("${GH + f.files[ww]}")`, {weight: String(ww)}).load().then(ff => { document.fonts.add(ff); }).catch(() => {}));
+  if(!ghState.has(k)) ghState.set(k, new FontFace(f.family, `url("${GH + f.files[ww]}")`, {weight: String(ww)}).load().then(ff => { document.fonts.add(ff); }).catch(() => { ghState.delete(k); }));   // 失敗したら、次に選んだときにもう一度読む
   return ghState.get(k);
 }
 
@@ -232,7 +232,7 @@ function ensureCss(f, w){
     let p;
     if(f.src === 'ea') p = addCss(`https://fonts.googleapis.com/earlyaccess/${f.slug}.css`);
     else if(f.src === 'fontsource') p = Promise.all((f.weights || [400]).map(w => addCss(`https://cdn.jsdelivr.net/npm/@fontsource/${f.id}@5/${w}.css`)));
-    else p = f.css ? addCss(f.css) : f.file ? new FontFace(f.family, `url("${f.file}")`).load().then(ff => { document.fonts.add(ff); }).catch(() => {}) : Promise.resolve();
+    else p = f.css ? addCss(f.css) : f.file ? new FontFace(f.family, `url("${f.file}")`).load().then(ff => { document.fonts.add(ff); }).catch(() => { cssState.delete(f.family); }) : Promise.resolve();
     cssState.set(f.family, p); return p;
   }
   const p = new Promise(res => {
@@ -389,7 +389,7 @@ $('#fetchG').onclick = () => updateFontList(true);
    Service Worker が端末に保存するので、次の起動からはすぐ使える */
 function preloadFavFonts(){
   const c = navigator.connection; if(c && (c.saveData || c.type === 'cellular')) return;
-  setTimeout(() => { [...favs].map(findFont).filter(f => f && WEB_SRC.includes(f.src) && !cssState.has(f.family)).forEach((f, i) => setTimeout(() => ensureCss(f, 400), i * 1500)); }, 3000);
+  setTimeout(() => { [...favs].map(findFont).filter(f => f && WEB_SRC.includes(f.src) && !(f.mb > 3) && !cssState.has(f.family)).forEach((f, i) => setTimeout(() => ensureCss(f, 400), i * 1500)); }, 3000);
 }
 function registerFontCache(){
   if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
