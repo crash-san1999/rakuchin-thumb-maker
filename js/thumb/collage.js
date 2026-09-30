@@ -20,7 +20,7 @@ const CELL_FX_PRESETS = {
 };
 function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
-    bw:1920, bh:1080, n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
+    bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
     cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}))});
 }

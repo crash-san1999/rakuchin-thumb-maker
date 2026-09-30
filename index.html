@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=864d4099">
+<link rel="stylesheet" href="css/app.css?v=e622d81f">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -211,6 +211,11 @@
 <div class="pop" id="fileMenu">
   <div class="pop-ttl">ファイル・書き出し設定</div>
     <div id="fileSec">
+      <h3>キャンバスのサイズ <span class="hint" id="cvNow"></span></h3>
+      <div class="row"><label>形</label><select id="canvasPreset"></select></div>
+      <div class="row"><label>自由指定</label><span class="sizein"><input type="number" id="cvW" min="200" max="5000" step="1" inputmode="numeric" aria-label="横"><i>×</i><input type="number" id="cvH" min="200" max="5000" step="1" inputmode="numeric" aria-label="縦"><button class="btn sm" id="cvApply">適用</button></span></div>
+      <label class="chk"><input type="checkbox" id="cvFit" checked> 今ある内容も、新しいサイズに合わせて置き直す</label>
+      <p class="note">縦配信（1080×1920）などに切り替えられます。200〜5000 px で自由にも指定できます。取り消し（Ctrl+Z）で戻せます。</p>
       <h3>保存と書き出し</h3>
       <div class="crow">
         <button class="btn sm" id="saveProj"><i data-ic="save"></i>プロジェクトを保存</button>
@@ -287,31 +292,32 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=864d4099"></script>
-<script src="js/bind.js?v=864d4099"></script>
-<script src="js/presets.js?v=864d4099"></script>
-<script src="js/data/font-list.js?v=864d4099"></script>
-<script src="js/fonts.js?v=864d4099"></script>
-<script src="js/controls.js?v=864d4099"></script>
-<script src="js/text-render.js?v=864d4099"></script>
-<script src="js/preview.js?v=864d4099"></script>
-<script src="js/colors.js?v=864d4099"></script>
-<script src="js/history.js?v=864d4099"></script>
-<script src="js/thumb/frames.js?v=864d4099"></script>
-<script src="js/thumb/collage.js?v=864d4099"></script>
-<script src="js/thumb/group.js?v=864d4099"></script>
-<script src="js/thumb/fx.js?v=864d4099"></script>
-<script src="js/thumb/assets.js?v=864d4099"></script>
-<script src="js/thumb/doc.js?v=864d4099"></script>
-<script src="js/thumb/render.js?v=864d4099"></script>
-<script src="js/thumb/overlay.js?v=864d4099"></script>
-<script src="js/thumb/editmodes.js?v=864d4099"></script>
-<script src="js/thumb/layers.js?v=864d4099"></script>
-<script src="js/thumb/export.js?v=864d4099"></script>
-<script src="js/thumb/inspector.js?v=864d4099"></script>
-<script src="js/thumb/events.js?v=864d4099"></script>
-<script src="js/mobile.js?v=864d4099"></script>
-<script src="js/popups.js?v=864d4099"></script>
-<script src="js/main.js?v=864d4099"></script>
+<script src="js/core.js?v=e622d81f"></script>
+<script src="js/bind.js?v=e622d81f"></script>
+<script src="js/presets.js?v=e622d81f"></script>
+<script src="js/data/font-list.js?v=e622d81f"></script>
+<script src="js/fonts.js?v=e622d81f"></script>
+<script src="js/controls.js?v=e622d81f"></script>
+<script src="js/text-render.js?v=e622d81f"></script>
+<script src="js/preview.js?v=e622d81f"></script>
+<script src="js/colors.js?v=e622d81f"></script>
+<script src="js/history.js?v=e622d81f"></script>
+<script src="js/thumb/frames.js?v=e622d81f"></script>
+<script src="js/thumb/collage.js?v=e622d81f"></script>
+<script src="js/thumb/canvas.js?v=e622d81f"></script>
+<script src="js/thumb/group.js?v=e622d81f"></script>
+<script src="js/thumb/fx.js?v=e622d81f"></script>
+<script src="js/thumb/assets.js?v=e622d81f"></script>
+<script src="js/thumb/doc.js?v=e622d81f"></script>
+<script src="js/thumb/render.js?v=e622d81f"></script>
+<script src="js/thumb/overlay.js?v=e622d81f"></script>
+<script src="js/thumb/editmodes.js?v=e622d81f"></script>
+<script src="js/thumb/layers.js?v=e622d81f"></script>
+<script src="js/thumb/export.js?v=e622d81f"></script>
+<script src="js/thumb/inspector.js?v=e622d81f"></script>
+<script src="js/thumb/events.js?v=e622d81f"></script>
+<script src="js/mobile.js?v=e622d81f"></script>
+<script src="js/popups.js?v=e622d81f"></script>
+<script src="js/main.js?v=e622d81f"></script>
 </body>
 </html>

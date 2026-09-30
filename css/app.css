@@ -506,3 +506,9 @@ body.is-mobile #addBtn{display:none}
 .lp-multi{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;margin:0 0 8px;border:2px solid var(--acc);border-radius:14px;background:var(--acc-soft);font-size:12px}
 .lp-multi b{flex:1 1 100%}
 .lp-multi .btn{flex:1 1 auto;justify-content:center}
+
+/* キャンバスのサイズ */
+.sizein{grid-column:2 / 4;display:flex;align-items:center;gap:6px}
+.sizein input{width:76px;min-width:0}
+.sizein i{font-style:normal;color:var(--mute)}
+.sizein .btn{margin-left:auto}

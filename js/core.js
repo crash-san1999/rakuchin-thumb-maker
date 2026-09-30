@@ -7,8 +7,8 @@ const LS = {
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
 };
 const isTyping = e => { const t = e.target; return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
-// サムネのレイヤーに共通の初期値（1920×1080 の中央）
-const LAYER_BASE = () => ({x:960, y:540, sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
+// サムネのレイヤーに共通の初期値（キャンバスの中央）
+const LAYER_BASE = () => ({x:Math.round(((typeof DOC === 'object' && DOC) ? DOC.w : 1920) / 2), y:Math.round(((typeof DOC === 'object' && DOC) ? DOC.h : 1080) / 2), sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
 // 小数第3位までに丸める（保存データを読みやすく小さく保つ）
 const r3 = v => Math.round(v * 1000) / 1000;
 // 日時入りのファイル名用（例：20260929-213000）

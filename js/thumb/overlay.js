@@ -22,7 +22,7 @@ function drawOverlay(ctx, W, H, dpr){
     ctx.stroke(); ctx.setLineDash([]);
   }
   if(DOC.guides.badge){
-    const bw = W * 0.095, bh = H * 0.08, m = W * 0.012, x = W - m - bw, y = H - m - bh;
+    const u = Math.min(W, H * 16 / 9), bw = u * 0.095, bh = u * 9 / 16 * 0.08, m = u * 0.012, x = W - m - bw, y = H - m - bh;
     ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.beginPath(); ctx.roundRect(x, y, bw, bh, 5 * dpr); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = `600 ${bh * 0.55}px Inter, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('12:34', x + bw / 2, y + bh / 2 + dpr);

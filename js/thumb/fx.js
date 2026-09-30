@@ -9,9 +9,9 @@ const FX_DEF = {
 const FX_NAMES = {lines:'集中線', light:'光（スポット）', sparkle:'キラキラ', burst:'爆発（ギザギザ）'};
 const FX_ICONS = {lines:'burst', light:'sun', sparkle:'sparkle', burst:'boom'};
 const FX_HINT = {lines:'放射状の線で視線を集める。中心の空きを動かして注目させたい所へ', light:'光が差しているように明るく（スクリーン合成）', sparkle:'星のきらめきを散らす', burst:'マンガ風の爆発。文字の後ろに敷いて「ドーン！」'};
-const FX_LAYER_DEF = {lines:{op:0.55}, light:{blend:'screen', x:1380, y:330}, burst:{sc:0.8}};
-const FX_BOX = L => { const p = L.p; return {lines:p.full === false ? [1920 * p.inner * p.reach, 1080 * p.inner * p.reach] : [1920 * p.inner, 1080 * p.inner], light:[1920 * p.r * 1.1, 1920 * p.r * 1.1], sparkle:[640, 400], burst:[780, 500]}[L.kind] || [400, 400]; };
-const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:'fx', kind}, FX_LAYER_DEF[kind] || {}, ex, {p:Object.assign(FX_DEF[kind](), p)});
+const FX_LAYER_DEF = {lines:{op:0.55}, light:{blend:'screen'}, burst:{sc:0.8}};
+const FX_BOX = L => { const p = L.p, W = DOC.w, H = DOC.h, M = Math.max(W, H); return {lines:p.full === false ? [W * p.inner * p.reach, H * p.inner * p.reach] : [W * p.inner, H * p.inner], light:[M * p.r * 1.1, M * p.r * 1.1], sparkle:[640, 400], burst:[780, 500]}[L.kind] || [400, 400]; };
+const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:'fx', kind}, FX_LAYER_DEF[kind] || {}, kind === 'light' ? {x:Math.round(DOC.w * 0.72), y:Math.round(DOC.h * 0.3)} : {}, ex, {p:Object.assign(FX_DEF[kind](), p)});
 const BG_FX = {
   reset:  {bg:{}, fx:[]},
   focus:  {bg:{zb:{on:true, amt:0.28}, contrast:0.1, vignette:0.5}, fx:[]},
@@ -55,10 +55,10 @@ function drawFx(ctx, L, f){
   ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
   const R = rng(p.seed || 1);
   if(L.kind === 'lines'){
-    const rx = 960 * p.inner, ry = 540 * p.inner, step = 2 * PI / p.n, full = p.full !== false;
+    const rx = DOC.w / 2 * p.inner, ry = DOC.h / 2 * p.inner, step = 2 * PI / p.n, full = p.full !== false;
     // 楕円を円として扱う（縦方向を縮めて描く）
     ctx.scale(1, ry / rx);
-    const outer = full ? Math.hypot(1920, 1080) * 2.4 / Math.max(0.05, L.sc) * Math.max(1, rx / ry) : rx * Math.max(1.02, p.reach);
+    const outer = full ? Math.hypot(DOC.w, DOC.h) * 2.4 / Math.max(0.05, L.sc) * Math.max(1, rx / ry) : rx * Math.max(1.02, p.reach);
     if(full) ctx.fillStyle = p.c;
     else{ const g = ctx.createRadialGradient(0, 0, rx, 0, 0, outer), fd = clamp(p.fade ?? 0, 0, 1);
       g.addColorStop(0, rgba(p.c, 1)); g.addColorStop(1 - fd * 0.95, rgba(p.c, 1)); g.addColorStop(1, rgba(p.c, fd > 0 ? 0 : 1)); ctx.fillStyle = g; }
@@ -73,7 +73,7 @@ function drawFx(ctx, L, f){
     }
     ctx.fill();
   }else if(L.kind === 'light'){
-    const r = 1920 * p.r * 0.55, g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    const r = Math.max(DOC.w, DOC.h) * p.r * 0.55, g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
     g.addColorStop(0, rgba(p.c, p.amt)); g.addColorStop(0.35, rgba(p.c, p.amt * 0.55)); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
   }else if(L.kind === 'sparkle'){

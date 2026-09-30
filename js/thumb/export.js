@@ -2,7 +2,7 @@
 /* ---------- 書き出し ---------- */
 async function thumbBlob(fmt){
   for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style);
-  const W = DOC.exportW, H = Math.round(W * 9 / 16), c = mk(W, H);
+  const W = DOC.exportW, H = Math.round(W * DOC.h / DOC.w), c = mk(W, H);
   if(fmt !== 'png'){ const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }
   exporting = true; try{ compose(c.getContext('2d'), W, H, false, new Map()); } finally { exporting = false; }
   const toB = (t, q) => new Promise(r => c.toBlob(r, t, q));
@@ -13,10 +13,10 @@ async function thumbBlob(fmt){
 }
 async function exportThumb(){
   toast('書き出し中…');
-  const b = await thumbBlob(DOC.fmt), name = `thumbnail_${DOC.exportW}_${stamp()}.${DOC.fmt}`;
+  const b = await thumbBlob(DOC.fmt), name = `thumbnail_${DOC.exportW}x${Math.round(DOC.exportW * DOC.h / DOC.w)}_${stamp()}.${DOC.fmt}`;
   if(await shareFile(b, name)) return;
   downloadBlob(b, name);
-  toast(`サムネを保存しました（${DOC.exportW}×${Math.round(DOC.exportW * 9 / 16)}・${(b.size / 1048576).toFixed(2)}MB）`);
+  toast(`サムネを保存しました（${DOC.exportW}×${Math.round(DOC.exportW * DOC.h / DOC.w)}・${(b.size / 1048576).toFixed(2)}MB）`);
 }
 
 function loadDocObj(d){

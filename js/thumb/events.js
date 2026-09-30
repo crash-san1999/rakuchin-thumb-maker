@@ -11,7 +11,7 @@ document.addEventListener('click', e => {
     syncDoc(); docChanged(false); return;
   }
   if(e.target.closest('#collageEditBtn')){ toggleEdit('cells'); return; }
-  if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:960, y:540, bw:1920, bh:1080, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
+  if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:DOC.w / 2, y:DOC.h / 2, bw:DOC.w, bh:DOC.h, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
   if(e.target.closest('#frameEditBtn')){ toggleEdit('frame'); return; }
   const frp = e.target.closest('[data-frpre]');
   if(frp){
@@ -308,7 +308,7 @@ async function openProjectFile(f){
     if(drag.mode === 'edit'){ editPointerMove(x, y); return; }
     if(drag.mode === 'fx'){
       let fx = x / DOC.w, fy = y / DOC.h;
-      if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * 9 / 16 < 8) fy = v; } }
+      if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * DOC.h / DOC.w < 8) fy = v; } }
       DOC.bg.fcx = Math.round(clamp(fx, -0.2, 1.2) * 1000) / 1000; DOC.bg.fcy = Math.round(clamp(fy, -0.2, 1.2) * 1000) / 1000;
       syncDocSoon(); livePaint(); return;
     }

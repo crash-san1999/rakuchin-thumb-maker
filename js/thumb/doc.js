@@ -30,7 +30,7 @@ function normalizeDoc(d){
     b.layers = [L]; b.sel = L.id; b.textSel = L.id; return b;
   }
   const o = Object.assign(b, d);
-  o.w = 1920; o.h = 1080;
+  o.w = clamp(Math.round(d.w) || 1920, 200, 5000); o.h = clamp(Math.round(d.h) || 1080, 200, 5000);
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
   for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
@@ -116,4 +116,5 @@ function syncDoc(except){
   const L = selLayer(); document.querySelectorAll('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
   renderInspector();
   renderCells();
+  refreshSizeUI();
 }

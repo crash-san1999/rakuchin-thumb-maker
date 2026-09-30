@@ -170,18 +170,18 @@ function paintPreview(live){
   if(!DOC || DOC.mode !== 'thumb') return;
   const st = $('#stage'), tv = $('#tv'), small = st.classList.contains('small');
   const cs = getComputedStyle(st), pw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ph = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8;
-  let w = Math.max(isMobile ? 140 : 240, Math.min(pw - (isMobile ? 6 : 0), ph * 16 / 9));
+  let w = Math.max(isMobile ? 140 : 240, Math.min(pw - (isMobile ? 6 : 0), ph * DOC.w / DOC.h));
   if(small) w = 246;
   tvCss = w;
-  const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(w * dpr), H = Math.round(W * 9 / 16);
+  const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(w * dpr), H = Math.round(W * DOC.h / DOC.w);
   if(tv.width !== W || tv.height !== H){ tv.width = W; tv.height = H; }
-  tv.style.width = w + 'px'; tv.style.height = (w * 9 / 16) + 'px';
+  tv.style.width = w + 'px'; tv.style.height = (w * DOC.h / DOC.w) + 'px';
   const ctx = tv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
   tv.classList.toggle('clearbg', !!DOC.bg.hidden || (DOC.bg.op ?? 1) < 1);
   compose(ctx, W, H, live, prevCache);
   if(!small) drawOverlay(ctx, W, H, dpr);
   if(!live) refreshThumbs();
-  $('#info').textContent = `${DOC.exportW} × ${Math.round(DOC.exportW * 9 / 16)} px ・ ${DOC.fmt.toUpperCase()}`;
+  $('#info').textContent = `${DOC.exportW} × ${Math.round(DOC.exportW * DOC.h / DOC.w)} px ・ ${DOC.fmt.toUpperCase()}`;
 }
 function livePaint(){ cancelAnimationFrame(livePaint.r); livePaint.r = requestAnimationFrame(() => paintPreview(true)); }
 async function drawThumb(){
