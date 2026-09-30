@@ -67,4 +67,12 @@ function updateVis(){
   const [mark, cls] = cr >= 7 ? ['◎ とても読みやすい', 'good'] : cr >= 4.5 ? ['○ 読みやすい', 'ok'] : cr >= 3 ? ['△ 小さいと読みにくい', 'warn'] : ['× フチの色を変えましょう', 'bad'];
   el.textContent = `視認性 ${cr.toFixed(1)}:1 ${mark}`; el.className = 'vis ' + cls;
 }
-$('#smallBtn').onclick = () => { const on = $('#stage').classList.toggle('small'); $('#smallBtn').classList.toggle('on', on); if(DOC.mode === 'thumb') paintPreview(false); };
+// 小さく表示 ⇄ 大きく表示。今の状態に合わせてボタンの文字・アイコン・説明も切り替える
+function setSmallView(on){
+  $('#stage').classList.toggle('small', on);
+  const b = $('#smallBtn'); b.classList.toggle('on', on);
+  b.innerHTML = `${ic(on ? 'monitor' : 'phone')}${on ? '大きく表示' : '小さく表示'}`;
+  b.title = on ? '元の大きさに戻す' : 'YouTubeのおすすめ欄くらいの大きさで確認';
+  if(DOC && DOC.mode === 'thumb') paintPreview(false);
+}
+$('#smallBtn').onclick = () => setSmallView(!$('#stage').classList.contains('small'));
