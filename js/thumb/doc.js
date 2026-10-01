@@ -7,7 +7,10 @@ const DOC_BASE = () => ({
       gap:'blur', gapColor:'#111114', bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
       dim:0, vignette:0, fcx:0.5, fcy:0.5, shade:{on:false, c:'#000000', amt:0.75, angle:90, cover:0.55},
       zb:{on:false, amt:0.25, cx:0.5, cy:0.5}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28},
-      tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}},
+      tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'},
+      posterize:{on:false, n:4}, thresh:{on:false, lvl:0.5, c1:'#111111', c2:'#ffffff'}, tilt:{on:false, pos:0.55, w:0.3, blur:14, sat:0.3},
+      pat:{on:false, type:'dot', c:'#000000', a:0.25, size:16, mode:'source-over'}},
+  fin:FIN_BASE(),
   layers:[], sel:null, textSel:null, msel:[],
 });
 const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -37,7 +40,8 @@ function normalizeDoc(d){
   o.exportW = ex;
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
-  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
+  o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none';
+  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
   o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'

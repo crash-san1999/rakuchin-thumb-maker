@@ -49,7 +49,19 @@ const SEL_ROWS = [
   {pg:'fx', r:'@p.depth', l:'トゲの深さ', min:0.05, max:0.7, step:0.01, show:'@kind=burst'},
   {pg:'fx', c:'@p.c2', l:'フチの色', show:'@kind=burst'},
   {pg:'fx', r:'@p.sw', l:'フチの太さ', min:0, max:40, step:0.5, show:'@kind=burst'},
-  {pg:'fx', seed:'@p.seed', l:'ランダム', show:'@kind=lines|sparkle|burst'},
+  {pg:'fx', r:'@p.n', l:'数', min:4, max:60, step:1, show:'@kind=rays'},
+  {pg:'fx', r:'@p.r', l:'大きさ', min:0.3, max:3, step:0.01, show:'@kind=rays'},
+  {pg:'fx', r:'@p.fade', l:'外側のぼかし', min:0, max:1, step:0.01, show:'@kind=rays'},
+  {pg:'fx', r:'@p.n', l:'本数', min:5, max:200, step:1, show:'@kind=speed|gaan'},
+  {pg:'fx', r:'@p.len', l:'長さ', min:0.1, max:2, step:0.01, show:'@kind=speed|gaan'},
+  {pg:'fx', r:'@p.w', l:'太さ', min:0.2, max:4, step:0.05, show:'@kind=speed|gaan|bolt'},
+  {pg:'fx', seg:'@p.type', l:'種類', opts:[['snow', '雪'], ['rain', '雨']], show:'@kind=snow'},
+  {pg:'fx', sel:'@p.shape', l:'形', opts:[['heart', 'ハート'], ['star', '星'], ['note', '音符'], ['drop', 'しずく']], show:'@kind=scatter'},
+  {pg:'fx', r:'@p.n', l:'数', min:5, max:400, step:1, show:'@kind=confetti|snow|bokeh|scatter'},
+  {pg:'fx', r:'@p.size', l:'粒の大きさ', min:0.2, max:4, step:0.05, show:'@kind=confetti|snow|bokeh|scatter'},
+  {pg:'fx', chk:'@p.colorful', l:'カラフルにする', show:'@kind=confetti|bokeh|scatter'},
+  {pg:'fx', r:'@p.branch', l:'枝分かれ', min:0, max:1, step:0.01, show:'@kind=bolt'},
+  {pg:'fx', seed:'@p.seed', l:'ランダム', show:'@kind=lines|sparkle|burst|rays|speed|gaan|confetti|snow|bolt|bokeh|scatter'},
   {pg:'base', r:'@op', l:'不透明度', min:0.05, max:1, step:0.01},
   {pg:'base', sel:'@blend', l:'描画モード', opts:Object.entries({'source-over':'通常', multiply:'乗算（暗く重ねる）', screen:'スクリーン（明るく重ねる）', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト', 'color-dodge':'覆い焼き（光る）', lighter:'加算（発光）', difference:'差の絶対値', luminosity:'輝度'})},
   {pg:'base', chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
@@ -179,6 +191,16 @@ const BG_ROWS = [
   {pg:'fx', r:'bg.mb.angle', l:'方向', min:-90, max:90, step:1, show:'bg.type=image&bg.mb.on=true'},
   {pg:'fx', chk:'bg.mosaic.on', l:'モザイク', show:'bg.type=image'},
   {pg:'fx', r:'bg.mosaic.size', l:'粗さ', min:4, max:120, step:1, show:'bg.type=image&bg.mosaic.on=true'},
+  {pg:'fx', chk:'bg.posterize.on', l:'ポスタライズ（イラスト風）', show:'bg.type=image'},
+  {pg:'fx', r:'bg.posterize.n', l:'色の段階', min:2, max:10, step:1, show:'bg.type=image&bg.posterize.on=true'},
+  {pg:'fx', chk:'bg.thresh.on', l:'2値化（マンガ・版画風）', show:'bg.type=image'},
+  {pg:'fx', r:'bg.thresh.lvl', l:'しきい値', min:0.05, max:0.95, step:0.01, show:'bg.type=image&bg.thresh.on=true'},
+  {pg:'fx', c:'bg.thresh.c1', l:'暗い色', show:'bg.type=image&bg.thresh.on=true'}, {pg:'fx', c:'bg.thresh.c2', l:'明るい色', show:'bg.type=image&bg.thresh.on=true'},
+  {pg:'fx', chk:'bg.tilt.on', l:'ミニチュア風（上下をぼかす）', show:'bg.type=image'},
+  {pg:'fx', r:'bg.tilt.pos', l:'くっきりの位置', min:0, max:1, step:0.01, show:'bg.type=image&bg.tilt.on=true'},
+  {pg:'fx', r:'bg.tilt.w', l:'くっきりの幅', min:0.05, max:0.9, step:0.01, show:'bg.type=image&bg.tilt.on=true'},
+  {pg:'fx', r:'bg.tilt.blur', l:'ぼかし', min:2, max:40, step:0.5, show:'bg.type=image&bg.tilt.on=true'},
+  {pg:'fx', r:'bg.tilt.sat', l:'色の濃さ', min:0, max:1, step:0.01, show:'bg.type=image&bg.tilt.on=true'},
   {pg:'main', c:'bg.color', l:'色', show:'bg.type=color'},
   {pg:'main', c:'bg.c1', l:'色1', show:'bg.type=grad'}, {pg:'main', c:'bg.c2', l:'色2', show:'bg.type=grad'},
   {pg:'main', r:'bg.angle', l:'角度', min:0, max:360, step:1, show:'bg.type=grad'},
@@ -197,10 +219,35 @@ const BG_ROWS = [
   {pg:'fx', r:'bg.fcx', l:'中心 左右', min:-0.2, max:1.2, step:0.005, note:'周辺減光・ズームブラーの中心'},
   {pg:'fx', r:'bg.fcy', l:'中心 上下', min:-0.2, max:1.2, step:0.005},
   {pg:'fx', btns:[['fxCenter', 'reset', '中心を真ん中に']]},
+  {pg:'fx', sub:'柄を重ねる', show:'bg.hidden=false'},
+  {pg:'fx', chk:'bg.pat.on', l:'柄を重ねる'},
+  {pg:'fx', sel:'bg.pat.type', l:'柄', opts:BG_PATTERNS, show:'bg.pat.on=true'},
+  {pg:'fx', c:'bg.pat.c', l:'柄の色', show:'bg.pat.on=true'},
+  {pg:'fx', r:'bg.pat.a', l:'濃さ', min:0, max:1, step:0.01, show:'bg.pat.on=true'},
+  {pg:'fx', r:'bg.pat.size', l:'大きさ（放射は本数）', min:4, max:80, step:1, show:'bg.pat.on=true'},
+  {pg:'fx', sel:'bg.pat.mode', l:'重ね方', opts:[['source-over', '通常'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['overlay', 'オーバーレイ']], show:'bg.pat.on=true'},
   {pg:'fx', addfx:true},
+  {pg:'fin', finchips:true},
+  {pg:'fin', sub:'色フィルター', note:'文字・画像も含めたサムネ全体に、最後にまとめてかかります'},
+  {pg:'fin', sel:'fin.look', l:'フィルター', opts:Object.entries(FIN_LOOKS).map(([k, v]) => [k, v[0]])},
+  {pg:'fin', r:'fin.amt', l:'かかり具合', min:0, max:1, step:0.01, show:'fin.look!=none'},
+  {pg:'fin', sub:'光'},
+  {pg:'fin', r:'fin.bloom', l:'ブルーム（明るい所がにじむ）', min:0, max:1, step:0.01},
+  {pg:'fin', r:'fin.leak', l:'光漏れ', min:0, max:1, step:0.01},
+  {pg:'fin', sel:'fin.leakPos', l:'光漏れの位置', opts:[['tl', '左上'], ['tr', '右上'], ['bl', '左下'], ['br', '右下'], ['l', '左'], ['r', '右']]},
+  {pg:'fin', c:'fin.leakC', l:'光漏れの色'},
+  {pg:'fin', r:'fin.vig', l:'周辺減光', min:0, max:1, step:0.01},
+  {pg:'fin', sub:'質感'},
+  {pg:'fin', r:'fin.grain', l:'フィルムの粒子', min:0, max:1, step:0.01},
+  {pg:'fin', r:'fin.rgb', l:'色ずれ（RGB）', min:0, max:30, step:0.5},
+  {pg:'fin', r:'fin.scan', l:'走査線（VHS風）', min:0, max:1, step:0.01},
+  {pg:'fin', r:'fin.half', l:'網点（アメコミ風）', min:0, max:1, step:0.01},
+  {pg:'fin', r:'fin.halfSize', l:'網点の大きさ', min:4, max:40, step:1},
 ];
 const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走'], ['soft', 'ふんわり'], ['pop', '文字を目立たせる'], ['vivid', '鮮やか'],
-  ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'], ['reset', 'リセット']];
+  ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'],
+  ['horror', 'ホラー'], ['emo', 'エモい'], ['game', 'ゲーム実況'], ['news', 'ニュース'], ['manga', 'マンガ'], ['shock', 'ガーン'], ['mini', 'ミニチュア'],
+  ['popart', 'ポップアート'], ['illust', 'イラスト風'], ['sunray', '放射ライン'], ['win', '優勝・お祝い'], ['winter', '冬・雪'], ['rain', '雨'], ['reset', 'リセット']];
 // 行がどのページ（タブ）に出るか。行の定義の pg（"frame|edge" のように複数可）で決める
 const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');
 const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
@@ -215,6 +262,7 @@ function drow(r){
   if(r.shapes) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes" data-dseg="@frame.shape">${FRAME_SHAPES.map(([k, t]) => `<button data-v="${k}" title="${t}">${k === 'none' ? '<span>なし</span>' : `<img src="${shapeIcon(k)}" alt="${t}">`}</button>`).join('')}</div></div>`;
   if(r.sub) return `<div class="subhead" style="margin-top:24px"${sa}>${r.sub}${r.note ? `<span class="subnote">${r.note}</span>` : ''}</div>`;
   if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="crow">${Object.keys(FX_DEF).map(k => `<button class="btn sm" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`;
+  if(r.finchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック仕上げ<span class="subnote">サムネ全体の雰囲気を一発で変えます</span></div><div class="pcats fxchips">${Object.entries(FIN_PRESETS).map(([k, v]) => `<button data-finfx="${k}">${v[0]}</button>`).join('')}</div></div>`;
   if(r.fx) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック背景エフェクト</div><div class="pcats fxchips">${FX_CHIPS.map(([k, t]) => `<button data-bgfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.place) return `<div class="row"${sa}><label>${r.l}</label><div class="place">${['t', 'm', 'b'].map(v => ['l', 'c', 'r'].map(h => `<button data-place="${h}${v}" title="この位置に配置"></button>`).join('')).join('')}</div></div>`;
   if(r.btns) return `<div class="crow"${sa}>${r.btns.map(([id, icn, t]) => `<button class="btn sm" id="${id}">${ic(icn)}${t}</button>`).join('')}</div>`;
@@ -238,7 +286,7 @@ const INS_PAGES = {
   collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-cfx', '効果'], ['lay-base', '配置']],
   fx:[['lay-fx', 'エフェクト'], ['lay-base', '配置']],
   group:[['lay-cfx', '効果'], ['lay-base', '配置']],
-  bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果']],
+  bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果'], ['bg-fin', '仕上げ']],
 };
 const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], group:['group', 'グループ'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
 function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = selLayer(); return L ? L.type : 'bg'; }

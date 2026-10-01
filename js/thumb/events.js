@@ -36,6 +36,8 @@ document.addEventListener('click', e => {
   if(afb){ addFx(afb.dataset.addfx); return; }
   const fx = e.target.closest('[data-bgfx]');
   if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
+  const ffx = e.target.closest('[data-finfx]');
+  if(ffx){ applyFinPreset(ffx.dataset.finfx); toast(ffx.dataset.finfx === 'reset' ? '仕上げエフェクトを外しました' : `仕上げ「${ffx.textContent}」をかけました（「仕上げ」タブで調整できます）`); return; }
   const gb = e.target.closest('[data-guide]');
   if(gb){ DOC.guides[gb.dataset.guide] = !DOC.guides[gb.dataset.guide]; syncDoc(); saveDoc(); paintPreview(false); return; }
   const mb = e.target.closest('[data-mode]');

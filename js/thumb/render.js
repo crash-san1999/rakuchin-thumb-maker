@@ -137,6 +137,9 @@ function toneFilter(b, f){
 // 描き終えた画像にかける効果（2色・モザイク・モーションブラー・ズームブラー）。cx, cy はズームブラーの中心
 function postFx(c, b, f, cx, cy){
   if(b.tone === 'duotone') duotone(c, b.duo1, b.duo2);
+  if(b.posterize && b.posterize.on) posterize(c, b.posterize.n);
+  if(b.thresh && b.thresh.on) threshold(c, b.thresh);
+  if(b.tilt && b.tilt.on) tiltShift(c, b.tilt, f);
   if(b.mosaic.on) mosaic(c, b.mosaic.size * f);
   let out = c;
   if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
@@ -176,6 +179,7 @@ function drawBackground(ctx, W, H, f){
   if(b.tint.on && b.tint.a > 0){
     ctx.save(); ctx.globalCompositeOperation = b.tint.mode; ctx.globalAlpha = b.tint.a; ctx.fillStyle = b.tint.c; ctx.fillRect(0, 0, W, H); ctx.restore();
   }
+  if(b.pat && b.pat.on && b.pat.a > 0) drawBgPattern(ctx, W, H, f, b.pat, W * b.fcx, H * b.fcy);
   if(b.vignette > 0){
     const vx = W * b.fcx, vy = H * b.fcy, far = Math.max(Math.hypot(vx, vy), Math.hypot(W - vx, vy), Math.hypot(vx, H - vy), Math.hypot(W - vx, H - vy));
     const g = ctx.createRadialGradient(vx, vy, Math.min(W, H) * 0.3, vx, vy, far);
@@ -187,8 +191,11 @@ function compose(ctx, W, H, live, cache){
   const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
   let b = cache.get('__bg');
   if(!b || b.key !== key){ const c = mk(W, H); drawBackground(c.getContext('2d'), W, H, f); b = {key, c}; cache.set('__bg', b); }
-  if(!DOC.bg.hidden){ ctx.save(); ctx.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); ctx.drawImage(b.c, 0, 0); ctx.restore(); }
-  for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(ctx, L, f, live, cache);
+  const fo = finOn(DOC.fin), T = fo ? mk(W, H) : null, x = fo ? T.getContext('2d') : ctx;
+  if(!DOC.bg.hidden){ x.save(); x.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); x.drawImage(b.c, 0, 0); x.restore(); }
+  for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(x, L, f, live, cache);
+  // 仕上げエフェクト：全部描いてから、まとめてかける
+  if(fo){ applyFinish(T, DOC.fin, f); ctx.drawImage(T, 0, 0); }
 }
 function paintPreview(live){
   if(!DOC || DOC.mode !== 'thumb') return;
