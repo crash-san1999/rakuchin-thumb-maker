@@ -4,7 +4,11 @@ const TEXT_ROWS = [
   {r:'size', l:'サイズ', min:40, max:400, step:1},
   {r:'ls', l:'字間', min:-40, max:80, step:1},
   {r:'lh', l:'行間', min:0.6, max:2, step:0.01},
-  {seg:'align', l:'揃え', opts:[['left','左'],['center','中央'],['right','右']]},
+  {chk:'vertical', l:'縦書きにする'},
+  {seg:'align', l:'揃え', show:'vertical!=true', opts:[['left','左'],['center','中央'],['right','右']]},
+  {seg:'align', l:'揃え', show:'vertical=true', opts:[['left','上'],['center','中央'],['right','下']]},
+  {seg:'vlat', l:'英数字', show:'vertical=true', opts:[['up','立てる'],['side','横倒し']]},
+  {chk:'vtcy', l:'縦中横（20 や !! を横向きで1マスに）', show:'vertical=true'},
 ];
 const SECTIONS = [
   {t:'文字の塗り', rows:[

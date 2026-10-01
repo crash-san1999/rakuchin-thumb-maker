@@ -61,6 +61,7 @@ async function libAddFiles(files){
 }
 async function libAddStyle(name, style){
   const s = clone(style); for(const k of ['text', 'pad', 'scale', 'size']) delete s[k];
+  if(!s.vertical) for(const k of ['vertical', 'vlat', 'vtcy']) delete s[k];   // 横書きのスタイルは向きを持たない（適用先の向きを変えない）
   const json = JSON.stringify(s);
   const item = {id:'M' + uid(), kind:'style', name:libName(name) || 'マイ設定', s, bytes:json.length * 2 + 200, created:Date.now()};
   if(await libSave(item)){ toast(`文字スタイル「${item.name}」を登録しました`); if(typeof renderPresets === 'function') renderPresets(); return true; }

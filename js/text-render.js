@@ -26,8 +26,54 @@ function parse(text){
     return segs;
   });
 }
+const lsx = () => RS.vertical ? 0 : RS.ls;   // 縦書きの字間は文字送り（縦方向）で使うので、フォント側の字間は0
+/* 縦書き：回転させる文字／右上に寄せる句読点／小さい仮名 */
+const V_ROT = /[ー−―—–…‥〜～（）〔〕［］｛｝〈〉《》「」『』【】＜＞()\[\]<>~_=-]/;
+const V_PUNC = /[、。，．]/;
+const V_SMALL = /[ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ]/;
+/* 句読点を「文字の右上」に置くための補正量（フォントごとの実際のインクの位置から計算） */
+function inkShift(ch, w){
+  const m = mctx.measureText(ch), sz = RS.size;
+  if(!(m.actualBoundingBoxRight || m.actualBoundingBoxLeft)) return [sz * 0.4, -sz * 0.4];
+  const dx = (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - w / 2;
+  const dy = sz * 0.38 - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  return [sz * 0.24 - dx, -sz * 0.24 - dy];
+}
+/* 縦書きの「マス」に分ける（縦中横・横倒し・回転・補正をここで決める） */
+function vCells(segs){
+  const out = [], sz = RS.size, meas = t => mctx.measureText(t).width;
+  const push = (t, a, o) => out.push(Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o));
+  for(const s of segs){
+    for(const tok of (s.t.match(/[\x21-\x7e]+|[\s\S]/gu) || [])){
+      if(/^[\x21-\x7e]+$/.test(tok)){
+        if(RS.vtcy && /^[0-9!?]{2,3}$/.test(tok)){ const w = meas(tok); push(tok, s.a, {w, k:Math.min(1, sz * 0.92 / w)}); }
+        else if(RS.vlat === 'side'){ const w = meas(tok); push(tok, s.a, {w, r90:true, adv:w}); }
+        else for(const ch of tok){ const w = meas(ch), r = V_ROT.test(ch); push(ch, s.a, {w, r90:r, adv:r ? sz : clamp(w * 1.15, sz * 0.62, sz)}); }
+      }else if(tok === ' ') push(tok, s.a, {adv:sz * 0.5});
+      else if(V_PUNC.test(tok)){ const w = meas(tok), [ox, oy] = inkShift(tok, w); push(tok, s.a, {w, ox, oy}); }
+      else if(V_SMALL.test(tok)) push(tok, s.a, {ox:sz * 0.12, oy:-sz * 0.12});
+      else push(tok, s.a, {r90:V_ROT.test(tok)});
+    }
+  }
+  return out;
+}
+function layoutV(){
+  const sz = RS.size, step = sz * RS.lh;
+  const lines = parse(RS.text).map(segs => {
+    const cells = vCells(segs); let len = 0;
+    cells.forEach((c, j) => { len += c.adv + (j ? RS.ls : 0); });
+    return {cells, len, w:len, segs:cells};
+  });
+  const w = step * (lines.length - 1) + sz, h = Math.max(sz, ...lines.map(l => l.len));
+  lines.forEach((ln, i) => {
+    ln.cx = w - sz / 2 - i * step; ln.x0 = ln.cx - sz / 2;
+    ln.y0 = RS.align === 'left' ? 0 : RS.align === 'right' ? h - ln.len : (h - ln.len) / 2;
+  });
+  return {v:true, lines, w, h, lineH:step, ty0:0, ty1:h};
+}
 function layout(){
-  mctx.font = fontStr(); mctx.letterSpacing = RS.ls + 'px';
+  mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
+  if(RS.vertical) return layoutV();
   const lines = parse(RS.text).map(segs => {
     let w = 0; segs.forEach(s => { s.w = mctx.measureText(s.t).width; w += s.w; });
     return {segs, w};
@@ -35,15 +81,29 @@ function layout(){
   const w = Math.max(1, ...lines.map(l => l.w));
   const lineH = RS.size * RS.lh;
   const h = lineH * (lines.length - 1) + RS.size * 1.25;
-  return {lines, w, h, lineH};
+  const L = {lines, w, h, lineH};
+  L.ty0 = lineTop(L, 0); L.ty1 = baseY(L, lines.length - 1) + RS.size * 0.14;
+  return L;
 }
 const baseY = (L, i) => RS.size * 0.98 + i * L.lineH;
 const lineTop = (L, i) => baseY(L, i) - RS.size * 0.9;
 
-/* 描画する文字の並び（ゆらぎONなら1文字ずつ） */
+/* 描画する文字の並び（ゆらぎONなら1文字ずつ。縦書きは常に1マスずつ） */
 function glyphs(L){
   const items = [], R = rng(RS.jitter.seed), J = RS.jitter.on;
-  mctx.font = fontStr(); mctx.letterSpacing = RS.ls + 'px';
+  mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
+  if(L.v){
+    L.lines.forEach((ln, i) => {
+      let y = ln.y0;
+      ln.cells.forEach(c => {
+        const by = y + c.adv / 2; y += c.adv + RS.ls;
+        const it = {t:c.t, a:c.a, line:i, vt:true, cw:c.w, bx:ln.cx, by, cx:ln.cx + c.ox, cy:by + c.oy, r90:c.r90, k:c.k, x:0, y:0};
+        if(J){ it.rot = (R()*2-1) * RS.jitter.rot * PI / 180; it.dy = (R()*2-1) * RS.jitter.y; it.sc = 1 + (R()*2-1) * RS.jitter.scale; }
+        items.push(it);
+      });
+    });
+    return items;
+  }
   L.lines.forEach((ln, i) => {
     let x = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const y = baseY(L, i);
@@ -62,6 +122,13 @@ function glyphs(L){
 function drawGlyphs(ctx, items, op){
   const mid = RS.size * 0.38;
   for(const it of items){
+    if(it.vt){
+      ctx.save(); ctx.translate(it.cx, it.cy + (it.dy || 0));
+      if(it.r90) ctx.rotate(PI / 2);
+      if(it.rot) ctx.rotate(it.rot);
+      const k = (it.sc || 1) * (it.k || 1); ctx.scale(k, k);
+      op(it, -it.cw / 2, mid); ctx.restore(); continue;
+    }
     if(it.rot === undefined){ op(it, it.x, it.y); continue; }
     ctx.save(); ctx.translate(it.x + it.cw / 2, it.y - mid + it.dy); ctx.rotate(it.rot); ctx.scale(it.sc, it.sc);
     op(it, -it.cw / 2, mid); ctx.restore();
@@ -71,14 +138,15 @@ function drawGlyphs(ctx, items, op){
 /* 塗り */
 function angGrad(ctx, L, stops, line, ang){
   const a = (ang ?? RS.gradAngle) * PI / 180;
-  const bx = 0, bw = L.w, by = line === undefined ? 0 : lineTop(L, line), bh = line === undefined ? L.h : RS.size * 1.05;
+  let bx = 0, bw = L.w, by = line === undefined ? 0 : lineTop(L, line), bh = line === undefined ? L.h : RS.size * 1.05;
+  if(L.v && line !== undefined){ const ln = L.lines[line]; bx = ln.x0; bw = RS.size; by = ln.y0; bh = Math.max(1, ln.len); }
   const cx = bx + bw / 2, cy = by + bh / 2, r = (Math.abs(Math.cos(a)) * bw + Math.abs(Math.sin(a)) * bh) / 2;
   const g = ctx.createLinearGradient(cx - Math.cos(a) * r, cy - Math.sin(a) * r, cx + Math.cos(a) * r, cy + Math.sin(a) * r);
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
 function vGrad(ctx, L, i, stops){
-  const top = lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + RS.size * 1.02);
+  const ln = L.lines[i], top = L.v ? ln.y0 : lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + (L.v ? Math.max(1, ln.len) : RS.size * 1.02));
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
@@ -200,6 +268,15 @@ function drawGloss(ctx, L){
   const g = RS.gloss;
   ctx.save(); ctx.globalCompositeOperation = 'source-atop';
   L.lines.forEach((ln, i) => {
+    if(L.v){   // 縦書き：左から光が当たる帯（カラムごと）
+      if(!ln.cells.length) return;
+      const left = ln.x0 - RS.size * 0.15, right = ln.x0 + RS.size * 1.02 * g.h, y0 = ln.y0 - RS.size, y1 = ln.y0 + ln.len + RS.size;
+      const gr = ctx.createLinearGradient(left, 0, right, 0);
+      gr.addColorStop(0, `rgba(255,255,255,${g.a})`); gr.addColorStop(1, `rgba(255,255,255,${g.a * 0.35})`);
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(left, y0); ctx.lineTo(left, y1); ctx.lineTo(right, y1);
+      ctx.quadraticCurveTo(right + RS.size * 0.35 * g.curve, (y0 + y1) / 2, right, y0); ctx.closePath(); ctx.fill();
+      return;
+    }
     const top = lineTop(L, i) - RS.size * 0.15, bot = lineTop(L, i) + RS.size * 1.02 * g.h;
     const x0 = -RS.size, x1 = L.w + RS.size;
     const gr = ctx.createLinearGradient(0, top, 0, bot);
@@ -215,6 +292,7 @@ function drawMarker(ctx, L){
   ctx.save(); ctx.fillStyle = rgba(m.c, m.a);
   L.lines.forEach((ln, i) => {
     if(!ln.segs.length) return;
+    if(L.v){ const over = RS.size * m.over, hh = RS.size * m.h, cx = ln.x0 + RS.size * 1.02 * m.pos; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - hh / 2, ln.y0 - over, hh, ln.len + over * 2, Math.min(hh / 2, RS.size * 0.08)) : ctx.rect(cx - hh / 2, ln.y0 - over, hh, ln.len + over * 2); ctx.fill(); return; }
     const x0 = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const over = RS.size * m.over, hh = RS.size * m.h, cy = lineTop(L, i) + RS.size * 1.02 * m.pos;
     const x = x0 - over, w = ln.w + over * 2, y = cy - hh / 2, rr = Math.min(hh / 2, RS.size * 0.08);
@@ -303,8 +381,8 @@ const cut = (dst, src) => { const c = dst.getContext('2d'); c.save(); c.setTrans
 
 /* 1文字ずつの位置（一文字囲み・傍点用） */
 function charCells(items){
-  if(RS.jitter.on) return items.filter(it => it.t.trim());
-  const out = []; mctx.font = fontStr(); mctx.letterSpacing = RS.ls + 'px';
+  if(RS.jitter.on || RS.vertical) return items.filter(it => it.t.trim());
+  const out = []; mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
   items.forEach(it => {
     let x = it.x;
     for(const ch of it.t){ const cw = mctx.measureText(ch).width; if(ch.trim()) out.push({t:ch, x, y:it.y, a:it.a, line:it.line, cw}); x += cw; }
@@ -312,6 +390,7 @@ function charCells(items){
   return out;
 }
 function withCell(ctx, c, fn){
+  if(c.vt){ ctx.save(); ctx.translate(c.bx, c.by + (c.dy || 0)); if(c.rot) ctx.rotate(c.rot); if(c.sc) ctx.scale(c.sc, c.sc); fn(); ctx.restore(); return; }
   ctx.save(); ctx.translate(c.x + (c.cw - RS.ls) / 2, c.y - RS.size * 0.38 + (c.dy || 0));
   if(c.rot) ctx.rotate(c.rot); if(c.sc) ctx.scale(c.sc, c.sc);
   fn(); ctx.restore();
@@ -335,16 +414,19 @@ function drawBoxes(ctx, cells){
 }
 /* 傍点 */
 function dotPath(ctx){
-  const d = RS.dots, r = RS.size * d.size * 0.5, y = -RS.size * 0.5 - r * 1.3;
-  ctx.beginPath();
-  if(d.shape === 'ring'){ ctx.arc(0, y, r, 0, 7); ctx.moveTo(r * 0.5, y); ctx.arc(0, y, r * 0.5, 0, 7, true); }
-  else if(d.shape === 'tri'){ ctx.moveTo(-r, y - r * 0.8); ctx.lineTo(r, y - r * 0.8); ctx.lineTo(0, y + r * 0.9); ctx.closePath(); }
-  else ctx.arc(0, y, r, 0, 7);
+  const d = RS.dots, r = RS.size * d.size * 0.5;
+  ctx.save(); ctx.beginPath();
+  if(RS.vertical){ ctx.translate(RS.size * 0.5 + r * 1.3, 0); ctx.rotate(PI / 2); }   // 縦書きは文字の右側に付ける
+  else ctx.translate(0, -RS.size * 0.5 - r * 1.3);
+  if(d.shape === 'ring'){ ctx.arc(0, 0, r, 0, 7); ctx.moveTo(r * 0.5, 0); ctx.arc(0, 0, r * 0.5, 0, 7, true); }
+  else if(d.shape === 'tri'){ ctx.moveTo(-r, -r * 0.8); ctx.lineTo(r, -r * 0.8); ctx.lineTo(0, r * 0.9); ctx.closePath(); }
+  else ctx.arc(0, 0, r, 0, 7);
+  ctx.restore();   // 経路は作った時点の座標で残る
 }
 /* 背景シェイプ（角丸・楕円・ギザギザ・吹き出し・斜め帯） */
 function drawPlate(ctx, L, outer){
   const p = RS.plate, pad = RS.size * p.pad + outer;
-  const x0 = -pad, y0 = lineTop(L, 0) - pad, x1 = L.w + pad, y1 = baseY(L, L.lines.length - 1) + RS.size * 0.14 + pad;
+  const x0 = -pad, y0 = L.ty0 - pad, x1 = L.w + pad, y1 = L.ty1 + pad;
   const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   ctx.save(); ctx.beginPath(); ctx.lineJoin = 'round';
   switch(p.shape){
@@ -553,6 +635,18 @@ function drawCutLines(ctx, L){
   const p = RS.pattern, n = Math.max(2, Math.round(p.size / 3));
   ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000';
   L.lines.forEach((ln, i) => {
+    if(L.v){   // 縦書き：1マスごとに下半分へ切れ込み
+      let y = ln.y0;
+      ln.cells.forEach(c => {
+        const by = y + c.adv / 2; y += c.adv + RS.ls;
+        const top = by - RS.size * 0.04, bot = by + RS.size * 0.41, band = (bot - top) / n;
+        for(let k = 0; k < n; k++){
+          const th = band * (0.12 + 0.55 * (k / n)) * Math.max(0.2, p.a * 1.6);
+          ctx.fillRect(ln.x0 - RS.size * 0.5, top + band * k + (band - th), RS.size * 2, th);
+        }
+      });
+      return;
+    }
     const top = lineTop(L, i) + RS.size * 0.48, bot = baseY(L, i) + RS.size * 0.03, band = (bot - top) / n;
     for(let k = 0; k < n; k++){
       const th = band * (0.12 + 0.55 * (k / n)) * Math.max(0.2, p.a * 1.6);
@@ -666,7 +760,7 @@ function renderStyle(scale){
   const prep = c => {
     const x = c.getContext('2d');
     x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
-    x.font = fontStr(); x.letterSpacing = RS.ls + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
+    x.font = fontStr(); x.letterSpacing = lsx() + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
     return x;
   };
 
@@ -686,7 +780,17 @@ function renderStyle(scale){
   }
   // 3) 文字の塗り → 模様 → ベベル → インナーシャドウ → テカリ
   const F = mk(W, H), fx = prep(F), fs = fillStyles(fx, L);
-  drawGlyphs(fx, items, (it, px, py) => { fx.fillStyle = fs(it); fx.fillText(it.t, px, py); });
+  if(L.v && RS.fillType !== 'solid'){
+    // 縦書き：マスを回転させるとグラデーションも一緒に回ってしまうので、形を描いてから色を重ねる（行・強調ごと）
+    const groups = new Map();
+    for(const it of items){ const k = it.line * 2 + (it.a ? 1 : 0); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
+    for(const g of groups.values()){
+      const T = mk(W, H), tx = prep(T);
+      drawGlyphs(tx, g, (it, px, py) => { tx.fillStyle = '#000'; tx.fillText(it.t, px, py); });
+      tx.globalCompositeOperation = 'source-in'; tx.fillStyle = fs(g[0]); tx.fillRect(-1e5, -1e5, 2e5, 2e5);
+      blit(F, T);
+    }
+  }else drawGlyphs(fx, items, (it, px, py) => { fx.fillStyle = fs(it); fx.fillText(it.t, px, py); });
   if(dotCells.length){ fx.fillStyle = RS.dots.c; dotCells.forEach(c => withCell(fx, c, () => { dotPath(fx); fx.fill(); })); }
   if(RS.drip.on && RS.drip.amt > 0) drawDrips(F, K, outer * scale, layers.length ? layers[layers.length - 1].c : null, scale);
   if(RS.pattern.on && RS.pattern.a > 0){

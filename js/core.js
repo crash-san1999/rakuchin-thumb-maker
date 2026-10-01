@@ -85,7 +85,7 @@ let DOC = null;
 
 const DEFAULT = {
   text: '楽々サムネメーカー',
-  font: 'Dela Gothic One', fontLatin: '', weight: 400, size: 160, ls: 0, lh: 1.15, align: 'center',
+  font: 'Dela Gothic One', fontLatin: '', weight: 400, size: 160, ls: 0, lh: 1.15, align: 'center', vertical: false, vlat: 'up', vtcy: true,
   fillType: 'grad', fill1: '#ffffff', fill2: '#ffe14d', fill3on: false, fill3: '#ffffff', gradAngle: 90, gradScope: 'block',
   metal: 'gold', splitDir: 'h', splitPos: 0.55, fillMode: 'normal',
   accent1: '#ff3b3b', accent2: '#ffb000',

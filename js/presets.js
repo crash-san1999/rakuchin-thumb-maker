@@ -201,6 +201,7 @@ function renderPresets(){
 }
 function applyPreset(p){
   const keep = {text:S.text, size:S.size, pad:S.pad, scale:S.scale, fontLatin:S.fontLatin};
+  for(const k of ['vertical', 'vlat', 'vtcy']) if(!(k in p)) keep[k] = S[k];   // 縦書きの指定がないスタイルでは今の向きを保つ
   S = Object.assign(merged(p), keep); resetAdj();
   if(!findFont(S.font)) toast(`フォント「${S.font}」が一覧にないため代替表示になります`, true);
   refreshTextUI(); schedule();
