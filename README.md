@@ -100,7 +100,7 @@ python3 -m playwright install chromium   # Chromium が入っていない場合
 
 | コマンド | 内容 |
 |---|---|
-| `python3 tests/run_all.py` | 自動テストをすべて実行（`run_all.py fonts -v` のように名前で絞り込み・詳細表示も可） |
+| `python3 tests/run_all.py` | 自動テストをすべて実行（`run_all.py fonts -v` のように名前で絞り込み・詳細表示も可。1件ごとの制限時間は既定150秒で、`--timeout=秒` で変更可。止まったテストは失敗扱いにして次へ進み、残ったブラウザも自動で片付けます） |
 | `python3 tests/compare.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、画面・全プリセットの描画・設定パネルの中身を比べ、見た目が変わっていないか確認 |
 | `python3 tools/docs-screenshots.py` | 説明書の画像を今の画面で撮り直す |
 

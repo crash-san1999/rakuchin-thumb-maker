@@ -13,9 +13,11 @@ def app_url(root=ROOT):
 # GitHub 配布フォントのテスト用：jsDelivr への通信を、この PC にある TrueType フォントで代用する
 SYSTEM_TTF = next(iter(sorted(glob.glob('/usr/share/fonts/**/*.ttf', recursive=True) + glob.glob('/Library/Fonts/*.ttf') + glob.glob('C:/Windows/Fonts/*.ttf'))), None)
 
+OPEN_BROWSERS = []   # 開いたまま残ったブラウザを、run_all が片付けるための一覧
+
 async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500):
     """アプリを開いて操作ガイドを閉じた状態のページを返す。外部への通信はすべて止める（結果を安定させるため）"""
-    b = await p.chromium.launch(args=['--no-sandbox'])
+    b = await p.chromium.launch(args=['--no-sandbox']); OPEN_BROWSERS.append(b)
     ctx = await (b.new_context(**p.devices['iPhone 13']) if mobile else b.new_context(viewport={'width': 1440, 'height': 900}))
     pg = await ctx.new_page(); pg.errors = []
     pg.on('pageerror', lambda e: pg.errors.append(str(e)))
@@ -33,6 +35,7 @@ async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500):
 
 async def close(pg):
     errs = pg.errors; await pg.browser_.close()
+    if pg.browser_ in OPEN_BROWSERS: OPEN_BROWSERS.remove(pg.browser_)
     assert not errs, f'ページでエラー: {errs}'
 
 async def settle(pg, ms=1800):
