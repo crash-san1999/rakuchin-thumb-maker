@@ -18,11 +18,15 @@ const CELL_FX_PRESETS = {
   retro:{tone:'sepia', contrast:0.08, vignette:0.55}, duo:{tone:'duotone', contrast:0.1}, red:{tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}},
   dark:{dim:0.45, vignette:0.4}, focus:{zb:{on:true, amt:0.25}, contrast:0.1, vignette:0.45}, speed:{mb:{on:true, dist:120, angle:0}, contrast:0.1}, mosaic:{mosaic:{on:true, size:28}},
 };
+// マスの背景色と文字（画像の代わり、または画像の上に重ねる）
+const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE(),
+  bg:{on:false, c:'#ffffff', c2:'#ffd9e8', grad:false}, tx:{on:false, text:'', pos:'c', sc:1, ox:0, oy:0}});
 function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    cells:[...Array(8)].map(() => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE()}))});
+    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', color:true},
+    cells:[...Array(8)].map(() => CELL_BASE())});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
@@ -126,7 +130,7 @@ function collageShape(cells, W, H, edge, A){
 }
 
 function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); }
-function collageCellImage(x, L, i, poly, W, H, showEmpty){
+function collageCellPicture(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || {}, A = ASSETS[cell.asset];
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
@@ -164,6 +168,31 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
   ox2.restore();
   x.drawImage(o, bx0 - m, by0 - m);
 }
+// 文字の描画：マスに収まる大きさに合わせて、文字スタイルでレンダリング（text-render.js の render）
+const cellHasText = c => !!(c && c.tx && c.tx.on && String(c.tx.text || '').trim());
+function cellTextStyle(L, text){ return Object.assign({}, L.tstyle || collageDefaultStyle(), {text, pad:2}); }
+function drawCellText(x, L, cell, bx0, by0, cw, ch){
+  const t = cell.tx, st = cellTextStyle(L, String(t.text)), band = t.pos === 'c' ? 0.86 : 0.3;
+  const c0 = render(0.25, st); if(c0.width <= 2) return;
+  const k = clamp(Math.min(cw * 0.86 / (c0.width / 0.25), ch * band / (c0.height / 0.25)) * clamp(t.sc || 1, 0.2, 3), 0.03, 8);
+  const c = render(k, st);
+  const cx = bx0 + cw / 2 + (t.ox || 0) * cw, cy = (t.pos === 't' ? by0 + ch * 0.05 + c.height / 2 : t.pos === 'b' ? by0 + ch * 0.95 - c.height / 2 : by0 + ch / 2) + (t.oy || 0) * ch;
+  x.drawImage(c, cx - c.width / 2, cy - c.height / 2);
+}
+function collageCellImage(x, L, i, poly, W, H, showEmpty){
+  const cell = L.cells[i] || {}, A = ASSETS[cell.asset], bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
+  if(!hasBg && !hasTx){ collageCellPicture(x, L, i, poly, W, H, showEmpty); return; }
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
+  bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(W, bx1); by1 = Math.min(H, by1);
+  const cw = Math.max(1, bx1 - bx0), ch = Math.max(1, by1 - by0);
+  if(hasBg){
+    if(bg.grad){ const g = x.createLinearGradient(0, by0, 0, by1); g.addColorStop(0, bg.c); g.addColorStop(1, bg.c2); x.fillStyle = g; } else x.fillStyle = bg.c;
+    x.fillRect(bx0 - 1, by0 - 1, cw + 2, ch + 2);
+  }
+  if(A) collageCellPicture(x, L, i, poly, W, H, showEmpty);
+  if(hasTx) drawCellText(x, L, cell, bx0, by0, cw, ch);
+}
 function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = c.getContext('2d'), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
   const cells = collageCells(lay || L.layout, n, W, H, L.slant, L.main), A = Math.max(2, (L.amp || 20) * f);
@@ -197,7 +226,7 @@ function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});
-  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), exporting]);
+  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), L.tstyle, L.tstyle && fontKey(Object.assign({}, L.tstyle, {text:collageAllText(L)})), exporting]);
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H))){
     e = {sk, k: W / w, c: collageCanvas(L, W, H, f, lay)}; cache.set(L.id, e);
@@ -223,6 +252,38 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
   const w = L.bw * L.sc, h = L.bh * L.sc, p = collageCells(L.layout, collageN(L), w, h, L.slant, L.main)[i] || [[0, 0], [w, h]];
   const xs = p.map(q => clamp(q[0], 0, w)), ys = p.map(q => clamp(q[1], 0, h));
   return [Math.max(1, Math.max(...xs) - Math.min(...xs)), Math.max(1, Math.max(...ys) - Math.min(...ys))];
+}
+
+/* マスの文字：スタイル・使う文字・フォント読み込み */
+const collageAllText = L => L.cells.map(c => c.tx && c.tx.text || '').join('') || 'あ';
+function collageDefaultStyle(){ const p = PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
+function collageSetStyle(L, name){
+  const p = PRESETS.find(q => q[0] === name); if(!p) return;
+  L.tpre = name; L.tstyle = merged(p[1]);
+}
+async function ensureCollageFonts(L){ if(L.type === 'collage' && !L.hidden && L.cells.some(cellHasText)) await ensureFont(Object.assign({}, L.tstyle || collageDefaultStyle(), {text: collageAllText(L)})); }
+
+/* 1週間を自動で入れる：選んだ日を含む週を、週の始まり（月／日）から7日ぶん、上のマスから順に入れる */
+const WK_JA = ['日', '月', '火', '水', '木', '金', '土'], WK_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const WK_BG = {wd:['#fff6dd', '#ffe9b8'], sat:['#d8ecff', '#a9d2ff'], sun:['#ffdbe3', '#ffb3c4']};
+function weekDates(startStr, first){   // 戻り値：7日ぶんの Date
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startStr || ''), t = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(), d0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const back = first === 'sun' ? d0.getDay() : (d0.getDay() + 6) % 7;
+  return [...Array(7)].map((_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - back + i));
+}
+function weekLabel(d, wk){
+  const w = wk.fmt === 'en' ? WK_EN[d.getDay()] : wk.fmt === 'ja3' ? WK_JA[d.getDay()] + '曜日' : WK_JA[d.getDay()], dt = `${d.getMonth() + 1}/${d.getDate()}`;
+  return wk.show === 'date' ? dt : wk.show === 'wd' ? w : `${dt}\n${w}`;
+}
+function collageFillWeek(L){
+  const wk = L.wk, days = weekDates(wk.start, wk.first), n = collageN(L);
+  if(!L.tstyle) collageSetStyle(L, 'ポップ');
+  days.slice(0, n).forEach((d, i) => {
+    const c = L.cells[i], k = d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : 'wd';
+    c.tx = Object.assign(c.tx, {on:true, text:weekLabel(d, wk), pos: ASSETS[c.asset] ? 't' : 'c', sc:1, ox:0, oy:0});
+    if(wk.color) c.bg = Object.assign(c.bg, {on:true, c:WK_BG[k][0], c2:WK_BG[k][1], grad:true});
+  });
+  if(n >= 8 && !cellHasText(L.cells[7])) L.cells[7].tx = Object.assign(L.cells[7].tx, {on:true, text:'MEMO', pos:'c', sc:0.6});
 }
 
 /* 追加・画像の割り当て */
@@ -280,14 +341,58 @@ function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, 
 function renderCells(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
-  const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => ASSETS[c.asset] ? c.asset : '')].join('|');
+  const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => (ASSETS[c.asset] ? c.asset : '') + (c.bg.on ? c.bg.c : '') + (cellHasText(c) ? c.tx.text.slice(0, 3) : ''))].join('|');
   document.querySelectorAll('.cellBox').forEach(box => {
   if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
-    return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" draggable="${A ? 'true' : 'false'}" title="マス${i + 1}（ドラッグで別のマスと入れ替え）">${A ? `<img src="${A.thumb}" alt="" draggable="false">` : `<span>${i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
+    const c = L.cells[i], bgs = c.bg.on ? ` style="background:${c.bg.grad ? `linear-gradient(${c.bg.c},${c.bg.c2})` : c.bg.c}"` : '';
+    return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" draggable="${A ? 'true' : 'false'}"${bgs} title="マス${i + 1}（ドラッグで別のマスと入れ替え）">${A ? `<img src="${A.thumb}" alt="" draggable="false">` : `<span>${cellHasText(c) ? c.tx.text.split('\n')[0].slice(0, 5) : i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
     <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>${ASSETS[L.cells[L.ac].asset] ? `<div class="crow"><button class="btn sm ghost" data-cellact="flip">${ic('fliph')}左右反転</button><button class="btn sm ghost" data-cellact="flipV">${ic('flipv')}上下反転</button><button class="btn sm ghost" data-cellact="reset">${ic('reset')}位置・大きさを元に戻す</button></div>` : ''}`;
   });
 }
+/* 「背景色・文字」タブ：文字の入力・文字スタイル・1週間の自動入力 */
+function renderCellText(){
+  const L = selLayer(); if(!L || L.type !== 'collage') return;
+  L.ac = clamp(L.ac || 0, 0, collageN(L) - 1);
+  const c = L.cells[L.ac], today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const opts = (arr, v) => arr.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('');
+  document.querySelectorAll('.ctBox').forEach(box => {
+    if(box.dataset.lid !== L.id){
+      box.dataset.lid = L.id;
+      box.innerHTML = `<div class="row"><label>文字（改行できます）</label><textarea id="ctText" rows="2" placeholder="例：10/5 月"></textarea></div>
+        <div class="row"><label>文字スタイル</label><select id="ctPre"><option value="">標準（ポップ）</option>${Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${g}">${ns.map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
+    }
+    const ta = box.querySelector('#ctText'); if(document.activeElement !== ta) ta.value = c.tx.text || '';
+    ta.dataset.cell = L.ac; box.querySelector('#ctPre').value = L.tpre || '';
+  });
+  document.querySelectorAll('.wkBox').forEach(box => {
+    if(box.dataset.lid !== L.id){
+      box.dataset.lid = L.id;
+      box.innerHTML = `<div class="row"><label>この日を含む週</label><input type="date" id="wkStart" data-wk="start"></div>
+        <div class="row"><label>週の始まり</label><select data-wk="first">${opts([['mon', '月曜日'], ['sun', '日曜日']], L.wk.first)}</select></div>
+        <div class="row"><label>表示</label><select data-wk="show">${opts([['both', '日付＋曜日'], ['date', '日付だけ'], ['wd', '曜日だけ']], L.wk.show)}</select></div>
+        <div class="row"><label>曜日の書き方</label><select data-wk="fmt">${opts([['ja1', '月'], ['ja3', '月曜日'], ['en', 'MON']], L.wk.fmt)}</select></div>
+        <div class="row"><label class="chk"><input type="checkbox" data-wk="color"> 平日・土・日で背景色を分ける</label></div>
+        <div class="crow"><button class="btn sm" id="wkGo">${ic('grid')}1週間を入れる</button></div>`;
+    }
+    const st = box.querySelector('#wkStart'); if(document.activeElement !== st) st.value = L.wk.start || today;
+    box.querySelector('[data-wk="color"]').checked = !!L.wk.color;
+  });
+}
+document.addEventListener('input', e => {
+  const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
+  if(t.id === 'ctText'){ const c = L.cells[L.ac || 0]; c.tx.text = t.value; c.tx.on = t.value.trim() !== ''; syncDoc(); docChanged(false); }
+});
+document.addEventListener('change', e => {
+  const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
+  if(t.id === 'ctPre'){ if(t.value) collageSetStyle(L, t.value); else { L.tpre = ''; L.tstyle = null; } syncDoc(); docChanged(false); }
+  else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.value; }
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
+  const st = b.closest('.wkBox').querySelector('#wkStart'); if(st && st.value) L.wk.start = st.value;
+  collageFillWeek(L); syncDoc(); docChanged(false); toast('1週間を入れました。マスをクリックして、文字や色を直せます');
+});
 document.addEventListener('click', e => { const b = e.target.closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
 // 一覧のマスをドラッグして、別のマスに落とすと入れ替え
 let cellDragFrom = -1;

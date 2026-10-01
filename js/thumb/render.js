@@ -218,7 +218,7 @@ function paintPreview(live){
 function livePaint(){ cancelAnimationFrame(livePaint.r); livePaint.r = requestAnimationFrame(() => paintPreview(true)); }
 async function drawThumb(){
   const my = ++tok;
-  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style);
+  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style); else if(L.type === 'collage') await ensureCollageFonts(L);
   if(my !== tok) return;
   paintPreview(false); updateVis(); updateTextTip();
 }

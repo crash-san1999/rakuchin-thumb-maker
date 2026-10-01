@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：サムネの書き出し・共有・プロジェクト読み込み */
 /* ---------- 書き出し ---------- */
 async function thumbBlob(fmt){
-  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style);
+  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style); else if(L.type === 'collage') await ensureCollageFonts(L);
   const W = DOC.exportW, H = Math.round(W * DOC.h / DOC.w), c = mk(W, H);
   if(fmt !== 'png'){ const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }
   exporting = true; try{ compose(c.getContext('2d'), W, H, false, new Map()); } finally { exporting = false; }

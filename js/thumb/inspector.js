@@ -85,6 +85,19 @@ const SEL_ROWS = [
   {pg:'cells', r:'@cell.oy', l:'画像 上下', min:-1, max:1, step:0.005, show:'@type=collage'},
   {pg:'cells', r:'@cell.rot', l:'画像の回転', min:-180, max:180, step:0.5, show:'@type=collage'},
   {pg:'cells', btns:[['collageEditBtn', 'crop', 'キャンバスでマスの画像を調整']], show:'@type=collage'},
+  {pg:'ctext', sub:'マスの背景色・文字', note:'画像の代わりに、背景色と文字をマスに入れられます（画像の上に文字だけ重ねることも）。マスをクリックで選択', show:'@type=collage'},
+  {pg:'ctext', cells:true, show:'@type=collage'},
+  {pg:'ctext', chk:'@cell.bg.on', l:'背景色を付ける', show:'@type=collage'},
+  {pg:'ctext', c:'@cell.bg.c', l:'背景色', show:'@type=collage&@cell.bg.on=true'},
+  {pg:'ctext', chk:'@cell.bg.grad', l:'上下でグラデーション', show:'@type=collage&@cell.bg.on=true'},
+  {pg:'ctext', c:'@cell.bg.c2', l:'下の色', show:'@type=collage&@cell.bg.on=true&@cell.bg.grad=true'},
+  {pg:'ctext', ctext:true, show:'@type=collage'},
+  {pg:'ctext', seg:'@cell.tx.pos', l:'文字の位置', opts:[['c', '中央'], ['t', '上'], ['b', '下']], show:'@type=collage'},
+  {pg:'ctext', r:'@cell.tx.sc', l:'文字の大きさ', min:0.2, max:2.5, step:0.01, show:'@type=collage'},
+  {pg:'ctext', r:'@cell.tx.ox', l:'文字 左右', min:-0.5, max:0.5, step:0.005, show:'@type=collage'},
+  {pg:'ctext', r:'@cell.tx.oy', l:'文字 上下', min:-0.5, max:0.5, step:0.005, show:'@type=collage'},
+  {pg:'ctext', sub:'1週間を自動で入れる', note:'選んだ日を含む1週間の日付・曜日を、上のマスから順に入れます（7分割・8分割向け）。入れたあとも、マスごとに文字や色を直せます', show:'@type=collage'},
+  {pg:'ctext', week:true, show:'@type=collage'},
   {pg:'cfx', sub:'効果', note:'マスの画像に色調やエフェクトをかけます', show:'@type=collage'},
   {pg:'cfx', sub:'グループの効果', note:'中のレイヤーを1枚の絵にまとめて、色調やエフェクトをかけます', show:'@type=group'},
   {pg:'cfx', seg:'@fxMode', l:'かける対象', opts:[['all', '全部のマス'], ['cell', 'マスごと']], show:'@type=collage'},
@@ -257,6 +270,8 @@ function drow(r){
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6, 7, 8].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
   if(r.flips) return `<div class="row"${sa}><label>${r.l}</label><div class="crow flips"><button class="btn sm" data-flip="flip" title="左右反転（H）">${ic('fliph')}左右</button><button class="btn sm" data-flip="flipV" title="上下反転（V）">${ic('flipv')}上下</button></div></div>`;
   if(r.cells) return `<div class="cellBox"${sa}></div>`;
+  if(r.ctext) return `<div class="ctBox"${sa}></div>`;
+  if(r.week) return `<div class="wkBox"${sa}></div>`;
   if(r.cfxchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック効果</div><div class="pcats fxchips">${CELL_FX_CHIPS.map(([k, t]) => `<button data-cfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.frpre){ const nm = Object.fromEntries(FRAME_PRESETS.map(p => [p[0], p[1]]));
     return `<div${sa}>${FRAME_GROUPS.map(([g, ks]) => `<div class="frgrp">${g}</div><div class="pcats frpre">${ks.map(k => `<button data-frpre="${k}">${nm[k]}</button>`).join('')}</div>`).join('')}<div class="pcats frpre"><button data-frpre="off">フレームなし</button></div></div>`; }
@@ -284,7 +299,7 @@ const INS_PAGES = {
   textmode:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾']],
   text:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾'], ['lay-base', '配置']],
   image:[['lay-base', '配置'], ['lay-frame', 'フレーム'], ['lay-edge', 'フチ・影'], ['lay-color', '色'], ['lay-cut', '背景透過']],
-  collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-cfx', '効果'], ['lay-base', '配置']],
+  collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-ctext', '背景色・文字'], ['lay-cfx', '効果'], ['lay-base', '配置']],
   fx:[['lay-fx', 'エフェクト'], ['lay-base', '配置']],
   group:[['lay-cfx', '効果'], ['lay-base', '配置']],
   bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果'], ['bg-fin', '仕上げ']],
