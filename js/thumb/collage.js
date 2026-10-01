@@ -232,7 +232,8 @@ async function collageTakeFiles(files, cx, cy){
     const r = $('#tv').getBoundingClientRect();
     if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom){
       const x = (cx - r.left) / r.width * DOC.w, y = (cy - r.top) / r.height * DOC.h;
-      const L = [...DOC.layers].reverse().find(l => l.type === 'collage' && !l.hidden && collageCellAt(l, x, y) >= 0);
+      // ドロップでマスに入れるのは、いま選んでいる分割フレームの上に落としたときだけ（それ以外は、ふつうに画像レイヤーとして追加）
+      const L = [selLayer()].find(l => l && l.type === 'collage' && !l.hidden && collageCellAt(l, x, y) >= 0);
       if(L){
         let i = collageCellAt(L, x, y); const n = collageN(L);
         while(rest.length && i < n){ await collageSetCell(L, i, rest.shift()); L.ac = i; i++; while(i < n && ASSETS[L.cells[i].asset]) i++; }
@@ -241,7 +242,7 @@ async function collageTakeFiles(files, cx, cy){
       }
     }
   }
-  const C = selLayer();
+  const C = cx == null ? selLayer() : null;   // ドロップのときは、ここでは入れない（選んでいても、落とした位置がマスの外なら画像レイヤーにする）
   if(C && C.type === 'collage'){
     const n = collageN(C); let filled = 0;
     for(let i = 0; i < n && rest.length; i++) if(!ASSETS[C.cells[i].asset]){ await collageSetCell(C, i, rest.shift()); C.ac = i; filled++; }
