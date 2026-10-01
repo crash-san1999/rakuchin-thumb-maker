@@ -4,7 +4,7 @@
       通信できるときは必ず最新を取りにいく（ネットワーク優先）。保存したものは、通信できないときだけ使う。
    APP_VER は tools/bump-version.sh が書き換える（中身が変わるたびに変わる）。変わると新しい Service Worker が「待機」になり、
    画面に「新しいバージョンがあります」と出る。「更新」を押す（pwa.js が SKIP_WAITING を送る）と切り替わる */
-const APP_VER = '727d634b';
+const APP_VER = 'ed39146b';
 const FONT_CACHE = 'ttm-fonts-v1', APP_CACHE = 'ttm-app-' + APP_VER;
 const isFont = u => u.origin === location.origin ? /\/fonts\/.+\.(woff2?|otf|ttf)$/i.test(u.pathname)
   : (u.hostname === 'cdn.jsdelivr.net' && /^\/(gh|npm)\//.test(u.pathname) && /\.(woff2?|otf|ttf|css)$/i.test(u.pathname)) || u.hostname === 'fonts.gstatic.com';

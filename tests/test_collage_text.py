@@ -51,6 +51,19 @@ async def run(p):
     # 4) 画像なしでも書き出しでは灰色の空きマスの絵が出ず、背景色が出る
     ex = await pg.evaluate("(() => { exporting = true; try{ prevCache.clear(); const c = mk(480, 270); compose(c.getContext('2d'), 480, 270, false, new Map()); return Array.from(c.getContext('2d').getImageData(4, 4, 1, 1).data); } finally { exporting = false; } })()")
     assert ex[3] == 255 and abs(ex[0] - 255) < 6, f'書き出しで背景色が出ない {ex}'
+    # 4b) フォントと太さを選び直せる（スタイルを選び直すと、そのスタイルのフォントに戻る）
+    fams = await pg.evaluate("[...document.querySelectorAll('#ctFont option')].map(o => o.value)")
+    assert len(fams) > 30, f'フォント一覧が少ない {len(fams)}'
+    h0 = await pg.evaluate(HASH)
+    cur = await pg.evaluate("selLayer().tstyle.font")
+    other = next(f for f in ['Noto Serif JP', 'Dela Gothic One', 'Zen Maru Gothic', 'M PLUS 1p'] if f in fams and f != cur)
+    await pg.select_option('#ctFont', other); await settle(pg, 7000)
+    assert await pg.evaluate("selLayer().tstyle.font") == other, 'フォントが変わらない'
+    ws = await pg.evaluate("[...document.querySelectorAll('#ctWeight option')].map(o => +o.value)")
+    assert ws and await pg.evaluate("+$('#ctWeight').value") in ws, f'太さの選択肢が合わない {ws}'
+    if len(ws) > 1:
+        await pg.select_option('#ctWeight', str(ws[0] if await pg.evaluate("selLayer().tstyle.weight") != ws[0] else ws[-1])); await settle(pg, 1500)
+        assert await pg.evaluate("selLayer().tstyle.weight") in ws
     # 5) 文字を直す・スタイルを変える・位置・大きさ
     await pg.click('[data-pg="ctext"] [data-cell="2"]'); await settle(pg, 300)
     await pg.fill('#ctText', '会議\nお休み'); await settle(pg, 300)
@@ -79,6 +92,8 @@ async def run(p):
     r = await pg.evaluate("""(() => { const L = JSON.parse(JSON.stringify(selLayer())); L.cells.forEach(c => { delete c.bg; delete c.tx; }); delete L.wk; delete L.tstyle;
       const d = normalizeDoc({layers:[L]}); const C = d.layers.find(l => l.type === 'collage'); return [C.cells[0].bg.on, C.cells[0].tx.text, C.wk.first, C.tstyle]; })()""")
     assert r == [False, '', 'mon', None], r
+    dflt = await pg.evaluate("(() => { const b = COLLAGE_BASE(); return [b.wk.paren, b.wk.layout]; })()")
+    assert dflt == ['half', 'side'], f'初期値が (月)・日付の横 でない {dflt}'
     r = await pg.evaluate("""(() => { const d = normalizeDoc(JSON.parse(JSON.stringify(DOC))); const C = d.layers.find(l => l.type === 'collage'); return [C.cells[1].tx.text, !!C.tstyle, C.tpre]; })()""")
     assert r[0].startswith('10/') and r[1] is True and r[2] == '激辛', r
     await close(pg)

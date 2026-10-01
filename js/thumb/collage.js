@@ -25,7 +25,7 @@ function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'none', layout:'below', color:true},
+    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true},
     cells:[...Array(8)].map(() => CELL_BASE())});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
@@ -363,10 +363,24 @@ function renderCellText(){
     if(box.dataset.lid !== L.id){
       box.dataset.lid = L.id;
       box.innerHTML = `<div class="row"><label>文字（改行できます）</label><textarea id="ctText" rows="2" placeholder="例：10/5 月"></textarea></div>
+        <div class="row"><label>フォント</label><select id="ctFont"></select></div>
+        <div class="row"><label>太さ</label><select id="ctWeight"></select></div>
         <div class="row"><label>文字スタイル</label><select id="ctPre"><option value="">標準（ポップ）</option>${Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${g}">${ns.map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
     }
     const ta = box.querySelector('#ctText'); if(document.activeElement !== ta) ta.value = c.tx.text || '';
     ta.dataset.cell = L.ac; box.querySelector('#ctPre').value = L.tpre || '';
+    const st = L.tstyle || collageDefaultStyle(), fs = box.querySelector('#ctFont'), wsel = box.querySelector('#ctWeight');
+    if(fs.dataset.built !== '1'){   // フォント一覧（欧文と、ふだん出さない書体を除く）。お気に入りを先頭に
+      const ok = f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === st.font), grp = {};
+      fonts.filter(ok).forEach(f => (grp[favs.has(f.family) ? 'お気に入り' : f.cat] = grp[favs.has(f.family) ? 'お気に入り' : f.cat] || []).push(f));
+      const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
+      fs.innerHTML = keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join(''); fs.dataset.built = '1';
+    }
+    if(![...fs.options].some(o => o.value === st.font)) fs.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(st.font)}">${escapeHtml(st.font)}</option>`);
+    fs.value = st.font;
+    if(wsel.dataset.f !== st.font){ wsel.dataset.f = st.font; wsel.innerHTML = weightsOf(findFont(st.font)).map(w => `<option value="${w}">${w}</option>`).join(''); }
+    wsel.value = String(st.weight);
+    if(wsel.value !== String(st.weight)){ const ws = [...wsel.options].map(o => +o.value); wsel.value = String(ws.reduce((a, b) => Math.abs(b - st.weight) < Math.abs(a - st.weight) ? b : a, ws[0])); }
   });
   document.querySelectorAll('.wkBox').forEach(box => {
     if(box.dataset.lid !== L.id){
@@ -391,6 +405,15 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
   if(t.id === 'ctPre'){ if(t.value) collageSetStyle(L, t.value); else { L.tpre = ''; L.tstyle = null; } syncDoc(); docChanged(false); }
+  else if(t.id === 'ctFont' || t.id === 'ctWeight'){
+    if(!L.tstyle) L.tstyle = collageDefaultStyle();
+    if(t.id === 'ctFont'){
+      L.tstyle.font = t.value; const f = findFont(t.value), ws = weightsOf(f), w0 = L.tstyle.weight;
+      L.tstyle.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);   // 選んだフォントにある、いちばん近い太さに
+      if(f && f.mb > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
+    } else L.tstyle.weight = +t.value;
+    syncDoc(); docChanged(false);
+  }
   else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.value; }
 });
 document.addEventListener('click', e => {
