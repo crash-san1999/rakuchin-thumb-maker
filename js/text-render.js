@@ -406,6 +406,22 @@ function withCell(ctx, c, fn){
 }
 /* 一文字囲み */
 const RANSOM = ['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b'];
+/* ランダム配色（脅迫状風）で使う色の組み合わせ（おまかせ）。[名前の key, 表示名, 色, 使う色数] */
+const BOX_PALETTES = [
+  ['classic', '脅迫状', ['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b', '#ffd500'], 7],
+  ['pastel', 'パステル', ['#ffb3c7', '#ffd9a0', '#fff3a3', '#b9f0c4', '#a9dcff', '#d3bfff', '#ffc9f0', '#ffffff'], 7],
+  ['pop', 'ポップ', ['#ff2d55', '#ffcc00', '#00c2ff', '#7cff4f', '#ff6a00', '#a855f7', '#111111', '#ffffff'], 7],
+  ['mono', 'モノクロ', ['#111111', '#ffffff', '#666666', '#d9d9d9', '#333333', '#999999', '#000000', '#f2f2f2'], 4],
+  ['redblack', '赤・黒・白', ['#e8132b', '#111111', '#ffffff', '#b00020', '#2b2b2b', '#f5f5f5', '#e8132b', '#111111'], 3],
+  ['cool', '寒色', ['#1f5fd6', '#00a6d6', '#0f9d58', '#2b2f77', '#7b2cbf', '#6ee7f2', '#e8f1ff', '#111111'], 6],
+  ['warm', '暖色', ['#e8132b', '#ff6a00', '#ffb000', '#ffd500', '#c2185b', '#ff8fa3', '#7a1f00', '#fff3d6'], 6],
+  ['wa', '和風', ['#b7282e', '#1b1b1b', '#2b5d8a', '#d9a521', '#4f7a3a', '#f3e9d2', '#6b3a8f', '#8a6a4b'], 6],
+];
+// 使う色（色数ぶん）。壊れた値は脅迫状の色に戻す
+function boxPal(b){
+  const n = clamp(Math.round(b.pn) || 7, 2, 8), a = (Array.isArray(b.pal) ? b.pal : []).slice(0, n).filter(c => /^#[0-9a-f]{6}$/i.test(c));
+  return a.length ? a : RANSOM;
+}
 function boxPath(ctx, shape, h){
   ctx.beginPath();
   if(shape === 'circle') ctx.arc(0, 0, h * 1.08, 0, 7);
@@ -414,11 +430,11 @@ function boxPath(ctx, shape, h){
   else ctx.rect(-h, -h, 2 * h, 2 * h);
 }
 function drawBoxes(ctx, cells){
-  const b = RS.box, h = RS.size * (0.5 + b.pad);
+  const b = RS.box, h = RS.size * (0.5 + b.pad), pal = boxPal(b);
   cells.forEach((c, i) => withCell(ctx, c, () => {
     boxPath(ctx, b.shape, h);
     if(b.sw > 0){ ctx.lineWidth = b.sw * 2; ctx.strokeStyle = b.sc; ctx.lineJoin = 'round'; ctx.stroke(); }
-    ctx.fillStyle = b.rand ? RANSOM[Math.floor(rng(i * 97 + 5)() * RANSOM.length)] : (b.alt && i % 2 ? b.c2 : b.c); ctx.fill();
+    ctx.fillStyle = b.rand ? (b.seq ? pal[i % pal.length] : pal[Math.floor(rng(i * 97 + 5 + (b.seed || 0) * 13)() * pal.length)]) : (b.alt && i % 2 ? b.c2 : b.c); ctx.fill();
   }));
 }
 /* 傍点 */

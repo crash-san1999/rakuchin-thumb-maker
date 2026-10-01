@@ -58,7 +58,8 @@ const SECTIONS = [
   ]},
   {t:'一文字囲み', on:'box.on', hint:'1文字ずつ図形で囲む', rows:[
     {sel:'box.shape', l:'形', opts:[['square','四角'],['round','角丸'],['circle','丸'],['diamond','ひし形']]},
-    {c:'box.c', l:'色'}, {chk:'box.rand', l:'ランダム配色（脅迫状風）'}, {chk:'box.alt', l:'交互に色を変える'}, {c:'box.c2', l:'交互色', show:'box.alt=true'},
+    {c:'box.c', l:'色', show:'box.rand=false'}, {chk:'box.rand', l:'ランダム配色（脅迫状風）'},
+    {pal:true, show:'box.rand=true'}, {chk:'box.seq', l:'ランダムにせず、順番に使う', show:'box.rand=true'}, {seed:'box.seed', l:'並び方', show:'box.rand=true&box.seq=false'}, {chk:'box.alt', l:'交互に色を変える', show:'box.rand=false'}, {c:'box.c2', l:'交互色', show:'box.rand=false&box.alt=true'},
     {r:'box.pad', l:'大きさ', min:-0.2, max:0.4, step:0.01},
     {c:'box.sc', l:'枠線'}, {r:'box.sw', l:'枠の太さ', min:0, max:20, step:0.5},
   ]},
@@ -149,7 +150,10 @@ const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:get
   onSeg(k, v){ setK(k, v); syncUI(); schedule(); },
   onReroll(k){ setK(k, Math.floor(Math.random() * 1e6)); schedule(); },
 });
-const rowHTML = r => KB.row(r, true);
+const paletteRowHTML = r => `<div data-show="${r.show}"><div class="row"><label>使う色数</label><input type="range" data-k="box.pn" min="2" max="8" step="1"><input type="number" class="num" data-k="box.pn" min="2" max="8" step="1"></div>
+  <div class="row"><label>色</label><div class="palrow">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<input type="color" data-k="box.pal.${i}" data-pi="${i}">`).join('')}</div></div>
+  <div class="row"><label>おまかせ</label><div class="pcats palchips">${BOX_PALETTES.map(p => `<button data-boxpal="${p[0]}">${p[1]}</button>`).join('')}</div></div></div>`;
+const rowHTML = r => r.pal ? paletteRowHTML(r) : KB.row(r, true);
 function strokeHTML(i){
   return `<div class="stroke-row"><label class="chk"><input type="checkbox" data-k="strokes.${i}.on"> フチ${i+1}</label>
     <input type="range" data-k="strokes.${i}.w" min="0" max="40" step="0.5"><input type="number" class="num" data-k="strokes.${i}.w" min="0" max="40" step="0.5">
@@ -168,6 +172,7 @@ function buildTextControls(){
 
 function syncUI(except){
   KB.sync(except);
+  document.querySelectorAll('[data-pi]').forEach(el => { el.style.opacity = +el.dataset.pi < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
   document.querySelectorAll('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
 }
 document.addEventListener('click', e => {
@@ -183,6 +188,8 @@ document.addEventListener('change', e => {
   if(e.target.id === 'fontLatin') renderFontList();
 });
 document.addEventListener('click', e => {
+  const bp = e.target.closest('[data-boxpal]');
+  if(bp){ const p = BOX_PALETTES.find(q => q[0] === bp.dataset.boxpal); if(p){ resetAdj(); S.box.pal = p[2].slice(); S.box.pn = p[3]; syncUI(); schedule(); } return; }
   const rb = e.target.closest('[data-rnd]');
   if(rb){ resetAdj(); setK(rb.dataset.rnd, randomLike(getK(rb.dataset.rnd))); syncUI(); schedule(); return; }
   const eb = e.target.closest('[data-eye]');
