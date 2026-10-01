@@ -1,4 +1,4 @@
-/* 楽ちんサムネメーカー：分割フレーム（複数の画像を2〜6分割で並べる） */
+/* 楽ちんサムネメーカー：分割フレーム（複数の画像を2〜8分割で並べる） */
 /* マスの画像にかける効果（色調・ぼかし・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる） */
 const CELL_FX_BASE = () => ({bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
   zb:{on:false, amt:0.25}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28}, dim:0, vignette:0, tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}});
@@ -22,7 +22,7 @@ function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE()}))});
+    cells:[...Array(8)].map(() => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE()}))});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
@@ -33,12 +33,16 @@ function applyCellFx(name){
   syncDoc(); docChanged(false);
 }
 const COLLAGE_LAYOUTS = [
-  ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6], ['grid2', 'グリッド（縦長）', n => n === 6],
+  ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6 || n === 8], ['grid2', 'グリッド（縦長）', n => n === 6 || n === 8],
   ['bigL', '左に大きく', n => n >= 3], ['bigT', '上に大きく', n => n >= 3], ['radial', '放射状', n => n >= 2],
+  // 1週間の予定表向け：2段に分けて、上から順に数える（7分割なら「月〜日」を上段・下段に並べられる）
+  ['wk43', '上4・下3（月〜木／金〜日）', n => n === 7], ['wk34', '上3・下4', n => n === 7], ['wk52', '上5・下2（平日／土日）', n => n === 7], ['wk25', '上2・下5', n => n === 7],
+  ['wk53', '上5・下3', n => n === 8], ['wk35', '上3・下5', n => n === 8],
 ];
+const COLLAGE_ROWS2 = {wk43:[4, 3], wk34:[3, 4], wk52:[5, 2], wk25:[2, 5], wk53:[5, 3], wk35:[3, 5]};
 const COLLAGE_EDGES = [['straight', 'まっすぐ'], ['zigzag', 'ギザギザ'], ['wave', '波'], ['rough', 'ラフ']];
 const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], ['gap', 'すき間（背景が見える）'], ['glow', '光る線'], ['blur', 'ぼかしてつなげる'], ['shadow', '影で重ねる']];
-const collageN = L => clamp(parseInt(L.n) || 2, 2, 6);
+const collageN = L => clamp(parseInt(L.n) || 2, 2, 8);
 const collageLayoutOk = (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };
 let exporting = false;
 
@@ -53,8 +57,13 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55){
   const swap = cells => cells.map(p => p.map(([x, y]) => [y, x]).reverse());
   if(lay === 'cols') return quadCols(0, W, 0, H, n, slant * H * 0.5);
   if(lay === 'rows') return swap(quadCols(0, H, 0, W, n, slant * W * 0.5));
+  if(COLLAGE_ROWS2[lay]){   // 上の段・下の段で、マスの数を変える（各段は幅を等分）
+    const rows = COLLAGE_ROWS2[lay], out = [];
+    rows.forEach((k, j) => out.push(...quadCols(0, W, H * j / 2, H * (j + 1) / 2, k, slant * H * 0.25)));
+    return out;
+  }
   if(lay === 'grid' || lay === 'grid2'){
-    const c = lay === 'grid' ? (n === 4 ? 2 : 3) : 2, r = n / c, out = [];
+    const c = lay === 'grid' ? (n === 4 ? 2 : n === 6 ? 3 : 4) : 2, r = n / c, out = [];
     for(let j = 0; j < r; j++) for(let i = 0; i < c; i++){ const x0 = W * i / c, x1 = W * (i + 1) / c, y0 = H * j / r, y1 = H * (j + 1) / r; out.push([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]); }
     return out;
   }
@@ -314,7 +323,7 @@ document.addEventListener('click', e => {
 const collageIconCache = {};
 function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];
-  const c = mk(48, 28), x = c.getContext('2d'), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c'];
-  collageCells(lay, n, 48, 28, 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 6]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });
+  const c = mk(48, 28), x = c.getContext('2d'), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c', '#2bb5a0', '#e0e04a'];
+  collageCells(lay, n, 48, 28, 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 8]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });
   return collageIconCache[k] = c.toDataURL();
 }

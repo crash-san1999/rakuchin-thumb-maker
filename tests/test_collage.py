@@ -7,7 +7,7 @@ async def run(p):
     await pg.click('.seg[data-dseg="@n"] [data-v="6"]')
     await page(pg, 'lay-cells'); await pg.click('[data-cell="0"]')
     await pg.set_input_files('#cellfile', [IMG[n] for n in ['city.jpg', 'synth.jpg', 'night.jpg', 'rings4.jpg', 'rings5.jpg', 'rings6.jpg']]); await settle(pg, 2500)
-    assert await pg.evaluate("selLayer().cells.map(c => !!ASSETS[c.asset])") == [True] * 6
+    assert await pg.evaluate("selLayer().cells.slice(0, 6).map(c => !!ASSETS[c.asset])") == [True] * 6
     combos = [('cols', 2, 0.35, 'zigzag', 'glow'), ('radial', 2, 0.3, 'straight', 'blur'), ('rows', 3, 0, 'wave', 'line'), ('bigL', 3, 0.2, 'straight', 'gap'),
               ('grid', 4, 0, 'straight', 'line'), ('radial', 4, 0.25, 'rough', 'line'), ('bigT', 5, 0, 'zigzag', 'shadow'), ('grid2', 6, 0, 'wave', 'line')]
     for lay, n, sl, edge, bs in combos:

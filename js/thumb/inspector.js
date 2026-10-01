@@ -67,7 +67,7 @@ const SEL_ROWS = [
   {pg:'base', chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
   {pg:'base', place:true, l:'配置', show:'@type!=group'},
   {pg:'split', sub:'分割フレーム', note:'複数の画像を並べます。マスに画像をドロップするか、下の一覧から選んでください', show:'@type=collage'},
-  {pg:'split', seg:'@n', l:'分割数', opts:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6']], show:'@type=collage'},
+  {pg:'split', seg:'@n', l:'分割数', opts:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']], show:'@type=collage'},
   {pg:'split', layouts:true, l:'分割のしかた', show:'@type=collage'},
   {pg:'split', r:'@slant', l:'傾き・回転', min:-1, max:1, step:0.01, show:'@type=collage&@layout=cols|rows|bigL|bigT|radial'},
   {pg:'split', r:'@main', l:'大きいマスの大きさ', min:0.25, max:0.8, step:0.01, show:'@type=collage&@layout=bigL|bigT'},
@@ -254,7 +254,7 @@ const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');
 const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
-  if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
+  if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6, 7, 8].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
   if(r.flips) return `<div class="row"${sa}><label>${r.l}</label><div class="crow flips"><button class="btn sm" data-flip="flip" title="左右反転（H）">${ic('fliph')}左右</button><button class="btn sm" data-flip="flipV" title="上下反転（V）">${ic('flipv')}上下</button></div></div>`;
   if(r.cells) return `<div class="cellBox"${sa}></div>`;
   if(r.cfxchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック効果</div><div class="pcats fxchips">${CELL_FX_CHIPS.map(([k, t]) => `<button data-cfx="${k}">${t}</button>`).join('')}</div></div>`;
