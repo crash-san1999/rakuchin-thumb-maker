@@ -554,3 +554,8 @@ body.is-mobile #libBtn{display:none}
 .ddov .dz[data-dz=lib] b{font-size:19px}
 .ddov .dz[data-dz=lib]{background:rgba(255,255,255,.75)}
 .ddov .dz[data-dz=lib].hot{background:#fff3cf;border-color:#ffb800;color:#a06a00}
+
+/* ---------- 新しいバージョンのお知らせ ---------- */
+.updbar{position:fixed;left:50%;bottom:20px;transform:translate(-50%,24px);z-index:80;display:none;align-items:center;gap:10px;background:#fff;border:2px solid var(--ink);border-radius:999px;box-shadow:var(--pop);padding:8px 10px 8px 18px;font-weight:800;font-size:13px;max-width:calc(100vw - 16px)}
+.updbar.show{display:flex;animation:pop .25s var(--ease);transform:translate(-50%,0)}
+body.is-mobile .updbar{bottom:88px}

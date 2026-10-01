@@ -1,0 +1,16 @@
+{
+  "name": "楽ちんサムネメーカー",
+  "short_name": "楽ちんサムネ",
+  "description": "配信者向けのサムネイル作成ツール。文字・画像・エフェクトをレイヤーで重ねて、PNG / JPG で書き出せます。",
+  "lang": "ja",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff7ee",
+  "theme_color": "#fff7ee",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

@@ -391,9 +391,7 @@ function preloadFavFonts(){
   const c = navigator.connection; if(c && (c.saveData || c.type === 'cellular')) return;
   setTimeout(() => { [...favs].map(findFont).filter(f => f && WEB_SRC.includes(f.src) && !(f.mb > 3) && !cssState.has(f.family)).forEach((f, i) => setTimeout(() => ensureCss(f, 400), i * 1500)); }, 3000);
 }
-function registerFontCache(){
-  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-}
+function registerFontCache(){ pwaRegister(); }   // Service Worker（フォントとアプリ本体の保存）の登録は pwa.js
 function scheduleFontListCheck(){ setTimeout(() => { const u = LS.get('ttm_fsupd', null); if(!u || Date.now() - u.at > 7 * 864e5) updateFontList(false); }, 4000); }
 
 /* WebフォントのURLから追加 */
