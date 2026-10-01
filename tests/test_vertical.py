@@ -27,6 +27,10 @@ async def run(p):
     assert all(x['k'] <= 1 for x in c) and c[1]['k'] < 1, '縦中横が1マスに収まらない'
     c = (await pg.evaluate(LAY, dict(base, text='第20回', vertical=True, vtcy=False)))['cells'][0]
     assert [x['t'] for x in c] == ['第', '2', '0', '回'], '縦中横オフで1文字ずつにならない'
+    c = (await pg.evaluate(LAY, dict(base, text='２０！！2026', vertical=True)))['cells'][0]
+    assert [x['t'] for x in c] == ['20', '!!', '2026'], f'全角の数字・！！や4桁が縦中横にならない {[x["t"] for x in c]}'
+    c = (await pg.evaluate(LAY, dict(base, text='２０！！', vertical=True, vtcy=False)))['cells'][0]
+    assert [x['t'] for x in c] == list('２０！！'), '縦中横オフで全角が1文字ずつにならない'
     c = (await pg.evaluate(LAY, dict(base, text='SF6 ABC', vertical=True, vlat='side')))['cells'][0]
     assert [x['t'] for x in c] == ['SF6', ' ', 'ABC'] and c[0]['r90'] and c[2]['r90'], f'英数字を横倒しにできない {c}'
     c = (await pg.evaluate(LAY, dict(base, text='SF6', vertical=True, vlat='up')))['cells'][0]

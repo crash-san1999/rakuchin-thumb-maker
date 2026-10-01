@@ -50,10 +50,12 @@ function vCells(segs){
   const out = [], sz = RS.size, meas = t => mctx.measureText(t).width;
   const push = (t, a, o) => { const c = Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o); [c.gx, c.gy] = (o && o.noCenter) ? [0, 0] : inkCenter(t, c.w); out.push(c); };
   for(const s of segs){
-    for(const tok of (s.t.match(/[\x21-\x7e]+|[\s\S]/gu) || [])){
-      if(/^[\x21-\x7e]+$/.test(tok)){
-        if(RS.vtcy && /^[0-9!?]{2,3}$/.test(tok)){ const w = meas(tok); push(tok, s.a, {w, k:Math.min(1, sz * 0.92 / w)}); }
-        else if(RS.vlat === 'side'){ const w = meas(tok); push(tok, s.a, {w, r90:true, adv:w}); }
+    for(const tok of (s.t.match(/[\x21-\x7e]+|[０-９]+|[！？]+|[\s\S]/gu) || [])){
+      const tcy = RS.vtcy && /^([0-9!?]{2,4}|[０-９]{2,4}|[！？]{2,4})$/u.test(tok);   // 全角の「２０」「！！」も縦中横にする
+      if(tcy){ const t = tok.normalize('NFKC'), w = meas(t); push(t, s.a, {w, k:Math.min(1, sz * 0.92 / w)}); }
+      else if(/^[０-９！？]+$/u.test(tok)) for(const ch of tok) push(ch, s.a);
+      else if(/^[\x21-\x7e]+$/.test(tok)){
+        if(RS.vlat === 'side'){ const w = meas(tok); push(tok, s.a, {w, r90:true, adv:w}); }
         else for(const ch of tok){ const w = meas(ch), r = V_ROT.test(ch); push(ch, s.a, {w, r90:r, adv:r ? sz : clamp(w * 1.15, sz * 0.62, sz)}); }
       }else if(tok === ' ') push(tok, s.a, {adv:sz * 0.5});
       else if(V_PUNC.test(tok)){ const w = meas(tok), [ox, oy] = inkShift(tok, w); push(tok, s.a, {w, ox, oy, noCenter:true}); }
