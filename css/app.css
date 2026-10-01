@@ -548,3 +548,9 @@ body.is-mobile #libBtn{display:none}
 @media (max-width:1560px){ .app-head{gap:6px} .app-head .btn.ghost,.app-head .add-btn{padding-left:10px;padding-right:10px} .app-head .btn span{font-size:12.5px} }
 @media (max-width:1560px){ .brand-name{font-size:15px} .brand{gap:8px} }
 @media (max-width:1480px){ body:not(.is-mobile) .brand-name{display:none} }
+
+.ddov .dzcol{display:flex;flex-direction:column;gap:18px;min-height:0}
+.ddov .dzcol .dz{flex:1}
+.ddov .dz[data-dz=lib] b{font-size:19px}
+.ddov .dz[data-dz=lib]{background:rgba(255,255,255,.75)}
+.ddov .dz[data-dz=lib].hot{background:#fff3cf;border-color:#ffb800;color:#a06a00}

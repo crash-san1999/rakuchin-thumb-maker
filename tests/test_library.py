@@ -61,3 +61,17 @@ async def run(p):
     await pg.reload(); await settle(pg, 4500)
     assert await pg.evaluate("LIB.length") == len(ids), '再読み込みで素材が消えた'
     await close(pg)
+    await drop_test(p)
+
+async def drop_test(p):
+    pg = await open_app(p)
+    n0 = await pg.evaluate("DOC.layers.length")
+    drop = """(zone) => { const c = document.createElement('canvas'); c.width = 60; c.height = 40; c.getContext('2d').fillRect(0, 0, 60, 40);
+      return new Promise(res => c.toBlob(b => { const dt = new DataTransfer(); dt.items.add(new File([b], 'drop.png', {type:'image/png'}));
+        const t = document.querySelector('#ddov [data-dz=' + zone + ']'); t.dispatchEvent(new DragEvent('drop', {dataTransfer:dt, bubbles:true, cancelable:true})); res(true); })); }"""
+    await pg.evaluate(f"({drop})('lib')"); await settle(pg, 1500)
+    assert await pg.evaluate("libItems('img').map(i => i.name)") == ['drop'], 'ドロップで素材置き場に登録されない'
+    assert await pg.evaluate("DOC.layers.length") == n0, '素材置き場に落としたのにキャンバスにも追加された'
+    await pg.evaluate(f"({drop})('layer')"); await settle(pg, 1500)
+    assert await pg.evaluate("DOC.layers.length") == n0 + 1 and await pg.evaluate("libItems('img').length") == 1, '通常のドロップが変わってしまった'
+    await close(pg)

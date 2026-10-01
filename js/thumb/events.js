@@ -153,7 +153,8 @@ $('#openProj').onclick = () => $('#projfile').click();
 $('#projfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) openProjectFile(f); };
 async function openProjectFile(f){
   try{
-    const j = JSON.parse(await f.text()); if(!j.doc) throw new Error('プロジェクトファイルではありません');
+    const j = JSON.parse(await f.text()); if(j.type === 'library'){ libImport(f); return; }   // 素材置き場のバックアップ
+    if(!j.doc) throw new Error('プロジェクトファイルではありません');
     for(const [id, src] of Object.entries(j.assets || {})) await addAsset(src, id, id);
     loadDocObj(j.doc); toast('プロジェクトを開きました');
   }catch(err){ toast('開けませんでした: ' + err.message, true); }
@@ -192,6 +193,7 @@ async function openProjectFile(f){
     if(proj){ openProjectFile(proj); return; }
     if(fontsF.length) addFontFiles(fontsF);
     if(!imgs.length){ if(!fontsF.length) toast('画像（PNG / JPG / WebP など）かフォントファイルをドロップしてください', true); return; }
+    if(zone === 'lib'){ await libAddFiles(imgs); renderLib(); return; }   // 素材置き場へ登録だけする（キャンバスには追加しない）
     if(DOC.mode !== 'thumb'){ setMode('thumb'); }
     if(zone === 'bg'){ await setBgFromFile(imgs[0]); openInspector(); toast('背景に設定しました'); if(imgs.length > 1) addImageLayers(imgs.slice(1)); }
     else { const rest = await collageTakeFiles(imgs, e.clientX, e.clientY); if(rest.length) addImageLayers(rest, true); }
