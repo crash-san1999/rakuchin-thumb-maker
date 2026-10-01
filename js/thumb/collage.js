@@ -25,7 +25,7 @@ function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', color:true},
+    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'none', layout:'below', color:true},
     cells:[...Array(8)].map(() => CELL_BASE())});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
@@ -272,8 +272,11 @@ function weekDates(startStr, first){   // 戻り値：7日ぶんの Date
   return [...Array(7)].map((_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - back + i));
 }
 function weekLabel(d, wk){
-  const w = wk.fmt === 'en' ? WK_EN[d.getDay()] : wk.fmt === 'ja3' ? WK_JA[d.getDay()] + '曜日' : WK_JA[d.getDay()], dt = `${d.getMonth() + 1}/${d.getDate()}`;
-  return wk.show === 'date' ? dt : wk.show === 'wd' ? w : `${dt}\n${w}`;
+  let w = wk.fmt === 'en' ? WK_EN[d.getDay()] : wk.fmt === 'ja3' ? WK_JA[d.getDay()] + '曜日' : WK_JA[d.getDay()];
+  const dt = `${d.getMonth() + 1}/${d.getDate()}`;
+  if(wk.paren === 'full') w = `（${w}）`; else if(wk.paren === 'half') w = `(${w})`;
+  if(wk.show === 'date') return dt; if(wk.show === 'wd') return w;
+  return wk.layout === 'side' ? dt + (wk.paren && wk.paren !== 'none' ? '' : ' ') + w : `${dt}\n${w}`;   // 日付の横（括弧があればくっつける）／日付の下
 }
 function collageFillWeek(L){
   const wk = L.wk, days = weekDates(wk.start, wk.first), n = collageN(L);
@@ -371,6 +374,8 @@ function renderCellText(){
       box.innerHTML = `<div class="row"><label>この日を含む週</label><input type="date" id="wkStart" data-wk="start"></div>
         <div class="row"><label>週の始まり</label><select data-wk="first">${opts([['mon', '月曜日'], ['sun', '日曜日']], L.wk.first)}</select></div>
         <div class="row"><label>表示</label><select data-wk="show">${opts([['both', '日付＋曜日'], ['date', '日付だけ'], ['wd', '曜日だけ']], L.wk.show)}</select></div>
+        <div class="row"><label>曜日の位置</label><select data-wk="layout">${opts([['below', '日付の下'], ['side', '日付の横']], L.wk.layout)}</select></div>
+        <div class="row"><label>曜日の括弧</label><select data-wk="paren">${opts([['none', 'なし'], ['full', '（月）全角'], ['half', '(月) 半角']], L.wk.paren)}</select></div>
         <div class="row"><label>曜日の書き方</label><select data-wk="fmt">${opts([['ja1', '月'], ['ja3', '月曜日'], ['en', 'MON']], L.wk.fmt)}</select></div>
         <div class="row"><label class="chk"><input type="checkbox" data-wk="color"> 平日・土・日で背景色を分ける</label></div>
         <div class="crow"><button class="btn sm" id="wkGo">${ic('grid')}1週間を入れる</button></div>`;
@@ -408,7 +413,7 @@ document.addEventListener('dragend', () => { cellDragFrom = -1; document.querySe
 document.addEventListener('click', e => {
   const cb = e.target.closest('[data-cell]'), ca = e.target.closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;
-  if(cb){ L.ac = +cb.dataset.cell; if(!ASSETS[L.cells[L.ac].asset]) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }
+  if(cb){ L.ac = +cb.dataset.cell; if(!ASSETS[L.cells[L.ac].asset] && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
   if(ca.dataset.cellact === 'pick') $('#cellfile').click();
   else if(ca.dataset.cellact === 'reset'){ resetCell(L, L.ac); syncDoc(); docChanged(false); }
   else if(ca.dataset.cellact === 'flip' || ca.dataset.cellact === 'flipV'){ const c = L.cells[L.ac]; c[ca.dataset.cellact] = !c[ca.dataset.cellact]; syncDoc(); docChanged(false); }

@@ -18,15 +18,27 @@ async def run(p):
     assert r['onMon'] == '10/5' and r['onSun'] == '9/28', (r['onMon'], r['onSun'])   # 日曜は、月曜始まりの前の週の最後
     assert r['year'] == ['12/28', '12/29', '12/30', '12/31', '1/1', '1/2', '1/3'], r['year']   # 年またぎ
     assert r['both'] == '10/5\n月' and r['date'] == '10/5' and r['wd3'] == '月曜日' and r['en'] == 'MON', r
+    r = await pg.evaluate("""(() => { const d = weekDates('2026-10-07', 'mon')[0], L = (o) => weekLabel(d, Object.assign({show:'both', fmt:'ja1', paren:'none', layout:'below'}, o));
+      return [L({paren:'full'}), L({paren:'half'}), L({layout:'side'}), L({layout:'side', paren:'full'}), L({layout:'side', paren:'half', fmt:'ja3'}), L({show:'wd', paren:'full'}), L({show:'date', paren:'full'})]; })()""")
+    assert r == ['10/5\n（月）', '10/5\n(月)', '10/5 月', '10/5（月）', '10/5(月曜日)', '（月）', '10/5'], r
     # 2) 画面から：7分割にして、日付を選んで「1週間を入れる」
     await pg.evaluate("DOC.layers = DOC.layers.filter(l => l.type !== 'text'); docChanged(false)")
     await pg.evaluate("addCollage()"); await pg.wait_for_timeout(400)
     await pg.evaluate("(() => { const L = selLayer(); Object.assign(L, {n:'7', layout:'wk43', lw:0, bstyle:'none', edge:'straight'}); syncDoc(); docChanged(false); })()")
     await page(pg, 'lay-ctext'); await settle(pg, 300)
+    # 「背景色・文字」タブでマスをクリックしても、ファイル選択は開かない（開くのは「マスの画像」タブだけ）
+    opened = []; pg.on('filechooser', lambda fc: opened.append(1))
+    await pg.click('[data-pg="ctext"] [data-cell="3"]'); await settle(pg, 600)
+    assert not opened and await pg.evaluate("selLayer().ac") == 3, '背景色・文字タブでファイル選択が開いた'
+    await page(pg, 'lay-cells'); await pg.click('[data-pg="cells"] [data-cell="4"]'); await settle(pg, 600)
+    assert opened, '「マスの画像」タブでは、空きマスのクリックでファイル選択が開く'
+    await page(pg, 'lay-ctext'); await pg.click('[data-pg="ctext"] [data-cell="0"]')
+    await pg.select_option('[data-wk="paren"]', 'full'); await pg.select_option('[data-wk="layout"]', 'side')
+    assert await pg.evaluate("[selLayer().wk.paren, selLayer().wk.layout]") == ['full', 'side'], '括弧・位置の設定が保存されない'
     await pg.fill('#wkStart', '2026-10-07'); await pg.dispatch_event('#wkStart', 'change')
     await pg.click('#wkGo'); await settle(pg, 1500)
     cells = await pg.evaluate("selLayer().cells.slice(0, 7).map(c => [c.tx.on, c.tx.text, c.bg.on, c.bg.c])")
-    assert [c[1] for c in cells] == ['10/5\n月', '10/6\n火', '10/7\n水', '10/8\n木', '10/9\n金', '10/10\n土', '10/11\n日'], cells
+    assert [c[1] for c in cells] == ['10/5（月）', '10/6（火）', '10/7（水）', '10/8（木）', '10/9（金）', '10/10（土）', '10/11（日）'], cells
     assert all(c[0] and c[2] for c in cells), '文字・背景色がオンになっていない'
     assert cells[5][3] != cells[0][3] != cells[6][3] and cells[5][3] != cells[6][3], '土日が色分けされていない'
     assert await pg.evaluate("selLayer().tstyle !== null"), '文字スタイルが入っていない'
