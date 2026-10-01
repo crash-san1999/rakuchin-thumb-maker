@@ -158,7 +158,7 @@ function frameCompensate(L, g0, base){
 }
 function framedCanvas(L, f, live, cache){
   const A = layerSrc(L), fr = L.frame, o = L.outline, need = L.sc * f;
-  const sk = JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat]);
+  const sk = JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, cutSig(L)]);
   let e = cache.get(L.id);
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const G = frameGeom(L), iw = G.iw, ih = G.ih;

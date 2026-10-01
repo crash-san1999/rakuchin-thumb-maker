@@ -47,7 +47,8 @@ function normalizeDoc(d){
     : L.type === 'group' ? (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE()))
     : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
-        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop),
+        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
+        btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
         shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {})}));
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
@@ -103,6 +104,7 @@ const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:
   onInput(k, v, el){
     const cL = /^@crop\./.test(k) ? selLayer() : null;
     if(cL) applyCropChange(cL, () => setD(k, v)); else setD(k, v);
+    if(k === '@key.on' && v){ const L = selLayer(), A = L && ASSETS[L.asset]; if(A && L.key.c === KEY_BASE().c){ const c = cutAutoColor(cropSrc(L, A).img); if(c) L.key.c = c; } }   // 初めてオンにしたときは、四隅の色を背景色にする
     if(k === '@p.reach'){ const L = selLayer(); if(L && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');

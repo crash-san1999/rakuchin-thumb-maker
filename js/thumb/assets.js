@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：画像アセット（IndexedDBに保存）・画像や背景の追加 */
 /* ---------- 画像アセット（IndexedDBに保存） ---------- */
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）
-const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, flip:false, flipV:false, bright:0, sat:0, outline:{on:false, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:false, blur:30, y:14, a:0.45}});
+const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, key:KEY_BASE(), strokes:[], btool:'erase', bsz:60, flip:false, flipV:false, bright:0, sat:0, outline:{on:false, w:10, c:'#ffffff'}, frame:FRAME_BASE(), shadow:{on:false, blur:30, y:14, a:0.45}});
 const ASSETS = {};
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
@@ -79,13 +79,20 @@ function cropRect(L, iw, ih){
 }
 // 切り取った絵を持つ、元の画像と同じ形の入れ物を返す（トリミングなしなら元のまま）。レイヤーごとに1枚だけ持つ
 const cropCache = new Map();
-function layerSrc(L){
-  const A = ASSETS[L.asset]; if(!A || !cropOn(L)) return A;
+function cropSrc(L, A){
+  if(!cropOn(L)) return A;
   const r = cropRect(L, A.img.naturalWidth, A.img.naturalHeight), key = [L.asset, r.sx, r.sy, r.sw, r.sh].join(',');
   const e = cropCache.get(L.id); if(e && e.key === key) return e.obj;
   const cv = mk(r.sw, r.sh); cv.getContext('2d').drawImage(A.img, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
   cv.naturalWidth = r.sw; cv.naturalHeight = r.sh;
   const obj = {img: cv, name: A.name}; cropCache.set(L.id, {key, obj}); return obj;
+}
+// 画像レイヤーの絵：トリミング → 背景透過 → ブラシ の順にかけたもの（どれも使っていなければ元の画像）
+function layerSrc(L){
+  const A = ASSETS[L.asset]; if(!A) return A;
+  const S = cropSrc(L, A);
+  if(!cutOn(L)){ cutCache.delete(L.id); return S; }
+  return cutSrc(L, S, A);
 }
 // トリミングを変える。見えている部分が動かないように、レイヤーの位置（フレームがあるときはフレームの中心）を補正する
 function applyCropChange(L, change){

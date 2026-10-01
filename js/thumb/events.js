@@ -13,6 +13,15 @@ document.addEventListener('click', e => {
   if(e.target.closest('#collageEditBtn')){ toggleEdit('cells'); return; }
   if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:DOC.w / 2, y:DOC.h / 2, bw:DOC.w, bh:DOC.h, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
   if(e.target.closest('#frameEditBtn')){ toggleEdit('frame'); return; }
+  if(e.target.closest('#cutBrushBtn')){ const L = selLayer(); if(L && L.btool === 'pick') L.btool = 'erase'; toggleEdit('cut'); return; }
+  if(e.target.closest('#cutPickBtn')){ const L = selLayer(); if(L && L.type === 'image' && EDIT_MODES.cut.ok(L)){ L.btool = 'pick'; if(edit && edit.kind === 'cut') syncDoc(); else setEdit('cut', L); paintPreview(false); } else if(L) toast('切り抜きフレームを使っている画像では、色を拾うモードは使えません。「四隅から自動で拾う」か、色の欄で指定してください', true); return; }
+  if(e.target.closest('#cutAutoBtn')){
+    const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(!A) return;
+    const c = cutAutoColor(cropSrc(L, A).img); if(!c){ toast('四隅が透明なので、色を拾えませんでした', true); return; }
+    L.key.c = c; L.key.on = true; syncDoc(); docChanged(false); return;
+  }
+  if(e.target.closest('#cutUndoStroke')){ const L = selLayer(); if(L && L.type === 'image' && L.strokes.length){ L.strokes.pop(); syncDoc(); docChanged(false); } return; }
+  if(e.target.closest('#cutClearStrokes')){ const L = selLayer(); if(L && L.type === 'image' && L.strokes.length){ L.strokes = []; syncDoc(); docChanged(false); toast('ブラシの跡を消しました'); } return; }
   const frp = e.target.closest('[data-frpre]');
   if(frp){
     const L = selLayer(); if(!L || L.type !== 'image') return;
@@ -317,7 +326,7 @@ async function openProjectFile(f){
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
-    if(!drag && editLayer()){ tv.style.cursor = 'move'; return; }
+    if(!drag && editLayer()){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
     if(drag.mode === 'edit'){ editPointerMove(x, y); return; }
@@ -356,7 +365,8 @@ async function openProjectFile(f){
     }
     syncDocSoon(); livePaint();
   });
-  const end = () => { if(!drag) return; drag = null; snapLines = {x:null, y:null}; docChanged(false); };
+  const end = () => { if(!drag) return; const d = drag; drag = null; snapLines = {x:null, y:null}; if(d.mode === 'edit' && edit && EDIT_MODES[edit.kind].up) EDIT_MODES[edit.kind].up(d.L, d); docChanged(false); };
+  tv.addEventListener('pointerleave', () => { if(cutCursor && !drag){ cutCursor = null; livePaint(); } });
   tv.addEventListener('pointerup', end); tv.addEventListener('pointercancel', end);
   let wheelGrp = null;
   tv.addEventListener('wheel', e => {

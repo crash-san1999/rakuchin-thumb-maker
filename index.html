@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=70545c2f">
+<link rel="stylesheet" href="css/app.css?v=1cfa7f06">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -46,7 +46,7 @@
       <span class="head-label">倍率</span>
       <div class="seg" data-seg="scale" data-num="1"><button data-v="1">1x</button><button data-v="2">2x</button><button data-v="3">3x</button><button data-v="4">4x</button></div>
     </div>
-    <button class="icon-btn only-thumb" id="fileBtn" title="ファイル（プロジェクトの保存・開く・書き出し設定）"><i data-ic="folder"></i></button>
+    <button class="btn ghost only-thumb" id="fileBtn" title="プロジェクト（作りかけの保存・開く）と書き出し設定"><i data-ic="folder"></i><span class="hide-sm">プロジェクト</span></button>
     <button class="btn ghost" id="copyBtn" title="クリップボードにコピー"><i data-ic="copy"></i><span class="hide-sm">コピー</span></button>
     <button class="btn pri" id="dlBtn"><i data-ic="download"></i><span id="dlLabel">サムネを保存</span></button>
   </div>
@@ -246,10 +246,11 @@
       <button class="btn sm" id="openCanvasMenu"><i data-ic="crop"></i>キャンバスのサイズを変える…</button>
       <h3>保存と書き出し</h3>
       <div class="crow">
-        <button class="btn sm" id="saveProj"><i data-ic="save"></i>プロジェクトを保存</button>
-        <button class="btn sm" id="openProj"><i data-ic="folder"></i>開く</button>
+        <button class="btn sm" id="saveProj" title="作りかけを、レイヤー・画像ごとファイル（.json）に保存します"><i data-ic="save"></i>プロジェクトを保存</button>
+        <button class="btn sm" id="openProj" title="保存したプロジェクト（.json）を開いて、続きから編集します"><i data-ic="folder"></i>プロジェクトを開く</button>
         <input type="file" id="projfile" accept=".json,application/json" hidden>
       </div>
+      <p class="note projnote"><b>プロジェクトを保存</b>＝作りかけの状態をファイル（.json）に保存します。あとで「プロジェクトを開く」から続きを編集できます。<br><b>画像として書き出す</b>には、右上の「サムネを保存」（PNG／JPG）を使います。</p>
       <div class="row"><label>サイズ</label><select data-d="exportW" data-num="1">
         <option value="1920">1920×1080（フルHD）</option><option value="1280">1280×720</option><option value="2560">2560×1440</option><option value="3840">3840×2160（4K）</option></select></div>
       <div class="row"><label>形式</label><div class="seg" data-dseg="fmt"><button data-v="jpg">JPG</button><button data-v="png">PNG</button></div></div>
@@ -324,34 +325,35 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=70545c2f"></script>
-<script src="js/bind.js?v=70545c2f"></script>
-<script src="js/presets.js?v=70545c2f"></script>
-<script src="js/data/font-list.js?v=70545c2f"></script>
-<script src="js/fonts.js?v=70545c2f"></script>
-<script src="js/controls.js?v=70545c2f"></script>
-<script src="js/text-render.js?v=70545c2f"></script>
-<script src="js/preview.js?v=70545c2f"></script>
-<script src="js/colors.js?v=70545c2f"></script>
-<script src="js/history.js?v=70545c2f"></script>
-<script src="js/thumb/frames.js?v=70545c2f"></script>
-<script src="js/thumb/collage.js?v=70545c2f"></script>
-<script src="js/thumb/library.js?v=70545c2f"></script>
-<script src="js/thumb/canvas.js?v=70545c2f"></script>
-<script src="js/thumb/group.js?v=70545c2f"></script>
-<script src="js/thumb/fx.js?v=70545c2f"></script>
-<script src="js/thumb/assets.js?v=70545c2f"></script>
-<script src="js/thumb/doc.js?v=70545c2f"></script>
-<script src="js/thumb/render.js?v=70545c2f"></script>
-<script src="js/thumb/overlay.js?v=70545c2f"></script>
-<script src="js/thumb/editmodes.js?v=70545c2f"></script>
-<script src="js/thumb/layers.js?v=70545c2f"></script>
-<script src="js/thumb/export.js?v=70545c2f"></script>
-<script src="js/thumb/inspector.js?v=70545c2f"></script>
-<script src="js/thumb/events.js?v=70545c2f"></script>
-<script src="js/mobile.js?v=70545c2f"></script>
-<script src="js/pwa.js?v=70545c2f"></script>
-<script src="js/popups.js?v=70545c2f"></script>
-<script src="js/main.js?v=70545c2f"></script>
+<script src="js/core.js?v=1cfa7f06"></script>
+<script src="js/bind.js?v=1cfa7f06"></script>
+<script src="js/presets.js?v=1cfa7f06"></script>
+<script src="js/data/font-list.js?v=1cfa7f06"></script>
+<script src="js/fonts.js?v=1cfa7f06"></script>
+<script src="js/controls.js?v=1cfa7f06"></script>
+<script src="js/text-render.js?v=1cfa7f06"></script>
+<script src="js/preview.js?v=1cfa7f06"></script>
+<script src="js/colors.js?v=1cfa7f06"></script>
+<script src="js/history.js?v=1cfa7f06"></script>
+<script src="js/thumb/frames.js?v=1cfa7f06"></script>
+<script src="js/thumb/collage.js?v=1cfa7f06"></script>
+<script src="js/thumb/library.js?v=1cfa7f06"></script>
+<script src="js/thumb/canvas.js?v=1cfa7f06"></script>
+<script src="js/thumb/group.js?v=1cfa7f06"></script>
+<script src="js/thumb/fx.js?v=1cfa7f06"></script>
+<script src="js/thumb/cutout.js?v=1cfa7f06"></script>
+<script src="js/thumb/assets.js?v=1cfa7f06"></script>
+<script src="js/thumb/doc.js?v=1cfa7f06"></script>
+<script src="js/thumb/render.js?v=1cfa7f06"></script>
+<script src="js/thumb/overlay.js?v=1cfa7f06"></script>
+<script src="js/thumb/editmodes.js?v=1cfa7f06"></script>
+<script src="js/thumb/layers.js?v=1cfa7f06"></script>
+<script src="js/thumb/export.js?v=1cfa7f06"></script>
+<script src="js/thumb/inspector.js?v=1cfa7f06"></script>
+<script src="js/thumb/events.js?v=1cfa7f06"></script>
+<script src="js/mobile.js?v=1cfa7f06"></script>
+<script src="js/pwa.js?v=1cfa7f06"></script>
+<script src="js/popups.js?v=1cfa7f06"></script>
+<script src="js/main.js?v=1cfa7f06"></script>
 </body>
 </html>

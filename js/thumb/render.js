@@ -2,7 +2,7 @@
 /* ---------- 描画 ---------- */
 const prevCache = new Map(), dims = new Map();
 // 消えたレイヤーの描画キャッシュ・大きさの記録を捨てる（取り消し・削除のあと）
-function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); if(globalThis.pruneMasks) pruneMasks(ids); for(const m of [prevCache, dims, cropCache]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
+function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); if(globalThis.pruneMasks) pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
 let tvCss = 800, snapLines = {x:null, y:null}, drag = null;
 function fontKey(st){
   const t = st.text.replace(/[{}\n]/g, '').slice(0, 24) || 'あ';
@@ -32,7 +32,7 @@ function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
   const need = L.sc * f, o = L.outline, ow = o.on ? o.w : 0;
-  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, L.flip, L.flipV, L.bright, L.sat].join('|');
+  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, cutSig(L)].join('|');
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
     const iw = A.img.naturalWidth, ih = A.img.naturalHeight, r = ow * f, pad = Math.ceil(r) + 2;

@@ -7,7 +7,7 @@ async def run(p):
     assert await pg.evaluate("document.querySelector('#addMenu').classList.contains('show')"), '追加メニューが開かない'
     await pg.click('#addImg'); await pg.set_input_files('#imgfile', IMG['chara.jpg']); await settle(pg, 1500)
     assert await pg.evaluate("insCtx()") == 'image'
-    assert await pg.evaluate("[...document.querySelectorAll('#tabs [data-page]')].map(b => b.dataset.page)") == ['lay-base', 'lay-frame', 'lay-edge', 'lay-color']
+    assert await pg.evaluate("[...document.querySelectorAll('#tabs [data-page]')].map(b => b.dataset.page)") == ['lay-base', 'lay-frame', 'lay-edge', 'lay-color', 'lay-cut']
     await pg.evaluate("selectLayer(DOC.layers.find(l => l.type === 'text').id)")
     assert await pg.evaluate("[insCtx(), curPage]") == ['text', 'txt-text']
     for pgn in ['txt-style', 'txt-font', 'txt-deco', 'lay-base']:

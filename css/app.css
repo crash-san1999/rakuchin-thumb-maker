@@ -559,3 +559,4 @@ body.is-mobile #libBtn{display:none}
 .updbar{position:fixed;left:50%;bottom:20px;transform:translate(-50%,24px);z-index:80;display:none;align-items:center;gap:10px;background:#fff;border:2px solid var(--ink);border-radius:999px;box-shadow:var(--pop);padding:8px 10px 8px 18px;font-weight:800;font-size:13px;max-width:calc(100vw - 16px)}
 .updbar.show{display:flex;animation:pop .25s var(--ease);transform:translate(-50%,0)}
 body.is-mobile .updbar{bottom:88px}
+@media (max-width:1480px){ body:not(.is-mobile) #fileBtn .hide-sm{display:none} }

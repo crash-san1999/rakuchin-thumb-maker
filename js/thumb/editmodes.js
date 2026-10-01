@@ -5,6 +5,8 @@
   モードごとの違いだけを EDIT_MODES に書き、入り方・終わり方・入力の振り分けはここで共通に扱う。
 */
 let edit = null; // {kind, id}
+let cutCursor = null;   // ブラシの丸を出す位置（ドキュメント座標）
+const r4 = v => Math.round(v * 10000) / 10000;
 const EDIT_MODES = {
   // 画像の切り抜きフレーム：画像はそのままで、切り抜く範囲を動かす・大きさを変える
   frame: {
@@ -44,6 +46,51 @@ const EDIT_MODES = {
       ctx.fillStyle = '#ffb800'; ctx.strokeStyle = '#1f1b2d'; ctx.lineWidth = 2 * dpr * k;
       for(const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){ ctx.beginPath(); ctx.arc(sx * hw, sy * hh, 7 * dpr * k, 0, 2 * PI); ctx.fill(); ctx.stroke(); }
       ctx.restore();
+    },
+  },
+  // 背景透過のブラシ：なぞって消す・戻す／画像から背景色を拾う
+  cut: {
+    btn:'cutBrushBtn', label:'キャンバスでブラシを使う',
+    ok: L => L.type === 'image' && L.frame && L.frame.shape === 'none' && !!ASSETS[L.asset],
+    hint: () => isMobile ? 'なぞって消す・戻す。外をタップで終了' : 'ドラッグで消す・戻す、ホイールで太さ。Esc か外をクリックで終了',
+    banner: L => (L.btool === 'pick' ? '色を拾う：背景にしたい色の場所をクリック' : L.btool === 'restore' ? 'ブラシで戻す：なぞったところの元の絵が戻ります' : 'ブラシで消す：なぞったところが透明になります') + (isMobile ? '／外をタップで終了' : '／ホイールで太さ／Esc で終了'),
+    down(L, x, y){
+      const A = ASSETS[L.asset], S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
+      const su = L.flip ? -u : u, sv = L.flipV ? -v : v, m = L.btool === 'pick' ? 0 : L.bsz / 2 / L.sc;
+      if(Math.abs(su) > cw / 2 + m || Math.abs(sv) > ch / 2 + m) return null;   // 画像の外をクリックしたら終わり
+      const iw0 = A.img.naturalWidth, ih0 = A.img.naturalHeight, rc = cropOn(L) ? cropRect(L, iw0, ih0) : {sx:0, sy:0}, px = rc.sx + su + cw / 2, py = rc.sy + sv + ch / 2;
+      if(L.btool === 'pick'){
+        const c = cutPixelColor(S.img, su + cw / 2, sv + ch / 2);
+        if(c){ L.key.c = c; L.key.on = true; } else toast('そこは透明です。ほかの場所をクリックしてください', true);
+        return {sub:'pick', ok:!!c};
+      }
+      const st = {id:uid(), m:L.btool === 'restore' ? 'r' : 'e', r:r4(L.bsz / 2 / L.sc / iw0), p:[[r4(px / iw0), r4(py / ih0)]]};
+      L.strokes.push(st);
+      return {sub:'brush', st, iw0, ih0, last:[px, py], rp:L.bsz / 2 / L.sc};
+    },
+    move(L, x, y, d){
+      cutCursor = [x, y];
+      if(d.sub !== 'brush') return;
+      const A = ASSETS[L.asset], S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
+      const rc = cropOn(L) ? cropRect(L, d.iw0, d.ih0) : {sx:0, sy:0}, px = rc.sx + (L.flip ? -u : u) + cw / 2, py = rc.sy + (L.flipV ? -v : v) + ch / 2;
+      if(Math.hypot(px - d.last[0], py - d.last[1]) < Math.max(0.5, d.rp * 0.2)) return;
+      d.st.p.push([r4(px / d.iw0), r4(py / d.ih0)]); d.last = [px, py];
+    },
+    up(L, d){ if(d.sub === 'pick' && d.ok){ L.btool = 'erase'; setEdit(null); toast('背景色を拾いました。許容値で調整できます'); } },
+    zoom(L, k){ L.bsz = Math.round(clamp(L.bsz * k, 4, 600)); },
+    pinchStart: L => ({}),
+    pinch(){},
+    overlay(ctx, L, f, dpr){
+      const A = ASSETS[L.asset], S = cropSrc(L, A);
+      // 消した部分も薄く見せる（戻すときの目安）
+      ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f * (L.flip ? -1 : 1), L.sc * f * (L.flipV ? -1 : 1));
+      ctx.globalAlpha = 0.28; ctx.drawImage(S.img, -S.img.naturalWidth / 2, -S.img.naturalHeight / 2); ctx.restore();
+      if(cutCursor){
+        const cx = cutCursor[0] * f, cy = cutCursor[1] * f; ctx.save(); ctx.lineWidth = 1.5 * dpr;
+        if(L.btool === 'pick'){ ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, 9 * dpr, 0, 7); ctx.moveTo(cx - 14 * dpr, cy); ctx.lineTo(cx + 14 * dpr, cy); ctx.moveTo(cx, cy - 14 * dpr); ctx.lineTo(cx, cy + 14 * dpr); ctx.stroke(); }
+        else{ const r = L.bsz / 2 * f; ctx.strokeStyle = '#111'; ctx.beginPath(); ctx.arc(cx, cy, r + dpr, 0, 7); ctx.stroke(); ctx.strokeStyle = L.btool === 'restore' ? '#5cf08a' : '#fff'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke(); }
+        ctx.restore();
+      }
     },
   },
   // 分割フレームのマス：マスの中の画像を動かす・拡大縮小する
@@ -89,7 +136,7 @@ function editLayer(){
   return L && !L.hidden && EDIT_MODES[edit.kind].ok(L) ? L : null;
 }
 function setEdit(kind, L, x, y){
-  edit = kind && L ? {kind, id:L.id} : null;
+  edit = kind && L ? {kind, id:L.id} : null; if(!edit) cutCursor = null;
   for(const [k, M] of Object.entries(EDIT_MODES)){ const b = document.getElementById(M.btn); if(b) b.lastChild.textContent = edit && edit.kind === k ? '調整を終える' : M.label; }
   if(edit){ const M = EDIT_MODES[kind]; if(M.enter) M.enter(L, x, y); toast(M.hint()); }
   syncDoc(); paintPreview(false);
@@ -106,7 +153,7 @@ function editPointerDown(e, x, y, tv){
   drag = Object.assign({mode:'edit', L, x0:x, y0:y}, d);
   tv.setPointerCapture(e.pointerId); e.preventDefault(); syncDoc(); return true;
 }
-function editPointerMove(x, y){ EDIT_MODES[edit.kind].move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
+function editPointerMove(x, y){ cutCursor = edit.kind === 'cut' ? [x, y] : null; EDIT_MODES[edit.kind].move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
 function editWheel(e, x, y, k){
   const L = editLayer(); if(!L) return false;
   if(EDIT_MODES[edit.kind].zoom(L, k, x, y) === false) return false;
