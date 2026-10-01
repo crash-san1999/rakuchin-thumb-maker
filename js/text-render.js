@@ -1,7 +1,23 @@
 /* 楽ちんサムネメーカー：文字の描画エンジン・装飾 */
+/*
+  役割：文字スタイル（style オブジェクト）を受け取り、装飾込みの透過キャンバスを1枚返す。UI には触らない純粋な描画層。
+  公開：render(scale, style=S)（唯一の入口）／METALS（金属グラデ定義）／BOX_PALETTES（一文字囲みのおまかせ配色）。
+  呼ばれ方：preview.js の update()・exportBlob()（文字素材モード）、thumb/render.js の textCanvas()、thumb/collage.js から。
+  依存：core.js の mk / rng / rgba / hex2rgb / clamp / PI、fonts.js の plainText()（{ } を除いた文字列）。S（グローバル）は直接読まず RS 経由。
+  【RS（描画中スタイル）】render() の間だけ RS に style が入り、下の関数群はすべて RS を読む。画面の S を書き換えない・
+    サムネ側が各レイヤーの style で並行して描ける・引数を引き回さなくてよい、のが狙い。そのため render() の外で
+    個々の関数（layout, glyphs, drawPlate など）を直接呼ぶと RS が null で落ちる。呼ぶのは必ず render() 経由にすること。
+  【座標系】描画は「論理座標（style の size を基準とした px）」で行い、prep() の setTransform で scale 倍・余白 m 分の平行移動・斜体(skew)を掛ける。
+    ピクセル処理（bbox / bevel / grunge / displace など）は setTransform を使わない「実ピクセル」で動くので、
+    長さの引数に scale を掛ける必要がある（関数ごとに scale を受け取っているのはこのため）。
+  【全体の流れ】renderStyle() 内のコメント 1)〜8) の順（背面→フチ→塗り→合成→光彩・影→反射・グリッチ→回転→トリミング）。順序を変えると見た目が変わる。
+*/
+// mctx：文字幅の計測専用の小さな canvas。描画用 ctx とは別にして、font / letterSpacing を計測のたびに設定し直して使う
 const mctx = mk(4, 4).getContext('2d');
-const darken = (h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
-const fontStr = () => `${RS.weight} ${RS.size}px ${RS.fontLatin ? '"' + RS.fontLatin + '", ' : ''}"${RS.font}", "Noto Sans JP", sans-serif`;
+// 押し出しの奥行き用に色を暗くする（t=0 で元の色、1 で黒）
+const darken =(h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
+// フォールバックの並び：英数字フォント → 日本語フォント → Noto Sans JP → sans-serif。未読込のフォントで寸法が変わるのを避けるため、描画前に ensureFont() で待つこと
+const fontStr = () =>`${RS.weight} ${RS.size}px ${RS.fontLatin ? '"' + RS.fontLatin + '", ' : ''}"${RS.font}", "Noto Sans JP", sans-serif`;
 /* 金属の色（上→下）。0.5付近の暗い帯が「映り込みの地平線」 */
 const METALS = {
   gold:     [[0,'#fffbe0'],[.2,'#ffe07a'],[.44,'#c99212'],[.5,'#7a4d00'],[.56,'#d9a520'],[.8,'#fff1a6'],[1,'#b07a0c']],
@@ -14,6 +30,8 @@ const METALS = {
   holo:     [[0,'#ffc2ec'],[.2,'#ffe89a'],[.4,'#b5ffc9'],[.6,'#9fe3ff'],[.8,'#c9b0ff'],[1,'#ffc2ec']],
 };
 
+// 文字列を行ごとの {t:文字列, a:強調か} の配列に分解する。{ } で囲んだ部分が強調（accent 色）。
+// 閉じ忘れの { は行末まで強調、対応のない } は普通の文字として残す（acc の状態で判定）。強調は行をまたがない（行ごとに acc を初期化）
 function parse(text){
   return text.split('\n').map(line => {
     const segs = []; let acc = false, buf = '';
@@ -32,6 +50,8 @@ const V_ROT = /[ー−―—–…‥〜～（）〔〕［］｛｝〈〉《》�
 const V_PUNC = /[、。，．]/;
 const V_SMALL = /[ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュョヮヵヶ]/;
 /* 句読点を「文字の右上」に置くための補正量（フォントごとの実際のインクの位置から計算） */
+// 前提：mctx.font が設定済み（layout() が先に設定する）。w は measureText の幅。戻り値 [dx, dy] は論理座標。
+// 0.38 は drawGlyphs の mid（ベースラインからマス中央までの高さ）と同じ比率。0.24 は右上へ寄せる量。インク情報が取れない（空白等）場合は固定の寄せ量にフォールバック
 function inkShift(ch, w){
   const m = mctx.measureText(ch), sz = RS.size;
   if(!(m.actualBoundingBoxRight || m.actualBoundingBoxLeft)) return [sz * 0.4, -sz * 0.4];
@@ -40,31 +60,39 @@ function inkShift(ch, w){
   return [sz * 0.24 - dx, -sz * 0.24 - dy];
 }
 /* 文字の「見えている部分」の中心をマスの中心に合わせるための補正量（フォント内の余白に左右されない） */
+// 縦書きの1マスごとの見た目の位置ずれ（フォントごとに字面の位置が違う）を吸収する。戻り値 [gx, gy] は drawGlyphs でそのまま足される
 function inkCenter(t, w){
   const m = mctx.measureText(t);
   if(!(m.actualBoundingBoxRight || m.actualBoundingBoxLeft)) return [0, 0];
   return [-((m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - w / 2), -(RS.size * 0.38 - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2)];
 }
 /* 縦書きの「マス」に分ける（縦中横・横倒し・回転・補正をここで決める） */
+// 戻り値の各マス：t=文字 a=強調か w=字幅 adv=縦方向の送り量 ox,oy=描画位置の補正 gx,gy=字面中央合わせの補正 k=縮小率 r90=90度回すか
+// 英数字・記号の連続(\x21-\x7e)は1トークンにまとめ、vlat='side' なら横倒しで1マス、'up' なら1文字ずつ立てる（記号は V_ROT で回転）
 function vCells(segs){
   const out = [], sz = RS.size, meas = t => mctx.measureText(t).width;
   const push = (t, a, o) => { const c = Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o); [c.gx, c.gy] = (o && o.noCenter) ? [0, 0] : inkCenter(t, c.w); out.push(c); };
   for(const s of segs){
     for(const tok of (s.t.match(/[\x21-\x7e]+|[０-９]+|[！？]+|[\s\S]/gu) || [])){
       const tcy = RS.vtcy && /^([0-9!?]{2,4}|[０-９]{2,4}|[！？]{2,4})$/u.test(tok);   // 全角の「２０」「！！」も縦中横にする
+      // 縦中横は半角に正規化して1マスに収める。幅がマスの92%を超える分だけ縮める（隣のマスにはみ出さないための余白8%）
       if(tcy){ const t = tok.normalize('NFKC'), w = meas(t); push(t, s.a, {w, k:Math.min(1, sz * 0.92 / w)}); }
       else if(/^[０-９！？]+$/u.test(tok)) for(const ch of tok) push(ch, s.a);
       else if(/^[\x21-\x7e]+$/.test(tok)){
         if(RS.vlat === 'side'){ const w = meas(tok); push(tok, s.a, {w, r90:true, adv:w}); }
+        // 立てる英数字は字幅に応じて送り量を詰める（i や l を1マス分あけない）。送り量は size の 0.62〜1 倍の範囲に収める
         else for(const ch of tok){ const w = meas(ch), r = V_ROT.test(ch); push(ch, s.a, {w, r90:r, adv:r ? sz : clamp(w * 1.15, sz * 0.62, sz)}); }
       }else if(tok === ' ') push(tok, s.a, {adv:sz * 0.5});
       else if(V_PUNC.test(tok)){ const w = meas(tok), [ox, oy] = inkShift(tok, w); push(tok, s.a, {w, ox, oy, noCenter:true}); }
+      // 小さい仮名は縦書きでは右上寄せが正しい字面なので、マス内で右上へ寄せる
       else if(V_SMALL.test(tok)) push(tok, s.a, {ox:sz * 0.12, oy:-sz * 0.12});
       else push(tok, s.a, {r90:V_ROT.test(tok)});
     }
   }
   return out;
 }
+// 縦書きのレイアウト。行（列）は右から左へ並ぶ（cx は列の中心x）。w=列の並びの幅、h=いちばん長い列の長さ。
+// align は縦書きでは上/中央/下の意味（left=上詰め）。戻り値に v:true を付け、描画側が縦横を分岐する目印にする
 function layoutV(){
   const sz = RS.size, step = sz * RS.lh;
   const lines = parse(RS.text).map(segs => {
@@ -79,6 +107,8 @@ function layoutV(){
   });
   return {v:true, lines, w, h, lineH:step, ty0:0, ty1:h};
 }
+// 文字列 → レイアウト L（{lines, w, h, lineH, ty0, ty1}）。論理座標で、原点は左上（ベースライン基準の y は baseY で出す）。
+// 最初に mctx の font / letterSpacing を設定する。後続の glyphs / inkShift / charCells も mctx を使うので、フォント変更後はここを通ってから計測すること。
 function layout(){
   mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
   if(RS.vertical) return layoutV();
@@ -88,15 +118,20 @@ function layout(){
   });
   const w = Math.max(1, ...lines.map(l => l.w));
   const lineH = RS.size * RS.lh;
+  // 高さ：最終行はベースライン下のはみ出し（ディセンダ）分として size の 1.25 倍分を確保。ty0/ty1 は背景シェイプ用に「字の見える上端・下端」
   const h = lineH * (lines.length - 1) + RS.size * 1.25;
   const L = {lines, w, h, lineH};
   L.ty0 = lineTop(L, 0); L.ty1 = baseY(L, lines.length - 1) + RS.size * 0.14;
   return L;
 }
+// i 行目のベースラインy（1行目は上端から size×0.98 下）と、字の上端y（ベースラインの 0.9 size 上。1行目で上端から約 0.08 size の余白）。
+// 塗りのグラデ・テカリ・マーカーなど「行の高さ」を基準にする処理はすべてこの2つを共有しているので、数値を変えるときは同時に見た目を確認すること
 const baseY = (L, i) => RS.size * 0.98 + i * L.lineH;
 const lineTop = (L, i) => baseY(L, i) - RS.size * 0.9;
 
 /* 描画する文字の並び（ゆらぎONなら1文字ずつ。縦書きは常に1マスずつ） */
+// 戻り値 items は drawGlyphs / charCells / 塗り・フチ・押し出し・板ずれすべてで共有される（全パスで同じ位置に描くため、1回だけ作って使い回す）。
+// ゆらぎの乱数は rng(seed) の固定シードなので、再描画しても（プレビューと書き出しでも）同じ並びになる。items の生成順・乱数の消費順を変えるとゆらぎの出方が変わる。
 function glyphs(L){
   const items = [], R = rng(RS.jitter.seed), J = RS.jitter.on;
   mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
@@ -127,6 +162,9 @@ function glyphs(L){
   });
   return items;
 }
+// items を1つずつ ctx に描く共通ルーチン。実際の描画（fillText / strokeText 等）は op(it, x, y) として呼び出し側が渡す
+// （塗り・フチ・押し出し・板ずれで同じ配置を共有するため）。ゆらぎ（rot あり）や縦書きは「文字の中心」を原点に回転・拡大してから描く。
+// mid は文字の見た目の縦中心（ベースラインからの高さ）で、回転の中心をここに置くと文字が自然に傾く。斜体(skew)は縦書きのみここで1文字ずつ掛ける（横書きは prep の変換で全体に掛かる）
 function drawGlyphs(ctx, items, op){
   const mid = RS.size * 0.38;
   for(const it of items){
@@ -145,6 +183,8 @@ function drawGlyphs(ctx, items, op){
 }
 
 /* 塗り */
+// 角度つきグラデーション。line を省略すると全体（L.w × L.h）、指定すると その行（縦書きは列）の矩形を基準にする。
+// 半径 r は「その角度で矩形の端から端まで届く長さ」（|cos|×幅 + |sin|×高さ の半分）なので、どの角度でも両端の色がちょうど端に来る
 function angGrad(ctx, L, stops, line, ang){
   const a = (ang ?? RS.gradAngle) * PI / 180;
   let bx = 0, bw = L.w, by = line === undefined ? 0 : lineTop(L, line), bh = line === undefined ? L.h : RS.size * 1.05;
@@ -154,11 +194,14 @@ function angGrad(ctx, L, stops, line, ang){
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
+// 行 i の上→下の縦グラデ（金属・上下分割用）。縦書きは列の長さ方向に張る
 function vGrad(ctx, L, i, stops){
   const ln = L.lines[i], top = L.v ? ln.y0 : lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + (L.v ? Math.max(1, ln.len) : RS.size * 1.02));
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
+// 塗り方（単色・グラデ・2色分割・金属）に応じた fillStyle を返す関数 it => style を作る。it.a（強調）なら強調色側を使う。
+// グラデの座標は L（論理座標）で作り、使う時点の変換で解釈されるので、prep 済みの ctx（fx と同じ変換）で使うこと
 function fillStyles(ctx, L){
   const n = L.lines.length, idx = [...Array(n).keys()];
   const two = (c1, c2, mid) => mid ? [[0,c1],[.5,mid],[1,c2]] : [[0,c1],[1,c2]];
@@ -173,6 +216,7 @@ function fillStyles(ctx, L){
       const gm = angGrad(ctx, L, ms), ga = angGrad(ctx, L, as); main = () => gm; acc = () => ga;
     }
   }else if(RS.fillType === 'split'){
+    // 2色分割：色を切り替える境目に 0.002 だけ幅を持たせた、ほぼ段差のグラデにしている
     const p = RS.splitPos, sp = (c1, c2) => [[0,c1],[p,c1],[Math.min(1, p + 0.002),c2],[1,c2]];
     if(RS.splitDir === 'h'){
       const gm = idx.map(i => vGrad(ctx, L, i, sp(RS.fill1, RS.fill2))), ga = idx.map(i => vGrad(ctx, L, i, sp(RS.accent1, RS.accent2)));
@@ -183,6 +227,7 @@ function fillStyles(ctx, L){
     }
   }else{
     const st = METALS[RS.metal] || METALS.gold, as = two(RS.accent1, RS.accent2);
+    // 金属は行ごとの縦グラデ（中央付近の暗い帯が映り込みの地平線になるので、行ごとに作る）。ホログラムだけ斜め20度。未知の metal 名は gold にフォールバック
     const gm = idx.map(i => RS.metal === 'holo' ? angGrad(ctx, L, st, i, 20) : vGrad(ctx, L, i, st));
     const ga = idx.map(i => vGrad(ctx, L, i, as));
     main = it => gm[it.line]; acc = it => ga[it.line];
@@ -191,6 +236,9 @@ function fillStyles(ctx, L){
 }
 
 /* ピクセル処理 */
+// ここから下の bbox / trim / boxBlur / bevel / drawPattern などは setTransform を使わない「実ピクセル」で動く（座標系は冒頭参照）。
+// bbox：alpha が 2 を超える画素の外接矩形（l,t,r,b は端のピクセル含む）。何も無ければ null。getImageData で全画素を読むので重い。
+// 呼び出し側は null を必ず考慮する（空文字・全透明のとき）。willReadFrequently は読み出し中心のキャンバスだと示してソフトウェア描画に寄せるヒント
 function bbox(c){
   const w = c.width, h = c.height, d = c.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, w, h).data;
   let t = h, l = w, r = -1, b = -1;
@@ -202,12 +250,15 @@ function bbox(c){
   }
   return r < 0 ? null : {l, t, r, b};
 }
+// 透明な余白を切り落とし、四方に pad px だけ余白を付けて返す（最終出力用）。全透明なら 1x1 を返す
 function trim(c, pad){
   const bb = bbox(c); if(!bb) return mk(1, 1);
   const cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, o = mk(cw + pad * 2, ch + pad * 2);
   o.getContext('2d').drawImage(c, bb.l, bb.t, cw, ch, pad, pad, cw, ch);
   return o;
 }
+// 箱型ブラー（横→縦の2パス、端は最寄りの値で延長）。移動平均で走査するので半径 r によらず O(w×h)。bevel / drawBulbs が高さマップを作るのに使う。
+// 戻り値は src と同じ大きさの Float32Array（0〜1 の濃度）。2回かけて近似ガウスにしている（呼び出し側）
 function boxBlur(src, w, h, r){
   const tmp = new Float32Array(w * h), out = new Float32Array(w * h), div = 2 * r + 1;
   for(let y = 0; y < h; y++){
@@ -223,6 +274,9 @@ function boxBlur(src, w, h, r){
   return out;
 }
 /* ベベル：アルファから高さマップを作り、光の向きで陰影をつける（浮き出し／彫り込み） */
+// c を直接書き換える（戻り値なし）。sizePx は実ピクセル（scale 掛け済み）、b は RS.bevel。
+// 速度のため bbox の周囲 2px だけを切り出して処理する。傾き = 高さマップの勾配 × 光ベクトル。浮き出し/彫り込みは k の符号反転で表す。
+// 傾き s>0 は白方向に、s<0 は黒方向に混ぜる（hl / sh が強さ）。pow(s,0.8) はハイライトの立ち上がりをやや強める調整値
 function bevel(c, sizePx, b){
   const bb = bbox(c); if(!bb) return;
   const W = c.width, H = c.height, r = Math.max(1, Math.round(sizePx / 2));
@@ -245,6 +299,9 @@ function bevel(c, sizePx, b){
   ctx.putImageData(img, l, t);
 }
 /* 模様（文字の中だけ） */
+// c は塗り F。source-atop で「すでに描かれている画素の上にだけ」重ねるので、文字の外に模様が漏れない。
+// setTransform を単位行列に戻しているのは、呼び出し時の変換（prep の scale・平行移動）が模様に掛からないようにするため（タイルは実ピクセル基準）。
+// glitter / noise は固定シード（11 / 7）のタイルを作る＝再描画しても模様が変わらない。halftone / cutlines はここではなく別関数（renderStyle で振り分け）
 function drawPattern(c, scale){
   const p = RS.pattern, sz = Math.max(2, Math.round(p.size * scale));
   let tile, tr = new DOMMatrix().rotateSelf(p.angle);
@@ -273,6 +330,8 @@ function drawPattern(c, scale){
   cx.fillStyle = pat; cx.fillRect(0, 0, c.width, c.height); cx.restore();
 }
 /* テカリ（行ごとの上半分ハイライト） */
+// fx（prep 済み＝論理座標）に直接描く。source-atop で文字の画素の上にだけ白を重ねる。bot の曲線（quadraticCurveTo）で下端をカーブさせてアニメ風の光沢にする。
+// 横書きの帯の範囲（x0〜x1）は L.w より size 分ずつ広く取る（文字が L.w からはみ出しても帯が途切れないように）
 function drawGloss(ctx, L){
   const g = RS.gloss;
   ctx.save(); ctx.globalCompositeOperation = 'source-atop';
@@ -296,6 +355,8 @@ function drawGloss(ctx, L){
   ctx.restore();
 }
 /* マーカー（文字の後ろの帯） */
+// 背面レイヤー A に描く。roundRect は古いブラウザに無いので、無ければ rect にフォールバックする。
+// 帯の位置 pos は行の高さ基準（0=上端寄り、1=下端寄り）、over は左右（縦書きは上下）のはみ出し量
 function drawMarker(ctx, L){
   const m = RS.marker;
   ctx.save(); ctx.fillStyle = rgba(m.c, m.a);
@@ -310,6 +371,8 @@ function drawMarker(ctx, L){
   ctx.restore();
 }
 /* かすれ */
+// destination-out で、すでに描かれた画素を丸い斑点と細い線で削る（c を直接書き換え）。固定シード g.seed で毎回同じ削れ方。
+// 個数は面積と粒の大きさから算出し、40000 で頭打ち（巨大キャンバスで重くならないように）。scale を掛けて実ピクセルの大きさにしている
 function applyGrunge(c, scale){
   const g = RS.grunge, bb = bbox(c); if(!bb) return;
   const R = rng(g.seed), sz = g.size * scale, bw = bb.r - bb.l, bh = bb.b - bb.t;
@@ -329,6 +392,9 @@ function applyGrunge(c, scale){
   x.restore();
 }
 /* ワープ（列／行ごとにずらして変形） */
+// src を変形した新しいキャンバスを返す（type none・強さ0・空なら src をそのまま返すので、呼び出し側は同一かどうかを前提にしない）。
+// 1px 幅の列（trap は1px高の行）ごとに縦位置 dy と縦倍率 s を変えて貼り直す方式。fn(u) は文字の横位置 u(0〜1) → [縦ずれ, 縦倍率]。
+// 変形で縦にはみ出す量を先に走査（minY/maxY）して出力の高さと基準位置 off を決める。この走査は 2px 刻み（速度優先）、貼り付けは1px刻み
 function warp(src){
   const w = RS.warp; if(w.type === 'none' || !w.amt) return src;
   const bb = bbox(src); if(!bb) return src;
@@ -357,6 +423,9 @@ function warp(src){
   for(let px = 0; px < W; px++){ const [dy, s] = fn(U(px + 0.5)); x.drawImage(src, px, 0, 1, H, px, off + cy - cy * s + dy, 1, H * s); }
   return o;
 }
+// 影・光彩の「影の部分だけ」を取り出したキャンバスを返す（本体は描かれない）。canvas の shadow は本体と一緒にしか描けないので、
+// 本体を画面外（左へ OFF だけずらした位置）に描き、shadowOffsetX に同じ OFF を足して影だけをキャンバス内に落とすトリックを使っている。
+// ox,oy,blur は論理 px（scale を掛けて実ピクセルにする）。呼び出し時の変換には依存しない（setTransform 前提なし）
 function effectOnly(src, ox, oy, blur, color, scale){
   const c = mk(src.width, src.height), x = c.getContext('2d'), OFF = src.width + 200;
   x.shadowColor = color; x.shadowBlur = blur * scale; x.shadowOffsetX = ox * scale + OFF; x.shadowOffsetY = oy * scale;
@@ -364,6 +433,8 @@ function effectOnly(src, ox, oy, blur, color, scale){
   return c;
 }
 /* グリッチ */
+// 最終段（反射の後）で B 全体に掛ける。シアン・赤の色ずれ（左右に d だけずらして lighter 合成）→ 本体 → 横帯のずらし、の順。
+// 帯は out を毎回コピーしてから切り出す（ずらした結果を次の帯が拾って二重にならないように）。帯の位置・幅・量は固定シード
 function glitch(B, scale){
   const g = RS.glitch, W = B.width, H = B.height, d = g.rgb * scale;
   const out = mk(W, H), o = out.getContext('2d');
@@ -385,10 +456,14 @@ function glitch(B, scale){
   return out;
 }
 
+// 合成の小道具。どちらも dst の変換を一時的に単位行列にして、src を実ピクセルで重ねる（A/K/F はすべて同寸法のキャンバスなので位置は一致する）。
+// blit=上に重ねる / cut=src の形で dst を抜く（destination-out）
 const blit = (dst, src) => { const c = dst.getContext('2d'); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0); c.restore(); };
 const cut = (dst, src) => { const c = dst.getContext('2d'); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.drawImage(src, 0, 0); c.restore(); };
 
 /* 1文字ずつの位置（一文字囲み・傍点用） */
+// ゆらぎ・縦書きは glyphs() がすでに1文字単位なのでそのまま使う。通常の横書きは行の塊（セグメント）を文字ごとに分け、
+// measureText で x を進めて位置を出す（字間 ls を含む幅）。空白は囲み・傍点の対象にしない
 function charCells(items){
   if(RS.jitter.on || RS.vertical) return items.filter(it => it.t.trim());
   const out = []; mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
@@ -398,6 +473,8 @@ function charCells(items){
   });
   return out;
 }
+// 1文字ぶんの局所座標（原点＝その文字のマス中心、回転・拡大はゆらぎ分）に切り替えて fn を実行する。囲み・傍点がゆらぎや縦書きの文字に追従するための共通処理。
+// 横書きの x に (cw - ls)/2 を使うのは、cw に字間 ls が含まれるため字面の中心に合わせるときに差し引く
 function withCell(ctx, c, fn){
   if(c.vt){ ctx.save(); ctx.translate(c.bx, c.by + (c.dy || 0)); if(c.rot) ctx.rotate(c.rot); if(c.sc) ctx.scale(c.sc, c.sc); fn(); ctx.restore(); return; }
   ctx.save(); ctx.translate(c.x + (c.cw - RS.ls) / 2, c.y - RS.size * 0.38 + (c.dy || 0));
@@ -405,8 +482,10 @@ function withCell(ctx, c, fn){
   fn(); ctx.restore();
 }
 /* 一文字囲み */
-const RANSOM = ['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b'];
+// RANSOM は色の取得に失敗した時の既定（脅迫状風の7色）。boxPal が使う
+const RANSOM =['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b'];
 /* ランダム配色（脅迫状風）で使う色の組み合わせ（おまかせ）。[名前の key, 表示名, 色, 使う色数] */
+// 色は常に8個で、使う数（4番目の値）は box.pn に入る。controls.js のおまかせチップが data-boxpal に key を載せて参照する
 const BOX_PALETTES = [
   ['classic', '脅迫状', ['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b', '#ffd500'], 7],
   ['pastel', 'パステル', ['#ffb3c7', '#ffd9a0', '#fff3a3', '#b9f0c4', '#a9dcff', '#d3bfff', '#ffc9f0', '#ffffff'], 7],
@@ -422,6 +501,7 @@ function boxPal(b){
   const n = clamp(Math.round(b.pn) || 7, 2, 8), a = (Array.isArray(b.pal) ? b.pal : []).slice(0, n).filter(c => /^#[0-9a-f]{6}$/i.test(c));
   return a.length ? a : RANSOM;
 }
+// マス中心を原点に、半サイズ h の図形の経路を作る（塗り・線は呼び出し側）。円・ひし形は四角と見た目の大きさが揃うよう 1.08 / 1.4 倍にしている
 function boxPath(ctx, shape, h){
   ctx.beginPath();
   if(shape === 'circle') ctx.arc(0, 0, h * 1.08, 0, 7);
@@ -429,6 +509,8 @@ function boxPath(ctx, shape, h){
   else if(shape === 'round') ctx.roundRect(-h, -h, 2 * h, 2 * h, h * 0.3);
   else ctx.rect(-h, -h, 2 * h, 2 * h);
 }
+// 色の決め方：rand ON＝パレットから（seq なら順番、そうでなければ文字の番号 i と seed から決まる乱数で固定）／OFF＝単色（alt なら交互）。
+// 乱数は呼ぶたびに作り直す rng(i*97+5+seed*13) で、文字の並びが変わっても他の文字の色が連動して変わらない。枠線は塗りより先に描き、太さ×2 で内側が塗りに隠れて外側だけ残る
 function drawBoxes(ctx, cells){
   const b = RS.box, h = RS.size * (0.5 + b.pad), pal = boxPal(b);
   cells.forEach((c, i) => withCell(ctx, c, () => {
@@ -438,6 +520,7 @@ function drawBoxes(ctx, cells){
   }));
 }
 /* 傍点 */
+// withCell の局所座標（文字のマス中心が原点）で、点の経路だけを作る（塗る／線を引くのは呼び出し側。経路は save/restore の外へ残る）
 function dotPath(ctx){
   const d = RS.dots, r = RS.size * d.size * 0.5;
   ctx.save(); ctx.beginPath();
@@ -446,10 +529,13 @@ function dotPath(ctx){
   if(d.shape === 'ring'){ ctx.arc(0, 0, r, 0, 7); ctx.moveTo(r * 0.5, 0); ctx.arc(0, 0, r * 0.5, 0, 7, true); }
   else if(d.shape === 'tri'){ ctx.moveTo(-r, -r * 0.8); ctx.lineTo(r, -r * 0.8); ctx.lineTo(0, r * 0.9); ctx.closePath(); }
   else ctx.arc(0, 0, r, 0, 7);
-  ctx.restore();   // 経路は作った時点の座標で残る
+  ctx.restore();   // 経路は作った時点の座標で残る（上の translate/rotate は経路に焼き込み済みで、restore しても動かない。変換だけ元に戻る）
 }
 /* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 none=なし） */
 const TAIL_ANGLE = {left:115, center:90, right:65, tl:245, tr:295, sl:180, sr:0};
+// 戻り値は本体とは別の Path2D。drawPlate が枠線→塗りの順に本体としっぽを別々に描くので、しっぽの付け根の枠線は塗りで隠れる。tail なし／未知の向きなら null。
+// 第1引数 _c は未使用。rx,ry は図形の半径、kind: 'box'=四角の縁 / 'ellipse'=楕円の縁 / 'dots'=雲用の小さな丸の列。
+// 角度は画面座標（下が正）で、TAIL_ANGLE の度数＝中心から見た向き
 function bubbleTail(_c, p, cx, cy, rx, ry, kind){
   const t = p.tail || 'left', deg = TAIL_ANGLE[t]; if(deg === undefined) return null;
   const ctx = new Path2D();
@@ -467,6 +553,9 @@ function bubbleTail(_c, p, cx, cy, rx, ry, kind){
   return ctx;
 }
 /* 背景シェイプ（角丸・楕円・ギザギザ・吹き出し・斜め帯） */
+// 文字全体（L.ty0〜ty1 × 0〜L.w）の外側に pad＋フチの最大幅 outer を足した矩形を基準に描く。背面レイヤー A に最初に描かれる。
+// 楕円系（ellipse / obubble / cloud）は矩形の角まで覆うよう半径を 1.1〜1.3 倍に広げている。その広がりぶんは renderStyle 側の余白 pl（['burst','ellipse',...] の 0.3*(L.w+L.h)）で確保しているので、
+// 形を追加・拡大したら pl の対象リストも見直すこと（足りないとキャンバス端で切れる）。ギザギザは固定シード p.seed
 function drawPlate(ctx, L, outer){
   const p = RS.plate, pad = RS.size * p.pad + outer;
   const x0 = -pad, y0 = L.ty0 - pad, x1 = L.w + pad, y1 = L.ty1 + pad;
@@ -513,6 +602,10 @@ function drawPlate(ctx, L, outer){
   ctx.restore();
 }
 /* 押し出し（ストライプ・奥のフェード対応） */
+// 文字を角度 e.angle の向きに、奥(d=厚み)から手前(d→0)へ step ずつ位置をずらして何枚も重ねて立体に見せる。奥ほど暗く(darken)する。
+// step は 1/scale（実ピクセルで約1px。最小0.25）。1px 刻みなので隙間なく見え、描画回数はおおよそ 厚み×scale 回になるため厚みが大きいほど重い。
+// fade（奥を透明に）は別キャンバス D に距離を灰色の濃淡で描き、最後に E の alpha へ掛けて消す（ピクセル処理なので E/D は実ピクセル）。
+// prep は renderStyle の変換付き ctx 生成関数を受け取る（同じ座標系で描くため）。戻り値 E は A に blit される
 function drawExtrude(prep, W, H, items, outer, scale){
   const e = RS.extrude, ex = e.depth, a = e.angle * PI / 180, step = Math.max(0.25, 1 / scale);
   const E = mk(W, H), x = prep(E), D = e.fade > 0 ? mk(W, H) : null, dx = D ? prep(D) : null;
@@ -535,6 +628,8 @@ function drawExtrude(prep, W, H, items, outer, scale){
   return E;
 }
 /* 板ずれ（ずらした影。中抜きにもできる） */
+// ベタ色の文字（＋フチぶんの太り）を (o.x, o.y) ずらして描いたレイヤーを返す。hollow は「太らせた形」から「元の太さの形」を destination-out で抜いて線だけ残す。
+// 背面側に置かれるので、実際の文字・フチは後から上に重なる
 function drawOffsetLayer(prep, W, H, items, outer){
   const o = RS.offset, O = mk(W, H), x = prep(O);
   x.translate(o.x, o.y); x.fillStyle = x.strokeStyle = o.c;
@@ -544,6 +639,8 @@ function drawOffsetLayer(prep, W, H, items, outer){
   return O;
 }
 /* インナーシャドウ（文字の内側に落ちる影） */
+// F（塗りのキャンバス）を直接書き換える。「文字の外側（反転）」に影を落とし、それを source-atop で文字の内側にだけ重ねる、という反転トリック。
+// 実ピクセルで処理（setTransform を単位行列にして貼る）
 function innerShadow(F, scale){
   const s = RS.inner, W = F.width, H = F.height, inv = mk(W, H), ix = inv.getContext('2d');
   ix.fillStyle = '#000'; ix.fillRect(0, 0, W, H); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(F, 0, 0);
@@ -551,6 +648,8 @@ function innerShadow(F, scale){
   const fx = F.getContext('2d'); fx.save(); fx.setTransform(1, 0, 0, 1, 0, 0); fx.globalCompositeOperation = 'source-atop'; fx.drawImage(sh, 0, 0); fx.restore();
 }
 /* 鏡面反射（下に反転して映す） */
+// B（光彩・影込みの合成結果）の下に body の下端を上下反転して貼り足し、新しいキャンバスを返す（高さが伸びる）。
+// 反転部分は destination-in のグラデで下へ向かって透明にする。反射元は影なしの body を使う（影・光彩まで反射しないため）。gap は scale 倍して実ピクセルに
 function addReflection(B, body, scale){
   const r = RS.reflect, bb = bbox(body); if(!bb) return B;
   const ch = bb.b - bb.t + 1, len = Math.max(1, Math.round(ch * r.len)), gap = Math.round(r.gap * scale), W = B.width;
@@ -566,6 +665,8 @@ function addReflection(B, body, scale){
 
 /* ---------- 海外リファレンス由来の装飾 ---------- */
 
+// 値ノイズ（256x256 の乱数表を滑らかに補間し、周波数違いを 0.6/0.3/0.1 で重ねたもの）。戻り値は (x,y) → -1〜1 の関数。
+// 乱数表は rng(seed) 由来なので、同じ seed なら毎回同じノイズ（再描画で形が変わらない）。表は 256 周期で繰り返す（& 255）
 function makeNoise(seed){
   const R = rng(seed), N = 256, tab = new Float32Array(N * N);
   for(let i = 0; i < tab.length; i++) tab[i] = R();
@@ -579,6 +680,8 @@ function makeNoise(seed){
   return (x, y) => (n(x, y) * 0.6 + n(x * 2.1 + 5.2, y * 2.1 + 1.3) * 0.3 + n(x * 4.3 + 9.1, y * 4.3 + 7.7) * 0.1) * 2 - 1;
 }
 /* ノイズでピクセルをずらす（ゆがみ・炎） */
+// c を直接書き換える。amp=ずらす最大量(px)、sc=ノイズの細かさ(px。大きいほどなだらか)、stretchY=縦方向にノイズを伸ばす倍率。いずれも実ピクセル（呼び出し側が scale 倍する）。
+// 各出力画素は「ノイズでずらした位置の元画素」を取る逆引き方式（穴が空かない）。bbox ± (amp+2) の範囲だけ処理して速度を確保
 function displace(c, amp, sc, seed, stretchY){
   const bb = bbox(c); if(!bb || amp <= 0) return;
   const W = c.width, H = c.height, pad = Math.ceil(amp) + 2;
@@ -598,6 +701,9 @@ function displace(c, amp, sc, seed, stretchY){
   ctx.putImageData(out, l, t);
 }
 /* 炎：文字の上端から炎の舌を立ちのぼらせる */
+// 戻り値は炎だけを描いた同寸法のキャンバス（本体は含まない。呼び出し側が body より先に B へ重ねる）。
+// 文字の「上側が空いている画素」（alpha>128 の真上が透明）を走査して炎の根元を探す。同じ根元の連続を避けるため、見つけたら size×0.25 だけ飛ばす。
+// 外炎（c2→c3）と内炎＝芯（c1→c2）の2層を 'lighter' 合成で重ね、最後に軽くぼかして炎らしく馴染ませる。乱数は固定シード f.seed
 function makeFire(body, scale){
   const f = RS.fire, W = body.width, H = body.height, bb = bbox(body), out = mk(W, H);
   if(!bb) return out;
@@ -639,6 +745,9 @@ function makeFire(body, scale){
   return out;
 }
 /* ドリップ（とろ〜り／つらら）：塗りの下端から垂らす */
+// F（塗り）と K（フチ）を直接書き換える。下端（alpha>160 の真下が透明）を走査して垂らす位置を決め、下に gapPx 以上の空きがある所だけ採用
+// （他の文字・行に被さらないように）。色は sample ON なら根元の少し上(y-3)の画素色を拾う。外側にフチがあれば、K に同じ形を太らせて描いてフチの続きにする。
+// 実ピクセル処理のため setTransform を単位行列に戻している。outerPx は呼び出し側で scale 掛け済みの最外フチ幅
 function drawDrips(F, K, outerPx, strokeColor, scale){
   const dr = RS.drip, bb = bbox(F); if(!bb) return;
   const W = F.width, R = rng(dr.seed), fctx = F.getContext('2d', {willReadFrequently:true});
@@ -673,6 +782,8 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
   list.forEach(q => { fctx.fillStyle = q.col; path(fctx, q); fctx.fill(); }); fctx.restore();
 }
 /* ハーフトーン（下ほど大きい網点） */
+// F を直接書き換え。bbox の中心を軸に角度 p.angle で回した格子に点を打ち、点の半径は上端 0 → 下端で最大になる（グラデーション状の網）。
+// 半径 0.4px 未満は打たない。source-atop で文字の中にだけ描く。パターン種別 'halftone' のとき drawPattern の代わりに呼ばれる
 function drawHalftone(F, scale){
   const p = RS.pattern, bb = bbox(F); if(!bb) return;
   const sz = Math.max(3, p.size * scale), x = F.getContext('2d');
@@ -690,6 +801,8 @@ function drawHalftone(F, scale){
   x.fill(); x.restore();
 }
 /* 80年代のラインカット（下半分に切れ込み） */
+// fx（論理座標）に destination-out で細い横帯を刻む。下に行くほど帯が太くなる。n（本数）は p.size、太さの強さは p.a から決まる。
+// パターン種別 'cutlines' のとき drawPattern の代わりに呼ばれる。縦書きは1マスごとに刻む
 function drawCutLines(ctx, L){
   const p = RS.pattern, n = Math.max(2, Math.round(p.size / 3));
   ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000';
@@ -715,6 +828,7 @@ function drawCutLines(ctx, L){
   ctx.restore();
 }
 /* エッジ上の点を集める */
+// alpha>128 で、上下左右のどれかが透明な画素＝輪郭の画素を全部返す（実ピクセル座標の [x,y] 配列）。キラキラの置き場所の候補用。画像が大きいと配列も大きくなる
 function edgePoints(c){
   const bb = bbox(c); if(!bb) return [];
   const W = c.width, d = c.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, W, c.height).data, pts = [];
@@ -725,6 +839,9 @@ function edgePoints(c){
   return pts;
 }
 /* 電球（マーキー）：塗りの少し内側の輪郭に等間隔で配置 */
+// F に直接描く（実ピクセル）。高さマップを2回ぼかし、しきい値 T=0.62 を横切る画素＝塗りの輪郭の少し内側 を候補にする（ぼかした濃度の等高線を使うので、元の輪郭のギザつきや細部に左右されにくい）。
+// 候補は固定シード(5)でシャッフルしたのち、グリッド(cell=gap/√2)で近傍だけ距離判定して間引き、gap 以上離れた点だけ採用（O(n) に近い間引き）。
+// F 描画の後ろ・ベベル／インナーシャドウ／テカリより後に呼ぶ必要がある（既に描かれた塗りの形を読むため）
 function drawBulbs(F, scale){
   const b = RS.bulbs, r = Math.max(1.5, b.size * RS.size * scale), gap = Math.max(r * 2.4, b.gap * RS.size * scale), bb = bbox(F); if(!bb) return;
   const W = F.width, H = F.height, pad = Math.ceil(r * 2) + 2;
@@ -756,6 +873,8 @@ function drawBulbs(F, scale){
   ctx.restore();
 }
 /* キラキラ（4方向の星） */
+// B（最終合成）の上に直接描く。位置は 75% が文字の輪郭上、残りが bbox 内のランダム。固定シードなので再描画しても位置は同じ。
+// body から輪郭を取る（B は影・光彩を含み輪郭がぼやけるため）。ワープ・残像後の body と B は同寸法
 function drawSparkles(B, body, scale){
   const s = RS.sparkle; if(s.count <= 0) return;
   const pts = edgePoints(body), bb = bbox(body); if(!pts.length || !bb) return;
@@ -775,6 +894,8 @@ function drawSparkles(B, body, scale){
   x.restore();
 }
 /* 残像（スピード感） */
+// body を角度 t.angle の向きに少しずつずらして count 枚重ね、遠いものほど薄くして、最後に本体を重ねた新キャンバスを返す。
+// t.tint ON なら残像だけ単色にする（本体は元の色のまま最後に重ねる）。余白は renderStyle の xtra（trail.len）で確保済み
 function addTrail(body, scale){
   const t = RS.trail, W = body.width, H = body.height, a = t.angle * PI / 180, Lp = t.len * RS.size * scale;
   let src = body;
@@ -788,10 +909,14 @@ function addTrail(body, scale){
 // 描画中のスタイル。render() の間だけ入り、描画用の関数はすべてこれを見る（画面の S は書き換えない）
 let RS = null;
 // style を scale 倍で描いたキャンバスを返す（style を省略すると、文字パネルで編集中のスタイル）
+// 戻り値は透明余白をトリミング済みの canvas（文字が空なら 1x1）。同期処理で、フォントは読み込み済み前提（呼ぶ前に ensureFont を await）。
+// 前の RS を退避して finally で戻すので、入れ子で呼ばれても（サムネ側が別 style で描く間など）RS が壊れない。例外が出ても必ず戻る
 function render(scale, style = S){
   const prev = RS; RS = style;
   try{ return renderStyle(scale); } finally { RS = prev; }
 }
+// 描画本体。レイヤー（キャンバス）の役割：A=背面と最終合成の土台 / K=フチ / F=塗り。3枚とも同寸法(W×H)なので blit/cut が位置合わせなしで使える。
+// plainText() は S を読む（fonts.js）。サムネ側が style を渡すときも空判定にはパネルの文字が使われる点に注意（実際の描画は RS.text）
 function renderStyle(scale){
   if(!plainText().trim()) return mk(1, 1);
   const L = layout(), items = glyphs(L);
@@ -799,10 +924,13 @@ function renderStyle(scale){
   const dotCells = RS.dots.on ? cells.filter(c => c.a) : [];
   const t = RS.vertical ? 0 : Math.tan(RS.skew * PI / 180);   // 縦書きは列全体ではなく、1文字ずつ傾ける（下の文字が横にずれないように）
   const on = RS.strokes.filter(s => s.on && s.w > 0);
+  // フチは内側から累積した太さで描く（外側のフチほど太い線を先に描き、内側を上から重ねる。ループは逆順）。outer=最外周までの総太さ
   let cum = 0; const layers = on.map(s => ({w: (cum += s.w), c: s.c}));
   const outer = cum;
+  // ここから m までは、装飾ごとの「はみ出し量」を足し合わせてキャンバスの余白を決める。足りないと装飾がキャンバス端で切れ、
+  // 多すぎるとメモリ・時間が増える（最後に trim で切り落とすが、先に大きく確保される）。装飾を追加・拡大したら対応する項をここに足すこと
   const ex = RS.extrude.on ? RS.extrude.depth : 0;
-  const sh = RS.shadow.on ? Math.max(Math.abs(RS.shadow.x), Math.abs(RS.shadow.y)) + RS.shadow.blur * 1.5 : 0;
+  const sh =RS.shadow.on ? Math.max(Math.abs(RS.shadow.x), Math.abs(RS.shadow.y)) + RS.shadow.blur * 1.5 : 0;
   const sgl = layers.length ? (RS.sglow.on ? RS.sglow.blur * 1.7 : 0) + RS.sblur * 1.6 : 0;
   const gl = RS.glow.on ? RS.glow.blur * (RS.glow.dual ? 2.2 : 1.6) : 0;
   const jit = RS.jitter.on ? RS.jitter.y + RS.size * (RS.jitter.scale + Math.sin(RS.jitter.rot * PI / 180)) : 0;
@@ -815,8 +943,12 @@ function renderStyle(scale){
   const xtra = (RS.fire.on ? RS.fire.height * RS.size + RS.size * 0.25 : 0) + (RS.drip.on ? RS.drip.len * RS.size * 1.2 : 0)
     + (RS.trail.on ? RS.trail.len * RS.size : 0) + (RS.distort.on ? RS.distort.amt : 0)
     + (RS.sparkle.on ? RS.sparkle.size * RS.size : 0) + (RS.bulbs.on ? RS.bulbs.size * RS.size * 3 : 0);
-  const m = RS.size * 0.35 + outer + ex + sh + gl + sgl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;
-  const W = Math.ceil((L.w + 2 * m + Math.abs(t) * L.h) * scale), H = Math.ceil((L.h + 2 * m) * scale);
+  const m = RS.size * 0.35 + outer + ex + sh + gl + sgl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;   // 最後の +10 は誤差・アンチエイリアス用の固定余白
+  // 幅は斜体(skew)で横にはみ出す分（|t|×高さ）も足す。W/H は実ピクセル（scale 倍）
+  const W =Math.ceil((L.w + 2 * m + Math.abs(t) * L.h) * scale), H = Math.ceil((L.h + 2 * m) * scale);
+  // 描画用 ctx を作る関数。論理座標 → 実ピクセルの変換（scale 倍・余白 m 分のオフセット・斜体のせん断 -t）をここで一括して掛ける。
+  // せん断 -t は下の行ほど x が左へずれる（t>0）ので、その分 t×L.h を左オフセットに足して切れないようにする（t<0 は右へはみ出すだけで W 側の |t|×L.h が吸収）。
+  // font 等は canvas ごとに設定が必要（描画先を替えるたびに prep を通す）
   const prep = c => {
     const x = c.getContext('2d');
     x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
@@ -832,6 +964,7 @@ function renderStyle(scale){
   if(RS.offset.on) blit(A, drawOffsetLayer(prep, W, H, items, outer));
   if(ex > 0) blit(A, drawExtrude(prep, W, H, items, outer, scale));
   // 2) フチ（傍点にもフチ）
+  // 外側（太い）→内側（細い）の順に同じ文字を線で重ね描きする。K は後でぼかし等で作り直すことがあるので let
   let K = mk(W, H); const kx = prep(K);
   for(let i = layers.length - 1; i >= 0; i--){
     kx.strokeStyle = layers[i].c; kx.lineWidth = layers[i].w * 2;
@@ -839,6 +972,7 @@ function renderStyle(scale){
     dotCells.forEach(c => withCell(kx, c, () => { dotPath(kx); kx.stroke(); }));
   }
   // 3) 文字の塗り → 模様 → ベベル → インナーシャドウ → テカリ
+  // 順序が大事：ドリップ・模様・ベベルなどは「描かれた塗りの形」を読む／上から重ねるので、塗りの直後に、この順で行う
   const F = mk(W, H), fx = prep(F), fs = fillStyles(fx, L);
   if(L.v && RS.fillType !== 'solid'){
     // 縦書き：マスを回転させるとグラデーションも一緒に回ってしまうので、形を描いてから色を重ねる（行・強調ごと）
@@ -847,6 +981,7 @@ function renderStyle(scale){
     for(const g of groups.values()){
       const T = mk(W, H), tx = prep(T);
       drawGlyphs(tx, g, (it, px, py) => { tx.fillStyle = '#000'; tx.fillText(it.t, px, py); });
+      // source-in で、いま描いた形の中だけに色（グラデ）を塗る。fillRect は変換後でも全面に届くよう十分大きく取っている
       tx.globalCompositeOperation = 'source-in'; tx.fillStyle = fs(g[0]); tx.fillRect(-1e5, -1e5, 2e5, 2e5);
       blit(F, T);
     }
@@ -859,16 +994,20 @@ function renderStyle(scale){
     else drawPattern(F, scale);
   }
   if(RS.bevel.on){
+    // target が 'both' ならフチ K にもベベルをかける（幅は size と最外フチ幅 outer の小さい方、最低1）
     bevel(F, RS.bevel.size * scale, RS.bevel);
     if(RS.bevel.target === 'both' && layers.length) bevel(K, Math.max(1, Math.min(RS.bevel.size, outer)) * scale, RS.bevel);
   }
   if(RS.inner.on) innerShadow(F, scale);
   if(RS.gloss.on) drawGloss(fx, L);
   if(RS.bulbs.on) drawBulbs(F, scale);
-  // フチのぼかし・フチの光彩
+  // フチのぼかし・フチの光彩（フチがあるときだけ）。ぼかしは K を作り直す（CSS blur の値は sblur×scale÷2）。光彩は str 回（最大4）重ねて濃くする。
+  // 光彩は A（背面）へ先に重ねるので、フチ・文字がその上に乗る
   if(layers.length && RS.sblur > 0){ const B = mk(W, H), bx = B.getContext('2d'); bx.filter = `blur(${RS.sblur * scale / 2}px)`; bx.drawImage(K, 0, 0); K = B; }
   if(layers.length && RS.sglow.on && RS.sglow.a > 0){ const g = effectOnly(K, 0, 0, RS.sglow.blur, rgba(RS.sglow.c, RS.sglow.a), scale); for(let i = 0; i < Math.min(4, Math.max(1, Math.round(RS.sglow.str))); i++) blit(A, g); }
   // 4) 合成（通常／中抜き／くり抜き）→ かすれ → ワープ
+  // 中抜き(hollow)=フチ K から塗り F の形を抜いて、フチだけ残す／くり抜き(knock)=背面 A ごと塗りの形で抜く（後ろが透ける）／通常=K の上に F
+  // かすれ・ゆがみは合成後の A 全体に掛ける（背面・フチ・塗りが一緒に削れる）。ゆがみの量・細かさは実ピクセルなので scale 倍
   if(RS.fillMode === 'hollow'){ cut(K, F); blit(A, K); }
   else if(RS.fillMode === 'knock'){ blit(A, K); cut(A, F); }
   else { blit(A, K); blit(A, F); }
@@ -877,10 +1016,11 @@ function renderStyle(scale){
   let body = warp(A);
   if(RS.trail.on && RS.trail.count > 0 && RS.trail.len > 0) body = addTrail(body, scale);
   // 5) 光彩・影
+  // B は最終合成用。炎 → 光彩 → 影 → 本体の順に重ねる（本体が最前面）。光彩・影は本体の形から作る（effectOnly）。以降、ワープ・残像後の body とは別に B を育てていく
   let B = mk(body.width, body.height); const bx = B.getContext('2d');
   if(RS.fire.on) bx.drawImage(makeFire(body, scale), 0, 0);
   if(RS.glow.on && RS.glow.blur > 0){
-    if(RS.glow.dual){
+    if(RS.glow.dual){   // 2色ネオン：広い外側の光(c2)の上に、狭い内側の光(c)を str 回重ねる
       bx.drawImage(effectOnly(body, 0, 0, RS.glow.blur * 1.4, rgba(RS.glow.c2, RS.glow.a), scale), 0, 0);
       const g = effectOnly(body, 0, 0, RS.glow.blur * 0.5, rgba(RS.glow.c, RS.glow.a), scale);
       for(let i = 0; i < RS.glow.str; i++) bx.drawImage(g, 0, 0);
@@ -892,16 +1032,16 @@ function renderStyle(scale){
   if(RS.shadow.on) bx.drawImage(effectOnly(body, RS.shadow.x, RS.shadow.y, RS.shadow.blur, rgba(RS.shadow.c, RS.shadow.a), scale), 0, 0);
   bx.drawImage(body, 0, 0);
   if(RS.sparkle.on) drawSparkles(B, body, scale);
-  // 6) 鏡面反射 → グリッチ
+  // 6) 鏡面反射 → グリッチ（反射もグリッチの対象にするため反射が先）
   if(RS.reflect.on) B = addReflection(B, body, scale);
   if(RS.glitch.on) B = glitch(B, scale);
-  // 7) 回転
+  // 7) 回転（最後に画像全体を回す。回転後に収まる外接サイズのキャンバスを作り、中心を合わせて貼る）
   if(RS.rotate){
     const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
     const R = mk(Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a))));
     const rx = R.getContext('2d'); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
     B = R;
   }
-  // 8) 自動トリミング
+  // 8) 自動トリミング（余白 RS.pad は論理 px なので scale 倍。サムネ側の thumb/render.js は pad:2 を渡す）
   return trim(B, Math.round(RS.pad * scale));
 }

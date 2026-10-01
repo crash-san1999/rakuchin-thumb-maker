@@ -1,6 +1,38 @@
 /* 楽ちんサムネメーカー：操作パネル・モード・タブ */
+/*
+  役割：右側の操作パネル（インスペクタ）を「宣言的な行の表」から組み立てる。選んだもの（レイヤーの種類・背景・文字モード）に
+       合わせてタブ（ページ）を切り替え、モード（サムネ／文字）を切り替える。
+  主な公開：SEL_ROWS（選択中レイヤー用の行）/ BG_ROWS（背景・仕上げ用の行）/ drowPg・drow（行→HTML）/ renderInspector /
+           openInspector / setPage / setMode / insCtx / shapeIcon / FX_CHIPS
+  呼び出し元：main.js（起動時に SEL_ROWS・BG_ROWS を #selBox・#bgRows へ流し込む）、doc.js の syncDoc（renderInspector）、
+            layers.js・events.js（openInspector・setMode）。
+  依存：DB（doc.js の makeBinder。行の見た目の部品 DB.row と表示条件の評価）、COLLAGE_*・FRAME_*・FIN_*・FX_*（各機能ファイル）、selLayer・DOC。
+
+  ■ 行オブジェクトのキー（SEL_ROWS / BG_ROWS / CFX_ROWS 共通。1行＝画面の1つの入力欄）
+    入力欄の種類（どれか1つ。値の入れ先キーを持つ）：
+      r:キー   スライダー＋数値欄。min / max / step を一緒に書く
+      seg:キー ボタンで選ぶ（ラジオ風）。opts:[[値, 表示], …]
+      sel:キー プルダウン。opts は seg と同じ形
+      c:キー   色（カラーピッカー＋16進欄）
+      chk:キー チェックボックス（文字は l）
+      seed:キー 乱数の種を振り直すボタン（「別パターンにする」）
+    見出し・説明：
+      sub:文字 小見出し。note:文字 は sub と一緒に書いたときだけ補足の説明文として表示される（r・c などの行に書いても現状は表示されない）
+    ボタン・特殊部品（専用の HTML を drow が作る）：
+      btns:[[id, アイコン, 文字], …]  ボタンの並び（クリック処理は events.js / main.js が id で受ける）
+      layouts / flips / place / shapes / frpre / cells / ctext / week / cfxchips / finchips / fx / addfx … true にすると、その部品を置く
+      tonenote … 現状は目印だけで、drow では参照されない
+    共通の付属情報：
+      l:ラベル（左の項目名）
+      pg:ページ名  このタブ（ページ）に出す。'frame|edge' のように | で複数指定可。省略時は背景の行なら 'main'、レイヤーの行なら 'base'
+      show:条件   表示条件。'キー=値1|値2' または 'キー!=値' を & で AND 結合（bind.js の cond が評価。一致しない行は display:none）
+  キーの書き方（doc.js の dBase が解決）：'bg.zb.on' は DOC から、'@sc' は選択中のレイヤーから、'@cell.zoom' は選択中のマスから。
+  ページ名と画面のタブの対応：INS_PAGES のタブ id の「-」の後ろ（'lay-frame' → 'frame'）が pg と一致する行だけが表示される（setPage）。
+  行の並び順＝画面の上からの順。同じキーの行が複数あるのは、種類（@kind）ごとに値の範囲・ラベルが違うため（show で出し分ける）。
+*/
 /* ---------- パネル ---------- */
-// 分割フレームの「効果」ページ。共通（@fx.）とマスごと（@cell.fx.）で同じ行を作り、切り替えで出し分ける
+// 分割フレームの「効果」ページ。共通（@fx.）とマスごと（@cell.fx.）で同じ行を作り、切り替えで出し分ける。
+// P：キーの前置き（'@fx.' か '@cell.fx.'）、S：その行群を出す条件（show の先頭部分）。条件の後ろに '&' で行ごとの条件を足す
 const CFX_ROWS = (P, S) => [
   {pg:'cfx', cfxchips:true, show:S},
   {pg:'cfx', sub:'色調', show:S},
@@ -26,6 +58,9 @@ const CFX_ROWS = (P, S) => [
   {pg:'cfx', r:P + 'tint.a', l:'濃さ', min:0, max:1, step:0.01, show:S + '&' + P + 'tint.on=true'},
   {pg:'cfx', sel:P + 'tint.mode', l:'重ね方', opts:[['overlay', 'オーバーレイ'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['soft-light', 'ソフトライト'], ['color', 'カラー（単色化）']], show:S + '&' + P + 'tint.on=true'},
 ];
+// 選択中のレイヤー用の行。pg ごとにだいたい次の順で並ぶ：グループ → 配置（大きさ・回転・不透明度・描画モード・ロック・配置）→
+// 動的エフェクト（fx）→ 分割フレーム（split / cells / ctext / cfx）→ 画像（frame / color / edge / cut）。
+// 配置（base）と効果（cfx）には、種類（@type）ごとに出す行・出さない行がある
 const SEL_ROWS = [
   {pg:'base', sub:'グループ', note:'中のレイヤーをまとめて動かします。ダブルクリックで中のレイヤーを1つだけ選べます。効果は「効果」タブから', show:'@type=group'},
   {pg:'base', btns:[['ungroupBtn', 'ungroup', 'グループを解除']], show:'@type=group'},
@@ -173,6 +208,8 @@ const SEL_ROWS = [
   {pg:'cut', sub:'切り抜きフレームを使っている画像では、ブラシは使えません（背景色の透明化は使えます）', show:'@type=image&@frame.shape!=none'},
   {pg:'cut', btns:[['cutUndoStroke', 'undo', 'ブラシを1つ戻す'], ['cutClearStrokes', 'reset', 'ブラシの跡をすべて消す']], show:'@type=image'},
 ];
+// 背景・仕上げの行（キーは 'bg.' や 'fin.' で DOC から）。ページは main（背景の種類・位置）/ tone（色調）/ fx（効果・柄・動的エフェクト追加）/ fin（仕上げ）。
+// 色調・画像向けの効果は背景が「画像」のときだけ表示（show:'bg.type=image'）。min/max は表示上の範囲で、中心 fcx/fcy は画面外（-0.2〜1.2）も指定できる
 const BG_ROWS = [
   {pg:'tone', sub:'色調は、背景が「画像」のときに使えます', tonenote:true, show:'bg.type=grad|color'},
   {pg:'main', chk:'bg.hidden', l:'背景を非表示にする（PNGで保存すると透明に）'},
@@ -258,13 +295,17 @@ const BG_ROWS = [
   {pg:'fin', r:'fin.half', l:'網点（アメコミ風）', min:0, max:1, step:0.01},
   {pg:'fin', r:'fin.halfSize', l:'網点の大きさ', min:4, max:40, step:1},
 ];
+// ワンクリック背景エフェクトの一覧 [id, 表示名]。適用処理は applyBgFx（fx.js）で、id をそちらと合わせること
 const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走'], ['soft', 'ふんわり'], ['pop', '文字を目立たせる'], ['vivid', '鮮やか'],
   ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'],
   ['horror', 'ホラー'], ['emo', 'エモい'], ['game', 'ゲーム実況'], ['news', 'ニュース'], ['manga', 'マンガ'], ['shock', 'ガーン'], ['mini', 'ミニチュア'],
   ['popart', 'ポップアート'], ['illust', 'イラスト風'], ['sunray', '放射ライン'], ['win', '優勝・お祝い'], ['winter', '冬・雪'], ['rain', '雨'], ['reset', 'リセット']];
-// 行がどのページ（タブ）に出るか。行の定義の pg（"frame|edge" のように複数可）で決める
+// 行がどのページ（タブ）に出るか。行の定義の pg（"frame|edge" のように複数可）で決める。
+// ページの出し分けは行を包む div の data-pg で行い（setPage が pgoff クラスを切り替える）、表示条件 show（data-dshow）とは別の仕組み
 const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');
 const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
+// 行オブジェクト1つ → HTML。特殊部品（r.layouts など）を先に判定し、どれでもなければ DB.row（スライダー・色・選択など）に任せる。
+// sa は表示条件の属性。部品の外側の枠にも付けて、条件で行ごと隠せるようにする
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6, 7, 8].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
@@ -285,6 +326,7 @@ function drow(r){
   return DB.row(r);
 }
 
+// フレーム形状のアイコン（44px の canvas から作る dataURL）。形ごとに1回だけ作って使い回す
 const shapeIconCache = {};
 function shapeIcon(k){
   if(shapeIconCache[k]) return shapeIconCache[k];
@@ -293,8 +335,12 @@ function shapeIcon(k){
 }
 /* ---------- モード・タブ ---------- */
 /* ---------- 選んだものに合わせた設定パネル ---------- */
+// curPage：いま開いているページ id。insKey：前回パネルを組んだときの「文脈|レイヤーid」（同じなら組み直さない）。
+// pendingPage：次に開くページの予約（openInspector が指定）。lastPage：文脈ごとに最後に開いたページ（localStorage に保存。選び直したときに同じタブへ戻すため）
 let curPage = null, insKey = '', pendingPage = null;
 const lastPage = LS.get('ttm_pages', {});
+// 文脈（insCtx）ごとのタブ [ページid, 表示名]。ページid の接頭辞が表示領域を決める：
+// txt-＝文字パネル / lay-＝選択中レイヤーの行（#selBox）/ bg-＝背景の行（#bgRows）。後半が行の pg に対応する（SEL_ROWS・BG_ROWS）
 const INS_PAGES = {
   textmode:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾']],
   text:[['txt-text', 'テキスト'], ['txt-style', 'スタイル'], ['txt-font', 'フォント'], ['txt-deco', '装飾'], ['lay-base', '配置']],
@@ -304,8 +350,12 @@ const INS_PAGES = {
   group:[['lay-cfx', '効果'], ['lay-base', '配置']],
   bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果'], ['bg-fin', '仕上げ']],
 };
+// パネル上部の見出し [アイコン名, 種類の表示名]
 const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], group:['group', 'グループ'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
+// いま何の設定パネルを出すか：文字モード → 'textmode'、レイヤー選択中 → そのレイヤーの type、何も選んでいない → 'bg'（背景の設定）
 function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = selLayer(); return L ? L.type : 'bg'; }
+// ページを切り替える。文字パネルは3つのペイン（text / style / design）と、text ペイン内の2つの節（テキスト・フォント）の出し分け、
+// それ以外は #selBox・#bgRows の中の行を pg で出し分ける。切り替えのたびにパネルの先頭へスクロールする
 function setPage(page){
   const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);
   const pane = {'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'}[page] || 'thumb';
@@ -318,6 +368,9 @@ function setPage(page){
   document.querySelectorAll('#tabs [data-page]').forEach(b => b.classList.toggle('on', b.dataset.page === page));
   const pn = document.querySelector('.pane.on'); if(pn) pn.scrollTop = 0;
 }
+// パネルの組み直し。選択が変わったとき（insKey が変わったとき）だけタブを作り直す。force=true で必ず作り直す。
+// 見出しの名前は毎回更新する（レイヤー名の変更・文字の編集に追従するため）が、内容が同じなら DOM を触らない。
+// 開くページの優先順：予約（pendingPage）→ 前回その文脈で開いたページ → 先頭のタブ（どれも存在するときだけ）
 function renderInspector(force){
   if(!DOC || !$('#insHead')) return;
   const ctx = insCtx(), L = selLayer(), key = ctx + '|' + (L ? L.id : ''), [icn, typ] = INS_INFO[ctx];
@@ -335,6 +388,8 @@ function renderInspector(force){
 }
 // ページを指定して設定パネルを開く（page 省略で、選んだものの既定のページ）
 function openInspector(page){ pendingPage = page || null; renderInspector(true); if(isMobile) openSheet('ins', true); }
+// モード（'thumb' サムネ作成／'text' 文字だけ透過PNG）の切り替え。silent=true は起動時用で、再描画の予約をしない（直後に初回描画があるため）。
+// 文字モードに入るとき、スマホのシート（レイヤー・追加）は閉じる。ステージが画像背景表示のままサムネモードへ戻る場合は、背景を市松（checker）に戻す
 function setMode(m, silent){
   DOC.mode = m;
   document.body.classList.toggle('mode-thumb', m === 'thumb'); document.body.classList.toggle('mode-text', m === 'text');

@@ -1,4 +1,9 @@
-/* 楽ちんサムネメーカー：画像の切り抜きフレーム */
+/* 楽ちんサムネメーカー：画像の切り抜きフレーム
+   画像レイヤー（L.frame）を、四角・丸・ハートなどの形で切り抜き、フチ飾り（FRAME_STYLES）を付けて1枚のキャンバスにする。
+   主な公開関数：framePath（形のパス）／frameGeom（画像のどこをどの大きさで切り抜くか）／frameCompensate（フレーム操作時の位置補正）／framedCanvas（描画結果）
+   保存データ：L.frame = FRAME_BASE の形（shape, ar, fs, cx, cy, r, style, c2, seed）。フチの太さ・色は L.outline（w, c）を共用する。
+     shape・style のキー名は保存されるので、名前を変えると古い保存データが壊れる（framePath は未知の shape を角丸四角として描く）。
+   依存：layerSrc・cropOf・cutSig（cutout.js）・imgFilter・mk・rng・clamp・hex2rgb・PI（共通側）。framedCanvas は画像の描画側から呼ばれ、結果をレイヤーごとにキャッシュする。 */
 /* ---------- 画像の切り抜きフレーム ---------- */
 // 「筆のかすれ（別パターンにする）」で形が変わる、乱数を使う形
 const FRAME_SEEDED = ['swipe', 'drybrush', 'brushbox', 'rip', 'brushtri', 'brushcircle', 'torn', 'splash', 'burst'];
@@ -11,12 +16,15 @@ const FRAME_SHAPES = [
   ['drop','しずく'], ['ticket','チケット'], ['wave','なみなみ'], ['splash','スプラッシュ'],
   ['swipe','筆のひと塗り'], ['drybrush','かすれ筆'], ['brushbox','筆の四角'], ['rip','破れ紙'], ['brushtri','筆の三角'], ['brushcircle','筆の丸'],
 ];
+// 縦横比 ar が「自動」のとき、画像の縦横比に合わせる形（それ以外の形は正方形が基準。frameGeom 参照）
 const FRAME_AUTO = new Set(['rect', 'arch', 'slant', 'shield', 'torn', 'bubble', 'cloud', 'cut', 'notch', 'blade', 'trap', 'chevron', 'pill', 'squircle', 'ticket', 'wave', 'swipe', 'drybrush', 'brushbox', 'rip']);
 const FRAME_STYLES = [['none','枠なし（切り抜きだけ）'], ['solid','単色のフチ'], ['double','二重線'], ['pop','2色フチ（ポップ）'], ['grad','グラデーション'],
   ['neon','ネオン（光る）'], ['neon2','2色ネオン'], ['dash','点線'], ['photo','ポラロイド風'], ['tape','マスキングテープ'],
   ['hud','サイバーHUD'], ['bracket','ファインダー（四隅だけ）'], ['glitch','グリッチ'], ['metal','メタル'], ['block','立体影'],
   ['rgb','ゲーミングRGB'], ['aura','オーラ（後光）'], ['triple','三重線'], ['sticker','ステッカー'], ['stitch','ステッチ（ワッペン）'],
   ['halftone','アメコミドット'], ['brush','墨・筆'], ['film','フィルム'], ['crt','ブラウン管'], ['pixel','ドット絵'], ['book','本（ページ）']];
+// プリセット：[キー, 表示名, frame に上書きする項目, outline に上書きする {w, c}（null なら outline は変えない）]
+// ar は文字列で持つ（'1.778'＝16:9。frameGeom で parseFloat する）
 const FRAME_PRESETS = [
   ['icon','アイコン', {shape:'circle', style:'pop', c2:'#1f1b2d'}, {w:12, c:'#ffffff'}],
   ['wipe','ワイプ', {shape:'rect', r:0.08, style:'double', ar:'1.778'}, {w:12, c:'#ffffff'}],
@@ -60,6 +68,7 @@ const FRAME_PRESETS = [
   ['book','本', {shape:'rect', r:0.01, style:'book', ar:'0.75'}, {w:6, c:'#fdfaf2'}],
   ['off','フレームなし', {shape:'none'}, null],
 ];
+// プリセットの表示用の分類（FRAME_PRESETS のキーを参照。ここに無いキーは分類されない）
 const FRAME_GROUPS = [
   ['かわいい・ポップ', ['icon', 'photo', 'heart', 'bubble', 'tape', 'star', 'cloud', 'sticker', 'patch', 'drop', 'pill', 'wave']],
   ['カッコいい', ['cyber', 'glitch', 'metal', 'gold', 'vs', 'twin', 'crystal', 'arrow', 'aura']],
@@ -67,17 +76,25 @@ const FRAME_GROUPS = [
   ['ブラシ・手作り感', ['swipe', 'dry', 'rip', 'bbox', 'btri', 'bcircle', 'book', 'sumi']],
   ['レトロ・アート', ['comic', 'film', 'ticket']],
 ];
+// ctx（または Path2D）x に、原点中心・幅 w・高さ h の形のパスを追加する（beginPath／fill／stroke は呼び出し側）。単位は呼び出し側のピクセル。
+// r：角丸の割合（四角・吹き出しのみ）、seed：乱数形のゆらぎ。同じ seed なら同じ形になる（キャッシュ・再描画・書き出しで形が変わらない）
+// 共有の乱数 R は形ごとに rng の初期値を変えている（shape.length を混ぜる）。ブラシ系の形が同じ seed でも似通わないようにするため
 function framePath(x, shape, w, h, r = 0.12, seed = 1){
   const a = w / 2, b = h / 2, mn = Math.min(w, h);
   const R = rng((seed || 1) * 97 + shape.length * 13);
   // なめらかなゆらぎ（knots個の乱数を補間）＋トゲ
+  // 戻り値は n 個の 0〜1 の値。spike が大きいほど補間値より個別の乱数（2.2乗で小さい値が多い）の割合が増え、ギザギザになる。
+  // R() を呼ぶ回数・順序が形そのものなので、変更すると保存済みの seed の形が変わる
   const noise = (n, knots, spike) => { const k = [...Array(knots + 1)].map(() => R()); return [...Array(n)].map((_, i) => { const t = i / n * knots, j = Math.floor(t), f = (1 - Math.cos((t - j) * PI)) / 2;
     const sm = k[j] * (1 - f) + k[j + 1] * f; return Math.min(1, sm * (1 - spike) + (spike ? R() ** 2.2 * spike * 1.7 : 0)); }); };
+  // 四辺（上・右・下・左の順）それぞれ [点数, 内側へのゆらぎ幅, knots, spike] を渡すと、時計回りの粗い縁の点列を返す
   const rough = (sides) => { const p = [], [T, Rt, B, L] = sides.map(([n, amp, knots, spike]) => noise(n, knots, spike).map(v => v * amp));
     T.forEach((v, i) => p.push([-a + w * i / T.length, -b + v])); Rt.forEach((v, i) => p.push([a - v, -b + h * i / Rt.length]));
     B.forEach((v, i) => p.push([a - w * i / B.length, b - v])); L.forEach((v, i) => p.push([-a + v, b - h * i / L.length])); return p; };
   const poly = pts => { pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); };
+  // 正多角形（inner を渡すと、内側の頂点を交互に入れた星形）。a・b を別々に使うので、縦横比に合わせて楕円状に伸びる
   const ring = (n, rot, inner) => { const p = []; for(let i = 0; i < n * (inner ? 2 : 1); i++){ const t = rot + i * PI / (inner ? n : n / 2), k = inner && i % 2 ? inner : 1; p.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); } poly(p); };
+  // もこもこ形：n 個の弧を並べる。base＝つなぎ目の半径、depth＝ふくらみの半径（どちらも a・b に対する割合）
   const scallop = (n, base, depth) => { for(let i = 0; i < n; i++){ const t0 = -PI / 2 + i * 2 * PI / n, t1 = t0 + 2 * PI / n, tm = (t0 + t1) / 2;
     const p0 = [Math.cos(t0) * a * base, Math.sin(t0) * b * base], p1 = [Math.cos(t1) * a * base, Math.sin(t1) * b * base];
     if(!i) x.moveTo(...p0); x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); } x.closePath(); };
@@ -97,6 +114,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
     case 'burst': { const R = rng((seed || 1) * 5), p = []; for(let i = 0; i < 36; i++){ const t = -PI / 2 + i * PI / 18, k = i % 2 ? 0.74 + R() * 0.08 : 0.96 + R() * 0.04; p.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); } poly(p); break; }
     case 'cloud': scallop(11, 0.84, 1.13); break;
     case 'flower': scallop(8, 0.6, 1.25); break;
+    // 吹き出し：本体は高さの 80%、残りの下側にしっぽ。しっぽの根元を本体に 1px 食い込ませて隙間を防ぐ
     case 'bubble': { const bh = h * 0.8, rr = Math.min(w, bh) * Math.min(0.5, r); x.roundRect(-a, -b, w, bh, rr); x.moveTo(-a + w * 0.2, -b + bh - 1); x.lineTo(-a + w * 0.14, b); x.lineTo(-a + w * 0.4, -b + bh - 1); x.closePath(); break; }
     case 'torn': { const R = rng((seed || 1) * 11), p = [], n = 26, j = Math.min(w, h) * 0.025;
       for(let i = 0; i < n; i++) p.push([-a + w * i / n, -b + R() * j]); for(let i = 0; i < n; i++) p.push([a - R() * j, -b + h * i / n]);
@@ -111,6 +129,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
     case 'swipe': poly(rough([[70, h * 0.07, 5, 0.25], [50, w * 0.2, 3, 0.85], [70, h * 0.07, 5, 0.25], [50, w * 0.2, 3, 0.85]])); break;
     case 'brushbox': poly(rough([[70, mn * 0.07, 7, 0.6], [60, mn * 0.07, 7, 0.6], [70, mn * 0.07, 7, 0.6], [60, mn * 0.07, 7, 0.6]])); break;
     case 'rip': poly(rough([[110, h * 0.09, 14, 0.55], [30, w * 0.012, 4, 0], [110, h * 0.09, 14, 0.55], [30, w * 0.012, 4, 0]])); break;
+    // かすれ筆：横長の筆跡を nb 本、縦に並べる（1本ずつ別の閉じたパス）。上下の端からはみ出さないよう hh を制限
     case 'drybrush': { const nb = 6 + Math.floor(R() * 3), bh = h / nb;
       for(let i = 0; i < nb; i++){ const cy = -b + (i + 0.5) * bh, hh = Math.min(bh * (0.38 + R() * 0.34), b - Math.abs(cy)), x0 = -a + w * R() * 0.16, x1 = a - w * R() * 0.18, bw = x1 - x0;
         const top = noise(30, 4, 0.2), bot = noise(30, 4, 0.2), lft = noise(14, 2, 0.9), rgt = noise(14, 2, 0.9), p = [];
@@ -122,6 +141,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
         nz.forEach((v, i) => { const t = i / 50, px = p0[0] + (p1[0] - p0[0]) * t, py = p0[1] + (p1[1] - p0[1]) * t, dx = C[0] - px, dy = C[1] - py, d = Math.hypot(dx, dy) || 1, k = v * mn * 0.06; p.push([px + dx / d * k, py + dy / d * k]); }); }
       poly(p); break; }
     case 'brushcircle': { const nz = noise(140, 16, 0.5), p = nz.map((v, i) => { const t = i / 140 * 2 * PI, k = 1 - v * 0.13; return [Math.cos(t) * a * k, Math.sin(t) * b * k]; }); poly(p); break; }
+    // スクワークル：指数 0.5 の超楕円（|cos|^0.5）で、角丸四角と円の中間のなめらかな形
     case 'squircle': { const p = []; for(let i = 0; i < 72; i++){ const t = i / 72 * 2 * PI, c = Math.cos(t), sn = Math.sin(t); p.push([a * Math.sign(c) * Math.abs(c) ** 0.5, b * Math.sign(sn) * Math.abs(sn) ** 0.5]); } poly(p); break; }
     case 'penta': ring(5, -PI / 2); break;
     case 'hexv': ring(6, -PI / 2); break;
@@ -136,11 +156,15 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
       for(let i = 0; i < n; i++){ const t = i / n * 2 * PI, k = i % 5 === 2 ? 0.97 + R() * 0.03 : 0.74 + R() * 0.12; pts.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); }
       const m = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; x.moveTo(...m(pts[n - 1], pts[0]));
       for(let i = 0; i < n; i++) x.quadraticCurveTo(...pts[i], ...m(pts[i], pts[(i + 1) % n])); x.closePath(); break; }
+    // 'rect'・'none'・未知の形はここ（角丸四角）。r は短辺に対する割合で 0〜0.5
     default: x.roundRect(-a, -b, w, h, Math.min(w, h) * Math.min(0.5, Math.max(0, r)));
   }
 }
+// 2色の混色（t=0 で h1、1 で h2）を 'rgb(...)' で返す。グラデーションの色止めに使う
 function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; }
 /* フレームの形の位置（画像のピクセル座標）：fs=大きさ、cx/cy=画像のどこを中心に切り抜くか */
+// 単位は layerSrc(L) の絵（トリミング・背景透過後）のピクセル。fw0＝fs=1 のとき画像に収まる最大幅、fw/fh＝実際の切り抜き幅・高さ、
+// cxp/cyp＝切り抜き中心（枠が画像からはみ出さないよう clamp 済み）。画像が無ければ null
 function frameGeom(L){
   const A = layerSrc(L); if(!A) return null;
   const fr = L.frame, iw = A.img.naturalWidth, ih = A.img.naturalHeight;
@@ -150,27 +174,36 @@ function frameGeom(L){
   return {A, iw, ih, ar, fw0, fw, fh, cxp, cyp};
 }
 /* フレームを動かしても、画像がキャンバス上で動かないようにレイヤーの位置を補正 */
+// g0：動かす前の frameGeom（切り抜き中心の差から補正量を出す）。base：ドラッグ開始時の {x,y}（渡すと累積せず毎回そこからの差で計算）
+// 反転・拡大・回転を考慮してドキュメント座標へ直す（反転時は中心の動きが逆向きになる）
 function frameCompensate(L, g0, base){
   const g1 = frameGeom(L); if(!g0 || !g1) return;
   const dx = (g1.cxp - g0.cxp) * (L.flip ? -1 : 1) * L.sc, dy = (g1.cyp - g0.cyp) * (L.flipV ? -1 : 1) * L.sc, a = (L.rot || 0) * PI / 180;
   const bx = base ? base.x : L.x, by = base ? base.y : L.y;
   L.x = bx + dx * Math.cos(a) - dy * Math.sin(a); L.y = by + dx * Math.sin(a) + dy * Math.cos(a);
 }
+// フレーム付きの画像を1枚のキャンバスに描いて返す（{sk, k, c}）。f＝倍率、live＝ドラッグ中などの操作中、cache＝レイヤー id → 結果の Map
+// 座標は「フレーム中心が原点」。フチの飾りがはみ出すぶん、周りに pad の余白を付けたキャンバスにする（style ごとの係数が必要な余白の目安）。
+// 描く順序：フチ・影などの下敷き → 形でクリップして画像 → ステッカーの光沢・CRT・本の綴じなど画像の上に重ねるもの → HUD・テープなど外側の飾り
 function framedCanvas(L, f, live, cache){
   const A = layerSrc(L), fr = L.frame, o = L.outline, need = L.sc * f;
-  const sk = JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, cutSig(L)]);
+  // sk：見た目が変わる要素すべての印。これが同じならキャッシュを使う。cutSig で背景透過・ブラシの変更も反映される
+  const sk =JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, cutSig(L)]);
   let e = cache.get(L.id);
+  // 操作中(live)は拡大率が多少違っても作り直さず使い回す（ドラッグ中の負荷を抑える）。確定時は拡大率のずれが2%以上なら作り直す
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const G = frameGeom(L), iw = G.iw, ih = G.ih;
   const FW = Math.max(2, G.fw * need), FH = Math.max(2, G.fh * need);
+  // E＝フチの太さの基準（ピクセル。片側の幅）。style 'none' は 0＝フチも飾りも描かない。多くのスタイルは線の太さに 2*E を使う（フチが形の線の内外に半分ずつ出るため、見える太さは E）
   const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.05, o.w * f);
-  const tw = Math.min(FW, FH) * 0.36;
-  const pad = Math.ceil(E * ({photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4, rgb:3.2, halftone:5.4, brush:2.8, film:4, stitch:1.4, sticker:2, crt:1.8, pixel:1.8, aura:8, triple:2.4}[st] || 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
+  const tw = Math.min(FW, FH) * 0.36;   // マスキングテープの長さ
+  const pad =Math.ceil(E * ({photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4, rgb:3.2, halftone:5.4, brush:2.8, film:4, stitch:1.4, sticker:2, crt:1.8, pixel:1.8, aura:8, triple:2.4}[st] || 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
   const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
   x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
   const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed); };
   const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };
   if(E > 0){
+    // 二重線：太い線を引いてから中を destination-out で抜き、細い線を重ねる（間が透明になる）
     if(st === 'double'){ stroke(2 * E, o.c); x.globalCompositeOperation = 'destination-out'; stroke(2 * E * 0.62, '#000'); x.globalCompositeOperation = 'source-over'; stroke(2 * E * 0.28, o.c); }
     else if(st === 'pop'){ stroke(2 * E + 2 * Math.max(3 * f, E * 0.6), fr.c2); stroke(2 * E, o.c); }
     else if(st === 'grad'){ const g = x.createLinearGradient(-FW / 2, -FH / 2, FW / 2, FH / 2); g.addColorStop(0, o.c); g.addColorStop(1, fr.c2); stroke(2 * E, g); }
@@ -183,7 +216,7 @@ function framedCanvas(L, f, live, cache){
       [[0, mixc(o.c, '#ffffff', 0.75)], [0.22, o.c], [0.48, mixc(o.c, '#000000', 0.5)], [0.52, mixc(o.c, '#ffffff', 0.45)], [0.78, o.c], [1, mixc(o.c, '#000000', 0.55)]].forEach(([t, cc]) => g.addColorStop(t, cc));
       stroke(2 * E, g); stroke(Math.max(1, f * 1.2), 'rgba(255,255,255,.55)'); }
     else if(st === 'block'){ x.save(); x.translate(E * 2.4, E * 2.4); P(); x.fillStyle = fr.c2; x.fill(); x.lineWidth = 2 * E; x.strokeStyle = fr.c2; x.stroke(); x.restore(); stroke(2 * E, o.c); }
-    else if(st === 'bracket'){ }
+    else if(st === 'bracket'){ }   // 形のフチは描かない（四隅の線は画像を描いたあとに重ねる）
     else if(st === 'book'){ for(let i = 3; i >= 1; i--){ x.fillStyle = mixc(o.c, '#c9c2b4', i * 0.12); x.strokeStyle = 'rgba(0,0,0,.2)'; x.lineWidth = Math.max(1, f); x.beginPath(); x.rect(-FW / 2 + i * E * 0.7, -FH / 2 + i * E * 0.55, FW, FH); x.fill(); x.stroke(); } }
     else if(st === 'rgb'){ const g = x.createConicGradient(0, 0, 0); for(let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsl(${i * 60},100%,58%)`);
       x.save(); x.filter = `blur(${Math.max(1, E * 1.2)}px)`; x.globalAlpha = 0.85; stroke(2 * E * 1.7, g); x.restore(); stroke(2 * E, g); stroke(Math.max(1, E * 0.35), 'rgba(255,255,255,.8)'); }
@@ -192,6 +225,8 @@ function framedCanvas(L, f, live, cache){
     else if(st === 'sticker'){ stroke(2 * E * 1.5 + 3 * f, 'rgba(0,0,0,.2)'); stroke(2 * E * 1.5, o.c); }
     else if(st === 'stitch'){ stroke(2 * E * 1.2, fr.c2); }
     else if(st === 'halftone'){
+      // フチの帯の中だけにドット（3段階の帯で外へ向かって小さく）を打つ。判定は Path2D の isPointInPath／isPointInStroke。
+      // 判定はキャンバス座標なので、setTransform で変換を外し、中心からの位置 qx,qy に直して判定する
       const p2 = new Path2D(); framePath(p2, fr.shape, FW, FH, fr.r, fr.seed); const cw = c.width, ch = c.height, ox = cw / 2, oy = ch / 2;
       const step = Math.max(E * 1.15, Math.max(cw, ch) / 150, 3), bands = [2 * E * 2.1, 2 * E * 3.1, 2 * E * 4.2], rs = [0.5, 0.36, 0.22];
       x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = fr.c2;
@@ -210,6 +245,7 @@ function framedCanvas(L, f, live, cache){
       for(let hx = -FW / 2 + gap / 2; hx < FW / 2 - hw / 2; hx += gap) for(const hy of [-FH / 2 - E * 1.7, FH / 2 + E * 1.7]){ x.beginPath(); x.roundRect(hx - hw / 2, hy - hh / 2, hw, hh, E * 0.25); x.fill(); }
       x.globalCompositeOperation = 'source-over'; }
     else if(st === 'crt'){ stroke(2 * E * 1.6, o.c); stroke(Math.max(1, E * 0.3), 'rgba(255,255,255,.25)'); }
+    // ドット絵：縮小したキャンバス(1/pz)にフチを描いて、補間なしで拡大してドット絵風にする（影は pz*1.5 ずらし）
     else if(st === 'pixel'){ const pz = Math.max(2, Math.round(E * 0.6)), tmp = mk(c.width / pz, c.height / pz), t = tmp.getContext('2d');
       t.translate(tmp.width / 2, tmp.height / 2); t.scale(1 / pz, 1 / pz); t.lineJoin = 'miter';
       const TP = () => { t.beginPath(); framePath(t, fr.shape, FW, FH, fr.r, fr.seed); };
@@ -218,6 +254,8 @@ function framedCanvas(L, f, live, cache){
     else if(st === 'photo'){ x.fillStyle = o.c; x.beginPath(); x.roundRect(-FW / 2 - E, -FH / 2 - E, FW + 2 * E, FH + E * 4.4, E * 0.18); x.fill(); }
     else stroke(2 * E, o.c);
   }
+  // 画像本体：形でクリップして描く。反転はクリップの後に scale するので、形は反転せず画像だけが反転する。
+  // 画像の位置は切り抜き中心(cxp,cyp)が原点に来るようにずらす（need＝画像ピクセル→キャンバスピクセルの倍率）
   x.save(); P(); x.clip();
   if(L.flip || L.flipV) x.scale(L.flip ? -1 : 1, L.flipV ? -1 : 1);
   x.filter = imgFilter(L); x.drawImage(A.img, -G.cxp * need, -G.cyp * need, iw * need, ih * need); x.filter = 'none';
@@ -228,7 +266,9 @@ function framedCanvas(L, f, live, cache){
     const g = x.createRadialGradient(0, 0, Math.min(FW, FH) * 0.3, 0, 0, Math.hypot(FW, FH) / 2); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW, FH);
     x.fillStyle = 'rgba(255,255,255,.1)'; x.beginPath(); x.ellipse(-FW * 0.18, -FH * 0.26, FW * 0.36, FH * 0.16, -0.25, 0, 7); x.fill(); x.restore(); }
   if(st === 'book' && E > 0){ x.save(); P(); x.clip(); const g = x.createLinearGradient(-FW / 2, 0, -FW / 2 + FW * 0.09, 0); g.addColorStop(0, 'rgba(0,0,0,.5)'); g.addColorStop(0.35, 'rgba(0,0,0,.18)'); g.addColorStop(0.42, 'rgba(255,255,255,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW * 0.09, FH); x.restore(); }
+  // 以降は画像を描いたあとに重ねる飾り（画像の上に出る光沢・走査線・綴じ・外側の枠など）
   if(st === 'glitch' && E > 0){
+    // グリッチ：描き終えた全体（フチ＋画像）の横帯を4本、左右にずらす。固定シード(3)なので毎回同じ崩れ方
     const R = rng(3), tmp = mk(c.width, c.height); tmp.getContext('2d').drawImage(c, 0, 0);
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
     for(let i = 0; i < 4; i++){ const hy = R() * c.height, hh = Math.max(2, c.height * (0.02 + R() * 0.05)), sh = (R() - 0.5) * E * 4;
@@ -244,6 +284,7 @@ function framedCanvas(L, f, live, cache){
     x.shadowBlur = 0;
   }
   if(st === 'photo' && E > 0){ x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = Math.max(1, f); x.strokeRect(-FW / 2, -FH / 2, FW, FH); }
+  // テープはフチ幅 0 でも描く（E >= 0）。左上・右上の角を斜めにまたぐ
   if(st === 'tape' && E >= 0){
     const [r, g, b] = hex2rgb(fr.c2);
     [[-1, -38], [1, 38]].forEach(([sx, deg]) => {
@@ -253,6 +294,7 @@ function framedCanvas(L, f, live, cache){
       x.restore();
     });
   }
+  // 返すのは作ったときの拡大率 k とキャンバス。呼び出し側は pad 分の余白を含む大きさとして描く
   e = {sk, k:need, c}; cache.set(L.id, e);
   return e;
 }

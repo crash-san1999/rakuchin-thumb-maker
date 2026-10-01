@@ -1,7 +1,19 @@
 /* 楽ちんサムネメーカー：ユーティリティ・アイコン */
+/*
+  最初に読み込まれる土台のファイル。ほかのファイルはすべてここの定義に依存する（逆向きの依存はない）。
+  主な中身：
+    ・$ / clone / LS（localStorage の安全な読み書き）/ toast / downloadBlob などの小道具
+    ・ICONS と ic()（SVG アイコン）
+    ・DEFAULT / merged() / S … 「文字素材モード」の文字スタイルの初期値と、今の編集中の値（グローバル S）
+    ・DOC … サムネモードの作品データ。ここでは宣言だけで、中身は thumb/doc.js の loadSavedDoc() が入れる
+    ・hex2rgb / rgba / rng / mk など描画エンジン共通の小道具（text-render.js・thumb/*.js から使う）
+  素の <script> の読み込みなので、ここで const/let/function にしたものはそのまま全ファイルのグローバルになる。
+*/
 /* ============ 基本 ============ */
 const $ = s => document.querySelector(s);
 const clone = o => JSON.parse(JSON.stringify(o));
+// localStorage の薄いラッパー。値は JSON で保存し、読み出し失敗（プライベートモード・壊れたデータ）は既定値 d を返す。
+// 保存の失敗（容量オーバー・禁止設定）は握りつぶさず、利用者に知らせて false を返す。キーは ttm_ で始まる
 const LS = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ saveWarn('自動保存できませんでした。ブラウザの保存容量がいっぱいか、保存が禁止されています。作業を残すには、「プロジェクト」から書き出してください'); return false; } }
@@ -9,27 +21,31 @@ const LS = {
 // 保存の失敗を知らせる（続けて何度も出ないよう、30秒に1回まで）
 let saveWarnAt = 0;
 function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
+// 文字入力中かどうか。キーボードショートカットが入力操作を横取りしないための判定
 const isTyping = e => { const t = e.target; return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
-// サムネのレイヤーに共通の初期値（キャンバスの中央）
+// サムネのレイヤーに共通の初期値（キャンバスの中央）。座標はキャンバス（DOC.w×DOC.h）の px で、原点は左上・x,y はレイヤー中心。
+// DOC は後から宣言される let なので、起動前に呼ばれても落ちないよう typeof で守り、未確定なら 1920×1080 とみなす
 const LAYER_BASE = () => ({x:Math.round(((typeof DOC === 'object' && DOC) ? DOC.w : 1920) / 2), y:Math.round(((typeof DOC === 'object' && DOC) ? DOC.h : 1080) / 2), sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
 // 小数第3位までに丸める（保存データを読みやすく小さく保つ）
 const r3 = v => Math.round(v * 1000) / 1000;
 // 日時入りのファイル名用（例：20260929-213000）
 const stamp = (d = new Date()) => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
-// ファイルとしてダウンロードさせる
+// ファイルとしてダウンロードさせる。URL の解放は、ブラウザが保存を始める前に消えないよう少し遅らせる
 function downloadBlob(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
-// キャンバス上に出す案内の帯（編集モード中など）
+// キャンバス上に出す案内の帯（編集モード中など）。W は描画先キャンバスの幅（実ピクセル）、dpr を掛けて表示サイズを画面の大きさに揃える
 function drawBanner(ctx, W, dpr, msg){
   ctx.save(); ctx.font = `800 ${12 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const tw = ctx.measureText(msg).width + 24 * dpr; ctx.fillStyle = 'rgba(31,27,45,.88)'; ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, 8 * dpr, tw, 26 * dpr, 13 * dpr); ctx.fill();
   ctx.fillStyle = '#ffb800'; ctx.fillText(msg, W / 2, 14 * dpr); ctx.restore();
 }
+// 画面下の通知。err のときは読む時間を長めにする（6秒／通常 2.6秒）。連続して呼ばれたら前のタイマーを取り消して出し直す
 function toast(msg, err){
   const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', err ? 6000 : 2600);
 }
 
 /* ============ アイコン ============ */
+// 24×24 の viewBox に収めた線画の中身（path など）だけを持つ。線の色・太さは CSS の .ic が決め、currentColor で文字色に追従する
 const ICONS = {
   grid:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h8.5"/>',
   crop:'<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
@@ -90,11 +106,16 @@ const ICONS = {
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 // HTML に書いた <i data-ic="名前"> をアイコンの SVG に置き換える
 const paintIcons = (root = document) => root.querySelectorAll('[data-ic]').forEach(el => { el.outerHTML = ic(el.dataset.ic); });
+// スライダーの「つまみより左」を塗るため、CSS 変数 --p に進み具合（%）を渡す。値が変わるたびに呼ぶ必要がある（下の input リスナーと bind.js の sync）
 function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((el.value - mn) / (mx - mn)) * 100 + '%'); }
 function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
 document.addEventListener('input', e => { if(e.target.type === 'range') paintRange(e.target); });
+// サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める
 let DOC = null;
 
+// 文字スタイルの完全な初期値。保存データ・プリセットはここからの差分だけを持ち、merged() で補う。
+// 各キーの意味は text-render.js の描画処理を参照。新しい効果を足すときは、ここに on:false の既定値を置くのが約束
+// （これがないと古い保存データ・プリセットで undefined になる）。単位：size/pad は px、角度は度、a は不透明度 0〜1
 const DEFAULT = {
   text: '楽々サムネメーカー',
   font: 'Dela Gothic One', fontLatin: '', weight: 400, size: 160, ls: 0, lh: 1.15, align: 'center', vertical: false, vlat: 'up', vtcy: true,
@@ -128,6 +149,8 @@ const DEFAULT = {
   trail:   {on:false, angle:180, len:0.8, count:8, a:0.5, tint:false, c:'#ffffff'},
   skew: 6, rotate: 0, pad: 16, scale: 2
 };
+// DEFAULT に p を重ねた新しいスタイルを返す（p も DEFAULT も書き換えない）。
+// オブジェクト値（shadow など）は 1 階層だけキーごとに上書きするので、p が一部のキーしか持たなくても残りは既定値になる。配列（strokes・pal）は丸ごと置き換え
 function merged(p){
   const o = clone(DEFAULT);
   for(const k in p){
@@ -136,17 +159,24 @@ function merged(p){
   }
   return o;
 }
+// いま編集中の文字スタイル（グローバル）。applyPreset などで代入し直されるため、S を別変数に保持し続けないこと。
+// 自動保存は preview.js の schedule() → saveDoc()（thumb/doc.js）が ttm_state に書く
 let S = merged(LS.get('ttm_state', {}));
 /* ============ 配色 ============ */
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /* ============ 描画エンジン ============ */
 const PI = Math.PI;
+// 作業用キャンバスを作る。幅・高さは四捨五入し、0 以下だと描画系が例外を出すので最低 1px にする
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
 const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
 const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
+// 種つきの乱数（mulberry32 系）。同じ seed なら毎回同じ並びになる。
+// 「別パターンにする」で seed を変えるだけで見た目が変わり、再描画しても・保存して開き直しても形が動かないようにするため Math.random は使わない。
+// seed=0 でも状態が 0 にならないよう || 1 で避けている
 function rng(seed){
   let a = (Math.imul(seed | 0, 2654435761) >>> 0) || 1;
   return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
 
+// innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " も変換する（' は変換しない：属性は必ず "" で囲むこと）
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

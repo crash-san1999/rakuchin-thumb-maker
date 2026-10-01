@@ -1,4 +1,17 @@
 /* 楽ちんサムネメーカー：文字スタイルのプリセット */
+/*
+  文字素材モードの「スタイル」ボタン（#presets）の定義と、その一覧表示・適用。
+  公開：PRESETS（データ）/ PCATS（分類）/ renderPresets()（boot と素材置き場の変更時に呼ぶ）/ applyPreset(p)。
+  データの形：PRESETS = [[表示名, スタイル], …]。スタイルは core.js の DEFAULT との「差分」だけを書く
+  （例：extrude:{on:false} のように、変えたい効果のキーだけ。書かなかった項目は merged() が DEFAULT で補う）。
+  キーの意味と単位は DEFAULT と text-render.js を参照。一部だけ書いたオブジェクト値は、キー単位で DEFAULT に重なる。
+  ・strokes は 3 本まとめて置き換わる（[内側, 中, 外側] の順で、on:false のものは描かれない）。配列は部分指定できない。
+    w は「その線の太さ」で、外側ほど内側の太さを足した位置に重ねて描かれる（text-render.js の cum）。
+  ・a / hl / sh などの 0〜1 の値は .45 のように先頭の 0 を省いて書いてある。
+  ・表示名は PCATS の分類リストからも参照される。名前を変えるときは PCATS も直さないと、その分類に出なくなる（「すべて」には出る）。
+  依存：merged・LS・hex2rgb（core.js）、METALS（text-render.js）、myStyles・libDelete（thumb/library.js）、findFont・ensureCss（fonts.js）、
+  resetAdj（colors.js）、refreshTextUI・schedule、toast。
+*/
 /* ============ プリセット ============ */
 const P = (o) => o;
 const PRESETS = [
@@ -266,6 +279,8 @@ const PRESETS = [
     strokes:[{on:true,w:3,c:'#000000'},{on:false,w:4,c:'#000000'},{on:false,w:4,c:'#000000'}],ls:6,
     reflect:{on:true,a:.3,gap:4,len:.5},extrude:{on:false},shadow:{on:true,x:0,y:10,blur:24,c:'#000000',a:.8},skew:0}],
 ];
+// 分類タブ → そこに出すプリセット名の一覧（PRESETS の表示名と完全一致で参照）。順番がそのまま表示順。
+// 「すべて」「マイ」は固定のタブなのでここには置かない（renderPresets が足す）
 const PCATS = {
   '定番':   ['対戦格闘','白フチ','激辛','クール','ポップ','2色分割','ステッカー','スピード'],
   '金属':   ['メタル金','クローム','シルバー','ガンメタ','ホログラム','鏡面','アウトラン','キラキラ'],
@@ -279,8 +294,12 @@ const PCATS = {
   '質感・雰囲気': ['ホラー','ボロボロ','グリッチ','墨・和風','彫り込み','レタープレス','スライム','氷','ぐにゃぐにゃ','心霊','ミステリー'],
   '囲み・背景': ['ギザギザ','一文字囲み','ランサム','アメコミ'],
 };
+// 選択中の分類タブ（ttm_pcat に保存）。タブの切り替え処理は controls.js 側
 let pcat = LS.get('ttm_pcat', 'すべて');
 
+// プリセットボタン自体に付ける見た目（インラインの CSS 文字列）。そのスタイルの塗り色・フォント・最初の有効なフチ色で「文字の見本」にする。
+// 金属塗りは単色がないので、金属定義 METALS の2番目の色停止（明るい側）を代表色にする。
+// 文字色が暗い（輝度 < 90）のにフチがないと、暗いタイルで読めなくなるので明るいフチを足す。輝度は一般的な 0.299R+0.587G+0.114B
 function presetStyle(p){
   const q = merged(p);
   const st = q.strokes.find(s => s.on);
@@ -290,6 +309,9 @@ function presetStyle(p){
   return `background:var(--tile);color:${col};font-family:"${q.font}","Noto Sans JP";paint-order:stroke fill;` +
     (stroke ? `-webkit-text-stroke:2px ${stroke};` : '');
 }
+// 分類タブとボタン一覧を作り直す。「マイ」は素材置き場に保存した自作スタイルで、1件以上あるときだけタブを出す。
+// 自作スタイルは「すべて」と「マイ」にだけ並べる（ビルトインの分類には混ぜない）。各ボタンの × は素材置き場からの削除。
+// 見本の文字をそのフォントで見せるため、表示するプリセットのフォントはここで先に読み込みを始める（描画側の待ちは不要）
 function renderPresets(){
   const cats = ['すべて', ...Object.keys(PCATS), ...(myStyles().length ? ['マイ'] : [])];
   if(!cats.includes(pcat)) pcat = 'すべて';
@@ -308,6 +330,8 @@ function renderPresets(){
     b.appendChild(x); b.onclick = () => applyPreset(mp.s); box.appendChild(b);
   });
 }
+// スタイルを適用する。文字内容・サイズ・余白・書き出し倍率・英数字フォントは「内容」側の設定なので、プリセットで消さずに引き継ぐ。
+// S を丸ごと差し替える（Object.assign で新しいオブジェクトを作る）ため、S を保持している箇所があれば古いままになる点に注意
 function applyPreset(p){
   const keep = {text:S.text, size:S.size, pad:S.pad, scale:S.scale, fontLatin:S.fontLatin};
   for(const k of ['vertical', 'vlat', 'vtcy']) if(!(k in p)) keep[k] = S[k];   // 縦書きの指定がないスタイルでは今の向きを保つ

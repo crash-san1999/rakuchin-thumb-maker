@@ -1,5 +1,21 @@
 /* 楽ちんサムネメーカー：文字の操作パネル生成 */
+/*
+  役割：文字スタイル S の編集パネル（#textRows と #genSections）を、下の宣言的な定義（TEXT_ROWS / SECTIONS）から HTML として組み立て、
+        入力欄と S の値を結ぶ（makeBinder）。パネル内のクリック系イベント（折りたたみ・おまかせ色・スポイト・プリセット保存・初期化）もここ。
+  公開：TEXT_ROWS / SECTIONS（パネル定義）、getK / setK（"a.b.c" 形式のパスで S を読み書き）、KB（binder）、
+        buildTextControls()（起動時に1回）、syncUI()（S → 画面の反映。値を変えたら呼ぶ）。
+  依存：core.js（S・$・clone・DEFAULT・LS）、bind.js の makeBinder（入力欄の仕組みと表示条件の解釈）、
+        text-render.js の BOX_PALETTES（読み込み順が controls.js より後のため、使うのはイベント発生時＝実行時）、
+        colors.js の resetAdj / randomLike、preview.js の schedule、fonts.js の refreshTextUI / renderFontList / sampleText、
+        presets.js の renderPresets / pcat、thumb/ の docChanged / libAddStyle。
+  呼ばれる順序：main.js の boot() が buildTextControls() → syncUI()。パネル定義を増やす時は S の初期値（core.js の DEFAULT）にも同じキーが必要。
+  定義の書き方（行 r の種類。表示は bind.js の KB.row が決める）：
+    r=スライダー+数値 / seg=ボタン択一 / sel=プルダウン / c=色 / chk=チェック / seed=乱数の振り直しボタン / pal=一文字囲みのパレット専用行
+    show='キー=値|値&キー!=値' … 条件に合う時だけ表示（解釈は bind.js の cond）
+    セクションの on='キー' … 見出しのスイッチに結ぶ ON/OFF キー（OFF のセクションは見た目を薄くして折りたたむ）
+*/
 /* ============ 操作パネル生成 ============ */
+// 文字の基本行（サイズ・字間・縦書きなど）。縦書き時だけ「揃え」の選択肢の表示が上/中央/下に変わるので、同じ seg:'align' を2つ定義して show で出し分けている
 const TEXT_ROWS = [
   {r:'size', l:'サイズ', min:40, max:400, step:1},
   {r:'ls', l:'字間', min:-40, max:80, step:1},
@@ -10,6 +26,9 @@ const TEXT_ROWS = [
   {seg:'vlat', l:'英数字', show:'vertical=true', opts:[['up','立てる'],['side','横倒し']]},
   {chk:'vtcy', l:'縦中横（20 や !! を横向きで1マスに）', show:'vertical=true'},
 ];
+// 装飾セクションの一覧。表示順＝パネルの上から下の順で、描画順（text-render.js の renderStyle）とは別。
+// 各キー（'bevel.size' 等）は S の構造とそのまま対応するので、名前を変える時は DEFAULT・プリセット・text-render.js と揃えること。
+// min/max/step は入力欄（スライダー・数値）の範囲。
 const SECTIONS = [
   {t:'文字の塗り', rows:[
     {seg:'fillType', l:'種類', opts:[['solid','単色'],['grad','グラデ'],['split','2色分割'],['metal','金属']]},
@@ -27,6 +46,7 @@ const SECTIONS = [
     {sel:'dots.shape', l:'形', opts:[['dot','●'],['ring','○'],['tri','▼']]}, {c:'dots.c', l:'色'},
     {r:'dots.size', l:'大きさ', min:0.05, max:0.35, step:0.01},
   ]},
+  // strokes:true は専用の行（フチ1〜3：ON・太さ・色）を rows の前に3本差し込む（strokeHTML）。太さは内側から累積される（text-render.js の layers）
   {t:'フチ', hint:'内側→外側の順に重なります', strokes:true, rows:[
     {r:'sblur', l:'フチのぼかし', min:0, max:30, step:0.5},
     {chk:'sglow.on', l:'フチの光彩'},
@@ -65,6 +85,7 @@ const SECTIONS = [
   ]},
   {t:'一文字囲み', on:'box.on', hint:'1文字ずつ図形で囲む', rows:[
     {sel:'box.shape', l:'形', opts:[['square','四角'],['round','角丸'],['circle','丸'],['diamond','ひし形']]},
+    // ランダム配色の ON/OFF（box.rand）で、単色用の欄（色・交互）とパレット用の欄（pal・順番・並び方）を出し分ける
     {c:'box.c', l:'色', show:'box.rand=false'}, {chk:'box.rand', l:'ランダム配色（脅迫状風）'},
     {pal:true, show:'box.rand=true'}, {chk:'box.seq', l:'ランダムにせず、順番に使う', show:'box.rand=true'}, {seed:'box.seed', l:'並び方', show:'box.rand=true&box.seq=false'}, {chk:'box.alt', l:'交互に色を変える', show:'box.rand=false'}, {c:'box.c2', l:'交互色', show:'box.rand=false&box.alt=true'},
     {r:'box.pad', l:'大きさ', min:-0.2, max:0.4, step:0.01},
@@ -146,27 +167,37 @@ const SECTIONS = [
   {t:'傾き・回転', rows:[{r:'skew', l:'斜体', min:-30, max:30, step:1}, {r:'rotate', l:'回転', min:-45, max:45, step:1}]},
 ];
 // 文字スタイル（S）用の入力欄のつなぎ込み
+// getK/setK：'strokes.0.c' のようにドット区切りで配列の添字も辿れる。S は差し替わることがある（レイヤー切替・履歴復元）ので、
+// 値を保持せず呼ぶたびに今の S を参照する。getK は途中が無ければ undefined、setK は途中が無いと例外になる（パネル定義のキーが S に無い場合）。
 const getK = k => k.split('.').reduce((o, p) => o?.[p], S);
 function setK(k, v){ const ps = k.split('.'); const last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; }
 const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:getK,
   onInput(k, v, el){
+    // resetAdj：手動で色を変えたら一括調整の基準が古くなるので捨てる（colors.js）。
+    // syncUI(el)：操作中の入力欄自身は上書きしない（入力途中の文字やカーソル位置が飛ぶため）。同じキーの他の欄（スライダー⇔数値）は更新される
     resetAdj(); setK(k, v); syncUI(el);
+    // 文字が変わったらフォント一覧の見本（.fs）も追従させる。一覧は数が多いので 300ms デバウンス
     if(k === 'text'){ clearTimeout(KB.st); KB.st = setTimeout(() => document.querySelectorAll('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
     schedule();
   },
   onSeg(k, v){ setK(k, v); syncUI(); schedule(); },
-  onReroll(k){ setK(k, Math.floor(Math.random() * 1e6)); schedule(); },
+  onReroll(k){ setK(k, Math.floor(Math.random() * 1e6)); schedule(); },   // 乱数の「種」を振り直す（描画側は rng(seed) で再現性のある乱数を使う）
 });
+// 一文字囲みの「ランダム配色」用パレット行（使う色数・8色の色欄・おまかせチップ）。通常の行では表現できないので専用に HTML を作る。
+// data-pi は色欄の番号で、syncUI が「使わない色（番号 >= box.pn）」を薄くするのに使う
 const paletteRowHTML = r => `<div data-show="${r.show}"><div class="row"><label>使う色数</label><input type="range" data-k="box.pn" min="2" max="8" step="1"><input type="number" class="num" data-k="box.pn" min="2" max="8" step="1"></div>
   <div class="row"><label>色</label><div class="palrow">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<input type="color" data-k="box.pal.${i}" data-pi="${i}">`).join('')}</div></div>
   <div class="row"><label>おまかせ</label><div class="pcats palchips">${BOX_PALETTES.map(p => `<button data-boxpal="${p[0]}">${p[1]}</button>`).join('')}</div></div></div>`;
+// KB.row の第2引数 true は「色欄にランダム・スポイトのボタンを付ける」指定
 const rowHTML = r => r.pal ? paletteRowHTML(r) : KB.row(r, true);
+// フチ i 本目の行。ON/太さ/色が横一列なので通常の行ではなく専用。キーは strokes.i.on|w|c（S.strokes 配列と対応）
 function strokeHTML(i){
   return `<div class="stroke-row"><label class="chk"><input type="checkbox" data-k="strokes.${i}.on"> フチ${i+1}</label>
     <input type="range" data-k="strokes.${i}.w" min="0" max="40" step="0.5"><input type="number" class="num" data-k="strokes.${i}.w" min="0" max="40" step="0.5">
     <input type="color" data-k="strokes.${i}.c"></div>`;
 }
-// 文字パネル（テキストの行・装飾のセクション）を組み立てる
+// 文字パネル（テキストの行・装飾のセクション）を組み立てる。起動時に1回だけ呼ぶ（入力欄の値は syncUI で後から入れる）。
+// 最後の行：OFF のセクションは最初から折りたたむ（ON のものだけ開いて、パネルが長くなりすぎないように）
 function buildTextControls(){
   $('#textRows').innerHTML = TEXT_ROWS.map(rowHTML).join('');
   $('#genSections').innerHTML = SECTIONS.map(s => `
@@ -177,35 +208,45 @@ function buildTextControls(){
   document.querySelectorAll('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
 }
 
+// S の内容を画面へ反映する（入力欄の値・ボタンの選択状態・表示条件）。S を直接書き換えた後（パレット適用・履歴復元・初期化など）は必ず呼ぶ。
+// except：入力中の欄を上書きしないための除外（onInput から渡される）
 function syncUI(except){
   KB.sync(except);
   document.querySelectorAll('[data-pi]').forEach(el => { el.style.opacity = +el.dataset.pi < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
   document.querySelectorAll('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
 }
+// 見出しクリックで折りたたみ。見出し内のスイッチ（.sw）は ON/OFF 用なので除く
 document.addEventListener('click', e => {
-  const h = e.target.closest('section > h3');
+  const h =e.target.closest('section > h3');
   if(h && !e.target.closest('.sw')) h.parentElement.classList.toggle('collapsed');
 });
+// スイッチを ON にしたら自動で開く（開いて設定を触れるように）。値の反映自体は KB の input ハンドラ側
 document.addEventListener('change', e => {
   const sw = e.target.closest('.sw');
   if(sw && e.target.checked) sw.closest('section').classList.remove('collapsed');
 });
+// 太さ・英数字フォントの select は index.html に固定で置かれた欄（パネル生成の対象外）。change 時の追加処理：
+// 太さは数値化して S.weight に入れ直し、英数字フォントを変えたらフォント一覧の表示（renderFontList）を更新する
 document.addEventListener('change', e => {
   if(e.target.id === 'weight'){ S.weight = parseFloat(e.target.value); schedule(); }
   if(e.target.id === 'fontLatin') renderFontList();
 });
+// 色欄まわりのボタン：おまかせパレット（data-boxpal）／この色だけランダム（data-rnd）／スポイト（data-eye）。
+// いずれも色を直接書き換えるので resetAdj を先に呼ぶ。パレットは slice() でコピーして BOX_PALETTES 本体を S と共有しない（編集で定義が壊れないように）
 document.addEventListener('click', e => {
   const bp = e.target.closest('[data-boxpal]');
   if(bp){ const p = BOX_PALETTES.find(q => q[0] === bp.dataset.boxpal); if(p){ resetAdj(); S.box.pal = p[2].slice(); S.box.pn = p[3]; syncUI(); schedule(); } return; }
   const rb = e.target.closest('[data-rnd]');
   if(rb){ resetAdj(); setK(rb.dataset.rnd, randomLike(getK(rb.dataset.rnd))); syncUI(); schedule(); return; }
   const eb = e.target.closest('[data-eye]');
+  // EyeDropper は非対応ブラウザではボタン自体を出さない（bind.js）。キャンセル時は reject されるので catch で握りつぶす。sRGBHex は #rrggbb 形式で返る
   if(eb){ new EyeDropper().open().then(r => { resetAdj(); setK(eb.dataset.eye, r.sRGBHex.slice(0, 7).toLowerCase()); syncUI(); schedule(); }).catch(() => {}); return; }
 });
 $('#pcats').addEventListener('click', e => {
   const b = e.target.closest('[data-pcat]'); if(!b) return;
   pcat = b.dataset.pcat; LS.set('ttm_pcat', pcat); renderPresets();
 });
+// 今の S を素材置き場（thumb/library.js）にスタイルとして登録する
 $('#savePreset').onclick = () => {
   const name = prompt('文字スタイルの名前（素材置き場に登録します）', 'マイ設定'); if(!name) return;
   libAddStyle(name, S);
@@ -213,6 +254,7 @@ $('#savePreset').onclick = () => {
 // スタイルを初期状態に戻す。サムネ作成では S がレイヤーのスタイルそのものなので、入れ物は替えずに中身を戻す（文字はそのまま）
 $('#resetAll').onclick = () => {
   if(!confirm('スタイルを初期状態に戻しますか？（文字はそのまま）')) return;
+  // S 自体を新しいオブジェクトに替えず、キーを全部消して DEFAULT のコピーを入れ直す（レイヤーの style と同一参照を保つため）
   const text = S.text; for(const k of Object.keys(S)) delete S[k]; Object.assign(S, clone(DEFAULT), {text});
   resetAdj(); refreshTextUI(); schedule(); if(DOC.mode === 'thumb') docChanged(false);
 };

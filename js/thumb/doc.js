@@ -1,5 +1,23 @@
 /* 楽ちんサムネメーカー：サムネのデータ構造・値の読み書き・変更通知 */
+/*
+  役割：サムネ作成モードの保存データ DOC（キャンバス寸法・背景 bg・仕上げ fin・レイヤー配列 layers・選択状態）の
+  初期値・読み込み時の正規化・自動保存・「パス文字列での値の読み書き」・変更通知を持つ。
+  主な公開：DOC_BASE / normalizeDoc / loadSavedDoc / saveDoc / dGet・dSet・setD / docChanged / syncDoc / DB（入力欄との結び付け）/
+           selLayer・textLayer / usedAssets / layerName / uid / mkTextLayer
+  依存：LS・S・clamp（core.js）、bind.js の makeBinder、LAYER_BASE・IMAGE_BASE・COLLAGE_BASE・GROUP_BASE・FRAME_BASE・FIN_BASE などの
+       各レイヤー定義（assets.js / collage.js / group.js / frames.js / finish.js / fx.js）。
+  呼び出し元：main.js（起動時 loadSavedDoc）、export.js（プロジェクトを開く時の loadDocObj → normalizeDoc）、
+            history.js（取り消し）、inspector.js・events.js・layers.js など、DOC を触る全員が変更後に docChanged() を呼ぶ。
+  DOC の形（要点）：
+    { mode:'thumb'|'text', w,h:キャンバス px, exportW:書き出し横幅 px, fmt, limit2mb, guides, bg, fin,
+      layers:[…奥→手前の順…], sel:選択中レイヤーid, textSel:文字パネルとつながる文字レイヤーid, msel:複数選択id（保存しない） }
+    layers の各要素は共通で {id, type, x, y, sc, rot, op, blend, hidden, locked, gid?, label?}。type は text / image / collage / group / fx。
+    x・y は DOC 座標（左上が原点、単位は w×h の px）で、レイヤーの中心を指す。画像本体は DOC に入れず、asset（id）だけを持つ
+    （本体は assets.js の ASSETS と IndexedDB）。
+  保存先の使い分け：DOC と文字スタイル S は小さいので localStorage（'ttm_doc' / 'ttm_state'）。画像は大きいので IndexedDB。
+*/
 /* ============ サムネ作成 ============ */
+// 毎回新しいオブジェクトを返す（Object.assign のベースに使うので、共有すると保存データを書き換えてしまう）
 const DOC_BASE = () => ({
   mode:'thumb', w:1920, h:1080, exportW:1920, fmt:'png', limit2mb:true,
   guides:{thirds:false, badge:true, snap:true, fx:true},
@@ -13,10 +31,12 @@ const DOC_BASE = () => ({
   fin:FIN_BASE(),
   layers:[], sel:null, textSel:null, msel:[],
 });
+// レイヤー・素材のid。時刻＋乱数なので、プロジェクトの読み込みや複製で衝突しにくい
 const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:'text', x, y, sc, style});
 const selLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.sel)) || null;
 const textLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.textSel)) || null;
+// いま DOC が参照している画像アセットid の集合。IndexedDB の掃除（assets.js idbRestore）とプロジェクト保存で「使っているものだけ」を残すのに使う
 function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : [])].filter(Boolean)); }
 function layerName(L){
   if(L.label) return L.label;
@@ -26,6 +46,10 @@ function layerName(L){
   if(L.type === 'collage') return `分割フレーム（${collageN(L)}分割）`;
   return L.name || '画像';
 }
+/* 保存データ（localStorage・プロジェクトJSON・取り消し履歴）を、いまの DOC の形に整えて返す。
+   機能追加で増えたキーは既定値で埋め、範囲外の値は丸める。古い保存データを読んでも落ちないための唯一の入口なので、
+   DOC にキーを足したら、ここで既定値が入るか（Object.assign のベースにあるか）を必ず確認すること。
+   d が不正（null・layers なし）のときは、文字レイヤー1枚の新規ドキュメントを返す。 */
 function normalizeDoc(d){
   const b = DOC_BASE();
   if(!d || !Array.isArray(d.layers)){
@@ -38,12 +62,17 @@ function normalizeDoc(d){
   let ex = Math.round(+d.exportW); if(!(ex >= 100)) ex = o.w;
   while(ex > 200 && ex * ex * o.h / o.w > EXPORT_MAX_PX) ex = Math.floor(ex * 0.9);
   o.exportW = ex;
+  // Object.assign は浅いコピーなので、入れ子のオブジェクト（bg・fin・guides と、bg の中の zb など）は個別に既定値と混ぜる。
+  // こうしないと、古いデータに zb などが無いとき o.bg.zb.on が未定義参照で落ちる
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
   o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none';
   for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
+  // 旧データ互換：背景効果の中心はもとはズームブラー専用（zb.cx/cy）だった。fcx/fcy が無い古いデータでは、そちらの値を引き継ぐ
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
+  // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、未対応の fx 種別（バージョン違いの保存データ）は捨てる。
+  // 画像は crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
   o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
     ? Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})})
     : L.type === 'collage' ? (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
@@ -60,25 +89,34 @@ function normalizeDoc(d){
   o.layers.forEach(l => { if(l.gid && (!gids.has(l.gid) || l.type === 'group')) delete l.gid; if(!l.gid) delete l.gid; });
   o.layers = o.layers.filter(l => l.type !== 'group' || o.layers.some(k => k.gid === l.id));
   o.msel = [];
-  // 以前の「背景の集中線」を動的エフェクトのレイヤーに移す
+  // 旧データ互換：以前の「背景の集中線」(bg.lines) を動的エフェクトのレイヤーに移す。
+  // unshift で最背面に入れるのは、旧仕様では集中線が背景の直上（他のレイヤーより奥）に描かれていたため。中心は fcx/fcy（比率）を px に直す
   const oldLines = (d.bg || {}).lines; delete o.bg.lines;
   if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * o.w, y:(o.bg.fcy ?? 0.5) * o.h})); }
   if(!o.layers.find(l => l.id === o.textSel)){ const T = o.layers.find(l => l.type === 'text'); o.textSel = T ? T.id : null; }
   if(o.sel && !o.layers.find(l => l.id === o.sel)) o.sel = null;
   return o;
 }
-// 保存しておいた作業を読み込み、選択中の文字レイヤーのスタイルを文字パネルにつなぐ
+// 保存しておいた作業を読み込み、選択中の文字レイヤーのスタイルを文字パネルにつなぐ。
+// S（文字パネルが編集中のスタイル）は textSel の文字レイヤーの style と同じ参照を共有する。ここで差し替えないと、パネルの編集が DOC に届かない
 function loadSavedDoc(){
   try{ DOC = normalizeDoc(LS.get('ttm_doc', null)); }catch(e){ console.warn('保存データを読み込めませんでした', e); DOC = normalizeDoc(null); }
   const T = textLayer(); if(T) S = T.style;
 }
 
+// 自動保存。スライダーを動かしている間に何度も呼ばれるので 250ms まとめる（localStorage の JSON 化は重い）。
+// 容量超過などの失敗は LS.set 側が警告を出す。画像の本体はここには入らない（IndexedDB。assets.js）
 function saveDoc(){
   clearTimeout(saveDoc.t);
   saveDoc.t = setTimeout(() => { LS.set('ttm_state', S); if(DOC) LS.set('ttm_doc', DOC); }, 250);
 }
 
 /* ---------- ドキュメント操作 ---------- */
+/* 入力欄の data-d に書くキー（パス文字列）の解決。
+   'bg.zb.amt'      … DOC からの相対パス
+   '@sc' '@p.n'     … 先頭 @ は「選択中のレイヤー」からの相対パス
+   '@cell.zoom'     … 分割フレームの「選択中のマス（L.ac）」からの相対パス
+   戻り値は [起点オブジェクト, 残りのパス]。起点が無い（レイヤー未選択など）ときは b が null */
 function dBase(k){
   if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.cells ? L.cells[L.ac || 0] : null, k.slice(6)]; }
   return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k];
@@ -88,9 +126,14 @@ function dSet(k, v){
   const [b, p] = dBase(k); if(!b) return;
   const ps = p.split('.'), last = ps.pop(), o = ps.reduce((o, q) => o?.[q], b);
   if(o) o[last] = v;
+  // 値の変更に連動して直す項目：分割数を変えたら、その数で使えない配置は 'cols' に戻す／効果の対象（全部⇔マスごと）の切り替えを分割フレーム側へ伝える
   if(k === '@n' && b.type === 'collage' && !collageLayoutOk(b.layout, collageN(b))) b.layout = 'cols';
   if(k === '@fxMode' && b.type === 'collage') collageFxModeChanged(b);
 }
+/* DOC を変えたら必ず呼ぶ「変更通知」。保存・取り消し履歴・再描画・レイヤーパネル更新をまとめて予約する。
+   live=true はスライダーのドラッグ中：まず軽い即時描画（livePaint）だけして、高品質の再描画は 220ms 止まってから行う。
+   履歴は 450ms まとめて1回だけ積む（ドラッグ1回＝取り消し1回にするため）。
+   text モード（文字だけを透過PNGで作る）ではサムネの再描画は不要なので、保存と履歴だけ行って戻る */
 function docChanged(live){
   saveDoc(); clearTimeout(histT); histT = setTimeout(pushHist, 450);
   if(DOC.mode !== 'thumb') return;
@@ -100,6 +143,7 @@ function docChanged(live){
 }
 // サムネ（DOC・選択中のレイヤー）用の入力欄のつなぎ込み。キーが @ で始まると選択中のレイヤー
 function setD(k, v){
+  // 変更前のフレーム形状（g0）を控えて、変更後に frameCompensate でレイヤー位置をずらす。
   // 切り抜きフレームを変えても、画像そのものはキャンバス上で動かないように位置を補正する
   if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
   else dSet(k, v);
