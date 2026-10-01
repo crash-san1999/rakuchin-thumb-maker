@@ -10,7 +10,7 @@ document.addEventListener('click', e => {
     L.y = Math.round(v === 't' ? my + bh / 2 : v === 'b' ? DOC.h - my - bh / 2 : DOC.h / 2);
     syncDoc(); docChanged(false); return;
   }
-  if(e.target.closest('#collageEditBtn')){ toggleEdit('cells'); return; }
+  if(e.target.closest('#collageEditBtn, #cellFab')){ toggleEdit('cells'); return; }
   if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:DOC.w / 2, y:DOC.h / 2, bw:DOC.w, bh:DOC.h, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
   if(e.target.closest('#frameEditBtn')){ toggleEdit('frame'); return; }
   if(e.target.closest('#cutBrushBtn')){ const L = selLayer(); if(L && L.btool === 'pick') L.btool = 'erase'; toggleEdit('cut'); return; }
@@ -174,7 +174,7 @@ async function openProjectFile(f){
 /* ドラッグ＆ドロップ（画面のどこに落としてもOK）・貼り付け */
 {
   const ov = $('#ddov'); let depth = 0;
-  const hasFiles = e => [...(e.dataTransfer?.types || [])].some(t => t === 'Files' || t === 'text/uri-list');
+  const hasFiles = e => cellDragFrom < 0 && [...(e.dataTransfer?.types || [])].some(t => t === 'Files' || t === 'text/uri-list');
   const show = on => { ov.classList.toggle('show', on); if(!on) ov.querySelectorAll('[data-dz]').forEach(z => z.classList.remove('hot')); };
   window.addEventListener('dragenter', e => { if(!hasFiles(e)) return; e.preventDefault(); depth++; show(true); });
   window.addEventListener('dragleave', e => { if(!hasFiles(e)) return; depth = Math.max(0, depth - 1); if(!depth) show(false); });

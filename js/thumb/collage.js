@@ -22,7 +22,7 @@ function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}))});
+    cells:[...Array(6)].map(() => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE()}))});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
@@ -134,14 +134,16 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
     x.font = `700 ${fs * 0.34}px "M PLUS Rounded 1c", sans-serif`; x.fillText('画像をドロップ', bx0 + cw / 2, by0 + ch / 2 + fs * 0.55);
     return;
   }
-  const iw = A.img.naturalWidth, ih = A.img.naturalHeight, k = Math.max(cw / iw, ch / ih) * clamp(cell.zoom || 1, 0.2, 8);
+  // 回転しても、マスに隙間ができない大きさを基準にする
+  const ra = (cell.rot || 0) * PI / 180, rc = Math.abs(Math.cos(ra)), rs = Math.abs(Math.sin(ra));
+  const iw = A.img.naturalWidth, ih = A.img.naturalHeight, k = Math.max((cw * rc + ch * rs) / iw, (cw * rs + ch * rc) / ih) * clamp(cell.zoom || 1, 0.2, 8);
   const dw = iw * k, dh = ih * k, cx = bx0 + cw / 2 + (cell.ox || 0) * cw, cy = by0 + ch / 2 + (cell.oy || 0) * ch;
   const fx = collageFx(L, i);
-  if(!cellFxOn(fx)){ x.drawImage(A.img, cx - dw / 2, cy - dh / 2, dw, dh); return; }
+  if(!cellFxOn(fx)){ cellImg(x, A.img, cx, cy, dw, dh, cell); return; }
   // 効果あり：マスの範囲（ぼかし・ブラーのぶん少し広め）を別のキャンバスで作ってから置く
   const f = W / (L.bw * L.sc), m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0));
   const t = mk(Math.ceil(cw) + m * 2, Math.ceil(ch) + m * 2), tx = t.getContext('2d'), ox = m - bx0, oy = m - by0;
-  tx.filter = toneFilter(fx, f); tx.drawImage(A.img, cx - dw / 2 + ox, cy - dh / 2 + oy, dw, dh); tx.filter = 'none';
+  tx.filter = toneFilter(fx, f); cellImg(tx, A.img, cx + ox, cy + oy, dw, dh, cell); tx.filter = 'none';
   const o = postFx(t, fx, f, bx0 + cw / 2 + ox, by0 + ch / 2 + oy), ox2 = o.getContext('2d');
   ox2.save(); ox2.globalCompositeOperation = 'source-atop';
   if(fx.dim > 0){ ox2.fillStyle = `rgba(0,0,0,${fx.dim})`; ox2.fillRect(0, 0, o.width, o.height); }
@@ -223,7 +225,7 @@ function addCollage(){
 }
 async function collageSetCell(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
-  L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0});
+  L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false});
 }
 // ドロップ位置のマス、なければ選択中の分割フレームの空いているマスに順に入れる。残りを返す
 async function collageTakeFiles(files, cx, cy){
@@ -251,6 +253,20 @@ async function collageTakeFiles(files, cx, cy){
   return rest;
 }
 
+// マスの中の画像を、回転・反転して描く
+function cellImg(x, img, cx, cy, dw, dh, cell){
+  if(!cell.rot && !cell.flip && !cell.flipV){ x.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh); return; }
+  x.save(); x.translate(cx, cy); x.rotate((cell.rot || 0) * PI / 180); x.scale(cell.flip ? -1 : 1, cell.flipV ? -1 : 1); x.drawImage(img, -dw / 2, -dh / 2, dw, dh); x.restore();
+}
+// マスの画像を入れ替える（画像・位置・大きさ・回転・反転。効果はマスに残す）
+const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
+function swapCells(L, i, j){
+  if(i === j || i < 0 || j < 0) return;
+  const a = L.cells[i], b = L.cells[j];
+  for(const k of CELL_IMG_KEYS){ const t = a[k]; a[k] = b[k]; b[k] = t; }
+  L.ac = j;
+}
+function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
 /* マスの一覧（操作パネル） */
 function renderCells(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
@@ -259,16 +275,29 @@ function renderCells(){
   document.querySelectorAll('.cellBox').forEach(box => {
   if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
-    return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" title="マス${i + 1}">${A ? `<img src="${A.thumb}" alt="">` : `<span>${i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
-    <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>`;
+    return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" draggable="${A ? 'true' : 'false'}" title="マス${i + 1}（ドラッグで別のマスと入れ替え）">${A ? `<img src="${A.thumb}" alt="" draggable="false">` : `<span>${i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
+    <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>${ASSETS[L.cells[L.ac].asset] ? `<div class="crow"><button class="btn sm ghost" data-cellact="flip">${ic('fliph')}左右反転</button><button class="btn sm ghost" data-cellact="flipV">${ic('flipv')}上下反転</button><button class="btn sm ghost" data-cellact="reset">${ic('reset')}位置・大きさを元に戻す</button></div>` : ''}`;
   });
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
+// 一覧のマスをドラッグして、別のマスに落とすと入れ替え
+let cellDragFrom = -1;
+document.addEventListener('dragstart', e => { const b = e.target.closest && e.target.closest('.cellbtn[data-cell]'); if(!b) return; cellDragFrom = +b.dataset.cell; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'cell'); });
+document.addEventListener('dragover', e => { if(cellDragFrom < 0) return; const b = e.target.closest && e.target.closest('.cellbtn[data-cell]'); if(b){ e.preventDefault(); e.stopPropagation(); document.querySelectorAll('.cellbtn.dropto').forEach(x => x.classList.toggle('dropto', x === b)); b.classList.add('dropto'); } }, true);
+document.addEventListener('drop', e => {
+  if(cellDragFrom < 0) return; const b = e.target.closest && e.target.closest('.cellbtn[data-cell]'), L = selLayer(), from = cellDragFrom; cellDragFrom = -1;
+  document.querySelectorAll('.cellbtn.dropto').forEach(x => x.classList.remove('dropto'));
+  e.preventDefault(); e.stopPropagation();
+  if(b && L && L.type === 'collage' && +b.dataset.cell !== from){ swapCells(L, from, +b.dataset.cell); syncDoc(); docChanged(false); toast(`マス${from + 1}とマス${+b.dataset.cell + 1}の画像を入れ替えました`); }
+}, true);
+document.addEventListener('dragend', () => { cellDragFrom = -1; document.querySelectorAll('.cellbtn.dropto').forEach(x => x.classList.remove('dropto')); });
 document.addEventListener('click', e => {
   const cb = e.target.closest('[data-cell]'), ca = e.target.closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;
   if(cb){ L.ac = +cb.dataset.cell; if(!ASSETS[L.cells[L.ac].asset]) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }
   if(ca.dataset.cellact === 'pick') $('#cellfile').click();
+  else if(ca.dataset.cellact === 'reset'){ resetCell(L, L.ac); syncDoc(); docChanged(false); }
+  else if(ca.dataset.cellact === 'flip' || ca.dataset.cellact === 'flipV'){ const c = L.cells[L.ac]; c[ca.dataset.cellact] = !c[ca.dataset.cellact]; syncDoc(); docChanged(false); }
   else { L.cells[L.ac].asset = null; syncDoc(); docChanged(false); }
 });
 {

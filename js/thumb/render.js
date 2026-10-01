@@ -211,6 +211,7 @@ function paintPreview(live){
   tv.classList.toggle('clearbg', !!DOC.bg.hidden || (DOC.bg.op ?? 1) < 1);
   compose(ctx, W, H, live, prevCache);
   if(!small) drawOverlay(ctx, W, H, dpr);
+  updateCellFab();
   if(!live) refreshThumbs();
   $('#info').textContent = `${DOC.exportW} × ${Math.round(DOC.exportW * DOC.h / DOC.w)} px ・ ${DOC.fmt.toUpperCase()}`;
 }
@@ -220,4 +221,9 @@ async function drawThumb(){
   for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style);
   if(my !== tok) return;
   paintPreview(false); updateVis(); updateTextTip();
+}
+// 分割フレームを選んでいるとき、キャンバスに「マスの画像を動かす」ボタンを出す
+function updateCellFab(){
+  const b = $('#cellFab'); if(!b) return; const L = selLayer(), show = !!(L && L.type === 'collage' && !L.hidden && !L.locked), on = !!(edit && edit.kind === 'cells');
+  b.hidden = !show; b.classList.toggle('on', on); const t = on ? 'マスの調整を終える' : 'マスの画像を動かす'; if(b.lastChild.textContent !== t) b.lastChild.textContent = t;
 }

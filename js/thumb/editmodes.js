@@ -97,21 +97,31 @@ const EDIT_MODES = {
   cells: {
     btn:'collageEditBtn', label:'キャンバスでマスの画像を調整',
     ok: L => L.type === 'collage',
-    hint: () => isMobile ? 'マスをドラッグで中の画像を移動、ピンチで拡大縮小。外をタップで終了' : 'マスをドラッグで中の画像を移動、ホイールで拡大縮小。Esc か外をクリックで終了',
-    banner: L => isMobile ? `マス${L.ac + 1}を調整中：ドラッグで移動／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}を調整中：ドラッグで移動／ホイールで拡大縮小／Esc か外をクリックで終了`,
+    hint: () => isMobile ? 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ピンチで拡大縮小。外をタップで終了' : 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ホイールで拡大縮小（Shift+ホイールで回転）。Esc か外をクリックで終了',
+    banner: L => isMobile ? `マス${L.ac + 1}：ドラッグで移動／別のマスへで入れ替え／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}：ドラッグで移動／別のマスへ持っていくと入れ替え／ホイールで拡大縮小・Shift+ホイールで回転／Esc で終了`,
     enter(L, x, y){ if(x != null){ const i = collageCellAt(L, x, y); if(i >= 0) L.ac = i; } },
     down(L, x, y){
       const i = collageCellAt(L, x, y); if(i < 0) return null;
       L.ac = i; const c = L.cells[i];
-      return {i, ox0:c.ox || 0, oy0:c.oy || 0, size:collageCellSize(L, i)};
+      return {i, ox0:c.ox || 0, oy0:c.oy || 0, size:collageCellSize(L, i), swap:-1, has:!!ASSETS[c.asset]};
     },
     move(L, x, y, d){
-      const [dx, dy] = rotLocal(L, x - d.x0, y - d.y0), c = L.cells[d.i];
+      const c = L.cells[d.i], j = collageCellAt(L, x, y);
+      // 画像のあるマスを、別のマスの上まで持っていったら「入れ替え」（離すまで位置は元のまま）
+      d.swap = d.has && j >= 0 && j !== d.i ? j : -1; swapTarget = d.swap >= 0 ? {id:L.id, j:d.swap} : null;
+      if(d.swap >= 0){ c.ox = d.ox0; c.oy = d.oy0; return; }
+      const [dx, dy] = rotLocal(L, x - d.x0, y - d.y0);
       c.ox = r3(d.ox0 + dx / d.size[0]); c.oy = r3(d.oy0 + dy / d.size[1]);
     },
-    zoom(L, k, x, y){
+    up(L, d){
+      swapTarget = null;
+      if(d.swap >= 0){ const j = d.swap; swapCells(L, d.i, j); toast(`マス${d.i + 1}とマス${j + 1}の画像を入れ替えました`); syncDoc(); }
+    },
+    zoom(L, k, x, y, e){
       const i = collageCellAt(L, x, y); if(i < 0) return false;
-      L.ac = i; const c = L.cells[i]; c.zoom = r3(clamp((c.zoom || 1) * k, 0.2, 8));
+      L.ac = i; const c = L.cells[i];
+      if(e && e.shiftKey){ const dv = e.deltaY || e.deltaX; if(dv) c.rot = Math.round((((c.rot || 0) + (dv > 0 ? 3 : -3)) + 540) % 360 - 180); return; }   // Shift＋ホイールで回転（Shift だと横スクロールになるブラウザもあるので両方見る）
+      c.zoom = r3(clamp((c.zoom || 1) * k, 0.2, 8));
     },
     pinchStart: L => ({zoom: L.cells[L.ac || 0].zoom || 1}),
     pinch(L, st, k){ const c = L.cells[L.ac || 0]; c.zoom = r3(clamp(st.zoom * k, 0.2, 8)); },
@@ -119,7 +129,8 @@ const EDIT_MODES = {
       const w = L.bw * L.sc, h = L.bh * L.sc, cells = collageCells(L.layout, collageN(L), w, h, L.slant, L.main);
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(f, f); ctx.translate(-w / 2, -h / 2);
       ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
-      cells.forEach((p, i) => { collagePath(ctx, p); ctx.lineWidth = (i === L.ac ? 3 : 1.5) * dpr / f; ctx.strokeStyle = i === L.ac ? '#ffb800' : 'rgba(255,255,255,.8)'; ctx.setLineDash(i === L.ac ? [] : [6 * dpr / f, 5 * dpr / f]); ctx.stroke(); });
+      const sw = swapTarget && swapTarget.id === L.id ? swapTarget.j : -1;
+      cells.forEach((p, i) => { collagePath(ctx, p); if(i === sw){ ctx.fillStyle = 'rgba(92,240,138,.28)'; ctx.fill(); } ctx.lineWidth = (i === L.ac || i === sw ? 3 : 1.5) * dpr / f; ctx.strokeStyle = i === sw ? '#5cf08a' : i === L.ac ? '#ffb800' : 'rgba(255,255,255,.8)'; ctx.setLineDash(i === L.ac || i === sw ? [] : [6 * dpr / f, 5 * dpr / f]); ctx.stroke(); });
       ctx.restore();
     },
   },
@@ -129,6 +140,7 @@ function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * M
 // 画像上の点（ドキュメント座標）→ フレーム基準のローカル座標（画像ピクセル）
 function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
 
+let swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
 const editModeFor = L => L && Object.keys(EDIT_MODES).find(k => EDIT_MODES[k].ok(L)) || null;
 function editLayer(){
   if(!edit) return null;
@@ -156,7 +168,7 @@ function editPointerDown(e, x, y, tv){
 function editPointerMove(x, y){ cutCursor = edit.kind === 'cut' ? [x, y] : null; EDIT_MODES[edit.kind].move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
 function editWheel(e, x, y, k){
   const L = editLayer(); if(!L) return false;
-  if(EDIT_MODES[edit.kind].zoom(L, k, x, y) === false) return false;
+  if(EDIT_MODES[edit.kind].zoom(L, k, x, y, e) === false) return false;
   e.preventDefault(); syncDoc(); docChanged(true); return true;
 }
 function editPinchStart(I){ const L = editLayer(); return L ? {kind:'edit', L, i:I, st:EDIT_MODES[edit.kind].pinchStart(L)} : null; }
