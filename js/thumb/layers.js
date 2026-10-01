@@ -89,7 +89,7 @@ function showMenu(id, cx, cy){
       b('down', 'down', '背面へ', 'Ctrl+[', '', bottom) + b('back', 'back', '最背面へ', 'Ctrl+Shift+[', '', bottom) + '<hr>' +
       b('dup', 'dup', '複製', 'Ctrl+D') + b('rename', 'pen', '名前を変更') + b('lock', L.locked ? 'unlock' : 'lock', L.locked ? 'ロックを解除' : 'ロック') +
       b('eye', L.hidden ? 'eye' : 'eyeoff', L.hidden ? '表示する' : '隠す') +
-      (L.type === 'image' ? '<hr>' + b('flip', 'fliph', '左右反転', 'H') + b('flipV', 'flipv', '上下反転', 'V') : '') +
+      (L.type === 'image' ? '<hr>' + b('flip', 'fliph', '左右反転', 'H') + b('flipV', 'flipv', '上下反転', 'V') + b('toLib', 'star', '素材置き場に登録') : '') + (L.type === 'text' ? '<hr>' + b('toLib', 'star', '文字スタイルを素材置き場に登録') : '') +
       '<hr>' + (isGroup(L) ? b('ungroup', 'ungroup', 'グループを解除', 'Ctrl+Shift+G') : L.gid ? b('ungroupOne', 'ungroup', 'グループから出す') : '') +
       (isGroup(L) ? '' : b('multi', 'group', '選択に追加（まとめて動かす・グループにする）')) + '<hr>' + b('del', 'trash', isGroup(L) ? 'グループごと削除' : '削除', 'Delete', 'danger');
   }
@@ -147,6 +147,7 @@ function removeLayers(ids){
 function layerAction(id, act){
   const L = layerById(id); if(!L) return;
   const peers = peersOf(L), pi = peers.indexOf(L);
+  if(act === 'toLib'){ if(L.type === 'image' && ASSETS[L.asset]) libAddImageSrc(ASSETS[L.asset].src, L.name || '画像').then(ok => { if(ok) toast(`素材置き場に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`); }); else if(L.type === 'text') libAddStyle(layerName(L), L.style); return; }
   if(act === 'group'){ groupLayers(DOC.msel && DOC.msel.length >= 2 ? DOC.msel : [id]); return; }
   if(act === 'ungroup'){ ungroupLayers(L); return; }
   if(act === 'ungroupOne'){ ungroupOne(L); return; }

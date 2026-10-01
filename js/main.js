@@ -12,7 +12,7 @@ function thumbInit(){
   setMode(DOC.mode, true);
   renderInspector(true);
   syncDoc(); renderLayers();
-  idbRestore();
+  idbRestore(); libInit();
   if(LS.get('ttm_helpAuto', 'first') !== false) setTimeout(openHelp, 400);
   window.addEventListener('resize', () => { clearTimeout(thumbInit.r); thumbInit.r = setTimeout(() => paintPreview(false), 60); });
   document.fonts.addEventListener('loadingdone', () => { if(DOC.mode === 'thumb'){ clearTimeout(thumbInit.f); thumbInit.f = setTimeout(() => paintPreview(false), 150); } });

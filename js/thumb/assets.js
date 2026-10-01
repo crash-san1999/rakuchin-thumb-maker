@@ -8,7 +8,7 @@ const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result
 let idbP = null;
 function idb(){
   return idbP || (idbP = new Promise((res, rej) => {
-    try{ const r = indexedDB.open('ttm', 1); r.onupgradeneeded = () => r.result.createObjectStore('assets'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
+    try{ const r = indexedDB.open('ttm', 2); r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains('assets')) d.createObjectStore('assets'); if(!d.objectStoreNames.contains('lib')) d.createObjectStore('lib', {keyPath:'id'}); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
     catch(e){ rej(e); }
   }));
 }
@@ -42,14 +42,18 @@ async function idbRestore(){
   }catch{}
   renderLayers(); paintPreview(false);
 }
+// 画像レイヤーを1枚作る（まだ DOC.layers には入れない）
+function newImageLayer(id, name){
+  const A = ASSETS[id], sc = Math.min(DOC.h * 0.85 / A.img.naturalHeight, DOC.w * 0.5 / A.img.naturalWidth);
+  return Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:uid(), type:'image', name, asset:id, x:Math.round(DOC.w * 0.74), y:Math.round(DOC.h * 0.56), sc});
+}
 async function addImageLayers(files, skipCollage){
   if(!skipCollage){ files = await collageTakeFiles(files.filter(f => /^image\//.test(f.type))); if(!files.length) return; }
   let last = null;
   for(const f of files){
     if(!/^image\//.test(f.type)) continue;
     const id = await addAsset(await fileToSrc(f), f.name), A = ASSETS[id];
-    const sc = Math.min(DOC.h * 0.85 / A.img.naturalHeight, DOC.w * 0.5 / A.img.naturalWidth);
-    const L = Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:uid(), type:'image', name:f.name.replace(/\.[^.]+$/, ''), asset:id, x:Math.round(DOC.w * 0.74), y:Math.round(DOC.h * 0.56), sc});
+    const L = newImageLayer(id, f.name.replace(/\.[^.]+$/, ''));
     DOC.layers.push(L); last = L.id;
   }
   if(last){ openInspector(); selectLayer(last); docChanged(false); toast('画像を追加しました。ドラッグで移動、角で拡大、上の丸で回転できます'); }

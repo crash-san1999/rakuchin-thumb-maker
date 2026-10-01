@@ -189,9 +189,8 @@ $('#pcats').addEventListener('click', e => {
   pcat = b.dataset.pcat; LS.set('ttm_pcat', pcat); renderPresets();
 });
 $('#savePreset').onclick = () => {
-  const name = prompt('プリセット名', 'マイ設定'); if(!name) return;
-  const s = clone(S); delete s.text; delete s.pad; delete s.scale; delete s.size;
-  myPresets.push({name: name.slice(0, 12), s}); LS.set('ttm_mypresets', myPresets); renderPresets(); toast('保存しました');
+  const name = prompt('文字スタイルの名前（素材置き場に登録します）', 'マイ設定'); if(!name) return;
+  libAddStyle(name, S);
 };
 // スタイルを初期状態に戻す。サムネ作成では S がレイヤーのスタイルそのものなので、入れ物は替えずに中身を戻す（文字はそのまま）
 $('#resetAll').onclick = () => {

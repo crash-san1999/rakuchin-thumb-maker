@@ -23,11 +23,12 @@ function togglePop(id, anchor){
 }
 document.addEventListener('click', e => {
   const a = e.target.closest('#addBtn, #lpAdd'); if(a){ togglePop('addMenu', a); return; }
+  if(e.target.closest('#libBtn, #addLib')){ const b = $('#libBtn'); togglePop('libMenu', b.offsetParent ? b : $('#addBtn')); renderLib(); return; }
   const cv = e.target.closest('#canvasBtn, #openCanvasMenu'); if(cv){ togglePop('canvasMenu', $('#canvasBtn').offsetParent ? $('#canvasBtn') : $('#fileBtn')); return; }
   const f = e.target.closest('#fileBtn'); if(f){ togglePop('fileMenu', f); return; }
   if(e.target.closest('#addBgImg')){ $('#bgimgfile').click(); }
   if(e.target.closest('#mbar [data-sheet=add]')) return;
   const pop = e.target.closest('.pop');
-  if(!pop || (pop.id === 'addMenu' && e.target.closest('button'))) setTimeout(() => document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')), 0);
+  if(!pop || (pop.id === 'addMenu' && e.target.closest('button') && !e.target.closest('#addLib'))) setTimeout(() => document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')), 0);
 });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')); });

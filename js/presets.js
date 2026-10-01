@@ -161,7 +161,6 @@ const PRESETS = [
     strokes:[{on:true,w:3,c:'#111111'},{on:false,w:4,c:'#000000'},{on:false,w:4,c:'#000000'}],box:{on:true,shape:'square',c:'#e8132b',alt:false,rand:true,c2:'#111111',pad:.02,sc:'#ffffff',sw:0},
     jitter:{on:true,rot:10,y:10,scale:.1,seed:6},extrude:{on:false},shadow:{on:true,x:4,y:6,blur:0,c:'#000000',a:.5},skew:0}],
 ];
-let myPresets = LS.get('ttm_mypresets', []);
 const PCATS = {
   '定番':   ['対戦格闘','白フチ','激辛','クール','ポップ','2色分割','ステッカー','スピード'],
   '金属':   ['メタル金','クローム','シルバー','ガンメタ','ホログラム','鏡面','アウトラン','キラキラ'],
@@ -183,7 +182,7 @@ function presetStyle(p){
     (stroke ? `-webkit-text-stroke:2px ${stroke};` : '');
 }
 function renderPresets(){
-  const cats = ['すべて', ...Object.keys(PCATS), ...(myPresets.length ? ['マイ'] : [])];
+  const cats = ['すべて', ...Object.keys(PCATS), ...(myStyles().length ? ['マイ'] : [])];
   if(!cats.includes(pcat)) pcat = 'すべて';
   $('#pcats').innerHTML = cats.map(c => `<button data-pcat="${c}" class="${c === pcat ? 'on' : ''}">${c}</button>`).join('');
   const box = $('#presets'); box.innerHTML = '';
@@ -193,10 +192,10 @@ function renderPresets(){
     b.onclick = () => applyPreset(p); box.appendChild(b);
     ensureCss(findFont(p.font));
   });
-  if(pcat === 'すべて' || pcat === 'マイ') myPresets.forEach((mp, i) => {
+  if(pcat === 'すべて' || pcat === 'マイ') myStyles().forEach(mp => {
     const b = document.createElement('button'); b.textContent = mp.name; b.style.cssText = presetStyle(mp.s);
     const x = document.createElement('span'); x.className = 'x'; x.textContent = '×'; x.title = '削除';
-    x.onclick = e => { e.stopPropagation(); if(confirm(`「${mp.name}」を削除しますか？`)){ myPresets.splice(i,1); LS.set('ttm_mypresets', myPresets); renderPresets(); } };
+    x.onclick = e => { e.stopPropagation(); if(confirm(`「${mp.name}」を素材置き場から削除しますか？`)) libDelete(mp.id); };
     b.appendChild(x); b.onclick = () => applyPreset(mp.s); box.appendChild(b);
   });
 }
