@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=a930a8b4">
+<link rel="stylesheet" href="css/app.css?v=e77fc694">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -46,6 +46,7 @@
       <span class="head-label">倍率</span>
       <div class="seg" data-seg="scale" data-num="1"><button data-v="1">1x</button><button data-v="2">2x</button><button data-v="3">3x</button><button data-v="4">4x</button></div>
     </div>
+    <button class="btn ghost only-thumb" id="newBtn" title="今の作業を保存して、新しく作り始めます"><i data-ic="newdoc"></i><span class="hide-sm">新規作成</span></button>
     <button class="btn ghost only-thumb" id="fileBtn" title="プロジェクト（作りかけの保存・開く）と書き出し設定"><i data-ic="folder"></i><span class="hide-sm">プロジェクト</span></button>
     <button class="btn ghost" id="copyBtn" title="クリップボードにコピー"><i data-ic="copy"></i><span class="hide-sm">コピー</span></button>
     <button class="btn pri" id="dlBtn"><i data-ic="download"></i><span id="dlLabel">サムネを保存</span></button>
@@ -252,6 +253,7 @@
   <div class="pop-ttl">ファイル・書き出し設定</div>
     <div id="fileSec">
       <button class="btn sm" id="pwaInstall" hidden><i data-ic="download"></i>アプリとして追加</button>
+      <button class="btn sm" id="newBtn2"><i data-ic="newdoc"></i>新規作成…</button>
       <button class="btn sm" id="openCanvasMenu"><i data-ic="crop"></i>キャンバスのサイズを変える…</button>
       <h3>保存と書き出し</h3>
       <div class="crow">
@@ -332,6 +334,22 @@
     <div class="help-foot"><span></span><button class="btn pri" data-log-close>とじる</button></div>
   </div>
 </div>
+<div class="help" id="newModal" role="dialog" aria-modal="true" aria-labelledby="newTtl">
+  <div class="help-card">
+    <div class="help-head"><b id="newTtl">新規作成</b><button class="icon-btn sm" data-new-close title="閉じる"><i data-ic="close"></i></button></div>
+    <div class="help-body">
+      <p>いまの作業を片づけて、まっさらな状態から作り始めます。</p>
+      <div class="newopts">
+        <button class="btn pri" id="newSave"><i data-ic="save"></i>保存してから新規作成</button>
+        <small>作りかけをファイル（.json）に保存してから、新しく始めます。あとで「プロジェクトを開く」から続きを編集できます</small>
+        <button class="btn" id="newNoSave"><i data-ic="newdoc"></i>保存せずに新規作成</button>
+        <small>取り消し（Ctrl+Z）で、直前の状態に戻せます</small>
+      </div>
+      <label class="chk"><input type="checkbox" id="newKeepSize" checked> キャンバスのサイズ・書き出し設定は、今のままにする</label>
+    </div>
+    <div class="help-foot"><span></span><button class="btn ghost" data-new-close>やめる</button></div>
+  </div>
+</div>
 <div class="ddov" id="ddov">
   <div class="dz" data-dz="layer"><i data-ic="image"></i><b>ここに離すとレイヤーとして追加</b><small>キャラ・素材・スタンプなど（複数まとめてOK）<br>画面のどこに離しても、基本はレイヤーになります</small></div>
   <div class="dzcol">
@@ -341,37 +359,37 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=a930a8b4"></script>
-<script src="js/bind.js?v=a930a8b4"></script>
-<script src="js/presets.js?v=a930a8b4"></script>
-<script src="js/data/font-list.js?v=a930a8b4"></script>
-<script src="js/fonts.js?v=a930a8b4"></script>
-<script src="js/controls.js?v=a930a8b4"></script>
-<script src="js/text-render.js?v=a930a8b4"></script>
-<script src="js/preview.js?v=a930a8b4"></script>
-<script src="js/colors.js?v=a930a8b4"></script>
-<script src="js/history.js?v=a930a8b4"></script>
-<script src="js/thumb/frames.js?v=a930a8b4"></script>
-<script src="js/thumb/collage.js?v=a930a8b4"></script>
-<script src="js/thumb/library.js?v=a930a8b4"></script>
-<script src="js/thumb/canvas.js?v=a930a8b4"></script>
-<script src="js/thumb/group.js?v=a930a8b4"></script>
-<script src="js/thumb/fx.js?v=a930a8b4"></script>
-<script src="js/thumb/cutout.js?v=a930a8b4"></script>
-<script src="js/thumb/assets.js?v=a930a8b4"></script>
-<script src="js/thumb/doc.js?v=a930a8b4"></script>
-<script src="js/thumb/finish.js?v=a930a8b4"></script>
-<script src="js/thumb/render.js?v=a930a8b4"></script>
-<script src="js/thumb/overlay.js?v=a930a8b4"></script>
-<script src="js/thumb/editmodes.js?v=a930a8b4"></script>
-<script src="js/thumb/layers.js?v=a930a8b4"></script>
-<script src="js/thumb/export.js?v=a930a8b4"></script>
-<script src="js/thumb/inspector.js?v=a930a8b4"></script>
-<script src="js/thumb/events.js?v=a930a8b4"></script>
-<script src="js/mobile.js?v=a930a8b4"></script>
-<script src="js/pwa.js?v=a930a8b4"></script>
-<script src="js/changelog.js?v=a930a8b4"></script>
-<script src="js/popups.js?v=a930a8b4"></script>
-<script src="js/main.js?v=a930a8b4"></script>
+<script src="js/core.js?v=e77fc694"></script>
+<script src="js/bind.js?v=e77fc694"></script>
+<script src="js/presets.js?v=e77fc694"></script>
+<script src="js/data/font-list.js?v=e77fc694"></script>
+<script src="js/fonts.js?v=e77fc694"></script>
+<script src="js/controls.js?v=e77fc694"></script>
+<script src="js/text-render.js?v=e77fc694"></script>
+<script src="js/preview.js?v=e77fc694"></script>
+<script src="js/colors.js?v=e77fc694"></script>
+<script src="js/history.js?v=e77fc694"></script>
+<script src="js/thumb/frames.js?v=e77fc694"></script>
+<script src="js/thumb/collage.js?v=e77fc694"></script>
+<script src="js/thumb/library.js?v=e77fc694"></script>
+<script src="js/thumb/canvas.js?v=e77fc694"></script>
+<script src="js/thumb/group.js?v=e77fc694"></script>
+<script src="js/thumb/fx.js?v=e77fc694"></script>
+<script src="js/thumb/cutout.js?v=e77fc694"></script>
+<script src="js/thumb/assets.js?v=e77fc694"></script>
+<script src="js/thumb/doc.js?v=e77fc694"></script>
+<script src="js/thumb/finish.js?v=e77fc694"></script>
+<script src="js/thumb/render.js?v=e77fc694"></script>
+<script src="js/thumb/overlay.js?v=e77fc694"></script>
+<script src="js/thumb/editmodes.js?v=e77fc694"></script>
+<script src="js/thumb/layers.js?v=e77fc694"></script>
+<script src="js/thumb/export.js?v=e77fc694"></script>
+<script src="js/thumb/inspector.js?v=e77fc694"></script>
+<script src="js/thumb/events.js?v=e77fc694"></script>
+<script src="js/mobile.js?v=e77fc694"></script>
+<script src="js/pwa.js?v=e77fc694"></script>
+<script src="js/changelog.js?v=e77fc694"></script>
+<script src="js/popups.js?v=e77fc694"></script>
+<script src="js/main.js?v=e77fc694"></script>
 </body>
 </html>

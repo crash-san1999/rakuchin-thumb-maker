@@ -574,3 +574,8 @@ body.is-mobile .updbar{bottom:88px}
 .cellfab.on{background:#5cf08a}
 body.is-mobile .cellfab{bottom:14px}
 .cellbtn.dropto{outline:3px solid #5cf08a;outline-offset:2px}
+
+/* 新規作成 */
+.newopts{display:flex;flex-direction:column;gap:6px;margin:12px 0 14px}
+.newopts .btn{justify-content:center;padding:10px 14px}
+.newopts small{color:var(--muted,#7a7590);font-size:12px;line-height:1.5;margin:0 4px 10px}

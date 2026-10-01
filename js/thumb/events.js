@@ -154,12 +154,26 @@ $('#addText').onclick = () => {
 $('#addImg').onclick = () => $('#imgfile').click();
 $('#imgfile').onchange = e => { addImageLayers([...e.target.files]); e.target.value = ''; };
 $('#bgimgfile').onchange = e => { const f = e.target.files[0]; if(f) setBgFromFile(f); e.target.value = ''; };
-$('#saveProj').onclick = () => {
+// いまの作業を、プロジェクトファイル（.json）として保存する
+function saveProject(){
   const used = usedAssets(), assets = {};
   used.forEach(id => { if(id && ASSETS[id]) assets[id] = ASSETS[id].src; });
   const blob = new Blob([JSON.stringify({app:'rakuchin-thumb', v:1, doc:DOC, assets})], {type:'application/json'});
-  downloadBlob(blob, 'rakuchin-thumb-project.json'); toast('プロジェクトを保存しました');
-};
+  downloadBlob(blob, `rakuchin-thumb-project_${stamp()}.json`);
+}
+$('#saveProj').onclick = () => { saveProject(); toast('プロジェクトを保存しました'); };
+// 新規作成：まっさらな状態にする（キャンバスのサイズ・書き出し設定は残すこともできる）。取り消しで戻せる
+function newProject(keepSize){
+  const keep = keepSize ? {w:DOC.w, h:DOC.h, exportW:DOC.exportW, fmt:DOC.fmt, limit2mb:DOC.limit2mb} : {};
+  loadDocObj(Object.assign(normalizeDoc(null), keep, {mode:'thumb'}));
+  toast('新規作成しました。元に戻すには Ctrl+Z（上の ↶）');
+}
+const openNew = () => { document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')); $('#newModal').classList.add('show'); };
+const closeNew = () => $('#newModal').classList.remove('show');
+document.addEventListener('click', e => { if(e.target.closest('#newBtn, #newBtn2')) openNew(); });
+$('#newModal').addEventListener('click', e => { if(e.target.id === 'newModal' || e.target.closest('[data-new-close]')) closeNew(); });
+$('#newSave').onclick = () => { saveProject(); closeNew(); newProject($('#newKeepSize').checked); };
+$('#newNoSave').onclick = () => { closeNew(); newProject($('#newKeepSize').checked); };
 $('#openProj').onclick = () => $('#projfile').click();
 $('#projfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) openProjectFile(f); };
 async function openProjectFile(f){

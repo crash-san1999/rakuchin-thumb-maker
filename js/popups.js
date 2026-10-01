@@ -16,6 +16,7 @@ if(LS.get('ttm_seenLog', null) !== logLatest()) $('#helpBtn').classList.add('has
 $('#help').addEventListener('click', e => { if(e.target.id === 'help' || e.target.closest('[data-help-close]')) closeHelp(); });
 $('#helpNoAuto').addEventListener('change', e => LS.set('ttm_helpAuto', e.target.checked));
 document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && $('#newModal').classList.contains('show')){ $('#newModal').classList.remove('show'); return; }
   if(e.key === 'Escape' && $('#logModal').classList.contains('show')){ closeLog(); return; }
   if(e.key === 'Escape' && $('#help').classList.contains('show')){ closeHelp(); return; }
   if(isTyping(e)) return;
