@@ -12,7 +12,10 @@ function idb(){
     catch(e){ rej(e); }
   }));
 }
-async function idbPut(id, v){ try{ const db = await idb(); db.transaction('assets', 'readwrite').objectStore('assets').put(v, id); }catch{} }
+async function idbPut(id, v){
+  const fail = () => saveWarn('画像をブラウザに保存できませんでした（容量がいっぱいの可能性）。このままだと、ページを開き直したときに画像が消えるので、「プロジェクト」から書き出して残してください');
+  try{ const db = await idb(), tx = db.transaction('assets', 'readwrite'); tx.objectStore('assets').put(v, id); tx.onerror = tx.onabort = fail; }catch{ fail(); }
+}
 async function addAsset(src, name, id, skipPut){
   id = id || 'A' + uid();
   const img = await loadImg(src);

@@ -4,8 +4,11 @@ const $ = s => document.querySelector(s);
 const clone = o => JSON.parse(JSON.stringify(o));
 const LS = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ saveWarn('自動保存できませんでした。ブラウザの保存容量がいっぱいか、保存が禁止されています。作業を残すには、「プロジェクト」から書き出してください'); return false; } }
 };
+// 保存の失敗を知らせる（続けて何度も出ないよう、30秒に1回まで）
+let saveWarnAt = 0;
+function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
 const isTyping = e => { const t = e.target; return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
 // サムネのレイヤーに共通の初期値（キャンバスの中央）
 const LAYER_BASE = () => ({x:Math.round(((typeof DOC === 'object' && DOC) ? DOC.w : 1920) / 2), y:Math.round(((typeof DOC === 'object' && DOC) ? DOC.h : 1080) / 2), sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
@@ -23,7 +26,7 @@ function drawBanner(ctx, W, dpr, msg){
 }
 function toast(msg, err){
   const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 2600);
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', err ? 6000 : 2600);
 }
 
 /* ============ アイコン ============ */

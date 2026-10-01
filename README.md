@@ -65,22 +65,26 @@ js/thumb/cutout.js         背景透過（色指定で透明化・消す／戻�
 js/thumb/library.js        素材置き場（画像・文字スタイルのストック、容量の上限、バックアップ）
 js/thumb/canvas.js         キャンバスのサイズ（プリセット・自由指定・中身の置き直し）
 js/thumb/group.js          グループ（まとめて描画・まとめて動かす・作成と解除）
-js/thumb/fx.js             動的エフェクト（集中線・光・キラキラ・爆発）とワンクリック背景エフェクト
+js/thumb/fx.js             動的エフェクト（集中線・光・キラキラ・爆発・放射光・紙吹雪・雪など）とワンクリック背景エフェクト
+js/thumb/finish.js         仕上げ（全体にかける色フィルター・ブルーム・粒子など）と、背景の追加エフェクト（ポスタライズ・柄など）
 js/thumb/assets.js         画像アセット（IndexedDB に保存）・画像や背景の追加
 js/thumb/doc.js            サムネのデータ構造・値の読み書き・変更通知
 js/thumb/render.js         サムネの描画（文字・画像レイヤー・背景・合成）
 js/thumb/overlay.js        選択枠・ハンドル・背景効果の中心の表示
 js/thumb/editmodes.js      キャンバス上の編集モード（フレーム調整・マスの調整）
 js/thumb/layers.js         レイヤーパネル・レイヤーの選択と操作
+js/changelog.js            アップデート履歴の元データ（機能を足したら先頭に追記。CHANGELOG.md は tools/gen-changelog.js が生成）
 js/thumb/export.js         サムネの書き出し・共有・プロジェクト読み込み
 js/thumb/inspector.js      選んだものに合わせた設定パネル（行の定義・ページ切り替え）
 js/thumb/events.js         キャンバス・ドラッグ＆ドロップ・ボタンの操作
 js/mobile.js               PC／スマホの自動判定・下のバーとシート・タッチ操作
 js/popups.js               ポップアップ（操作ガイド・追加メニュー・ファイルメニュー）
 js/main.js                 起動（起動時の処理はすべてここの boot() に集約）
-tools/bump-version.sh      読み込みURLのバージョン番号をまとめて更新
+tools/bump-version.sh      読み込みURLのバージョン番号をまとめて更新（CHANGELOG.md の生成も行う）
+tools/gen-changelog.js     js/changelog.js から CHANGELOG.md を生成
+.github/workflows/test.yml push のたびに全テストを自動実行（GitHub Actions）
 tools/docs-screenshots.py  説明書（docs/img）の画像をまとめて撮り直す
-tests/                     自動テスト（Playwright）と、変更前後の見た目を比べるツール
+tests/                     自動テスト（Playwright）と、変更前後の見た目を比べるツール（helpers.py が共通部品、run_all.py が全件実行）
 docs/manual.md             操作マニュアル
 docs/img/                  説明書の画像
 ```
