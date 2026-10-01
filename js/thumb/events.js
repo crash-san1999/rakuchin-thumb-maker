@@ -44,22 +44,17 @@ document.addEventListener('click', e => {
     const row = e.target.closest('.ly[data-lid]'); if(!row || e.target.closest('[data-la]') || e.target.closest('input')) return;
     // 入れ替えできるのは同じ階層（同じグループの中、またはグループの外）のレイヤーどうし
     const rows = [...list.querySelectorAll('.ly[data-lid]')].filter(r => (r.dataset.gid || '') === (row.dataset.gid || '')), from = rows.indexOf(row);
-    ld = {row, id:row.dataset.lid, y0:e.clientY, started:false, rows, rects:null, from, to:from, pid:e.pointerId};
+    ld = {row, id:row.dataset.lid, y0:e.clientY, s0:list.scrollTop, y:e.clientY, started:false, rows, rects:null, from, to:from, pid:e.pointerId};
     clearTimeout(lpT);
     if(e.pointerType !== 'mouse') lpT = setTimeout(() => { if(ld && !ld.started){ ld = null; lpFired = true; toggleMulti(row.dataset.lid); if(navigator.vibrate) navigator.vibrate(12); } }, 480);
   });
-  list.addEventListener('pointermove', e => {
-    if(!ld) return;
-    const dy = e.clientY - ld.y0;
-    if(!ld.started){
-      if(Math.abs(dy) < 5) return;
-      clearTimeout(lpT); ld.started = true;
-      if(!ld.row.classList.contains('kid')) list.classList.add('dragunits');   // グループの中身をたたんで、同じ階層だけを並べ替える
-      ld.rects = ld.rows.map(r => r.getBoundingClientRect()); ld.row.classList.add('dragging'); ld.row.setPointerCapture(ld.pid);
-    }
-    const {rects, from, rows} = ld, R = rects[from], lo = rects[0].top - R.top, hi = rects[rects.length - 1].bottom - R.bottom;
-    const d = clamp(dy, lo, hi); ld.row.style.transform = `translateY(${d}px)`;
-    const cy = R.top + R.height / 2 + d; let to = 0;
+  // ドラッグ中の見た目と入れ替え先を決める。リストが自動スクロールしたぶんも数える
+  const dragUpdate = () => {
+    const {rects, from, rows} = ld, R = rects[from], lo = rects[0].top - R.top, hi = rects[rects.length - 1].bottom - R.bottom, lr = list.getBoundingClientRect();
+    let d = clamp(ld.y - ld.y0 + (list.scrollTop - ld.s0), lo, hi);
+    if(ld.y <= lr.top + 10) d = lo; else if(ld.y >= lr.bottom - 10) d = hi;   // リストの端まで持っていったら、端に置く
+    ld.row.style.transform = `translateY(${d}px)`;
+    const cy = ld.y + (list.scrollTop - ld.s0); let to = 0;   // 入れ替え先は、つかんだ位置（ポインター）がどの行の上にあるかで決める
     rects.forEach((r, i) => { if(i !== from && r.top + r.height / 2 < cy) to++; });
     if(d <= lo) to = 0; else if(d >= hi) to = rows.length - 1;   // 端までドラッグしたら、行の高さが違っても端に置く
     const h = R.height + 2;
@@ -69,13 +64,29 @@ document.addEventListener('click', e => {
       r.style.transform = sh ? `translateY(${sh}px)` : '';
     });
     ld.to = to;
-    // リストの端では自動スクロール
-    const lr = list.getBoundingClientRect();
-    if(e.clientY < lr.top + 24) list.scrollTop -= 8; else if(e.clientY > lr.bottom - 24) list.scrollTop += 8;
+  };
+  // リストの端に指（マウス）を置いている間は、動かさなくてもスクロールし続ける
+  const dragScroll = () => {
+    if(!ld || !ld.started) return;
+    const lr = list.getBoundingClientRect(), v = ld.y < lr.top + 28 ? -9 : ld.y > lr.bottom - 28 ? 9 : 0;
+    if(v){ list.scrollTop += v; dragUpdate(); }
+    ld.raf = requestAnimationFrame(dragScroll);
+  };
+  list.addEventListener('pointermove', e => {
+    if(!ld) return;
+    ld.y = e.clientY;
+    if(!ld.started){
+      if(Math.abs(e.clientY - ld.y0) < 5) return;
+      clearTimeout(lpT); ld.started = true;
+      if(!ld.row.classList.contains('kid')) list.classList.add('dragunits');   // グループの中身をたたんで、同じ階層だけを並べ替える
+      ld.s0 = list.scrollTop; ld.rects = ld.rows.map(r => r.getBoundingClientRect()); ld.row.classList.add('dragging'); ld.row.setPointerCapture(ld.pid);
+      ld.raf = requestAnimationFrame(dragScroll);
+    }
+    dragUpdate();
   });
   const endDrag = () => {
     if(!ld) return;
-    clearTimeout(lpT);
+    clearTimeout(lpT); cancelAnimationFrame(ld.raf);
     const {started, from, to, id, rows} = ld; ld = null;
     list.classList.remove('dragunits');
     if(!started) return;
