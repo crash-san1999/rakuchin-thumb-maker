@@ -130,6 +130,7 @@ function drawGlyphs(ctx, items, op){
   for(const it of items){
     if(it.vt){
       ctx.save(); ctx.translate(it.cx, it.cy + (it.dy || 0));
+      if(RS.skew) ctx.transform(1, 0, -Math.tan(RS.skew * PI / 180), 1, 0, 0);
       if(it.r90) ctx.rotate(PI / 2);
       if(it.rot) ctx.rotate(it.rot);
       const k = (it.sc || 1) * (it.k || 1); ctx.scale(k, k);
@@ -744,7 +745,7 @@ function renderStyle(scale){
   const L = layout(), items = glyphs(L);
   const cells = (RS.box.on || RS.dots.on) ? charCells(items) : [];
   const dotCells = RS.dots.on ? cells.filter(c => c.a) : [];
-  const t = Math.tan(RS.skew * PI / 180);
+  const t = RS.vertical ? 0 : Math.tan(RS.skew * PI / 180);   // 縦書きは列全体ではなく、1文字ずつ傾ける（下の文字が横にずれないように）
   const on = RS.strokes.filter(s => s.on && s.w > 0);
   let cum = 0; const layers = on.map(s => ({w: (cum += s.w), c: s.c}));
   const outer = cum;

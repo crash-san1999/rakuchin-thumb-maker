@@ -33,7 +33,7 @@ async def run(p):
     assert [x['t'] for x in c] == ['S', 'F', '6'] and not any(x['r90'] for x in c), '英数字を立てられない'
     # 4b) 各文字の見えている部分がマスの中心に来る（句読点・小さい仮名は意図した位置）
     r = await pg.evaluate("""async () => { await ensureFont(S);
-      const prev = RS; RS = merged(Object.assign({}, clone(S), {text:[...'あいーAg1!「」〜…W、ゃ'].join(''), vertical:true, size:100, lh:1.2, ls:0, vtcy:false}));
+      const prev = RS; RS = merged(Object.assign({}, clone(S), {text:[...'あいーAg1!「」〜…W、ゃ'].join(''), vertical:true, size:100, lh:1.2, ls:0, vtcy:false, skew:0}));
       const L = layout(), items = glyphs(L), res = [];
       for(const it of items){ const c = mk(L.w + 200, L.h + 200), x = c.getContext('2d'); x.translate(100, 100); x.font = fontStr(); x.letterSpacing = '0px'; x.fillStyle = '#000';
         drawGlyphs(x, [it], (q, px, py) => x.fillText(q.t, px, py)); const W = c.width, d = x.getImageData(0, 0, W, c.height).data, cx = it.bx + 100, cy = it.by + 100;
@@ -44,6 +44,14 @@ async def run(p):
     for t, dx, dy in r:
         if t in '、ゃ': continue
         assert abs(dx) <= 2 and abs(dy) <= 2, f'「{t}」がマスの中心からずれている ({dx:.1f}, {dy:.1f})'
+    # 4c) 斜体を付けても縦書きの列は真っすぐ（下の文字が横にずれない）
+    r = await pg.evaluate("""async () => { await ensureFont(S);
+      const col = sk => { const c = render(1, merged(Object.assign({}, clone(S), {text:'テキスト', vertical:true, size:100, skew:sk, pad:0, extrude:{on:false}, shadow:{on:false}, strokes:[{on:false,w:0,c:'#000'},{on:false,w:0,c:'#000'},{on:false,w:0,c:'#000'}]})));
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, W = c.width, q = Math.floor(c.height / 4), out = [];
+        for(let k = 0; k < 4; k++){ let l = 1e9, r = -1; for(let y = k * q; y < (k + 1) * q; y++) for(let x = 0; x < W; x++) if(d[(y * W + x) * 4 + 3] > 128){ l = Math.min(l, x); r = Math.max(r, x); } out.push((l + r) / 2); }
+        return out; };
+      return [await col(0), await col(15)]; }""")
+    assert abs(r[1][3] - r[1][0]) < 12, f'斜体で縦書きの列が傾く {r}'
     # 5) 長音・括弧・波線は回転、句読点は右上、小さい仮名は少し右上
     c = {x['t']: x for x in (await pg.evaluate(LAY, dict(base, text='ー「」〜、。ゃあ', vertical=True)))['cells'][0]}
     assert all(c[t]['r90'] for t in 'ー「」〜'), '長音・括弧が回転しない'
