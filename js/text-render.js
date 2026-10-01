@@ -39,10 +39,16 @@ function inkShift(ch, w){
   const dy = sz * 0.38 - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
   return [sz * 0.24 - dx, -sz * 0.24 - dy];
 }
+/* 文字の「見えている部分」の中心をマスの中心に合わせるための補正量（フォント内の余白に左右されない） */
+function inkCenter(t, w){
+  const m = mctx.measureText(t);
+  if(!(m.actualBoundingBoxRight || m.actualBoundingBoxLeft)) return [0, 0];
+  return [-((m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - w / 2), -(RS.size * 0.38 - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2)];
+}
 /* 縦書きの「マス」に分ける（縦中横・横倒し・回転・補正をここで決める） */
 function vCells(segs){
   const out = [], sz = RS.size, meas = t => mctx.measureText(t).width;
-  const push = (t, a, o) => out.push(Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o));
+  const push = (t, a, o) => { const c = Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o); [c.gx, c.gy] = (o && o.noCenter) ? [0, 0] : inkCenter(t, c.w); out.push(c); };
   for(const s of segs){
     for(const tok of (s.t.match(/[\x21-\x7e]+|[\s\S]/gu) || [])){
       if(/^[\x21-\x7e]+$/.test(tok)){
@@ -50,7 +56,7 @@ function vCells(segs){
         else if(RS.vlat === 'side'){ const w = meas(tok); push(tok, s.a, {w, r90:true, adv:w}); }
         else for(const ch of tok){ const w = meas(ch), r = V_ROT.test(ch); push(ch, s.a, {w, r90:r, adv:r ? sz : clamp(w * 1.15, sz * 0.62, sz)}); }
       }else if(tok === ' ') push(tok, s.a, {adv:sz * 0.5});
-      else if(V_PUNC.test(tok)){ const w = meas(tok), [ox, oy] = inkShift(tok, w); push(tok, s.a, {w, ox, oy}); }
+      else if(V_PUNC.test(tok)){ const w = meas(tok), [ox, oy] = inkShift(tok, w); push(tok, s.a, {w, ox, oy, noCenter:true}); }
       else if(V_SMALL.test(tok)) push(tok, s.a, {ox:sz * 0.12, oy:-sz * 0.12});
       else push(tok, s.a, {r90:V_ROT.test(tok)});
     }
@@ -97,7 +103,7 @@ function glyphs(L){
       let y = ln.y0;
       ln.cells.forEach(c => {
         const by = y + c.adv / 2; y += c.adv + RS.ls;
-        const it = {t:c.t, a:c.a, line:i, vt:true, cw:c.w, bx:ln.cx, by, cx:ln.cx + c.ox, cy:by + c.oy, r90:c.r90, k:c.k, x:0, y:0};
+        const it = {t:c.t, a:c.a, line:i, vt:true, cw:c.w, bx:ln.cx, by, cx:ln.cx + c.ox, cy:by + c.oy, r90:c.r90, k:c.k, gx:c.gx, gy:c.gy, x:0, y:0};
         if(J){ it.rot = (R()*2-1) * RS.jitter.rot * PI / 180; it.dy = (R()*2-1) * RS.jitter.y; it.sc = 1 + (R()*2-1) * RS.jitter.scale; }
         items.push(it);
       });
@@ -127,7 +133,7 @@ function drawGlyphs(ctx, items, op){
       if(it.r90) ctx.rotate(PI / 2);
       if(it.rot) ctx.rotate(it.rot);
       const k = (it.sc || 1) * (it.k || 1); ctx.scale(k, k);
-      op(it, -it.cw / 2, mid); ctx.restore(); continue;
+      op(it, -it.cw / 2 + it.gx, mid + it.gy); ctx.restore(); continue;
     }
     if(it.rot === undefined){ op(it, it.x, it.y); continue; }
     ctx.save(); ctx.translate(it.x + it.cw / 2, it.y - mid + it.dy); ctx.rotate(it.rot); ctx.scale(it.sc, it.sc);

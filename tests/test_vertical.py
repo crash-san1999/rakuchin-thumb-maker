@@ -31,6 +31,19 @@ async def run(p):
     assert [x['t'] for x in c] == ['SF6', ' ', 'ABC'] and c[0]['r90'] and c[2]['r90'], f'英数字を横倒しにできない {c}'
     c = (await pg.evaluate(LAY, dict(base, text='SF6', vertical=True, vlat='up')))['cells'][0]
     assert [x['t'] for x in c] == ['S', 'F', '6'] and not any(x['r90'] for x in c), '英数字を立てられない'
+    # 4b) 各文字の見えている部分がマスの中心に来る（句読点・小さい仮名は意図した位置）
+    r = await pg.evaluate("""async () => { await ensureFont(S);
+      const prev = RS; RS = merged(Object.assign({}, clone(S), {text:[...'あいーAg1!「」〜…W、ゃ'].join(''), vertical:true, size:100, lh:1.2, ls:0, vtcy:false}));
+      const L = layout(), items = glyphs(L), res = [];
+      for(const it of items){ const c = mk(L.w + 200, L.h + 200), x = c.getContext('2d'); x.translate(100, 100); x.font = fontStr(); x.letterSpacing = '0px'; x.fillStyle = '#000';
+        drawGlyphs(x, [it], (q, px, py) => x.fillText(q.t, px, py)); const W = c.width, d = x.getImageData(0, 0, W, c.height).data, cx = it.bx + 100, cy = it.by + 100;
+        let l = 1e9, r = -1, t = 1e9, b = -1;
+        for(let y = Math.floor(cy - 50); y < cy + 50; y++) for(let xx = Math.floor(cx - 50); xx < cx + 50; xx++) if(d[(y * W + xx) * 4 + 3] > 128){ l = Math.min(l, xx); r = Math.max(r, xx); t = Math.min(t, y); b = Math.max(b, y); }
+        res.push([it.t, (l + r) / 2 - cx, (t + b) / 2 - cy]); }
+      RS = prev; return res; }""")
+    for t, dx, dy in r:
+        if t in '、ゃ': continue
+        assert abs(dx) <= 2 and abs(dy) <= 2, f'「{t}」がマスの中心からずれている ({dx:.1f}, {dy:.1f})'
     # 5) 長音・括弧・波線は回転、句読点は右上、小さい仮名は少し右上
     c = {x['t']: x for x in (await pg.evaluate(LAY, dict(base, text='ー「」〜、。ゃあ', vertical=True)))['cells'][0]}
     assert all(c[t]['r90'] for t in 'ー「」〜'), '長音・括弧が回転しない'
