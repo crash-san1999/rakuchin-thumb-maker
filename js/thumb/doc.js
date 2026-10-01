@@ -50,7 +50,7 @@ function normalizeDoc(d){
         outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
         btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
-        shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {})}));
+        shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {}), glow: Object.assign(IMAGE_BASE().glow, L.glow || {})}));
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
   const gids = new Set(o.layers.filter(l => l.type === 'group').map(l => l.id));
   o.layers.forEach(l => { if(l.gid && (!gids.has(l.gid) || l.type === 'group')) delete l.gid; if(!l.gid) delete l.gid; });

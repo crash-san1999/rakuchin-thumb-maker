@@ -27,7 +27,13 @@ const SECTIONS = [
     {sel:'dots.shape', l:'形', opts:[['dot','●'],['ring','○'],['tri','▼']]}, {c:'dots.c', l:'色'},
     {r:'dots.size', l:'大きさ', min:0.05, max:0.35, step:0.01},
   ]},
-  {t:'フチ', hint:'内側→外側の順に重なります', strokes:true},
+  {t:'フチ', hint:'内側→外側の順に重なります', strokes:true, rows:[
+    {r:'sblur', l:'フチのぼかし', min:0, max:30, step:0.5},
+    {chk:'sglow.on', l:'フチの光彩'},
+    {c:'sglow.c', l:'光彩の色', show:'sglow.on=true'},
+    {r:'sglow.blur', l:'光彩の広がり', min:1, max:80, step:1, show:'sglow.on=true'},
+    {r:'sglow.a', l:'光彩の濃さ', min:0, max:1, step:0.01, show:'sglow.on=true'},
+    {r:'sglow.str', l:'光彩の強さ', min:1, max:4, step:1, show:'sglow.on=true'}]},
   {t:'ベベル（光沢・立体感）', on:'bevel.on', rows:[
     {seg:'bevel.style', l:'種類', opts:[['emboss','浮き出し'],['deboss','彫り込み']]},
     {sel:'bevel.target', l:'対象', opts:[['fill','文字のみ'],['both','文字とフチ']]},
@@ -49,9 +55,10 @@ const SECTIONS = [
     {r:'pattern.size', l:'大きさ', min:3, max:60, step:1}, {r:'pattern.angle', l:'角度', min:0, max:180, step:1},
   ]},
   {t:'背景シェイプ', on:'plate.on', hint:'文字全体の後ろに図形', rows:[
-    {sel:'plate.shape', l:'形', opts:[['round','角丸'],['ellipse','楕円'],['burst','ギザギザ（爆発）'],['bubble','吹き出し'],['para','斜め帯']]},
-    {seg:'plate.tail', l:'しっぽ', show:'plate.shape=bubble', opts:[['left','左'],['right','右']]},
-    {seed:'plate.seed', l:'ギザギザ', show:'plate.shape=burst'},
+    {sel:'plate.shape', l:'形', opts:[['round','角丸'],['ellipse','楕円'],['burst','ギザギザ（爆発）'],['bubble','吹き出し（角丸）'],['sbubble','吹き出し（四角）'],['obubble','吹き出し（楕円）'],['cloud','吹き出し（雲・考え中）'],['shout','吹き出し（叫び）'],['para','斜め帯']]},
+    {sel:'plate.tail', l:'しっぽの向き', show:'plate.shape=bubble|sbubble|obubble|cloud|shout', opts:[['left','左下'],['center','下'],['right','右下'],['tl','左上'],['tr','右上'],['sl','左'],['sr','右'],['none','なし']]},
+    {r:'plate.ts', l:'しっぽの大きさ', min:0.3, max:2, step:0.05, show:'plate.shape=bubble|sbubble|obubble|cloud|shout&plate.tail!=none'},
+    {seed:'plate.seed', l:'ギザギザ', show:'plate.shape=burst|shout'},
     {c:'plate.c', l:'塗り'}, {r:'plate.a', l:'濃さ', min:0, max:1, step:0.01},
     {c:'plate.sc', l:'枠線'}, {r:'plate.sw', l:'枠の太さ', min:0, max:30, step:0.5},
     {r:'plate.pad', l:'余白', min:0, max:1, step:0.01},
@@ -165,7 +172,7 @@ function buildTextControls(){
   $('#genSections').innerHTML = SECTIONS.map(s => `
     <section ${s.on ? `data-on="${s.on}"` : ''}>
       <h3>${s.on ? `<label class="sw"><input type="checkbox" data-k="${s.on}"><span></span></label>` : ''}${s.t}${s.hint ? ` <span class="hint">${s.hint}</span>` : ''}</h3>
-      <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : s.rows.map(rowHTML).join('')}</div>
+      <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : ''}${(s.rows || []).map(rowHTML).join('')}</div>
     </section>`).join('');
   document.querySelectorAll('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
 }

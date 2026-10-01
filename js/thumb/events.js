@@ -229,7 +229,7 @@ async function openProjectFile(f){
     if(m && m.key === key) return m;
     const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = c.getContext('2d', {willReadFrequently:true});
     const keep = new Map(dims);   // 小さく描くと選択枠の大きさ（dims）も書き換わるので、終わったら戻す
-    try{ drawOne(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}}, MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
+    try{ drawOne(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}, glow:{...(L.glow || {}), on:false}}, MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
     finally{ dims.clear(); keep.forEach((v, k) => dims.set(k, v)); }
     m = {key, W, H, a: x.getImageData(0, 0, W, H).data};
     maskCache.set(L.id, m);

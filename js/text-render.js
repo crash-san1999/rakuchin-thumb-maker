@@ -448,11 +448,30 @@ function dotPath(ctx){
   else ctx.arc(0, 0, r, 0, 7);
   ctx.restore();   // 経路は作った時点の座標で残る
 }
+/* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 none=なし） */
+const TAIL_ANGLE = {left:115, center:90, right:65, tl:245, tr:295, sl:180, sr:0};
+function bubbleTail(_c, p, cx, cy, rx, ry, kind){
+  const t = p.tail || 'left', deg = TAIL_ANGLE[t]; if(deg === undefined) return null;
+  const ctx = new Path2D();
+  const S = RS.size * (p.ts || 1), a = deg * PI / 180, dx = Math.cos(a), dy = Math.sin(a);
+  // 中心から角度の向きに進んで、図形の縁に当たる点
+  const k = kind === 'box' ? 1 / Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry) : 1 / Math.hypot(dx / rx, dy / ry), bx = cx + dx * k, by = cy + dy * k;
+  if(kind === 'dots'){   // 考え事の雲：小さな丸が3つ、外へ小さくなりながら並ぶ
+    [[0.34, 0.26], [0.78, 0.17], [1.1, 0.1]].forEach(([d, r]) => { const px = bx + dx * S * d, py = by + dy * S * d; ctx.moveTo(px + S * r, py); ctx.arc(px, py, S * r, 0, 7); });
+    return ctx;
+  }
+  const nx = -dy, ny = dx, lean = (dx >= 0 ? 1 : -1) * S * 0.12;   // 先を外側へ少しはらう
+  ctx.moveTo(bx - dx * S * 0.2 + nx * S * 0.27, by - dy * S * 0.2 + ny * S * 0.27);
+  ctx.lineTo(bx + dx * S * 0.62 + (Math.abs(dy) > 0.5 ? lean : 0), by + dy * S * 0.62);
+  ctx.lineTo(bx - dx * S * 0.2 - nx * S * 0.27, by - dy * S * 0.2 - ny * S * 0.27); ctx.closePath();
+  return ctx;
+}
 /* 背景シェイプ（角丸・楕円・ギザギザ・吹き出し・斜め帯） */
 function drawPlate(ctx, L, outer){
   const p = RS.plate, pad = RS.size * p.pad + outer;
   const x0 = -pad, y0 = L.ty0 - pad, x1 = L.w + pad, y1 = L.ty1 + pad;
   const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  let tail = null;
   ctx.save(); ctx.beginPath(); ctx.lineJoin = 'round';
   switch(p.shape){
     case 'ellipse': ctx.ellipse(cx, cy, w / 2 * 1.18, h / 2 * 1.3, 0, 0, 7); break;
@@ -465,17 +484,32 @@ function drawPlate(ctx, L, outer){
       }
       ctx.closePath(); break;
     }
-    case 'bubble': {
-      ctx.roundRect(x0, y0, w, h, Math.min(h / 2, RS.size * 0.3));
-      const right = p.tail === 'right', tx = right ? x1 - w * 0.22 : x0 + w * 0.22, dir = right ? 1 : -1;
-      ctx.moveTo(tx - RS.size * 0.25, y1 - 2); ctx.lineTo(tx + dir * RS.size * 0.4, y1 + RS.size * 0.55); ctx.lineTo(tx + RS.size * 0.25, y1 - 2); ctx.closePath();
-      break;
+    case 'bubble': case 'sbubble': {
+      ctx.roundRect(x0, y0, w, h, p.shape === 'sbubble' ? RS.size * 0.04 : Math.min(h / 2, RS.size * 0.3));
+      tail = bubbleTail(ctx, p, cx, cy, w / 2, h / 2, 'box'); break;
+    }
+    case 'obubble': {
+      const rx = w / 2 * 1.18, ry = h / 2 * 1.3; ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); tail = bubbleTail(ctx, p, cx, cy, rx, ry, 'ellipse'); break;
+    }
+    case 'cloud': {   // 雲（考え中）：丸いふくらみを並べ、しっぽは小さな丸の列
+      const rx = w / 2 * 1.12, ry = h / 2 * 1.25, n = Math.max(8, Math.round((rx + ry) * 2 * PI / (RS.size * 0.62))), r = (rx + ry) * PI / n * 0.62;
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, 7);
+      for(let i = 0; i < n; i++){ const a = i / n * 2 * PI, px = cx + Math.cos(a) * rx, py = cy + Math.sin(a) * ry; ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, 7); }
+      tail = bubbleTail(ctx, p, cx, cy, rx + r * 0.6, ry + r * 0.6, 'dots'); break;
+    }
+    case 'shout': {   // 叫び：ギザギザの吹き出し
+      const R = rng(p.seed), n = Math.max(12, Math.round((w + h) / (RS.size * 0.4)));
+      for(let i = 0; i <= n * 2; i++){
+        const a = i / (n * 2) * 2 * PI, k = i % 2 === 0 ? 1.28 + R() * 0.16 : 1.04, px = cx + Math.cos(a) * w / 2 * k, py = cy + Math.sin(a) * h / 2 * k * 1.08;
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.closePath(); tail = bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse'); break;
     }
     case 'para': { const k = h * 0.35; ctx.moveTo(x0 + k, y0); ctx.lineTo(x1 + k, y0); ctx.lineTo(x1 - k, y1); ctx.lineTo(x0 - k, y1); ctx.closePath(); break; }
     default: ctx.roundRect(x0, y0, w, h, Math.min(h / 2, RS.size * 0.3));
   }
-  if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.sc; ctx.stroke(); }
-  ctx.fillStyle = rgba(p.c, p.a); ctx.fill();
+  if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.sc; ctx.stroke(); if(tail) ctx.stroke(tail); }
+  ctx.fillStyle = rgba(p.c, p.a); ctx.fill(); if(tail) ctx.fill(tail);
   ctx.restore();
 }
 /* 押し出し（ストライプ・奥のフェード対応） */
@@ -769,18 +803,19 @@ function renderStyle(scale){
   const outer = cum;
   const ex = RS.extrude.on ? RS.extrude.depth : 0;
   const sh = RS.shadow.on ? Math.max(Math.abs(RS.shadow.x), Math.abs(RS.shadow.y)) + RS.shadow.blur * 1.5 : 0;
+  const sgl = layers.length ? (RS.sglow.on ? RS.sglow.blur * 1.7 : 0) + RS.sblur * 1.6 : 0;
   const gl = RS.glow.on ? RS.glow.blur * (RS.glow.dual ? 2.2 : 1.6) : 0;
   const jit = RS.jitter.on ? RS.jitter.y + RS.size * (RS.jitter.scale + Math.sin(RS.jitter.rot * PI / 180)) : 0;
   const gli = RS.glitch.on ? Math.max(RS.glitch.rgb, RS.glitch.shift) : 0;
   const mrk = RS.marker.on ? RS.size * RS.marker.over : 0;
-  const pl = RS.plate.on ? RS.size * (RS.plate.pad + 0.9) + RS.plate.sw + (['burst', 'ellipse'].includes(RS.plate.shape) ? 0.3 * (L.w + L.h) : 0) : 0;
+  const pl = RS.plate.on ? RS.size * (RS.plate.pad + 0.9) + RS.plate.sw + (['burst', 'ellipse', 'obubble', 'cloud', 'shout'].includes(RS.plate.shape) ? 0.3 * (L.w + L.h) : 0) : 0;
   const bxm = RS.box.on ? RS.size * (RS.box.pad + 0.45) + RS.box.sw : 0;
   const ofm = RS.offset.on ? Math.max(Math.abs(RS.offset.x), Math.abs(RS.offset.y)) + RS.offset.w : 0;
   const dtm = RS.dots.on ? RS.size * (RS.dots.size * 2 + 0.3) : 0;
   const xtra = (RS.fire.on ? RS.fire.height * RS.size + RS.size * 0.25 : 0) + (RS.drip.on ? RS.drip.len * RS.size * 1.2 : 0)
     + (RS.trail.on ? RS.trail.len * RS.size : 0) + (RS.distort.on ? RS.distort.amt : 0)
     + (RS.sparkle.on ? RS.sparkle.size * RS.size : 0) + (RS.bulbs.on ? RS.bulbs.size * RS.size * 3 : 0);
-  const m = RS.size * 0.35 + outer + ex + sh + gl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;
+  const m = RS.size * 0.35 + outer + ex + sh + gl + sgl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;
   const W = Math.ceil((L.w + 2 * m + Math.abs(t) * L.h) * scale), H = Math.ceil((L.h + 2 * m) * scale);
   const prep = c => {
     const x = c.getContext('2d');
@@ -797,7 +832,7 @@ function renderStyle(scale){
   if(RS.offset.on) blit(A, drawOffsetLayer(prep, W, H, items, outer));
   if(ex > 0) blit(A, drawExtrude(prep, W, H, items, outer, scale));
   // 2) フチ（傍点にもフチ）
-  const K = mk(W, H), kx = prep(K);
+  let K = mk(W, H); const kx = prep(K);
   for(let i = layers.length - 1; i >= 0; i--){
     kx.strokeStyle = layers[i].c; kx.lineWidth = layers[i].w * 2;
     drawGlyphs(kx, items, (it, px, py) => kx.strokeText(it.t, px, py));
@@ -830,6 +865,9 @@ function renderStyle(scale){
   if(RS.inner.on) innerShadow(F, scale);
   if(RS.gloss.on) drawGloss(fx, L);
   if(RS.bulbs.on) drawBulbs(F, scale);
+  // フチのぼかし・フチの光彩
+  if(layers.length && RS.sblur > 0){ const B = mk(W, H), bx = B.getContext('2d'); bx.filter = `blur(${RS.sblur * scale / 2}px)`; bx.drawImage(K, 0, 0); K = B; }
+  if(layers.length && RS.sglow.on && RS.sglow.a > 0){ const g = effectOnly(K, 0, 0, RS.sglow.blur, rgba(RS.sglow.c, RS.sglow.a), scale); for(let i = 0; i < Math.min(4, Math.max(1, Math.round(RS.sglow.str))); i++) blit(A, g); }
   // 4) 合成（通常／中抜き／くり抜き）→ かすれ → ワープ
   if(RS.fillMode === 'hollow'){ cut(K, F); blit(A, K); }
   else if(RS.fillMode === 'knock'){ blit(A, K); cut(A, F); }

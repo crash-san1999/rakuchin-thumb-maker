@@ -32,24 +32,45 @@ function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
   const need = L.sc * f, o = L.outline, ow = o.on ? o.w : 0;
-  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, cutSig(L)].join('|');
+  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, o.style, o.c2, o.w2, o.blur, L.flip, L.flipV, L.bright, L.sat, cutSig(L)].join('|');
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
-    const iw = A.img.naturalWidth, ih = A.img.naturalHeight, r = ow * f, pad = Math.ceil(r) + 2;
+    const iw = A.img.naturalWidth, ih = A.img.naturalHeight, r = ow * f, st = o.style === 'double' || o.style === 'grad' ? o.style : 'solid';
+    const r2 = st === 'double' ? (ow + Math.max(0, o.w2 || 0)) * f : r, ob = r > 0 ? Math.max(0, o.blur || 0) * f : 0;
+    const pad = Math.ceil(Math.max(r, r2) + ob * 1.6) + 2;
     const cw = Math.max(1, Math.round(iw * need)), ch = Math.max(1, Math.round(ih * need));
     const c = mk(cw + pad * 2, ch + pad * 2), x = c.getContext('2d');
-    if(L.flip){ x.translate(c.width, 0); x.scale(-1, 1); }
-    if(L.flipV){ x.translate(0, c.height); x.scale(1, -1); }
+    const flipTo = y => { if(L.flip){ y.translate(c.width, 0); y.scale(-1, 1); } if(L.flipV){ y.translate(0, c.height); y.scale(1, -1); } };
     if(r > 0){
-      const t = tinted(A, o.c), n = Math.max(16, Math.min(56, Math.round(r * 1.5)));
-      for(const rr of [r, r * 0.55]) for(let i = 0; i < n; i++){
-        const a = i / n * 2 * PI; x.drawImage(t, pad + Math.cos(a) * rr, pad + Math.sin(a) * rr, cw, ch);
-      }
+      const O = mk(c.width, c.height), y = O.getContext('2d'); flipTo(y);
+      const stamp = (t, rad) => { const n = Math.max(16, Math.min(56, Math.round(rad * 1.5)));
+        for(const rr of [rad, rad * 0.55]) for(let i = 0; i < n; i++){ const a = i / n * 2 * PI; y.drawImage(t, pad + Math.cos(a) * rr, pad + Math.sin(a) * rr, cw, ch); } };
+      if(st === 'double') stamp(tinted(A, o.c2), r2);
+      stamp(tinted(A, o.c), r);
+      if(st === 'grad'){ y.setTransform(1, 0, 0, 1, 0, 0); y.globalCompositeOperation = 'source-in'; const g = y.createLinearGradient(0, pad, 0, c.height - pad); g.addColorStop(0, o.c); g.addColorStop(1, o.c2); y.fillStyle = g; y.fillRect(0, 0, c.width, c.height); }
+      if(ob > 0){ x.filter = `blur(${ob / 2}px)`; x.drawImage(O, 0, 0); x.filter = 'none'; } else x.drawImage(O, 0, 0);
     }
+    flipTo(x);
     x.filter = imgFilter(L); x.drawImage(A.img, pad, pad, cw, ch); x.filter = 'none';
     e = {sk, k:need, c}; cache.set(L.id, e);
   }
   return e;
+}
+/* 影・光彩：絵の形（フチ込み）から作ったぼかし画像。画像のキャッシュ(e)にくっつけて使い回す。大きさは e.c の座標 */
+function haloCanvas(e, q, col, blur, spread, str){
+  const key = [q.toFixed(3), col, blur, spread, str].join('|'); e.halo = e.halo || new Map();
+  if(e.halo.has(key)) return e.halo.get(key);
+  const sp = Math.max(0, spread) * q, bl = Math.max(0, blur) * q, pad = Math.min(700, Math.ceil(sp + bl * 1.6) + 2);
+  const W = e.c.width + pad * 2, H = e.c.height + pad * 2, S = mk(W, H), sx = S.getContext('2d');
+  if(sp > 0.5){ const n = Math.max(16, Math.min(60, Math.round(sp * 1.5)));
+    for(const rr of [sp, sp * 0.55]) for(let i = 0; i < n; i++){ const a = i / n * 2 * PI; sx.drawImage(e.c, pad + Math.cos(a) * rr, pad + Math.sin(a) * rr); } }
+  sx.drawImage(e.c, pad, pad);
+  sx.globalCompositeOperation = 'source-in'; sx.fillStyle = col; sx.fillRect(0, 0, W, H);
+  let out = S;
+  if(bl > 0.3){ out = mk(W, H); const ox = out.getContext('2d'); ox.filter = `blur(${bl / 2}px)`; ox.drawImage(S, 0, 0); ox.filter = 'none'; }
+  if(str > 1){ const o2 = mk(W, H), x2 = o2.getContext('2d'); for(let i = 0; i < Math.min(4, Math.round(str)); i++) x2.drawImage(out, 0, 0); out = o2; }
+  if(e.halo.size > 6) e.halo.clear();
+  e.halo.set(key, out); return out;
 }
 function drawLayer(ctx, L, f, live, cache){
   const need = L.sc * f;
@@ -58,10 +79,13 @@ function drawLayer(ctx, L, f, live, cache){
   const s = need / e.k;
   dims.set(L.id, {w: e.c.width / e.k * L.sc, h: e.c.height / e.k * L.sc});
   ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
-  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(s, s);
-  if(L.type === 'image' && L.shadow.on && L.shadow.a > 0){
-    ctx.shadowColor = `rgba(0,0,0,${L.shadow.a})`; ctx.shadowBlur = L.shadow.blur * f; ctx.shadowOffsetY = L.shadow.y * f;
+  const q = f / s, drawH = (H, a, dx, dy) => { ctx.save(); ctx.globalAlpha *= a; ctx.translate(L.x * f + dx, L.y * f + dy); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(s, s); ctx.drawImage(H, -H.width / 2, -H.height / 2); ctx.restore(); };
+  if(L.type === 'image'){
+    const sh = L.shadow, g = L.glow;
+    if(sh.on && sh.a > 0) drawH(haloCanvas(e, q, sh.c || '#000000', sh.blur, sh.sp || 0, 1), sh.a, (sh.x || 0) * f, sh.y * f);
+    if(g && g.on && g.a > 0) drawH(haloCanvas(e, q, g.c, g.blur, 0, g.str || 1), g.a, 0, 0);
   }
+  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(s, s);
   ctx.drawImage(e.c, -e.c.width / 2, -e.c.height / 2);
   ctx.restore();
 }
