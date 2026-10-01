@@ -564,3 +564,8 @@ body.is-mobile .updbar{bottom:88px}
 .palrow{display:flex;flex-wrap:wrap;gap:6px;grid-column:2 / 4}
 .palrow input[type=color]{width:30px;height:30px}
 .palchips{grid-column:2 / 4;margin-bottom:4px}
+
+#helpBtn{position:relative}
+#helpBtn.has-new::after{content:'';position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:#ff2d55;border:2px solid #fff}
+.loglist{margin:0 0 4px;padding-left:18px;font-size:12.5px;line-height:1.75;color:var(--sub);font-weight:500}
+#logModal{z-index:61}

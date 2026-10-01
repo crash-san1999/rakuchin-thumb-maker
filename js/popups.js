@@ -3,9 +3,20 @@
 function openHelp(){ $('#help').classList.add('show'); $('#helpNoAuto').checked = LS.get('ttm_helpAuto', false) === true; }
 function closeHelp(){ $('#help').classList.remove('show'); LS.set('ttm_helpAuto', $('#helpNoAuto').checked); }
 $('#helpBtn').onclick = openHelp;
+/* 更新履歴：js/changelog.js の内容を表示。見ていない更新があるときは「？」ボタンに点を付ける */
+const logLatest = () => CHANGELOG[0].d + '|' + CHANGELOG[0].t;
+function openLog(){
+  $('#logBody').innerHTML = CHANGELOG.map(e => `<h4>${e.d.replace(/-/g, '/')}　${e.t}</h4><ul class="loglist">${e.items.map(i => `<li>${i.replace(/[<>&]/g, c => ({'<':'&lt;', '>':'&gt;', '&':'&amp;'}[c]))}</li>`).join('')}</ul>`).join('');
+  $('#logModal').classList.add('show'); LS.set('ttm_seenLog', logLatest()); $('#helpBtn').classList.remove('has-new');
+}
+const closeLog = () => $('#logModal').classList.remove('show');
+$('#logOpen').onclick = () => { closeHelp(); openLog(); };
+$('#logModal').addEventListener('click', e => { if(e.target.id === 'logModal' || e.target.closest('[data-log-close]')) closeLog(); });
+if(LS.get('ttm_seenLog', null) !== logLatest()) $('#helpBtn').classList.add('has-new');
 $('#help').addEventListener('click', e => { if(e.target.id === 'help' || e.target.closest('[data-help-close]')) closeHelp(); });
 $('#helpNoAuto').addEventListener('change', e => LS.set('ttm_helpAuto', e.target.checked));
 document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && $('#logModal').classList.contains('show')){ closeLog(); return; }
   if(e.key === 'Escape' && $('#help').classList.contains('show')){ closeHelp(); return; }
   if(isTyping(e)) return;
   if(e.key === '?' && !e.ctrlKey && !e.metaKey){ e.preventDefault(); openHelp(); }

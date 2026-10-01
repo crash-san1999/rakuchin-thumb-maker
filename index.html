@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=fd6abf3d">
+<link rel="stylesheet" href="css/app.css?v=3b7bb950">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -313,7 +313,14 @@
       <p class="hp">・文字が小さく読みにくい → 下の「視認性」が◎になる配色に。「小さく表示」でスマホでの見え方を確認<br>・失敗した → <span class="pc-only">Ctrl+Z か </span>上の ↶ で戻せます<br>・最初からやり直したい → 「スタイル」の「初期化」</p>
       <p class="hp" style="margin-top:14px">📖 すべての機能の説明は <a href="https://github.com/crash-san1999/rakuchin-thumb-maker/blob/main/docs/manual.md" target="_blank" rel="noopener">操作マニュアル（GitHub）</a> へ</p>
     </div>
-    <div class="help-foot"><label class="chk"><input type="checkbox" id="helpNoAuto"> 次回も起動時に表示する</label><button class="btn pri" data-help-close>はじめる</button></div>
+    <div class="help-foot"><label class="chk"><input type="checkbox" id="helpNoAuto"> 次回も起動時に表示する</label><button class="btn ghost" id="logOpen">更新履歴</button><button class="btn pri" data-help-close>はじめる</button></div>
+  </div>
+</div>
+<div class="help" id="logModal" role="dialog" aria-modal="true" aria-labelledby="logTtl">
+  <div class="help-card">
+    <div class="help-head"><b id="logTtl">更新履歴</b><button class="icon-btn sm" data-log-close title="閉じる"><i data-ic="close"></i></button></div>
+    <div class="help-body" id="logBody"></div>
+    <div class="help-foot"><span></span><button class="btn pri" data-log-close>とじる</button></div>
   </div>
 </div>
 <div class="ddov" id="ddov">
@@ -325,35 +332,36 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=fd6abf3d"></script>
-<script src="js/bind.js?v=fd6abf3d"></script>
-<script src="js/presets.js?v=fd6abf3d"></script>
-<script src="js/data/font-list.js?v=fd6abf3d"></script>
-<script src="js/fonts.js?v=fd6abf3d"></script>
-<script src="js/controls.js?v=fd6abf3d"></script>
-<script src="js/text-render.js?v=fd6abf3d"></script>
-<script src="js/preview.js?v=fd6abf3d"></script>
-<script src="js/colors.js?v=fd6abf3d"></script>
-<script src="js/history.js?v=fd6abf3d"></script>
-<script src="js/thumb/frames.js?v=fd6abf3d"></script>
-<script src="js/thumb/collage.js?v=fd6abf3d"></script>
-<script src="js/thumb/library.js?v=fd6abf3d"></script>
-<script src="js/thumb/canvas.js?v=fd6abf3d"></script>
-<script src="js/thumb/group.js?v=fd6abf3d"></script>
-<script src="js/thumb/fx.js?v=fd6abf3d"></script>
-<script src="js/thumb/cutout.js?v=fd6abf3d"></script>
-<script src="js/thumb/assets.js?v=fd6abf3d"></script>
-<script src="js/thumb/doc.js?v=fd6abf3d"></script>
-<script src="js/thumb/render.js?v=fd6abf3d"></script>
-<script src="js/thumb/overlay.js?v=fd6abf3d"></script>
-<script src="js/thumb/editmodes.js?v=fd6abf3d"></script>
-<script src="js/thumb/layers.js?v=fd6abf3d"></script>
-<script src="js/thumb/export.js?v=fd6abf3d"></script>
-<script src="js/thumb/inspector.js?v=fd6abf3d"></script>
-<script src="js/thumb/events.js?v=fd6abf3d"></script>
-<script src="js/mobile.js?v=fd6abf3d"></script>
-<script src="js/pwa.js?v=fd6abf3d"></script>
-<script src="js/popups.js?v=fd6abf3d"></script>
-<script src="js/main.js?v=fd6abf3d"></script>
+<script src="js/core.js?v=3b7bb950"></script>
+<script src="js/bind.js?v=3b7bb950"></script>
+<script src="js/presets.js?v=3b7bb950"></script>
+<script src="js/data/font-list.js?v=3b7bb950"></script>
+<script src="js/fonts.js?v=3b7bb950"></script>
+<script src="js/controls.js?v=3b7bb950"></script>
+<script src="js/text-render.js?v=3b7bb950"></script>
+<script src="js/preview.js?v=3b7bb950"></script>
+<script src="js/colors.js?v=3b7bb950"></script>
+<script src="js/history.js?v=3b7bb950"></script>
+<script src="js/thumb/frames.js?v=3b7bb950"></script>
+<script src="js/thumb/collage.js?v=3b7bb950"></script>
+<script src="js/thumb/library.js?v=3b7bb950"></script>
+<script src="js/thumb/canvas.js?v=3b7bb950"></script>
+<script src="js/thumb/group.js?v=3b7bb950"></script>
+<script src="js/thumb/fx.js?v=3b7bb950"></script>
+<script src="js/thumb/cutout.js?v=3b7bb950"></script>
+<script src="js/thumb/assets.js?v=3b7bb950"></script>
+<script src="js/thumb/doc.js?v=3b7bb950"></script>
+<script src="js/thumb/render.js?v=3b7bb950"></script>
+<script src="js/thumb/overlay.js?v=3b7bb950"></script>
+<script src="js/thumb/editmodes.js?v=3b7bb950"></script>
+<script src="js/thumb/layers.js?v=3b7bb950"></script>
+<script src="js/thumb/export.js?v=3b7bb950"></script>
+<script src="js/thumb/inspector.js?v=3b7bb950"></script>
+<script src="js/thumb/events.js?v=3b7bb950"></script>
+<script src="js/mobile.js?v=3b7bb950"></script>
+<script src="js/pwa.js?v=3b7bb950"></script>
+<script src="js/changelog.js?v=3b7bb950"></script>
+<script src="js/popups.js?v=3b7bb950"></script>
+<script src="js/main.js?v=3b7bb950"></script>
 </body>
 </html>
