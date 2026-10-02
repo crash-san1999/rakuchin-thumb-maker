@@ -50,18 +50,27 @@ function layerName(L){
    機能追加で増えたキーは既定値で埋め、範囲外の値は丸める。古い保存データを読んでも落ちないための唯一の入口なので、
    DOC にキーを足したら、ここで既定値が入るか（Object.assign のベースにあるか）を必ず確認すること。
    d が不正（null・layers なし）のときは、文字レイヤー1枚の新規ドキュメントを返す。 */
-function normalizeDoc(d){
-  const b = DOC_BASE();
-  if(!d || !Array.isArray(d.layers)){
-    const L = mkTextLayer(S, b.w / 2, b.h / 2, 1.5);
-    b.layers = [L]; b.sel = L.id; b.textSel = L.id; return b;
-  }
-  const o = Object.assign(b, d);
-  o.w = clamp(Math.round(d.w) || 1920, 200, 5000); o.h = clamp(Math.round(d.h) || 1080, 200, 5000);
-  // 書き出しの横幅：数でなければ等倍、大きすぎるときは面積の上限に収まるまで小さくする
-  let ex = Math.round(+d.exportW); if(!(ex >= 100)) ex = o.w;
-  while(ex > 200 && ex * ex * o.h / o.w > EXPORT_MAX_PX) ex = Math.floor(ex * 0.9);
-  o.exportW = ex;
+// レイヤー 1 枚を、種類ごとの既定値と混ぜ直す（normalizeDoc から呼ぶ）。表に無い種類（image と未知の種類）は normalizeImageLayer。
+// 保存データ L に無い項目は既定値で埋まる。入れ子のオブジェクト（shadow・cells の中など）は 1 段ずつ既定値と混ぜる
+const LAYER_NORMALIZE = {
+  text: L => Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})}),
+  collage: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
+        cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE()),
+  group: L => (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE())),
+  fx: L => Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})}),
+};
+// 画像レイヤー：crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
+function normalizeImageLayer(L){
+  return Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
+        fx: (x => { x.duo1 = safeColor(x.duo1, '#1b1464'); x.duo2 = safeColor(x.duo2, '#ff9d5c'); x.tint.c = safeColor(x.tint.c, '#ff7a50'); return x; })(mergeCellFx(L.fx)),
+        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
+        btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
+        frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
+        shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {}), glow: Object.assign(IMAGE_BASE().glow, L.glow || {})});
+}
+function normalizeLayer(L){ return hasKey(LAYER_NORMALIZE, L.type) ? LAYER_NORMALIZE[L.type](L) : normalizeImageLayer(L); }
+// 背景・仕上げ・ガイド・ヘッダー画像の設定を既定値と混ぜ、旧データの効果の中心を引き継ぐ（o は Object.assign(DOC_BASE(), d) 済みのもの）
+function normalizeDocSettings(o, d){
   // Object.assign は浅いコピーなので、入れ子のオブジェクト（bg・fin・guides と、bg の中の zb など）は個別に既定値と混ぜる。
   // こうしないと、古いデータに zb などが無いとき o.bg.zb.on が未定義参照で落ちる
   const base = DOC_BASE();
@@ -73,20 +82,9 @@ function normalizeDoc(d){
   const hs = HEADER_SPECS[d.hdr]; o.hdr = hs && hs.w === o.w && hs.h === o.h ? d.hdr : ''; if(!o.hdr) o.guides.safe = false;
   // 旧データ互換：背景効果の中心はもとはズームブラー専用（zb.cx/cy）だった。fcx/fcy が無い古いデータでは、そちらの値を引き継ぐ
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
-  // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、未対応の fx 種別（バージョン違いの保存データ）は捨てる。
-  // 画像は crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
-  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || hasKey(FX_DEF, L.kind)).map(L => L.type === 'text'
-    ? Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})})
-    : L.type === 'collage' ? (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
-        cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE())
-    : L.type === 'group' ? (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE()))
-    : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
-    : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
-        fx: (x => { x.duo1 = safeColor(x.duo1, '#1b1464'); x.duo2 = safeColor(x.duo2, '#ff9d5c'); x.tint.c = safeColor(x.tint.c, '#ff7a50'); return x; })(mergeCellFx(L.fx)),
-        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
-        btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
-        frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
-        shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {}), glow: Object.assign(IMAGE_BASE().glow, L.glow || {})}));
+}
+// id・画像の参照・色を、安全な値にそろえる
+function sanitizeDocRefs(o){
   // セキュリティ：id・画像の参照は HTML 属性や querySelector に入るので、安全な文字だけにそろえる（細工されたプロジェクトファイル対策）。
   // 使えない id は作り直し、そのレイヤーを指す gid も同じ新しい id に付け替える
   const idMap = {};
@@ -99,15 +97,41 @@ function normalizeDoc(d){
     if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8'); });
     if(l.type === 'fx' && l.p) l.p.c = safeColor(l.p.c, '#ffffff');
   });
+}
+// グループの整理（存在しないグループへの gid・空のグループ）と、複数選択のリセット
+function cleanupGroups(o){
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
   const gids = new Set(o.layers.filter(l => l.type === 'group').map(l => l.id));
   o.layers.forEach(l => { if(l.gid && (!gids.has(l.gid) || l.type === 'group')) delete l.gid; if(!l.gid) delete l.gid; });
   o.layers = o.layers.filter(l => l.type !== 'group' || o.layers.some(k => k.gid === l.id));
   o.msel = [];
+}
+// 旧データの「背景の集中線」を動的エフェクトのレイヤーに移す
+function migrateOldLines(o, d){
   // 旧データ互換：以前の「背景の集中線」(bg.lines) を動的エフェクトのレイヤーに移す。
   // unshift で最背面に入れるのは、旧仕様では集中線が背景の直上（他のレイヤーより奥）に描かれていたため。中心は fcx/fcy（比率）を px に直す
   const oldLines = (d.bg || {}).lines; delete o.bg.lines;
   if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * o.w, y:(o.bg.fcy ?? 0.5) * o.h})); }
+}
+function normalizeDoc(d){
+  const b = DOC_BASE();
+  if(!d || !Array.isArray(d.layers)){
+    const L = mkTextLayer(S, b.w / 2, b.h / 2, 1.5);
+    b.layers = [L]; b.sel = L.id; b.textSel = L.id; return b;
+  }
+  const o = Object.assign(b, d);
+  o.w = clamp(Math.round(d.w) || 1920, 200, 5000); o.h = clamp(Math.round(d.h) || 1080, 200, 5000);
+  // 書き出しの横幅：数でなければ等倍、大きすぎるときは面積の上限に収まるまで小さくする
+  let ex = Math.round(+d.exportW); if(!(ex >= 100)) ex = o.w;
+  while(ex > 200 && ex * ex * o.h / o.w > EXPORT_MAX_PX) ex = Math.floor(ex * 0.9);
+  o.exportW = ex;
+  normalizeDocSettings(o, d);
+  // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、未対応の fx 種別（バージョン違いの保存データ）は捨てる。
+  // 画像は crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
+  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || hasKey(FX_DEF, L.kind)).map(L => normalizeLayer(L));
+  sanitizeDocRefs(o);
+  cleanupGroups(o);
+  migrateOldLines(o, d);
   if(!o.layers.find(l => l.id === o.textSel)){ const T = o.layers.find(l => l.type === 'text'); o.textSel = T ? T.id : null; }
   if(o.sel && !o.layers.find(l => l.id === o.sel)) o.sel = null;
   return o;

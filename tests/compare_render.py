@@ -3,6 +3,7 @@
    ・fx     … 動的エフェクト全種類 × 乱数の種・パラメータ・拡大率・回転・不透明度などの組み合わせ
    ・frames … 切り抜きフレームの全形状 × 全デザイン（枠の色・太さ・縦横比・乱数の種の違いも）
    ・text   … 文字の装飾：文字パネルの定義から作る全装飾 × 全選択肢・スライダーの最小／最大、全装飾の重ね合わせ、プリセットの縦書き
+   ・normalize … 保存データの読み込み（normalizeDoc）：古い形式・壊れた値・細工された値の入力に対する出力の JSON
    ・layers … レイヤーパネルの HTML（種類・選択・複数選択・非表示・ロック・グループ・背景などの状態ごと。1 文字の違いも検出）
    ・collage … 分割フレームの全レイアウト × 分割数・境界・効果・背景色と文字・1週間の自動入力・位置→マスの判定・アイコン
    compare.py と違い、1 ピクセルの違いも許さない（同じブラウザで描くので、描画内容が同じなら結果も完全に同じになる）。
@@ -158,11 +159,65 @@ for(const bg of [{type:'image'}, {type:'grad'}, {type:'color'}, {hidden:true}, {
 DOC = keep; renderLayers();
 return out;"""
 
+# 保存データの読み込み（normalizeDoc）：古い形式・壊れた値・細工された値の入力を通し、出力の JSON を 1 文字単位で比べる。
+# id の作り直し（uid）が乱数と時刻を使うので、比べる間だけ固定する
+NORMALIZE = """
+const out = [], R0 = Math.random, D0 = Date.now;
+const J = o => JSON.parse(JSON.stringify(o));
+const base = J(DOC); base.layers.forEach((l, i) => l.id = 'Lb' + i); base.sel = base.textSel = base.layers.length ? 'Lb0' : null;   // 起動時に作られる id は毎回違うので固定する
+const T = (o = {}) => Object.assign(mkTextLayer(merged({text:'テスト'}), 500, 300, 1), {id:'Lt'}, o);
+const I = (o = {}) => Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:'Li', type:'image', asset:'Acmp'}, o);
+const C = (o = {}) => Object.assign(COLLAGE_BASE(), {id:'Lc'}, o);
+const G = (o = {}) => Object.assign(LAYER_BASE(), GROUP_BASE(), {id:'Lg'}, o);
+const F = (k, o = {}) => Object.assign(mkFx(k), {id:'Lf'}, o);
+const run = (name, d) => { let seed = 7; Math.random = () => (seed = seed * 16807 % 2147483647) / 2147483647; Date.now = () => 1700000000000;
+  let r; try{ r = JSON.stringify(normalizeDoc(d === undefined ? d : J(d))); }catch(e){ r = 'ERROR ' + e.message; } finally { Math.random = R0; Date.now = D0; }
+  out.push([name, r]); };
+const D = (layers, ov = {}) => Object.assign(J(base), {layers}, ov);
+// 1) 新規・壊れたデータ
+run('null', null); run('undefined', undefined); run('空', {}); run('layers が文字列', {layers:'x'}); run('layers 空', {layers:[]});
+run('今の DOC', base);
+// 2) 全種類を既定のまま
+run('全種類', D([T(), I(), C(), F('lines'), Object.assign(T({id:'Lk'}), {gid:'Lg'}), G()], {sel:'Li', textSel:'Lt'}));
+// 3) 種類ごとに最小限の項目だけ（既定値で埋まるか）
+for(const t of ['text', 'image', 'collage', 'group', 'fx', 'weird', 'toString']) run('最小 ' + t, D([{id:'Lm', type:t, kind:'sparkle'}, {id:'Lk', type:'text', gid:'Lm'}]));
+// 4) 画像：旧形式のフレーム・範囲外・壊れた値
+run('画像 いろいろ', D([I({frame:{shape:'heart', zoom:2, ox:0.1, oy:-0.2}}), I({id:'L2', frame:{shape:'star', zoom:3, fs:0.5}}), I({id:'L3', crop:{t:-1, b:2, l:'x', r:0.95}, key:{on:true, tol:'a', c:'zzz'}, strokes:[null, {m:1, pts:'x'}, {m:0, r:5, pts:[[1, 2], [3, 'a']]}], btool:'??', bsz:99999}),
+  I({id:'L4', bsz:'abc', outline:{w:5}, shadow:{on:true}, glow:{c:'red'}, fx:{duo1:'javascript:', tint:{c:'"><b>', on:true}, sil:{c:'bad', on:true}}}), I({id:'L5', asset:'bad id!'})]));
+// 境界の値（丸めの上限・下限のすぐ内側と外側）
+run('画像 境界', D([I({bsz:1}), I({id:'L2', bsz:4}), I({id:'L3', bsz:4.5}), I({id:'L4', bsz:600}), I({id:'L5', bsz:601}), I({id:'L6', bsz:0}), I({id:'L7', bsz:-3}),
+  I({id:'L8', frame:{zoom:20}}), I({id:'L9', frame:{zoom:0.5}}), I({id:'La', frame:{zoom:0}}), I({id:'Lb', crop:{t:0.9, b:0.9}}), I({id:'Lc', btool:'restore'}), I({id:'Ld', btool:'pick'})]));
+// 5) 分割フレーム：一部のマスだけ・壊れた色・週の設定
+run('分割 いろいろ', D([C({cells:[{asset:'Acmp', bg:{c:'nope', on:true}}, {tx:{text:'a'}, fx:{blur:3}}, null, {asset:'<x>'}], wk:{first:'sun'}, tstyle:{size:99}, fx:{tint:{on:true}}, shadow:{blur:3}})]));
+// 6) グループ：空のグループ・自分を指す gid・存在しないグループへの gid
+run('グループ いろいろ', D([Object.assign(T(), {gid:'Lg'}), G(), G({id:'Lempty'}), Object.assign(I(), {gid:'Lnone'}), Object.assign(G({id:'Lself'}), {gid:'Lself'}), Object.assign(T({id:'Lk2'}), {gid:'Lself'})]));
+// 7) 動的エフェクト：未対応の種類・特殊な名前・壊れた色
+run('fx いろいろ', D([F('burst', {p:{c:'xx', spikes:3}}), {id:'Lu', type:'fx', kind:'unknown'}, {id:'Lp', type:'fx', kind:'toString'}, {id:'Lq', type:'fx', kind:'__proto__'}]));
+// 8) 使えない id（作り直し、gid の付け替え）
+run('id いろいろ', D([Object.assign(T({id:'a b'}), {gid:'<g>'}), G({id:'<g>'}), I({id:'ok1'}), {id:'"', type:'text'}], {sel:'a b', textSel:'"'}));
+// 9) 配列の中の壊れた要素
+run('壊れた要素', D([null, 5, 'str', [], T(), true]));
+// 10) 背景・仕上げ・ガイド・ヘッダー・大きさ
+run('背景 入れ子なし', D([T()], {bg:{type:'image', asset:'Acmp'}}));
+run('背景 旧ズームブラーの中心', D([T()], {bg:{zb:{on:true, cx:0.2, cy:0.8}}}));
+run('背景 旧集中線', D([T()], {bg:{lines:{on:true, c:'#fff', n:90, inner:0.4, seed:3, a:0.5}, fcx:0.3, fcy:0.6}}));
+run('背景 旧集中線 off', D([T()], {bg:{lines:{on:false}}}));
+run('背景 不正な asset', D([T()], {bg:{asset:'../x'}}));
+for(const look of ['cinema', 'zzz', 'toString', undefined]) run('仕上げ ' + look, D([T()], {fin:{look, amt:0.5}}));
+run('ガイド 一部', D([T()], {guides:{thirds:true}}));
+for(const [hdr, w, h] of [['yt', 2560, 1440], ['yt', 1920, 1080], ['tw', 1200, 480], ['toString', 1920, 1080], ['', 1920, 1080]]) run(`ヘッダー ${hdr} ${w}x${h}`, D([T()], {hdr, w, h, guides:{safe:true}}));
+for(const [w, h, ex] of [[10, 99999, 'abc'], ['x', 'y', 50], [5000, 5000, 100000], [1920, 1080, 3840], [1080, 1920, 1080], [199, 201, 99], [200, 5000, 100], [5001, 200.4, 101], [1920.6, 1079.5, 0]]) run(`大きさ ${w}x${h} 書き出し ${ex}`, D([T()], {w, h, exportW:ex}));
+// 11) 選択が存在しないレイヤーを指す
+run('選択 なし', D([I()], {sel:'Lnone', textSel:'Lnone'}));
+run('選択 文字あり', D([I(), T({id:'Lt2'})], {sel:'Li', textSel:'Lnone'}));
+return out;"""
+
 async def capture(p, root, suites):
     pg = await open_app(p, root=root)
     res = {}
     if 'fx' in suites: res['fx'] = await pg.evaluate('(() => {' + FX + '})()')
     if 'text' in suites: res['text'] = await pg.evaluate('(() => {' + TEXT + '})()')
+    if 'normalize' in suites: res['normalize'] = await pg.evaluate('(() => {' + NORMALIZE + '})()')
     if 'frames' in suites or 'collage' in suites or 'layers' in suites:
         # テスト用の画像を、決まった id の素材として登録する（変更前後とも同じ条件にする。IndexedDB には書かない）
         src = 'data:image/jpeg;base64,' + base64.b64encode(Path(IMG['city.jpg']).read_bytes()).decode()
@@ -197,5 +252,5 @@ async def main(ref, suites):
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers'])
+    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers', 'normalize'])
     sys.exit(1 if asyncio.run(main(args[0] if args else 'HEAD', suites)) else 0)
