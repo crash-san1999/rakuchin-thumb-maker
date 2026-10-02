@@ -12,6 +12,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: TypeScript を入れる（型チェック用。版は tests/test_typecheck.py の TS_VERSION と合わせる）
+        run: npm install -g typescript@6.0.3
       - name: Playwright を入れる
         run: |
           pip install playwright pillow

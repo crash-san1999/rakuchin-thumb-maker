@@ -96,6 +96,9 @@ tools/layout-audit.py      いろいろな画面サイズで文字の切れ・�
 tools/docs-screenshots.py  説明書（docs/img）の画像をまとめて撮り直す（--decorate-only で飾りだけやり直し）
 tools/docs_decorate.py     説明書の画像に、ポップな飾り（水玉の背景・丸い角・ステッカー風の見出し）を付ける
 tests/                     自動テスト（Playwright）と、変更前後の見た目を比べるツール（helpers.py が共通部品、run_all.py が全件実行）
+tsconfig.json              型チェック（tsc --checkJs）の設定。配信物には関係しない（読み込まれない）
+types/types.js             型の定義（DOC・レイヤー各種・文字スタイル・編集モード）。既存のファクトリ関数から型を引くので、キーを足せば自動で反映
+types/dom-loose.d.ts       DOM まわりの型を一時的に緩める設定（締め方の手順もここに記載）
 docs/manual.md             操作マニュアル
 docs/img/                  説明書の画像
 ```
@@ -116,6 +119,7 @@ python3 -m playwright install chromium   # Chromium が入っていない場合
 | コマンド | 内容 |
 |---|---|
 | `python3 tests/run_all.py` | 自動テストをすべて実行（`run_all.py fonts -v` のように名前で絞り込み・詳細表示も可。1件ごとの制限時間は既定150秒で、`--timeout=秒` で変更可。止まったテストは失敗扱いにして次へ進み、残ったブラウザも自動で片付けます） |
+| `npx -p typescript@6.0.3 tsc -p .` | 型チェックだけを実行（設定は `tsconfig.json`、型の定義は `types/`）。`run_all.py` にも `test_typecheck` として入っていて、Node.js が無い環境では「省略」と表示されます |
 | `python3 tests/compare.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、画面・全プリセットの描画・設定パネルの中身を比べ、見た目が変わっていないか確認 |
 | `python3 tools/docs-screenshots.py` | 説明書の画像を今の画面で撮り直す |
 
