@@ -166,6 +166,7 @@ function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${
 /* フレームの形の位置（画像のピクセル座標）：fs=大きさ、cx/cy=画像のどこを中心に切り抜くか */
 // 単位は layerSrc(L) の絵（トリミング・背景透過後）のピクセル。fw0＝fs=1 のとき画像に収まる最大幅、fw/fh＝実際の切り抜き幅・高さ、
 // cxp/cyp＝切り抜き中心（枠が画像からはみ出さないよう clamp 済み）。画像が無ければ null
+/** @param {Layer} L */
 function frameGeom(L){
   const A = layerSrc(L); if(!A) return null;
   const fr = L.frame, iw = A.img.naturalWidth, ih = A.img.naturalHeight;
@@ -177,6 +178,7 @@ function frameGeom(L){
 /* フレームを動かしても、画像がキャンバス上で動かないようにレイヤーの位置を補正 */
 // g0：動かす前の frameGeom（切り抜き中心の差から補正量を出す）。base：ドラッグ開始時の {x,y}（渡すと累積せず毎回そこからの差で計算）
 // 反転・拡大・回転を考慮してドキュメント座標へ直す（反転時は中心の動きが逆向きになる）
+/** @param {Layer} L */
 function frameCompensate(L, g0, base){
   const g1 = frameGeom(L); if(!g0 || !g1) return;
   const dx = (g1.cxp - g0.cxp) * (L.flip ? -1 : 1) * L.sc, dy = (g1.cyp - g0.cyp) * (L.flipV ? -1 : 1) * L.sc, a = (L.rot || 0) * PI / 180;
@@ -186,6 +188,7 @@ function frameCompensate(L, g0, base){
 // フレーム付きの画像を1枚のキャンバスに描いて返す（{sk, k, c}）。f＝倍率、live＝ドラッグ中などの操作中、cache＝レイヤー id → 結果の Map
 // 座標は「フレーム中心が原点」。フチの飾りがはみ出すぶん、周りに pad の余白を付けたキャンバスにする（style ごとの係数が必要な余白の目安）。
 // 描く順序：フチ・影などの下敷き → 形でクリップして画像 → ステッカーの光沢・CRT・本の綴じなど画像の上に重ねるもの → HUD・テープなど外側の飾り
+/** @param {Layer} L */
 function framedCanvas(L, f, live, cache){
   const A = layerSrc(L), fr = L.frame, o = L.outline, need = L.sc * f;
   // sk：見た目が変わる要素すべての印。これが同じならキャッシュを使う。cutSig で背景透過・ブラシの変更も反映される
@@ -214,7 +217,7 @@ function framedCanvas(L, f, live, cache){
     else if(st === 'hud'){ x.shadowColor = o.c; x.shadowBlur = E * 1.2; stroke(E * 0.55, o.c); x.shadowBlur = 0; }
     else if(st === 'glitch'){ x.save(); x.translate(-E * 0.8, -E * 0.2); stroke(2 * E, '#ff2d55'); x.restore(); x.save(); x.translate(E * 0.8, E * 0.2); stroke(2 * E, '#00e5ff'); x.restore(); stroke(1.3 * E, o.c); }
     else if(st === 'metal'){ stroke(2 * E + 3 * f, 'rgba(0,0,0,.55)'); const g = x.createLinearGradient(0, -FH / 2 - E, 0, FH / 2 + E);
-      [[0, mixc(o.c, '#ffffff', 0.75)], [0.22, o.c], [0.48, mixc(o.c, '#000000', 0.5)], [0.52, mixc(o.c, '#ffffff', 0.45)], [0.78, o.c], [1, mixc(o.c, '#000000', 0.55)]].forEach(([t, cc]) => g.addColorStop(t, cc));
+      /** @type {Array<[number, string]>} */ ([[0, mixc(o.c, '#ffffff', 0.75)], [0.22, o.c], [0.48, mixc(o.c, '#000000', 0.5)], [0.52, mixc(o.c, '#ffffff', 0.45)], [0.78, o.c], [1, mixc(o.c, '#000000', 0.55)]]).forEach(([t, cc]) => g.addColorStop(t, cc));
       stroke(2 * E, g); stroke(Math.max(1, f * 1.2), 'rgba(255,255,255,.55)'); }
     else if(st === 'block'){ x.save(); x.translate(E * 2.4, E * 2.4); P(); x.fillStyle = fr.c2; x.fill(); x.lineWidth = 2 * E; x.strokeStyle = fr.c2; x.stroke(); x.restore(); stroke(2 * E, o.c); }
     else if(st === 'bracket'){ }   // 形のフチは描かない（四隅の線は画像を描いたあとに重ねる）

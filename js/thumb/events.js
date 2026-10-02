@@ -283,13 +283,14 @@ async function openProjectFile(f){
   const MASK_K = 0.25, NEAR = 4, maskCache = new Map(), maskFx = new Map();
   // マスクは、レイヤーの内容・キャンバス寸法・フォント数・画像の読み込み状況のどれかが変わらない限り使い回す（キーに全部入れてある）。
   // 影・光彩は当たり判定に含めない（見えている本体だけを掴めるように）
+  /** @param {Layer} L */
   const layerMask = L => {
     const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
     let m = maskCache.get(L.id);
     if(m && m.key === key) return m;
     const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = c.getContext('2d', {willReadFrequently:true});
     const keep = new Map(dims);   // 小さく描くと選択枠の大きさ（dims）も書き換わるので、終わったら戻す
-    try{ drawOne(x, {...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}, glow:{...(L.glow || {}), on:false}}, MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
+    try{ drawOne(x, /** @type {Layer} */ ({...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}, glow:{...(L.glow || {}), on:false}}), MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
     finally{ dims.clear(); keep.forEach((v, k) => dims.set(k, v)); }
     m = {key, W, H, a: x.getImageData(0, 0, W, H).data};
     maskCache.set(L.id, m);
@@ -298,6 +299,7 @@ async function openProjectFile(f){
   // render.js の pruneLayerCaches が（このファイルより先に読み込まれるため globalThis 経由で）呼ぶ。消えたレイヤーのマスクを捨てる
   globalThis.pruneMasks = ids => { for(const m of [maskCache, maskFx]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); };
   // その位置の「絵の濃さ」の段階：2＝絵がある（アルファ>24）／1＝すぐ近く／0＝無い。マスクを作れなかったら 0
+  /** @param {Layer} L */
   const pixelRank = (L, x, y) => {
     let m; try{ m = layerMask(L); }catch{ return 0; }
     const cx = Math.round(x * MASK_K), cy = Math.round(y * MASK_K);

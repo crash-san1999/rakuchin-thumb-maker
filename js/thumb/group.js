@@ -5,13 +5,17 @@
    依存：DOC・dims・prevCache・mk・postFx・toneFilter・cellFxOn・CELL_FX_BASE（fx.js／frames.js 側）、drawLayer・drawFx・drawCollage（各レイヤー描画）。
    グループの x/y/sc/rot は保存値ではなく、描画のたびに中身から計算し直す値（drawGroup 参照）。 */
 const GROUP_BASE = () => ({type:'group', label:'', open:true, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5}});
+/** @param {Layer} G */
 const groupKids = G => DOC.layers.filter(l => l.gid === G.id);
 // 同じ階層（同じグループの中、またはグループに入っていないもの）のレイヤー。重なり順の入れ替えはこの中で行う
+/** @param {Layer} L */
 const peersOf = L => DOC.layers.filter(l => (l.gid || '') === (L.gid || ''));
+/** @param {Layer} L */
 const isGroup = L => !!L && L.type === 'group';
 const layerById = id => DOC.layers.find(l => l.id === id) || null;
 
 // 1枚のレイヤーを種別で振り分けて描く。グループの中身の描画と、通常の描画ループの両方から使う（グループは入れ子の描画もここを通る）
+/** @param {Layer} L */
 function drawOne(ctx, L, f, live, cache){
   if(L.type === 'fx') drawFx(ctx, L, f);
   else if(L.type === 'collage') drawCollage(ctx, L, f, live, cache);
@@ -33,7 +37,9 @@ function groupBox(kids){
   return x0 > x1 ? null : {x0, y0, x1, y1};
 }
 // 不透明度・合成モード・効果・影があるときだけ、中を別キャンバスに描いてから1枚として重ねる（何もなければ直接描いて軽くする）
+/** @param {Layer} G */
 const groupNeedsCanvas = G => (G.op ?? 1) < 1 || (G.blend && G.blend !== 'source-over') || cellFxOn(G.fx) || (G.shadow && G.shadow.on && G.shadow.a > 0);
+/** @param {Layer} G */
 function drawGroup(ctx, G, f, live, cache){
   const kids = groupKids(G).filter(k => !k.hidden);
   const W = Math.round(DOC.w * f), H = Math.round(DOC.h * f);
@@ -71,6 +77,7 @@ function drawGroup(ctx, G, f, live, cache){
 /* ---------- まとめて動かす（グループ・複数選択） ---------- */
 // 動かす対象（グループなら中のレイヤー）の今の状態を控える
 // 操作中は「開始時の状態」から毎回計算し直す（累積すると丸めの誤差がたまるため）。ロック中のレイヤーは対象外。(cx, cy) は回転・拡大縮小の中心
+/** @param {Layer[]} ls @param {number} cx @param {number} cy */
 function xformSnap(ls, cx, cy){
   const kids = ls.flatMap(l => isGroup(l) ? groupKids(l) : [l]);
   return {cx, cy, kids: [...new Set(kids)].filter(L => !L.locked).map(L => ({L, x:L.x, y:L.y, sc:L.sc, rot:L.rot || 0}))};
@@ -107,6 +114,7 @@ function groupLayers(ids){
   toast(`${kids.length}個のレイヤーをグループにしました。ドラッグで移動、角で拡大縮小、上の○で回転。効果はまとめてかかります`);
   return G;
 }
+/** @param {Layer} G */
 function ungroupLayers(G){
   if(!isGroup(G)) return;
   const kids = groupKids(G), i = DOC.layers.indexOf(G);
@@ -121,6 +129,7 @@ function ungroupLayers(G){
   toast('グループを解除しました');
 }
 // 1枚だけグループから出す。出したレイヤーはグループの直前（＝1つ下）に置く。最後の1枚だったらグループ自体も消す
+/** @param {Layer} L */
 function ungroupOne(L){
   if(!L.gid) return;
   const G = layerById(L.gid); delete L.gid;

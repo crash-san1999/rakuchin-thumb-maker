@@ -19,6 +19,7 @@ function mergeCellFx(o){
 // 何か1つでも効果が有効か。無効なら別キャンバスを作らず直接描ける（描画の軽量化に使う）
 const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on);
 // マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
+/** @param {Layer} L */
 const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
 const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
   ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'], ['reset', 'なし']];
@@ -40,6 +41,7 @@ function COLLAGE_BASE(){
     cells:[...Array(8)].map(() => CELL_BASE())});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
+/** @param {Layer} L */
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
 function applyCellFx(name){
   const L = selLayer(); if(!L || (L.type !== 'collage' && L.type !== 'group' && L.type !== 'image')) return;
@@ -62,7 +64,9 @@ const COLLAGE_LAYOUTS = [
 const COLLAGE_ROWS2 = {wk43:[4, 3], wk34:[3, 4], wk52:[5, 2], wk25:[2, 5], wk53:[5, 3], wk35:[3, 5]};
 const COLLAGE_EDGES = [['straight', 'まっすぐ'], ['zigzag', 'ギザギザ'], ['wave', '波'], ['rough', 'ラフ']];
 const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], ['gap', 'すき間（背景が見える）'], ['glow', '光る線'], ['blur', 'ぼかしてつなげる'], ['shadow', '影で重ねる']];
-const collageN = L => clamp(parseInt(L.n) || 2, 2, 8);
+/** @param {Layer} L */
+// n は数値だが、古い・手で書き換えた保存データでは文字列のこともあるので parseInt で受ける
+const collageN = L => clamp(parseInt(/** @type {any} */ (L.n)) || 2, 2, 8);
 const collageLayoutOk = (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };
 // 書き出し中かどうか（外部から切り替える）。true の間は空のマスの「画像をドロップ」表示を描かない。キャッシュのキーにも含める（drawCollage）
 let exporting = false;
@@ -158,8 +162,9 @@ function collageShape(cells, W, H, edge, A){
 function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); }
 // マスの画像（背景・文字・効果は別）を描く。poly の外接矩形をマスの範囲とし、画面外にはみ出す分は切る。
 // showEmpty：画像のないマスにプレースホルダー（番号と「画像をドロップ」）を描くか。書き出し時は false
+/** @param {Layer} L */
 function collageCellPicture(x, L, i, poly, W, H, showEmpty){
-  const cell = L.cells[i] || {}, A = ASSETS[cell.asset];
+  const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = ASSETS[cell.asset];
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
   bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(W, bx1); by1 = Math.min(H, by1);
@@ -202,7 +207,9 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
 // 文字の描画：マスに収まる大きさに合わせて、文字スタイルでレンダリング（text-render.js の render）
 // 文字スタイルは分割フレーム全体で1つ（L.tstyle。null なら既定の「ポップ」）。文字だけはマスごと
 const cellHasText = c => !!(c && c.tx && c.tx.on && String(c.tx.text || '').trim());
+/** @param {Layer} L */
 function cellTextStyle(L, text){ return Object.assign({}, L.tstyle || collageDefaultStyle(), {text, pad:2}); }
+/** @param {Layer} L */
 function drawCellText(x, L, cell, bx0, by0, cw, ch){
   const t = cell.tx, st = cellTextStyle(L, String(t.text)), band = t.pos === 'c' ? 0.86 : 0.3;
   // まず 0.25 倍で試し描きして文字の大きさを測り、マスに収まる倍率 k を出してから本描画する（band＝文字が使える高さの割合。中央は大きく、上下寄せは帯状）。
@@ -215,8 +222,9 @@ function drawCellText(x, L, cell, bx0, by0, cw, ch){
 }
 // マス1つ分（背景色 → 画像 → 文字 の順）を描く。背景も文字も無ければ画像だけの軽い経路に任せる。
 // 背景の fillRect を上下左右 1px 広げるのは、クリップ境界の隙間（アンチエイリアスの透け）を防ぐため
+/** @param {Layer} L */
 function collageCellImage(x, L, i, poly, W, H, showEmpty){
-  const cell = L.cells[i] || {}, A = ASSETS[cell.asset], bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
+  const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = ASSETS[cell.asset], bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
   if(!hasBg && !hasTx){ collageCellPicture(x, L, i, poly, W, H, showEmpty); return; }
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
@@ -232,6 +240,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 // 分割フレーム全体を W×H の1枚のキャンバスに描く（回転・位置・影・不透明度は drawCollage 側）。f＝ドキュメント座標→ピクセルの倍率、lay＝レイアウトの上書き
 // 描く順序：全体を角丸でクリップ → 各マスを自分の多角形でクリップして描く → 境界線（bstyle ごと）→ 外枠。
 // 境界の太さ lw・振幅 A は f 倍してピクセルにする。radius は s（キャンバス1pxあたりのドキュメント倍率）で換算
+/** @param {Layer} L */
 function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = c.getContext('2d'), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
   const cells = collageCells(lay || L.layout, n, W, H, L.slant, L.main), A = Math.max(2, (L.amp || 20) * f);
@@ -267,6 +276,7 @@ function collageCanvas(L, W, H, f, lay){
 }
 // ctx に分割フレームを描く。実際の絵は collageCanvas で作ってレイヤーごとにキャッシュし、ここでは位置・回転・影・不透明度を付けて貼るだけ。
 // dims（選択枠・グループ範囲用）は描画のたびに更新。f＝倍率、live＝操作中、cache＝レイヤー id → {sk, k, c}
+/** @param {Layer} L */
 function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
@@ -288,6 +298,7 @@ function drawCollage(ctx, L, f, live, cache){
 /* キャンバス上の位置 → どのマスか */
 // x, y はドキュメント座標。レイヤーの回転を逆に戻してレイヤー内の割合(u,v)にし、1000 幅の仮想キャンバスで多角形の内外判定をする。
 // 戻り値はマス番号、どのマスでもなければ -1。境界の加工（ギザギザ等）は無視した、元の分割線で判定する
+/** @param {Layer} L */
 function collageCellAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y;
   const w = L.bw * L.sc, h = L.bh * L.sc, u = (dx * Math.cos(a) - dy * Math.sin(a)) / w + 0.5, v = (dx * Math.sin(a) + dy * Math.cos(a)) / h + 0.5;
@@ -297,6 +308,7 @@ function collageCellAt(L, x, y){
     if((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; };
   const i = cells.findIndex(inside); return i;
 }
+/** @param {Layer} L */
 function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標）
   const w = L.bw * L.sc, h = L.bh * L.sc, p = collageCells(L.layout, collageN(L), w, h, L.slant, L.main)[i] || [[0, 0], [w, h]];
   const xs = p.map(q => clamp(q[0], 0, w)), ys = p.map(q => clamp(q[1], 0, h));
@@ -305,12 +317,15 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
 
 /* マスの文字：スタイル・使う文字・フォント読み込み */
 // フォント読み込みは、全マスの文字を連結した文字列で行う（使う字だけ読み込む方式のため。空なら 'あ' でフォント自体は読み込む）
+/** @param {Layer} L */
 const collageAllText = L => L.cells.map(c => c.tx && c.tx.text || '').join('') || 'あ';
 function collageDefaultStyle(){ const p = PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
+/** @param {Layer} L */
 function collageSetStyle(L, name){
   const p = PRESETS.find(q => q[0] === name); if(!p) return;
   L.tpre = name; L.tstyle = merged(p[1]);
 }
+/** @param {Layer} L */
 async function ensureCollageFonts(L){ if(L.type === 'collage' && !L.hidden && L.cells.some(cellHasText)) await ensureFont(Object.assign({}, L.tstyle || collageDefaultStyle(), {text: collageAllText(L)})); }
 
 /* 1週間を自動で入れる：選んだ日を含む週を、週の始まり（月／日）から7日ぶん、上のマスから順に入れる */
@@ -339,6 +354,7 @@ function cellBtnLabel(text){
 }
 // 7日ぶんをマス0から順に入れる（マスが少なければそこまで）。画像のあるマスは文字を上寄せ('t')にして絵を隠さない。
 // 8分割のときは最後のマスを「MEMO」にする（ただし文字が入っていれば上書きしない）
+/** @param {Layer} L */
 function collageFillWeek(L){
   const wk = L.wk, days = weekDates(wk.start, wk.first), n = collageN(L);
   if(!L.tstyle) collageSetStyle(L, 'ポップ');
@@ -358,6 +374,7 @@ function addCollage(){
   toast('分割フレームを追加しました。マスに画像をドロップするか、左の「マスの画像」から選んでください');
 }
 // マスに画像を入れる。位置・大きさ・回転・反転は初期化し、背景・文字・効果は残す（古い保存データのマスに fx が無くても補う）
+/** @param {Layer} L */
 async function collageSetCell(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
   L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false});
@@ -396,12 +413,14 @@ function cellImg(x, img, cx, cy, dw, dh, cell){
 // マスの画像を入れ替える（画像・位置・大きさ・回転・反転。効果はマスに残す）
 // 入れ替えるのは画像に付随する項目だけ（背景色・文字・効果は「マスの場所」に属するので動かさない）
 const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
+/** @param {Layer} L */
 function swapCells(L, i, j){
   if(i === j || i < 0 || j < 0) return;
   const a = L.cells[i], b = L.cells[j];
   for(const k of CELL_IMG_KEYS){ const t = a[k]; a[k] = b[k]; b[k] = t; }
   L.ac = j;
 }
+/** @param {Layer} L */
 function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
 /* マスの一覧（操作パネル） */
 function renderCells(){

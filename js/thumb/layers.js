@@ -14,12 +14,15 @@
 // lpSliding：パネル内の不透明度スライダーをつかんでいる間 true。再描画でスライダー自体が作り直されて、ドラッグが途切れるのを防ぐ（renderLayers が先送りする）
 let lpSliding = false;
 // パネルに並べる順（手前が先）。グループのすぐ下に、中のレイヤーを並べる（閉じていれば出さない）
+/** @returns {Layer[]} */
 function layerRowsOrder(){
+  /** @type {Layer[]} */
   const out = [];
   DOC.layers.filter(l => !l.gid).reverse().forEach(L => { out.push(L); if(isGroup(L) && L.open !== false) groupKids(L).reverse().forEach(k => out.push(k)); });
   return out;
 }
 // パネルの2行目（種別などの説明）。画像が ASSETS に無いときは「読み込めません」（IndexedDB の復元前・保存失敗のとき）
+/** @param {Layer} L */
 function layerSubText(L){
   return L.type === 'text' ? '文字' : L.type === 'group' ? `${groupKids(L).length}個のレイヤー${cellFxOn(L.fx) ? ' ・ 効果あり' : ''}` : L.type === 'collage' ? `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚` : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
 }
@@ -68,6 +71,7 @@ const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スク�
   'color-dodge':'覆い焼き', lighter:'加算', difference:'差の絶対値', luminosity:'輝度'};
 // 同じ階層のレイヤーの中で重なり順を入れ替える。ref の手前（after=true＝配列で後ろ）または奥に置く。
 // L を先に取り除いてから ref の位置を引く（取り除くと添字がずれるため、順序を入れ替えないこと）
+/** @param {Layer} L */
 function placeLayer(L, ref, after){
   if(!ref || ref === L) return;
   DOC.layers.splice(DOC.layers.indexOf(L), 1);
@@ -210,6 +214,7 @@ function layerAction(id, act){
 }
 
 // 画像の反転（key = 'flip' 左右／'flipV' 上下）。切り抜きフレームがあるときは、フレームの中の絵がその場で反転する
+/** @param {Layer} L */
 function flipLayer(L, key){ L[key] = !L[key]; }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-flip]'); const L = selLayer(); if(!b || !L || L.type !== 'image') return;

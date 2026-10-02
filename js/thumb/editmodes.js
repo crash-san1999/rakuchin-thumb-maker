@@ -28,6 +28,7 @@ let edit = null; // {kind, id}
 let cutCursor = null;   // ブラシの丸を出す位置（ドキュメント座標）
 // ブラシの跡の座標・半径を小数4桁に丸める（跡は DOC に保存されるので、JSON を小さくするため）
 const r4 = v => Math.round(v * 10000) / 10000;
+/** @type {Record<string, EditMode>} */
 const EDIT_MODES = {
   // 画像の切り抜きフレーム：画像はそのままで、切り抜く範囲を動かす・大きさを変える。
   // 座標は frameLocal（回転を戻し、レイヤー倍率 sc で割った「画像ピクセル」）。フレーム中心の位置 cx,cy は 0〜1 の割合、fs はフレームの大きさ
@@ -172,12 +173,15 @@ const EDIT_MODES = {
   },
 };
 // レイヤーの回転を打ち消した向きでの移動量（ドキュメント座標）。回転したレイヤー上でも、ドラッグの向きがレイヤー自身の縦横に沿うようにする
+/** @param {Layer} L */
 function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)]; }
 // 画像上の点（ドキュメント座標）→ フレーム基準のローカル座標（画像ピクセル）
+/** @param {Layer} L */
 function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
 
 let swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
 // ダブルクリックで入るモードを決める：EDIT_MODES の並び順（frame → cut → cells）で最初に ok になったもの。frame と cut は形が「なし」かどうかで排他
+/** @param {Layer} L */
 const editModeFor = L => L && Object.keys(EDIT_MODES).find(k => EDIT_MODES[k].ok(L)) || null;
 // 編集中のレイヤー。レイヤーが消えた・隠した・条件を外れたときは null（＝実質、編集モードが終わっている）
 function editLayer(){
@@ -186,6 +190,8 @@ function editLayer(){
   return L && !L.hidden && EDIT_MODES[edit.kind].ok(L) ? L : null;
 }
 // モードに入る（kind と L を渡す）／終える（引数なし）。ボタンの文言の切り替え、トースト、入力欄・プレビューの更新まで行う
+/** kind が null なら編集モードを終える。x,y はダブルクリック位置（enter に渡す）
+ * @param {string|null} kind @param {Layer} [L] @param {number} [x] @param {number} [y] */
 function setEdit(kind, L, x, y){
   edit = kind && L ? {kind, id:L.id} : null; if(!edit) cutCursor = null;
   for(const [k, M] of Object.entries(EDIT_MODES)){ const b = document.getElementById(M.btn); if(b) b.lastChild.textContent = edit && edit.kind === k ? '調整を終える' : M.label; }
@@ -194,6 +200,7 @@ function setEdit(kind, L, x, y){
 }
 function toggleEdit(kind){ const L = selLayer(); if(edit && edit.kind === kind) setEdit(null); else if(L && EDIT_MODES[kind].ok(L)) setEdit(kind, L); }
 // ダブルクリック・ダブルタップで、そのレイヤーの編集モードに入る
+/** @param {Layer} L */
 function enterEditAt(L, x, y){ const kind = editModeFor(L); if(!kind || edit) return false; selectLayer(L.id); setEdit(kind, L, x, y); return true; }
 
 /* 入力の振り分け（キャンバスの操作から呼ばれる） */

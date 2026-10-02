@@ -26,6 +26,7 @@ const FX_HINT = {lines:'放射状の線で視線を集める。中心の空き�
 const FX_LAYER_DEF ={lines:{op:0.55}, light:{blend:'screen'}, burst:{sc:0.8}, rays:{op:0.4}, speed:{op:0.75}, gaan:{op:0.8}, bokeh:{blend:'screen'}, bolt:{sc:0.9}};
 // 種類ごとの「描画の基準サイズ [幅, 高さ]」（sc=1 のときのドキュメント座標）。選択枠(dims)と、粒を散らす範囲の両方の基準になる
 // 全面系は DOC のサイズ、局所系（キラキラ・爆発・稲妻など）は固定サイズ。集中線は中心の空き(inner)と届く範囲(reach)から決まる
+/** @param {Layer} L */
 const FX_BOX = L => { const p = L.p, W = DOC.w, H = DOC.h, M = Math.max(W, H); return {lines:p.full === false ? [W * p.inner * p.reach, H * p.inner * p.reach] : [W * p.inner, H * p.inner], light:[M * p.r * 1.1, M * p.r * 1.1], sparkle:[640, 400], burst:[780, 500], rays:[M * p.r * 1.2, M * p.r * 1.2], speed:[W, H], gaan:[W, H], confetti:[W, H], snow:[W, H], bolt:[420, 860], bokeh:[W, H], scatter:[1100, 640]}[L.kind] || [400, 400]; };
 // 引数：kind＝種類、p＝パラメータの上書き、ex＝レイヤー側の上書き（位置など）。ライトだけは右上寄りの初期位置にする
 const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:'fx', kind}, FX_LAYER_DEF[kind] || {}, kind === 'light' ? {x:Math.round(DOC.w * 0.72), y:Math.round(DOC.h * 0.3)} : {}, ex, {p:Object.assign(FX_DEF[kind](), p)});
@@ -85,6 +86,7 @@ function addFx(kind){
 }
 // ctx に fx レイヤー L を描く。f＝倍率（ドキュメント座標→ピクセル）。L.x/y はドキュメント座標の中心、rot は度
 // 以降の座標は「L の中心が原点・sc=1 の局所座標」。translate→rotate→scale の順は変えない（回転・拡大の中心が中心点になる）
+/** @param {Layer} L */
 function drawFx(ctx, L, f){
   const p = L.p, [bw, bh] = FX_BOX(L);
   // 選択枠・グループの範囲計算のため、描画のたびに大きさを登録する

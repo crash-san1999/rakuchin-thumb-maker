@@ -52,3 +52,17 @@
  *   layers: Layer[], sel: string|null, textSel: string|null, msel: string[]}} Doc */
 
 /** @typedef {{x: number, y: number, w: number, h: number}} Rect */
+
+/** 編集モード（フレーム調整・背景透過のブラシ・マスの調整）の定義。editmodes.js の EDIT_MODES の各値。
+ * x,y は DOC 座標、d は down が返したドラッグ中の状態、st は pinchStart が返した開始時の値、k は拡大率
+ * @typedef {{
+ *   btn: string, label: string, hint: () => string, banner: (L: Layer) => string,
+ *   ok: (L: Layer) => boolean,
+ *   enter?: (L: Layer, x: number, y: number) => void,
+ *   down: (L: Layer, x: number, y: number) => any,
+ *   move?: (L: Layer, x: number, y: number, d: any) => void,
+ *   up?: (L: Layer, d: any) => void,
+ *   zoom?: (L: Layer, k: number, x: number, y: number, e: any) => any,
+ *   pinchStart?: (L: Layer) => any,
+ *   pinch?: (L: Layer, st: any, k: number) => void,
+ *   overlay?: (ctx: CanvasRenderingContext2D, L: Layer, f: number, dpr: number) => void}} EditMode */

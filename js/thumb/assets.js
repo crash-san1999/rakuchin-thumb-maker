@@ -98,9 +98,12 @@ function cropClamp(c){
   const n = v => clamp(+v || 0, 0, 0.9), o = {t:n(c && c.t), b:n(c && c.b), l:n(c && c.l), r:n(c && c.r)};
   o.b = Math.min(o.b, 0.95 - o.t); o.r = Math.min(o.r, 0.95 - o.l); return o;
 }
+/** @param {Layer} L */
 const cropOf = L => cropClamp(L.crop);
+/** @param {Layer} L */
 const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 || c.r > 0; };
 // 元の画像のどこを使うか（ピクセル）。sw・sh を最低 8px にするのは、極端なトリミングで 0 幅の canvas ができるのを避けるため
+/** @param {Layer} L */
 function cropRect(L, iw, ih){
   const c = cropOf(L), sx = Math.round(c.l * iw), sy = Math.round(c.t * ih);
   return {sx, sy, sw: Math.max(8, Math.round(iw * (1 - c.l - c.r))), sh: Math.max(8, Math.round(ih * (1 - c.t - c.b)))};
@@ -109,6 +112,7 @@ function cropRect(L, iw, ih){
 // トリミングなしなら元の A をそのまま返す。レイヤーごとに1枚だけ持ち、アセット・範囲が変わったときだけ作り直す（キーは key）。
 // 削除されたレイヤーの分は render.js の pruneLayerCaches で捨てる
 const cropCache = new Map();
+/** @param {Layer} L */
 function cropSrc(L, A){
   if(!cropOn(L)) return A;
   const r = cropRect(L, A.img.naturalWidth, A.img.naturalHeight), key = [L.asset, r.sx, r.sy, r.sw, r.sh].join(',');
@@ -120,6 +124,7 @@ function cropSrc(L, A){
 // 画像レイヤーの絵：トリミング → 背景透過 → ブラシ の順にかけたもの（どれも使っていなければ元の画像）。
 // 透過・ブラシはトリミング後の絵に対して行う（無駄に切り落とす部分を処理しない）。ブラシの跡は元の画像基準の割合で持つので、トリミングを変えても跡の位置はずれない（cutout.js の cutSrc が元画像座標へ換算する）。
 // 戻り値は {img, name}（ASSETS の要素と同じ形）。アセットが無い（読み込めない）ときは undefined
+/** @param {Layer} L */
 function layerSrc(L){
   const A = ASSETS[L.asset]; if(!A) return A;
   const S = cropSrc(L, A);
@@ -127,6 +132,7 @@ function layerSrc(L){
   return cutSrc(L, S, A);
 }
 // トリミングを変える（change はトリミング値を書き換える関数）。見えている部分が動かないように、レイヤーの位置（フレームがあるときはフレームの中心）を補正する
+/** @param {Layer} L */
 function applyCropChange(L, change){
   const A = ASSETS[L.asset], iw = A ? A.img.naturalWidth : 1, ih = A ? A.img.naturalHeight : 1;
   const r0 = cropRect(L, iw, ih), fr = L.frame && L.frame.shape !== 'none' ? L.frame : null;

@@ -10,6 +10,7 @@
 */
 // 選択枠の四隅 pts（左上から時計回り）と回転ハンドル位置 rot を DOC 座標で返す。dims が無い（まだ描かれていない）ときは null。
 // ハンドルまでの距離（30px・余白14px）は DOC 座標だと縮小プレビューで極端に小さくなるため px = DOC.w / tvCss（画面1pxあたりのDOC座標）を掛けて画面上の距離で決める
+/** @param {Layer} L */
 function layerGeom(L){
   const d = dims.get(L.id); if(!d) return null;
   const a = (L.rot || 0) * PI / 180, c = Math.cos(a), s = Math.sin(a);

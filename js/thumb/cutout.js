@@ -10,7 +10,9 @@
   ブラシの座標 L.strokes[].p は「元の画像（トリミング前）の幅に対する割合」。半径 r も元画像の幅に対する割合（strokeApply で iw0 を掛ける）。
 */
 const KEY_BASE = () => ({on:false, c:'#00b140', tol:25, soft:10, shrink:0, smooth:1, mode:'edge', fringe:true});
+/** @param {Layer} L */
 const cutKeyOn = L => !!(L.key && L.key.on);
+/** @param {Layer} L */
 const cutOn = L => cutKeyOn(L) || !!(L.strokes && L.strokes.length);
 const cutCache = new Map();
 
@@ -34,6 +36,7 @@ function strokesNormalize(a){
 }
 // 絵が変わったかを見分ける印（キャッシュのキーに使う）
 // ブラシは跡の本数と点の総数だけで見る（点の中身までは比べない）。描画中は点が増えるだけなので、これで変化を検知できる
+/** @param {Layer} L */
 function cutSig(L){
   if(!cutOn(L)) return '';
   let n = 0, m = 0; for(const s of L.strokes || []){ n++; m += s.p.length; }
@@ -143,6 +146,7 @@ function strokeApply(F, src, st, from, geo){
 
 /* ---------- 切り取り・背景透過・ブラシをかけた絵 ---------- */
 // S：トリミング済みの絵（{img}）、A：元の画像。トリミングの位置は元の画像の座標に直して使う
+/** @param {Layer} L */
 function cutSrc(L, S, A){
   const iw = S.img.naturalWidth, ih = S.img.naturalHeight, iw0 = A.img.naturalWidth, ih0 = A.img.naturalHeight;
   const rc = cropOn(L) ? cropRect(L, iw0, ih0) : {sx:0, sy:0}, geo = {sx:rc.sx, sy:rc.sy, iw0, ih0};

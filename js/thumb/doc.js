@@ -39,6 +39,7 @@ const selLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.sel)) || null;
 const textLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.textSel)) || null;
 // いま DOC が参照している画像アセットid の集合。IndexedDB の掃除（assets.js idbRestore）とプロジェクト保存で「使っているものだけ」を残すのに使う
 function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : [])].filter(Boolean)); }
+/** @param {Layer} L */
 function layerName(L){
   if(L.label) return L.label;
   if(L.type === 'text') return L.style.text.replace(/[{}]/g, '').replace(/\n/g, ' ').trim().slice(0, 28) || '（空の文字）';

@@ -37,6 +37,7 @@ function fontKey(st){
 }
 // 文字レイヤーの絵（{sk, k, c}）。実際の描画は text-render.js の render(倍率, スタイル)。
 // pad:2 は、描いた文字を外接矩形に切り詰めたあとに残す余白（px）。レイヤーの絵が文字ぴったりになるので、dims（選択枠）もそのサイズになる
+/** @param {Layer} L */
 function textCanvas(L, need, live, cache){
   const sk = JSON.stringify(L.style) + fontKey(L.style);
   let e = cache.get(L.id);
@@ -55,14 +56,17 @@ function tinted(A, color){
   A.tintColor = color; return A.tintCanvas = c;
 }
 // 画像の明度・彩度（0 で元のまま）。フチ・影にはかけず、絵だけにかける
+/** @param {Layer} L */
 const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.max(0, 1 + L.bright)})`); if(L.sat) f.push(`saturate(${Math.max(0, 1 + L.sat)})`); return f.join(' ') || 'none'; };
 // 画像レイヤーの「効果」（コントラスト・色相・ぼかし・トーン・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる。分割フレームのマスと同じ L.fx）。
 // 明度・彩度だけは従来どおり L.bright / L.sat に持つ（imgFilter）ので、ここでは数えない
+/** @param {Layer} L */
 const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on); };
 /* 画像の絵を ctx の (dx,dy,dw,dh) に描く。効果が無ければ従来どおり明度・彩度のフィルターだけで直接描く。
    効果があるときは、絵だけを別キャンバス（ぼかし・ブラーのぶん余白付き）に描いて効果をかけてから置く（フチ・影にはかけない）。
    f＝DOC 座標→描画先ピクセルの倍率（効果の量は DOC 座標で持っているため）。暗く・色かぶり・周辺減光は source-atop で、絵のある部分にだけかける。
    作る canvas が大きすぎる（極端に拡大した画像）ときは、効果を省いて直接描く */
+/** @param {Layer} L */
 function imgPicture(x, A, L, f, dx, dy, dw, dh){
   if(!imgFxOn(L)){ x.filter = imgFilter(L); x.drawImage(A.img, dx, dy, dw, dh); x.filter = 'none'; return; }
   const fx = Object.assign({}, L.fx, {bright: L.bright || 0, sat: L.sat || 0});
@@ -86,6 +90,7 @@ function imgPicture(x, A, L, f, dx, dy, dw, dh){
    フレーム形状があるときは framedCanvas（frames.js）に任せる。
    sk の中身が、この絵の見た目に効く値の全部（トリミング・フチ・反転・明度彩度・背景透過/ブラシ）。ここに無い値を変えても再描画されない。
    明度・彩度（imgFilter）は絵だけにかけて、フチ・影にはかけない。 */
+/** @param {Layer} L */
 function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
@@ -140,6 +145,7 @@ function haloCanvas(e, q, col, blur, spread, str){
 // 文字・画像レイヤー1枚を描く（グループの中身からも呼ばれる）。
 // need = 今の描画先で必要な倍率、e.k = キャッシュ絵を描いたときの倍率。差があれば s = need / e.k で拡大縮小して貼る（live 中のごまかし）。
 // dims には「回転前・DOC 座標」の大きさを記録する（e.c の寸法 ÷ e.k = 倍率1のときの寸法、× L.sc = DOC 座標）
+/** @param {Layer} L */
 function drawLayer(ctx, L, f, live, cache){
   const need = L.sc * f;
   const e = L.type === 'text' ? textCanvas(L, need, live, cache) : imageCanvas(L, f, live, cache);
