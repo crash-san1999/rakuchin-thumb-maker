@@ -383,7 +383,8 @@ $('#flist').addEventListener('click', e => {
     return;
   }
   S.font = fam; fixWeight(); buildWeight();
-  const ff = findFont(fam); if(ff && ff.mb > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = it.querySelectorAll('.tag'); t.length > 1 && t[t.length - 1].remove(); }); }
+  const ff = findFont(fam);
+  if(ff && ff.mb > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = it.querySelectorAll('.tag'); t.length > 1 && t[t.length - 1].remove(); }); }
   document.querySelectorAll('.fi.on').forEach(x => x.classList.remove('on')); it.classList.add('on');
   $('#curFont').textContent = `使用中: ${S.font}`; schedule();
 });

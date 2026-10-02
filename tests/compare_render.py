@@ -3,6 +3,7 @@
    ・fx     … 動的エフェクト全種類 × 乱数の種・パラメータ・拡大率・回転・不透明度などの組み合わせ
    ・frames … 切り抜きフレームの全形状 × 全デザイン（枠の色・太さ・縦横比・乱数の種の違いも）
    ・text   … 文字の装飾：文字パネルの定義から作る全装飾 × 全選択肢・スライダーの最小／最大、全装飾の重ね合わせ、プリセットの縦書き
+   ・layers … レイヤーパネルの HTML（種類・選択・複数選択・非表示・ロック・グループ・背景などの状態ごと。1 文字の違いも検出）
    ・collage … 分割フレームの全レイアウト × 分割数・境界・効果・背景色と文字・1週間の自動入力・位置→マスの判定・アイコン
    compare.py と違い、1 ピクセルの違いも許さない（同じブラウザで描くので、描画内容が同じなら結果も完全に同じになる）。
    「描き方を整理しただけで、見た目は変えない」リファクタリングの確認に使う。違いがあれば、その組み合わせの名前を表示する"""
@@ -132,12 +133,37 @@ for(const [name, p] of PRESETS){ draw(`[プリセット縦] ${name}`, merged(Obj
 draw('[空] 空文字', base({text:''})); draw('[空] 空白', base({text:'  '}));
 return out;"""
 
+# レイヤーパネル：いろいろな状態の DOC で renderLayers を呼び、#layerList の HTML を比べる（文字列が 1 文字でも違えば検出）
+LAYERS = """
+const out = [], keep = DOC;
+const T = (o = {}) => Object.assign(mkTextLayer(merged({text:'テスト{強調}'}), 500, 300, 1), {id:'Lt'}, o);
+const I = (o = {}) => Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:'Li', type:'image', asset:'Acmp', name:'city'}, o);
+const C = (o = {}) => Object.assign(COLLAGE_BASE(), {id:'Lc', n:4, layout:'grid'}, o);
+const FXL = (k, o = {}) => Object.assign(mkFx(k), {id:'Lf' + k}, o);
+const snap = (name, layers, sel = null, msel = [], bg = {}) => {
+  DOC = normalizeDoc(Object.assign(JSON.parse(JSON.stringify(keep)), {layers:JSON.parse(JSON.stringify(layers)), sel, msel:[]}));
+  DOC.msel = msel; Object.assign(DOC.bg, bg); lpSliding = false; renderLayers(); out.push([name, document.querySelector('#layerList').innerHTML]); };
+snap('空', []);
+snap('1枚ずつ 文字', [T()]); snap('1枚ずつ 画像', [I()]); snap('1枚ずつ 画像なし', [I({asset:'missing'})]); snap('1枚ずつ 分割', [C()]);
+for(const k of Object.keys(FX_DEF)) snap('エフェクト ' + k, [FXL(k)]);
+const all = [T(), I(), C(), FXL('lines')];
+for(const sel of [null, 'Lt', 'Li', 'Lc', 'Lflines']) snap('選択 ' + sel, all, sel);
+snap('複数選択', all, 'Lt', ['Lt', 'Li']);
+snap('状態 非表示・ロック・不透明度・合成', [T({hidden:true}), I({locked:true, op:0.4}), C({blend:'multiply', op:0.75}), FXL('light', {label:'<b>名前</b> "引用"'})], 'Li');
+snap('名前', [T({label:'自分で付けた名前'}), I({label:'&<>"特殊文字'})]);
+for(const open of [true, false]){ const G = Object.assign(LAYER_BASE(), GROUP_BASE(), {id:'Lg', open}); snap('グループ open=' + open, [Object.assign(T(), {gid:'Lg'}), Object.assign(I(), {gid:'Lg'}), G, C()], 'Lg'); }
+{ const G = Object.assign(LAYER_BASE(), GROUP_BASE(), {id:'Lg'}); G.fx.tint.on = true; snap('グループ 効果あり 中を選択', [Object.assign(T(), {gid:'Lg'}), G], 'Lt'); }
+{ const c = C(); c.fx.sil.on = true; snap('分割 効果あり', [c]); }
+for(const bg of [{type:'image'}, {type:'grad'}, {type:'color'}, {hidden:true}, {op:0.5}, {type:'toString'}]) snap('背景 ' + JSON.stringify(bg), [T()], null, [], bg);
+DOC = keep; renderLayers();
+return out;"""
+
 async def capture(p, root, suites):
     pg = await open_app(p, root=root)
     res = {}
     if 'fx' in suites: res['fx'] = await pg.evaluate('(() => {' + FX + '})()')
     if 'text' in suites: res['text'] = await pg.evaluate('(() => {' + TEXT + '})()')
-    if 'frames' in suites or 'collage' in suites:
+    if 'frames' in suites or 'collage' in suites or 'layers' in suites:
         # テスト用の画像を、決まった id の素材として登録する（変更前後とも同じ条件にする。IndexedDB には書かない）
         src = 'data:image/jpeg;base64,' + base64.b64encode(Path(IMG['city.jpg']).read_bytes()).decode()
         await pg.evaluate("src => addAsset(src, 'cmp', 'Acmp', true)", src)
@@ -145,6 +171,7 @@ async def capture(p, root, suites):
         await pg.evaluate("src => addAsset(src, 'cmp2', 'Acmp2', true)", src2)
         if 'frames' in suites: res['frames'] = await pg.evaluate('(() => {' + FRAMES + '})()')
         if 'collage' in suites: res['collage'] = await pg.evaluate('(() => {' + COLLAGE + '})()')
+        if 'layers' in suites: res['layers'] = await pg.evaluate('(() => {' + LAYERS + '})()')
     errs = list(pg.errors); await close(pg)
     return res, errs
 
@@ -170,5 +197,5 @@ async def main(ref, suites):
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text'])
+    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers'])
     sys.exit(1 if asyncio.run(main(args[0] if args else 'HEAD', suites)) else 0)

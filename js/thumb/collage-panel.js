@@ -37,7 +37,8 @@ function renderCellText(){
       const ok = f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === st.font), grp = {};
       fonts.filter(ok).forEach(f => (grp[favs.has(f.family) ? 'お気に入り' : f.cat] = grp[favs.has(f.family) ? 'お気に入り' : f.cat] || []).push(f));
       const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
-      fs.innerHTML = keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join(''); fs.dataset.built = '1';
+      fs.innerHTML = keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
+      fs.dataset.built = '1';
     }
     if(![...fs.options].some(o => o.value === st.font)) fs.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(st.font)}">${escapeHtml(st.font)}</option>`);
     fs.value = st.font;

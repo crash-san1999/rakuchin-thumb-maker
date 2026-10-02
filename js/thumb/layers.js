@@ -28,13 +28,9 @@ function layerSubText(L){
 }
 // 毎回 innerHTML で作り直す。行のサムネは <canvas data-th> で、描き終わったあと refreshThumbs が prevCache の絵を縮小して入れる。
 // 背景の行は固定（並べ替え・選択の対象外）で、data-th='__bg' のサムネは背景キャッシュを使う
-function renderLayers(){
-  const box = $('#layerList'); if(!box) return;
-  if(lpSliding){ clearTimeout(renderLayers.t); renderLayers.t = setTimeout(renderLayers, 300); return; }
-  const arr = layerRowsOrder(), ms = new Set(DOC.msel || []);
-  const nLay = DOC.layers.filter(l => !isGroup(l)).length;
-  $('#lpCount').textContent = nLay ? `${nLay}枚` : '';
-  const rows = arr.map(L => {
+// レイヤーパネルの 1 行（レイヤー L）の HTML。ms＝複数選択中の id の Set。サムネの canvas は描いたあと refreshThumbs が埋める
+/** @param {Layer} L @param {Set<string>} ms */
+function layerRowHTML(L, ms){
     const sub = layerSubText(L);
     const mode = L.blend && L.blend !== 'source-over' ? ' ・ ' + (BLEND_NAMES[L.blend] || L.blend) : '';
     const th = L.type === 'group' ? `<span class="fxth grpth">${ic('group')}</span>` : L.type === 'fx' ? `<span class="fxth" style="--fxc:${safeColor(L.p.c)}">${ic(FX_ICONS[L.kind])}</span>` : L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${escapeHtml(L.id)}" width="72" height="72"></canvas>`;
@@ -48,15 +44,26 @@ function renderLayers(){
         <button data-la="lock" class="${L.locked ? 'act' : ''}" title="ロック（キャンバス上で動かないように）">${ic(L.locked ? 'lock' : 'unlock')}</button>
         <button data-la="menu" title="メニュー">${ic('more')}</button>
       </span>${L.id === DOC.sel ? `<div class="ly-op" title="不透明度"><span>不透明度</span><input type="range" min="0" max="1" step="0.01" data-d="@op" value="${+L.op || 1}"><b>${Math.round((L.op ?? 1) * 100)}%</b></div>` : ''}</div>`;
-  }).join('');
+}
+// レイヤーパネルの一番下にある背景の行の HTML（並べ替え・選択の対象外で、クリックで背景の設定を開く）
+function bgRowHTML(){
   // 未知の種類は、描画側（drawBackground）と同じく画像として扱う
   const BG_NAMES = {image:'背景画像', grad:'グラデーション', color:'単色'}, bgName = hasKey(BG_NAMES, DOC.bg.type) ? BG_NAMES[DOC.bg.type] : '背景画像';
-  const multi = ms.size >= 2 ? `<div class="lp-multi"><b>${ms.size}個を選択中</b><button class="btn sm" data-multi="group">${ic('group')}グループにする</button><button class="btn sm" data-multi="clear">選択を解除</button></div>` : '';
-  box.innerHTML = multi + (rows || '<p class="note" style="padding:0 8px">文字や画像を追加すると、ここに重なり順どおりに並びます。</p>') +
-    `<div class="ly bgrow${DOC.bg.hidden ? ' hid' : ''}" data-bgrow="1" title="クリックで背景の設定を開く"><span class="grip">${ic('grip')}</span><span class="ly-th"><canvas data-th="__bg" width="72" height="72"></canvas></span>
+  return `<div class="ly bgrow${DOC.bg.hidden ? ' hid' : ''}" data-bgrow="1" title="クリックで背景の設定を開く"><span class="grip">${ic('grip')}</span><span class="ly-th"><canvas data-th="__bg" width="72" height="72"></canvas></span>
      <span class="ly-name"><span class="nm">背景</span><small>${DOC.bg.hidden ? '非表示（透明）' : bgName}${(DOC.bg.op ?? 1) < 1 && !DOC.bg.hidden ? ` ・ ${Math.round(DOC.bg.op * 100)}%` : ''} ・ 固定</small></span>
      <span class="ly-act"><button data-bga="eye" class="${DOC.bg.hidden ? 'act' : ''}" title="背景の表示・非表示（非表示にすると透明。PNGで保存すると背景が透明になります）">${ic(DOC.bg.hidden ? 'eyeoff' : 'eye')}</button></span>
      <div class="ly-op" title="背景の不透明度"><span>不透明度</span><input type="range" min="0" max="1" step="0.01" data-d="bg.op" value="${DOC.bg.op ?? 1}"><b>${Math.round((DOC.bg.op ?? 1) * 100)}%</b></div></div>`;
+}
+function renderLayers(){
+  const box = $('#layerList'); if(!box) return;
+  if(lpSliding){ clearTimeout(renderLayers.t); renderLayers.t = setTimeout(renderLayers, 300); return; }
+  const arr = layerRowsOrder(), ms = new Set(DOC.msel || []);
+  const nLay = DOC.layers.filter(l => !isGroup(l)).length;
+  $('#lpCount').textContent = nLay ? `${nLay}枚` : '';
+  const rows = arr.map(L => layerRowHTML(L, ms)).join('');
+  const multi = ms.size >= 2 ? `<div class="lp-multi"><b>${ms.size}個を選択中</b><button class="btn sm" data-multi="group">${ic('group')}グループにする</button><button class="btn sm" data-multi="clear">選択を解除</button></div>` : '';
+  box.innerHTML = multi + (rows || '<p class="note" style="padding:0 8px">文字や画像を追加すると、ここに重なり順どおりに並びます。</p>') +
+    bgRowHTML();
   refreshThumbs();
 }
 // レイヤーのサムネを prevCache から描く。背景は cover（全面に敷く）、レイヤーは contain（0.94 倍で余白を残す）

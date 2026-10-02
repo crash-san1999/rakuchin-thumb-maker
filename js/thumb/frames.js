@@ -168,7 +168,9 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
   // もこもこ形：n 個の弧を並べる。base＝つなぎ目の半径、depth＝ふくらみの半径（どちらも a・b に対する割合）
   const scallop = (n, base, depth) => { for(let i = 0; i < n; i++){ const t0 = -PI / 2 + i * 2 * PI / n, t1 = t0 + 2 * PI / n, tm = (t0 + t1) / 2;
     const p0 = [Math.cos(t0) * a * base, Math.sin(t0) * b * base], p1 = [Math.cos(t1) * a * base, Math.sin(t1) * b * base];
-    if(!i) x.moveTo(...p0); x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); } x.closePath(); };
+    if(!i) x.moveTo(...p0);
+    x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); }
+    x.closePath(); };
   const g = {a, b, w, h, mn, r, seed, R, noise, rough, poly, ring, scallop};
   // 表に登録されている形だけを引く（保存データに 'constructor' などの名前が入っていても、Object の関数を呼ばないように）
   (hasKey(FRAME_PATHS, shape) ? FRAME_PATHS[shape] : FRAME_PATHS.rect)(x, g);
@@ -316,7 +318,11 @@ const FRAME_STYLE_DRAW = {
   crt: {
     under({E, o, stroke}){ stroke(2 * E * 1.6, o.c); stroke(Math.max(1, E * 0.3), 'rgba(255,255,255,.25)'); },
     over({x, FW, FH, P}){ x.save(); P(); x.clip(); const sl = Math.max(2, FH / 150); x.fillStyle = 'rgba(0,0,0,.2)'; for(let yy = -FH / 2; yy < FH / 2; yy += sl * 2) x.fillRect(-FW / 2, yy, FW, sl);
-    const g = x.createRadialGradient(0, 0, Math.min(FW, FH) * 0.3, 0, 0, Math.hypot(FW, FH) / 2); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.5)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW, FH);
+    const g = x.createRadialGradient(0, 0, Math.min(FW, FH) * 0.3, 0, 0, Math.hypot(FW, FH) / 2);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.5)');
+    x.fillStyle = g;
+    x.fillRect(-FW / 2, -FH / 2, FW, FH);
     x.fillStyle = 'rgba(255,255,255,.1)'; x.beginPath(); x.ellipse(-FW * 0.18, -FH * 0.26, FW * 0.36, FH * 0.16, -0.25, 0, 7); x.fill(); x.restore();
     },
   },

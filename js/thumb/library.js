@@ -177,7 +177,8 @@ async function libInit(){
   // 全件移せたときだけ元を空にする（一部失敗したら残して、次回の起動でやり直す）。created をずらすのは、一覧（新しい順）で元の並びを保つため
   const old = LS.get('ttm_mypresets', []);
   if(libOk && old.length){
-    let moved = 0; for(const mp of old){ if(mp && mp.s && await libSave({id:'M' + uid(), kind:'style', name:libName(mp.name), s:mp.s, bytes:JSON.stringify(mp.s).length * 2 + 200, created:Date.now() - moved})) moved++; }
+    let moved = 0;
+    for(const mp of old){ if(mp && mp.s && await libSave({id:'M' + uid(), kind:'style', name:libName(mp.name), s:mp.s, bytes:JSON.stringify(mp.s).length * 2 + 200, created:Date.now() - moved})) moved++; }
     if(moved === old.length) LS.set('ttm_mypresets', []);
   }
   renderLib(); renderPresets();

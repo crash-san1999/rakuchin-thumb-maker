@@ -153,6 +153,7 @@ function drawBgPattern(ctx, W, H, f, p, cx, cy){
   else if(p.type === 'grid'){ x.lineWidth = Math.max(1, s * 0.08); x.beginPath(); for(let X = 0; X < W; X += s){ x.moveTo(X, 0); x.lineTo(X, H); } for(let y = 0; y < H; y += s){ x.moveTo(0, y); x.lineTo(W, y); } x.stroke(); }
   else if(p.type === 'hline'){ for(let y = 0; y < H; y += s) x.fillRect(0, y, W, s * 0.4); }
   else if(p.type === 'sunburst'){ const n = Math.max(6, Math.round(p.size)), R = Math.hypot(W, H) * 2; x.beginPath();
-    for(let i = 0; i < n; i++){ const a0 = i / n * 2 * PI, a1 = a0 + PI / n; x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); x.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); x.closePath(); } x.fill(); }
+    for(let i = 0; i < n; i++){ const a0 = i / n * 2 * PI, a1 = a0 + PI / n; x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); x.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); x.closePath(); }
+    x.fill(); }
   ctx.save(); ctx.globalAlpha = clamp(p.a, 0, 1); ctx.globalCompositeOperation = p.mode || 'source-over'; ctx.drawImage(t, 0, 0); ctx.restore();
 }
