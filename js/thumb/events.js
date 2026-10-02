@@ -170,7 +170,7 @@ document.addEventListener('click', e => {
   });
   $('#addCollageBtn').onclick = () => addCollage();
   document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ applyCropChange(L, () => { L.crop = {t:0, b:0, l:0, r:0}; }); syncDoc(); docChanged(false); } } });
-  document.addEventListener('click', e => { if(e.target.closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; syncDoc(); docChanged(false); } } });
+  document.addEventListener('click', e => { if(e.target.closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; L.fx = mergeCellFx(); syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
 }
 $('#addText').onclick = () => {

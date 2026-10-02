@@ -83,6 +83,7 @@ function normalizeDoc(d){
     : L.type === 'group' ? (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE()))
     : L.type === 'fx' ? Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})})
     : Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
+        fx: (x => { x.duo1 = safeColor(x.duo1, '#1b1464'); x.duo2 = safeColor(x.duo2, '#ff9d5c'); x.tint.c = safeColor(x.tint.c, '#ff7a50'); return x; })(mergeCellFx(L.fx)),
         outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
         btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),

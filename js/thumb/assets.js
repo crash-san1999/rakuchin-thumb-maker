@@ -12,7 +12,7 @@
 */
 /* ---------- 画像アセット（IndexedDBに保存） ---------- */
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）
-const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, key:KEY_BASE(), strokes:[], btool:'erase', bsz:60, flip:false, flipV:false, bright:0, sat:0, outline:{on:false, w:10, c:'#ffffff', style:'solid', c2:'#ffd400', w2:6, blur:0}, glow:{on:false, c:'#00e5ff', blur:24, a:0.9, str:1}, frame:FRAME_BASE(), shadow:{on:false, blur:30, y:14, a:0.45, x:0, c:'#000000', sp:0}});
+const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, key:KEY_BASE(), strokes:[], btool:'erase', bsz:60, flip:false, flipV:false, bright:0, sat:0, fx:CELL_FX_BASE(), outline:{on:false, w:10, c:'#ffffff', style:'solid', c2:'#ffd400', w2:6, blur:0}, glow:{on:false, c:'#00e5ff', blur:24, a:0.9, str:1}, frame:FRAME_BASE(), shadow:{on:false, blur:30, y:14, a:0.45, x:0, c:'#000000', sp:0}});
 // ASSETS：アセットid → 読み込み済み画像。画面上の全画像の実体で、DOC.layers / bg から id で引く
 const ASSETS = {};
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });

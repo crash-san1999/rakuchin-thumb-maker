@@ -56,6 +56,31 @@ function tinted(A, color){
 }
 // 画像の明度・彩度（0 で元のまま）。フチ・影にはかけず、絵だけにかける
 const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.max(0, 1 + L.bright)})`); if(L.sat) f.push(`saturate(${Math.max(0, 1 + L.sat)})`); return f.join(' ') || 'none'; };
+// 画像レイヤーの「効果」（コントラスト・色相・ぼかし・トーン・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる。分割フレームのマスと同じ L.fx）。
+// 明度・彩度だけは従来どおり L.bright / L.sat に持つ（imgFilter）ので、ここでは数えない
+const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on); };
+/* 画像の絵を ctx の (dx,dy,dw,dh) に描く。効果が無ければ従来どおり明度・彩度のフィルターだけで直接描く。
+   効果があるときは、絵だけを別キャンバス（ぼかし・ブラーのぶん余白付き）に描いて効果をかけてから置く（フチ・影にはかけない）。
+   f＝DOC 座標→描画先ピクセルの倍率（効果の量は DOC 座標で持っているため）。暗く・色かぶり・周辺減光は source-atop で、絵のある部分にだけかける。
+   作る canvas が大きすぎる（極端に拡大した画像）ときは、効果を省いて直接描く */
+function imgPicture(x, A, L, f, dx, dy, dw, dh){
+  if(!imgFxOn(L)){ x.filter = imgFilter(L); x.drawImage(A.img, dx, dy, dw, dh); x.filter = 'none'; return; }
+  const fx = Object.assign({}, L.fx, {bright: L.bright || 0, sat: L.sat || 0});
+  const m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0)), tw = Math.ceil(dw) + m * 2, th = Math.ceil(dh) + m * 2;
+  if(tw * th > 3e7){ x.filter = imgFilter(L); x.drawImage(A.img, dx, dy, dw, dh); x.filter = 'none'; return; }
+  const t = mk(tw, th), tx = t.getContext('2d');
+  tx.filter = toneFilter(fx, f); tx.drawImage(A.img, m, m, dw, dh); tx.filter = 'none';
+  const o = postFx(t, fx, f, m + dw / 2, m + dh / 2), ox = o.getContext('2d');
+  ox.save(); ox.globalCompositeOperation = 'source-atop';
+  if(fx.dim > 0){ ox.fillStyle = `rgba(0,0,0,${fx.dim})`; ox.fillRect(0, 0, o.width, o.height); }
+  if(fx.tint.on && fx.tint.a > 0){ ox.globalCompositeOperation = fx.tint.mode; ox.globalAlpha = fx.tint.a; ox.fillStyle = fx.tint.c; ox.fillRect(0, 0, o.width, o.height); ox.globalAlpha = 1; ox.globalCompositeOperation = 'source-atop'; }
+  if(fx.vignette > 0){
+    const vx = m + dw / 2, vy = m + dh / 2, g = ox.createRadialGradient(vx, vy, Math.min(dw, dh) * 0.3, vx, vy, Math.hypot(dw, dh) / 2);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox.fillStyle = g; ox.fillRect(0, 0, o.width, o.height);
+  }
+  ox.restore();
+  x.drawImage(o, dx - m, dy - m);
+}
 /* 画像レイヤーの絵（フチ・色調込み）を作ってキャッシュする。戻り値は cache のエントリ {sk, k, c}。
    c は「画像本体 + 四方に pad」の canvas で、中心が画像の中心。pad はフチ・ぼかしがはみ出すぶん。
    フレーム形状があるときは framedCanvas（frames.js）に任せる。
@@ -65,7 +90,7 @@ function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
   const need = L.sc * f, o = L.outline, ow = o.on ? o.w : 0;
-  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, o.style, o.c2, o.w2, o.blur, L.flip, L.flipV, L.bright, L.sat, cutSig(L)].join('|');
+  const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, o.style, o.c2, o.w2, o.blur, L.flip, L.flipV, L.bright, L.sat, JSON.stringify(L.fx), cutSig(L)].join('|');
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
     const iw = A.img.naturalWidth, ih = A.img.naturalHeight, r = ow * f, st = o.style === 'double' || o.style === 'grad' ? o.style : 'solid';
@@ -88,7 +113,7 @@ function imageCanvas(L, f, live, cache){
       if(ob > 0){ x.filter = `blur(${ob / 2}px)`; x.drawImage(O, 0, 0); x.filter = 'none'; } else x.drawImage(O, 0, 0);
     }
     flipTo(x);
-    x.filter = imgFilter(L); x.drawImage(A.img, pad, pad, cw, ch); x.filter = 'none';
+    imgPicture(x, A, L, f, pad, pad, cw, ch);
     e = {sk, k:need, c}; cache.set(L.id, e);
   }
   return e;

@@ -42,8 +42,10 @@ function COLLAGE_BASE(){
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
 function applyCellFx(name){
-  const L = selLayer(); if(!L || (L.type !== 'collage' && L.type !== 'group')) return;
+  const L = selLayer(); if(!L || (L.type !== 'collage' && L.type !== 'group' && L.type !== 'image')) return;
   const fx = mergeCellFx(JSON.parse(JSON.stringify(CELL_FX_PRESETS[name] || {})));
+  // 画像レイヤーの明度・彩度は L.bright / L.sat に持つので、プリセットの値はそちらへ移す
+  if(L.type === 'image'){ L.bright = fx.bright; L.sat = fx.sat; fx.bright = 0; fx.sat = 0; L.fx = fx; syncDoc(); docChanged(false); return; }
   if(L.fxMode === 'cell') L.cells[L.ac || 0].fx = fx; else L.fx = fx;
   syncDoc(); docChanged(false);
 }
