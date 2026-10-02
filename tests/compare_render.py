@@ -64,7 +64,7 @@ return out;"""
 COLLAGE = HASH + """
 const out = [];
 const mkC = (o = {}) => { const L = Object.assign(COLLAGE_BASE(), {id:'cmpC'}, o);
-  L.cells.forEach((c, i) => { c.asset = i % 3 === 2 ? null : (i % 2 ? 'Acmp2' : 'Acmp'); c.zoom = 1 + (i % 3) * 0.2; c.ox = (i % 2) * 30; c.rot = i * 7; c.flip = i === 1; });
+  L.cells.forEach((c, i) => { c.asset = i % 3 === 2 ? null : (i % 2 ? 'Acmp2' : 'Acmp'); c.zoom = 1 + (i % 3) * 0.2; c.ox = (i % 2) * 0.15; c.oy = -(i % 3) * 0.1; /* ox・oy はマスの幅・高さに対する割合（-1〜1） */ c.rot = i * 7; c.flip = i === 1; });
   return L; };
 const draw = (name, L, f = 0.4, live = false) => { const c = mk(Math.round(DOC.w * f), Math.round(DOC.h * f)), x = c.getContext('2d');
   try{ drawCollage(x, L, f, live, new Map()); }catch(e){ out.push([name, 'ERROR ' + e.message]); return; } out.push([name, H(c)]); };

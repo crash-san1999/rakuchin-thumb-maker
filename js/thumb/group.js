@@ -61,7 +61,7 @@ function drawGroup(ctx, G, f, live, cache){
     const cx = G.x * f + m, cy = G.y * f + m, o = postFx(u, fx, f, cx, cy), ox = o.getContext('2d');
     ox.save(); ox.globalCompositeOperation = 'source-atop';
     if(fx.dim > 0){ ox.fillStyle = `rgba(0,0,0,${fx.dim})`; ox.fillRect(0, 0, o.width, o.height); }
-    if(fx.tint.on && fx.tint.a > 0){ ox.globalCompositeOperation = fx.tint.mode; ox.globalAlpha = fx.tint.a; ox.fillStyle = fx.tint.c; ox.fillRect(0, 0, o.width, o.height); ox.globalAlpha = 1; ox.globalCompositeOperation = 'source-atop'; }
+    if(fx.tint.on && fx.tint.a > 0) tintAtop(o, fx.tint);
     if(fx.vignette > 0){
       const w = (b.x1 - b.x0) * f, h = (b.y1 - b.y0) * f, g = ox.createRadialGradient(cx, cy, Math.min(w, h) * 0.3, cx, cy, Math.hypot(w, h) / 2);
       g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox.fillStyle = g; ox.fillRect(0, 0, o.width, o.height);

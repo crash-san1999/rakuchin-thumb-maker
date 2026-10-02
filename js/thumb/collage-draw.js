@@ -130,7 +130,7 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
   const o = postFx(t, fx, f, bx0 + cw / 2 + ox, by0 + ch / 2 + oy), ox2 = o.getContext('2d');
   ox2.save(); ox2.globalCompositeOperation = 'source-atop';
   if(fx.dim > 0){ ox2.fillStyle = `rgba(0,0,0,${fx.dim})`; ox2.fillRect(0, 0, o.width, o.height); }
-  if(fx.tint.on && fx.tint.a > 0){ ox2.globalCompositeOperation = fx.tint.mode; ox2.globalAlpha = fx.tint.a; ox2.fillStyle = fx.tint.c; ox2.fillRect(0, 0, o.width, o.height); ox2.globalAlpha = 1; ox2.globalCompositeOperation = 'source-atop'; }
+  if(fx.tint.on && fx.tint.a > 0) tintAtop(o, fx.tint);
   if(fx.vignette > 0){
     const vx = bx0 + cw / 2 + ox, vy = by0 + ch / 2 + oy, g = ox2.createRadialGradient(vx, vy, Math.min(cw, ch) * 0.3, vx, vy, Math.hypot(cw, ch) / 2);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox2.fillStyle = g; ox2.fillRect(0, 0, o.width, o.height);

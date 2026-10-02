@@ -62,6 +62,14 @@ const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.ma
 // 明度・彩度だけは従来どおり L.bright / L.sat に持つ（imgFilter）ので、ここでは数えない
 /** @param {Layer} L */
 const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on)); };
+// 「色を重ねる」：重ね方（乗算・オーバーレイなど）で色を重ねた結果を、絵のある部分にだけ置く。
+// 重ね方の指定（globalCompositeOperation）と「絵のある部分だけ」（source-atop）は同時に使えないので、別のキャンバスで重ねてから
+// source-atop で戻す。こうしないと、切り抜き画像の周りやグループの外など透明な部分まで色が付く。不透明な部分の結果は直接塗るのと同じ
+function tintAtop(o, t){
+  const T = mk(o.width, o.height), tx = T.getContext('2d');
+  tx.drawImage(o, 0, 0); tx.globalCompositeOperation = t.mode; tx.globalAlpha = t.a; tx.fillStyle = t.c; tx.fillRect(0, 0, o.width, o.height);
+  const ox = o.getContext('2d'); ox.save(); ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = 1; ox.drawImage(T, 0, 0); ox.restore();
+}
 /* 画像の絵を ctx の (dx,dy,dw,dh) に描く。効果が無ければ従来どおり明度・彩度のフィルターだけで直接描く。
    効果があるときは、絵だけを別キャンバス（ぼかし・ブラーのぶん余白付き）に描いて効果をかけてから置く（フチ・影にはかけない）。
    f＝DOC 座標→描画先ピクセルの倍率（効果の量は DOC 座標で持っているため）。暗く・色かぶり・周辺減光は source-atop で、絵のある部分にだけかける。
@@ -77,7 +85,7 @@ function imgPicture(x, A, L, f, dx, dy, dw, dh){
   const o = postFx(t, fx, f, m + dw / 2, m + dh / 2), ox = o.getContext('2d');
   ox.save(); ox.globalCompositeOperation = 'source-atop';
   if(fx.dim > 0){ ox.fillStyle = `rgba(0,0,0,${fx.dim})`; ox.fillRect(0, 0, o.width, o.height); }
-  if(fx.tint.on && fx.tint.a > 0){ ox.globalCompositeOperation = fx.tint.mode; ox.globalAlpha = fx.tint.a; ox.fillStyle = fx.tint.c; ox.fillRect(0, 0, o.width, o.height); ox.globalAlpha = 1; ox.globalCompositeOperation = 'source-atop'; }
+  if(fx.tint.on && fx.tint.a > 0) tintAtop(o, fx.tint);
   if(fx.vignette > 0){
     const vx = m + dw / 2, vy = m + dh / 2, g = ox.createRadialGradient(vx, vy, Math.min(dw, dh) * 0.3, vx, vy, Math.hypot(dw, dh) / 2);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox.fillStyle = g; ox.fillRect(0, 0, o.width, o.height);
