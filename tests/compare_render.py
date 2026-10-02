@@ -2,6 +2,7 @@
    python3 tests/compare_render.py [比べるコミット] [--suite=fx,frames]
    ・fx     … 動的エフェクト全種類 × 乱数の種・パラメータ・拡大率・回転・不透明度などの組み合わせ
    ・frames … 切り抜きフレームの全形状 × 全デザイン（枠の色・太さ・縦横比・乱数の種の違いも）
+   ・text   … 文字の装飾：文字パネルの定義から作る全装飾 × 全選択肢・スライダーの最小／最大、全装飾の重ね合わせ、プリセットの縦書き
    ・collage … 分割フレームの全レイアウト × 分割数・境界・効果・背景色と文字・1週間の自動入力・位置→マスの判定・アイコン
    compare.py と違い、1 ピクセルの違いも許さない（同じブラウザで描くので、描画内容が同じなら結果も完全に同じになる）。
    「描き方を整理しただけで、見た目は変えない」リファクタリングの確認に使う。違いがあれば、その組み合わせの名前を表示する"""
@@ -96,10 +97,46 @@ for(const [first, n, show, fmt, paren, layout] of [['mon', 7, 'both', 'ja1', 'ha
 for(const [lay, , ok] of COLLAGE_LAYOUTS) for(let n = 2; n <= 8; n++) if(ok(n)) out.push([`icon ${lay} ${n}`, collageIcon(lay, n).length + ':' + collageIcon(lay, n).slice(-40)]);
 return out;"""
 
+# 文字の装飾：文字パネルの定義（SECTIONS・TEXT_ROWS）から、全装飾 × 全選択肢・スライダーの最小／最大・色・乱数のケースを自動で作り、render で描く
+TEXT = HASH + """
+const out = [], T = 'テスト{強調}ABC\\n2行目!!20ー（括弧）';
+const setP = (o, path, v) => { const ks = path.split('.'); let x = o; for(let i = 0; i < ks.length - 1; i++){ if(x[ks[i]] == null) x[ks[i]] = {}; x = x[ks[i]]; } x[ks[ks.length - 1]] = v; };
+const draw = (name, st, scale = 0.5) => { let c; try{ c = render(scale, st); }catch(e){ out.push([name, 'ERROR ' + e.message]); return; } out.push([name, H(c)]); };
+const base = (ov = {}) => merged(Object.assign({text:T, size:110}, ov));
+const vals = row => row.opts ? row.opts.map(o => o[0]) : row.r ? [row.min, Math.round((row.min + row.max) / 2 / (row.step || 1)) * (row.step || 1), row.max] : row.chk ? [true, false] : row.c ? ['#13c4a3'] : row.seed ? [7] : [];
+// 表示条件（show：'キー=値|値&キー!=値'）を満たすように st を書き換える。条件付きの設定（金属の種類・しっぽの向きなど）を実際に効かせるため
+const ROWS = [...TEXT_ROWS, ...SECTIONS.flatMap(s => s.rows)];
+const getP = (o, path) => path.split('.').reduce((x, k) => x == null ? x : x[k], o);
+const lit = v => v === 'true' ? true : v === 'false' ? false : (v !== '' && !isNaN(+v) ? +v : v);
+const satisfy = (st, show) => { if(!show) return; for(const c of show.split('&')){ const neg = c.includes('!='), [k, vs] = c.split(neg ? '!=' : '='), list = vs.split('|');
+  if(!neg){ if(!list.includes(String(getP(st, k)))) setP(st, k, lit(list[0])); continue; }
+  if(!list.includes(String(getP(st, k)))) continue;
+  const r = ROWS.find(r => (r.seg || r.sel || r.chk) === k), cand = r && r.opts ? r.opts.map(o => o[0]) : r && r.chk ? [true, false] : [];
+  const v = cand.find(x => !list.includes(String(x))); if(v !== undefined) setP(st, k, v); } };
+// 1) 装飾のセクションごと（セクションの ON キーを入れて、行の値を 1 つずつ変える）
+for(const sec of SECTIONS){
+  const on = sec.on ? {[sec.on.split('.')[0]]: Object.assign({}, DEFAULT[sec.on.split('.')[0]], {[sec.on.split('.')[1]]: true})} : {};
+  draw(`[${sec.t}] 既定`, base(on), 1);
+  for(const row of sec.rows){ const k = row.r || row.seg || row.sel || row.c || row.chk || row.seed; if(!k) continue;
+    for(const v of vals(row)){ const st = base(on); satisfy(st, row.show); setP(st, k, v); draw(`[${sec.t}] ${k}=${v}`, st, 1); } }
+}
+// 2) 文字の基本（サイズ・字間・行間・縦書き・揃え・英数字の向き・縦中横）
+for(const row of TEXT_ROWS){ const k = row.r || row.seg || row.chk; for(const v of vals(row)) for(const vert of [false, true]){ const st = base({vertical:vert}); satisfy(st, row.show); setP(st, k, v); draw(`[基本] ${k}=${v} 縦${vert} ${row.show || ''}`, st); } }
+// 3) 全装飾を同時に ON（重ね合わせの順序の確認）。横書き／縦書き × 倍率
+const all = base(); for(const sec of SECTIONS) if(sec.on){ const [a, b] = sec.on.split('.'); all[a] = Object.assign({}, all[a], {[b]: true}); }
+all.strokes = [{on:true, w:8, c:'#111'}, {on:true, w:10, c:'#ff2d55'}, {on:true, w:6, c:'#fff'}]; all.sblur = 3; all.skew = 8; all.rotate = 7;
+for(const fm of ['normal', 'hollow', 'knock']) for(const vert of [false, true]) for(const sc of [0.5, 1, 2.4]){ const st = clone(all); st.fillMode = fm; st.vertical = vert; draw(`[全部] ${fm} 縦${vert} x${sc}`, st, sc); }
+// 4) 文字プリセット全種の縦書き版（横書き版は compare.py で比べている）
+for(const [name, p] of PRESETS){ draw(`[プリセット縦] ${name}`, merged(Object.assign(clone(p), {text:T, vertical:true}))); }
+// 5) 文字が空・空白だけ
+draw('[空] 空文字', base({text:''})); draw('[空] 空白', base({text:'  '}));
+return out;"""
+
 async def capture(p, root, suites):
     pg = await open_app(p, root=root)
     res = {}
     if 'fx' in suites: res['fx'] = await pg.evaluate('(() => {' + FX + '})()')
+    if 'text' in suites: res['text'] = await pg.evaluate('(() => {' + TEXT + '})()')
     if 'frames' in suites or 'collage' in suites:
         # テスト用の画像を、決まった id の素材として登録する（変更前後とも同じ条件にする。IndexedDB には書かない）
         src = 'data:image/jpeg;base64,' + base64.b64encode(Path(IMG['city.jpg']).read_bytes()).decode()
@@ -133,5 +170,5 @@ async def main(ref, suites):
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage'])
+    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text'])
     sys.exit(1 if asyncio.run(main(args[0] if args else 'HEAD', suites)) else 0)

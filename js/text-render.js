@@ -933,19 +933,10 @@ function render(scale, style = S){
 }
 // 描画本体。レイヤー（キャンバス）の役割：A=背面と最終合成の土台 / K=フチ / F=塗り。3枚とも同寸法(W×H)なので blit/cut が位置合わせなしで使える。
 // plainText() は S を読む（fonts.js）。サムネ側が style を渡すときも空判定にはパネルの文字が使われる点に注意（実際の描画は RS.text）
-function renderStyle(scale){
-  if(!plainText().trim()) return mk(1, 1);
-  const L = layout(), items = glyphs(L);
-  const cells = (RS.box.on || RS.dots.on) ? charCells(items) : [];
-  const dotCells = RS.dots.on ? cells.filter(c => c.a) : [];
-  const t = RS.vertical ? 0 : Math.tan(RS.skew * PI / 180);   // 縦書きは列全体ではなく、1文字ずつ傾ける（下の文字が横にずれないように）
-  const on = RS.strokes.filter(s => s.on && s.w > 0);
-  // フチは内側から累積した太さで描く（外側のフチほど太い線を先に描き、内側を上から重ねる。ループは逆順）。outer=最外周までの総太さ
-  let cum = 0; const layers = on.map(s => ({w: (cum += s.w), c: s.c}));
-  const outer = cum;
+// renderStyle の余白 m（装飾ごとのはみ出し量の合計）。L＝layout()、layers＝フチ（内側からの累積の太さ）、outer＝フチの総太さ、ex＝立体の厚み
+function styleMargin(L, layers, outer, ex){
   // ここから m までは、装飾ごとの「はみ出し量」を足し合わせてキャンバスの余白を決める。足りないと装飾がキャンバス端で切れ、
   // 多すぎるとメモリ・時間が増える（最後に trim で切り落とすが、先に大きく確保される）。装飾を追加・拡大したら対応する項をここに足すこと
-  const ex = RS.extrude.on ? RS.extrude.depth : 0;
   const sh =RS.shadow.on ? Math.max(Math.abs(RS.shadow.x), Math.abs(RS.shadow.y)) + RS.shadow.blur * 1.5 : 0;
   const sgl = layers.length ? (RS.sglow.on ? RS.sglow.blur * 1.7 : 0) + RS.sblur * 1.6 : 0;
   const gl = RS.glow.on ? RS.glow.blur * (RS.glow.dual ? 2.2 : 1.6) : 0;
@@ -960,26 +951,22 @@ function renderStyle(scale){
     + (RS.trail.on ? RS.trail.len * RS.size : 0) + (RS.distort.on ? RS.distort.amt : 0)
     + (RS.sparkle.on ? RS.sparkle.size * RS.size : 0) + (RS.bulbs.on ? RS.bulbs.size * RS.size * 3 : 0);
   const m = RS.size * 0.35 + outer + ex + sh + gl + sgl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;   // 最後の +10 は誤差・アンチエイリアス用の固定余白
-  // 幅は斜体(skew)で横にはみ出す分（|t|×高さ）も足す。W/H は実ピクセル（scale 倍）
-  const W =Math.ceil((L.w + 2 * m + Math.abs(t) * L.h) * scale), H = Math.ceil((L.h + 2 * m) * scale);
-  // 描画用 ctx を作る関数。論理座標 → 実ピクセルの変換（scale 倍・余白 m 分のオフセット・斜体のせん断 -t）をここで一括して掛ける。
-  // せん断 -t は下の行ほど x が左へずれる（t>0）ので、その分 t×L.h を左オフセットに足して切れないようにする（t<0 は右へはみ出すだけで W 側の |t|×L.h が吸収）。
-  // font 等は canvas ごとに設定が必要（描画先を替えるたびに prep を通す）
-  const prep = c => {
-    const x = c.getContext('2d');
-    x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
-    x.font = fontStr(); x.letterSpacing = lsx() + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
-    return x;
-  };
-
-  // 1) 背面：背景シェイプ → 一文字囲み → マーカー → 板ずれ → 押し出し
+  return m;
+}
+// renderStyle 1) 背面のキャンバス A を作って返す
+function styleBack(sv){
+  const {scale, L, items, cells, outer, ex, W, H, prep} = sv;
   const A = mk(W, H), ax = prep(A);
   if(RS.plate.on) drawPlate(ax, L, outer);
   if(RS.box.on) drawBoxes(ax, cells);
   if(RS.marker.on) drawMarker(ax, L);
   if(RS.offset.on) blit(A, drawOffsetLayer(prep, W, H, items, outer));
   if(ex > 0) blit(A, drawExtrude(prep, W, H, items, outer, scale));
-  // 2) フチ（傍点にもフチ）
+  return A;
+}
+// renderStyle 2) フチのキャンバス K を作って返す
+function styleStrokes(sv){
+  const {items, dotCells, layers, W, H, prep} = sv;
   // 外側（太い）→内側（細い）の順に同じ文字を線で重ね描きする。K は後でぼかし等で作り直すことがあるので let
   let K = mk(W, H); const kx = prep(K);
   for(let i = layers.length - 1; i >= 0; i--){
@@ -987,7 +974,11 @@ function renderStyle(scale){
     drawGlyphs(kx, items, (it, px, py) => kx.strokeText(it.t, px, py));
     dotCells.forEach(c => withCell(kx, c, () => { dotPath(kx); kx.stroke(); }));
   }
-  // 3) 文字の塗り → 模様 → ベベル → インナーシャドウ → テカリ
+  return K;
+}
+// renderStyle 3) 塗りのキャンバス F を作って返す（ドリップ・ベベルは K も読む／書き換える）
+function styleFill(sv, K){
+  const {scale, L, items, dotCells, layers, outer, W, H, prep} = sv;
   // 順序が大事：ドリップ・模様・ベベルなどは「描かれた塗りの形」を読む／上から重ねるので、塗りの直後に、この順で行う
   const F = mk(W, H), fx = prep(F), fs = fillStyles(fx, L);
   if(L.v && RS.fillType !== 'solid'){
@@ -1017,11 +1008,20 @@ function renderStyle(scale){
   if(RS.inner.on) innerShadow(F, scale);
   if(RS.gloss.on) drawGloss(fx, L);
   if(RS.bulbs.on) drawBulbs(F, scale);
+  return F;
+}
+// renderStyle 3) の続き：フチのぼかし（K を作り直す）・フチの光彩（A へ重ねる）。作り直した K を返す
+function styleStrokeFx(sv, A, K){
+  const {scale, layers, W, H} = sv;
   // フチのぼかし・フチの光彩（フチがあるときだけ）。ぼかしは K を作り直す（CSS blur の値は sblur×scale÷2）。光彩は str 回（最大4）重ねて濃くする。
   // 光彩は A（背面）へ先に重ねるので、フチ・文字がその上に乗る
   if(layers.length && RS.sblur > 0){ const B = mk(W, H), bx = B.getContext('2d'); bx.filter = `blur(${RS.sblur * scale / 2}px)`; bx.drawImage(K, 0, 0); K = B; }
   if(layers.length && RS.sglow.on && RS.sglow.a > 0){ const g = effectOnly(K, 0, 0, RS.sglow.blur, rgba(RS.sglow.c, RS.sglow.a), scale); for(let i = 0; i < Math.min(4, Math.max(1, Math.round(RS.sglow.str))); i++) blit(A, g); }
-  // 4) 合成（通常／中抜き／くり抜き）→ かすれ → ワープ
+  return K;
+}
+// renderStyle 4) A・K・F を合成し、かすれ・ゆがみ・ワープ・残像まで済ませた本体 body を返す
+function styleComposite(sv, A, K, F){
+  const {scale} = sv;
   // 中抜き(hollow)=フチ K から塗り F の形を抜いて、フチだけ残す／くり抜き(knock)=背面 A ごと塗りの形で抜く（後ろが透ける）／通常=K の上に F
   // かすれ・ゆがみは合成後の A 全体に掛ける（背面・フチ・塗りが一緒に削れる）。ゆがみの量・細かさは実ピクセルなので scale 倍
   if(RS.fillMode === 'hollow'){ cut(K, F); blit(A, K); }
@@ -1031,7 +1031,11 @@ function renderStyle(scale){
   if(RS.distort.on && RS.distort.amt > 0) displace(A, RS.distort.amt * scale, RS.distort.scale * scale, RS.distort.seed, 1);
   let body = warp(A);
   if(RS.trail.on && RS.trail.count > 0 && RS.trail.len > 0) body = addTrail(body, scale);
-  // 5) 光彩・影
+  return body;
+}
+// renderStyle 5) 炎・光彩・影の上に本体を重ね、キラキラを足した最終合成 B を返す
+function styleGlowShadow(sv, body){
+  const {scale} = sv;
   // B は最終合成用。炎 → 光彩 → 影 → 本体の順に重ねる（本体が最前面）。光彩・影は本体の形から作る（effectOnly）。以降、ワープ・残像後の body とは別に B を育てていく
   let B = mk(body.width, body.height); const bx = B.getContext('2d');
   if(RS.fire.on) bx.drawImage(makeFire(body, scale), 0, 0);
@@ -1048,16 +1052,58 @@ function renderStyle(scale){
   if(RS.shadow.on) bx.drawImage(effectOnly(body, RS.shadow.x, RS.shadow.y, RS.shadow.blur, rgba(RS.shadow.c, RS.shadow.a), scale), 0, 0);
   bx.drawImage(body, 0, 0);
   if(RS.sparkle.on) drawSparkles(B, body, scale);
+  return B;
+}
+// renderStyle 7) 回転：回転後に収まる外接サイズのキャンバスを作り、中心を合わせて貼ったものを返す
+function styleRotate(B){
+  const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
+  const R = mk(Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a))));
+  const rx = R.getContext('2d'); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
+  return R;
+}
+function renderStyle(scale){
+  if(!plainText().trim()) return mk(1, 1);
+  const L = layout(), items = glyphs(L);
+  const cells = (RS.box.on || RS.dots.on) ? charCells(items) : [];
+  const dotCells = RS.dots.on ? cells.filter(c => c.a) : [];
+  const t = RS.vertical ? 0 : Math.tan(RS.skew * PI / 180);   // 縦書きは列全体ではなく、1文字ずつ傾ける（下の文字が横にずれないように）
+  const on = RS.strokes.filter(s => s.on && s.w > 0);
+  // フチは内側から累積した太さで描く（外側のフチほど太い線を先に描き、内側を上から重ねる。ループは逆順）。outer=最外周までの総太さ
+  let cum = 0; const layers = on.map(s => ({w: (cum += s.w), c: s.c}));
+  const outer = cum;
+  const ex = RS.extrude.on ? RS.extrude.depth : 0;
+  const m = styleMargin(L, layers, outer, ex);
+  // 幅は斜体(skew)で横にはみ出す分（|t|×高さ）も足す。W/H は実ピクセル（scale 倍）
+  const W =Math.ceil((L.w + 2 * m + Math.abs(t) * L.h) * scale), H = Math.ceil((L.h + 2 * m) * scale);
+  // 描画用 ctx を作る関数。論理座標 → 実ピクセルの変換（scale 倍・余白 m 分のオフセット・斜体のせん断 -t）をここで一括して掛ける。
+  // せん断 -t は下の行ほど x が左へずれる（t>0）ので、その分 t×L.h を左オフセットに足して切れないようにする（t<0 は右へはみ出すだけで W 側の |t|×L.h が吸収）。
+  // font 等は canvas ごとに設定が必要（描画先を替えるたびに prep を通す）
+  const prep = c => {
+    const x = c.getContext('2d');
+    x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
+    x.font = fontStr(); x.letterSpacing = lsx() + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
+    return x;
+  };
+
+  // 段階ごとの関数（styleBack 〜 styleGlowShadow）に渡す値
+  const sv = {scale, L, items, cells, dotCells, layers, outer, ex, W, H, prep};
+  // 1) 背面：背景シェイプ → 一文字囲み → マーカー → 板ずれ → 押し出し
+  const A = styleBack(sv);
+  // 2) フチ（傍点にもフチ）
+  let K = styleStrokes(sv);
+  // 3) 文字の塗り → 模様 → ベベル → インナーシャドウ → テカリ
+  const F = styleFill(sv, K);
+  // 3) の続き：フチのぼかし・フチの光彩
+  K = styleStrokeFx(sv, A, K);
+  // 4) 合成（通常／中抜き／くり抜き）→ かすれ → ワープ
+  const body = styleComposite(sv, A, K, F);
+  // 5) 光彩・影
+  let B = styleGlowShadow(sv, body);
   // 6) 鏡面反射 → グリッチ（反射もグリッチの対象にするため反射が先）
   if(RS.reflect.on) B = addReflection(B, body, scale);
   if(RS.glitch.on) B = glitch(B, scale);
   // 7) 回転（最後に画像全体を回す。回転後に収まる外接サイズのキャンバスを作り、中心を合わせて貼る）
-  if(RS.rotate){
-    const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
-    const R = mk(Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a))));
-    const rx = R.getContext('2d'); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
-    B = R;
-  }
+  if(RS.rotate) B = styleRotate(B);
   // 8) 自動トリミング（余白 RS.pad は論理 px なので scale 倍。サムネ側の thumb/render.js は pad:2 を渡す）
   return trim(B, Math.round(RS.pad * scale));
 }
