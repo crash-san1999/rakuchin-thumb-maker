@@ -3,6 +3,8 @@ from helpers import *
 
 async def run(p):
     pg = await open_app(p)
+    # 分割フレームがないときは、起動直後でも「マスの画像を動かす」ボタンが見えない（hidden が CSS の display に負けないこと）
+    assert await pg.evaluate("getComputedStyle($('#cellFab')).display") == 'none', '分割フレームがないのにボタンが出ている'
     await pg.evaluate("addCollage()"); await pg.wait_for_timeout(500)
     await pg.evaluate("(() => { const L = selLayer(); Object.assign(L, {n:'2', layout:'cols', slant:0, edge:'straight', bstyle:'line'}); syncDoc(); docChanged(false); })()")
     await page(pg, 'lay-cells'); await pg.click('[data-cell="0"]')

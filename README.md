@@ -92,7 +92,8 @@ js/main.js                 起動（起動時の処理はすべてここの boot
 tools/bump-version.sh      読み込みURLのバージョン番号をまとめて更新（CHANGELOG.md の生成も行う）
 tools/gen-changelog.js     js/changelog.js から CHANGELOG.md を生成
 .github/workflows/test.yml push のたびに全テストを自動実行（GitHub Actions）
-tools/docs-screenshots.py  説明書（docs/img）の画像をまとめて撮り直す
+tools/docs-screenshots.py  説明書（docs/img）の画像をまとめて撮り直す（--decorate-only で飾りだけやり直し）
+tools/docs_decorate.py     説明書の画像に、ポップな飾り（水玉の背景・丸い角・ステッカー風の見出し）を付ける
 tests/                     自動テスト（Playwright）と、変更前後の見た目を比べるツール（helpers.py が共通部品、run_all.py が全件実行）
 docs/manual.md             操作マニュアル
 docs/img/                  説明書の画像

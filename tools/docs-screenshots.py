@@ -1,13 +1,19 @@
 """操作マニュアル（docs/manual.md）の画像を、今の画面で撮り直す：python3 tools/docs-screenshots.py
-   テスト用の画像（tests/fixtures が作るオリジナルの絵）を使うので、何度撮っても同じ絵柄になる"""
+   テスト用の画像（tests/fixtures が作るオリジナルの絵）を使うので、何度撮っても同じ絵柄になる。
+   撮ったままの画像は .docs-raw/ に置き、docs_decorate.py でポップな飾りを付けて docs/img/ に書き出す。
+   見た目（飾り）だけ変えたいときは、撮り直さずに：python3 tools/docs-screenshots.py --decorate-only"""
 import asyncio, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
 from helpers import ROOT, IMG, open_app, close, settle, page, canvas_box
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from docs_decorate import decorate_file
 from playwright.async_api import async_playwright
 from PIL import Image
 
-OUT = ROOT / 'docs' / 'img'
+OUT = ROOT / '.docs-raw'          # 撮ったまま（Git には入れない）
+FINAL = ROOT / 'docs' / 'img'      # 飾りを付けた、説明書に載せる画像
+OUT.mkdir(exist_ok=True); FINAL.mkdir(parents=True, exist_ok=True)
 SIDE = {'x': 0, 'y': 62, 'width': 400, 'height': 838}
 SLUG = {'かわいい・ポップ': 'pop', 'カッコいい': 'cool', 'ゲーム・配信': 'game', 'ブラシ・手作り感': 'brush', 'レトロ・アート': 'retro'}
 
@@ -51,7 +57,14 @@ async def main_screens(p):
     await page(pg, 'lay-cfx'); await pg.click('.seg[data-dseg="@fxMode"] [data-v="cell"]')
     await pg.click('.cellBox:visible [data-cell="0"]'); await pg.click('[data-cfx="red"]:visible')
     await pg.click('.cellBox:visible [data-cell="1"]'); await pg.click('[data-cfx="focus"]:visible'); await settle(pg, 1200); await shot(pg, 'collage-fx.png')
+    # 1週間の予定表（7分割・日付の横に曜日）。背景色・文字タブ
+    await pg.evaluate("DOC.layers.forEach(l => { if(l.type !== 'collage') l.hidden = true; })")
+    await pg.evaluate("(() => { const L = selLayer(); Object.assign(L, {n:'7', layout:'wk43', slant:0, edge:'straight', bstyle:'line', lc:'#ffffff', lw:14, fxMode:'all'}); L.fx = mergeCellFx({}); L.cells.forEach(c => { c.asset = null; }); L.wk.start = '2026-10-07'; collageFillWeek(L); L.ac = 2; syncDoc(); docChanged(false); })()")
+    await settle(pg, 7000)
+    await page(pg, 'lay-ctext'); await settle(pg, 500); await shot(pg, 'week.png'); await shot(pg, 'ins-ctext.png', clip=SIDE)
     await pg.click('#modeSeg [data-mode=text]'); await settle(pg, 1400); await shot(pg, 'text-mode.png')
+    # 新規作成の画面
+    await pg.click('#modeSeg [data-mode=thumb]'); await settle(pg, 800); await pg.click('#newBtn'); await pg.wait_for_timeout(500); await shot(pg, 'new-project.png', clip={'x': 380, 'y': 230, 'width': 680, 'height': 440})
     await close(pg)
 
 async def frame_groups(p):
@@ -86,10 +99,19 @@ async def mobile(p):
     for n in ['mobile', 'mobile-add', 'mobile-ins', 'mobile-layers']:
         im = Image.open(OUT / f'{n}.png'); im.resize((390, int(im.height * 390 / im.width)), Image.LANCZOS).save(OUT / f'{n}.png', optimize=True)
 
+def decorate_all():
+    """撮ったまま（.docs-raw/）の画像すべてに飾りを付けて、docs/img/ に書き出す"""
+    n = 0
+    for f in sorted(OUT.glob('*.png')):
+        if f.name.startswith('_'): continue
+        decorate_file(f, FINAL / f.name); n += 1
+    print(f'docs/img を更新しました（{n}枚）')
+
 async def main():
     async with async_playwright() as p:
         await main_screens(p); await frame_groups(p); await mobile(p)
-    print('docs/img を更新しました')
+    decorate_all()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    if '--decorate-only' in sys.argv: decorate_all()
+    else: asyncio.run(main())

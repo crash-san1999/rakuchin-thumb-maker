@@ -570,6 +570,7 @@ body.is-mobile .updbar{bottom:88px}
 .loglist{margin:0 0 4px;padding-left:18px;font-size:12.5px;line-height:1.75;color:var(--sub);font-weight:500}
 #logModal{z-index:61}
 .cellfab{position:absolute;bottom:78px;left:50%;transform:translateX(-50%);z-index:3;display:inline-flex;align-items:center;gap:6px;background:var(--acc-2);color:var(--ink);border:2px solid var(--ink);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:var(--pop-sm)}
+.cellfab[hidden]{display:none}   /* display の指定が hidden 属性に勝つので、隠すときは明示する */
 .cellfab .ic{width:15px;height:15px}
 .cellfab.on{background:#5cf08a}
 body.is-mobile .cellfab{bottom:14px}
