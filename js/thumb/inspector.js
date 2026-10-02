@@ -58,6 +58,9 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
   {pg, c:P + 'tint.c', l:'色', show:S + '&' + P + 'tint.on=true'},
   {pg, r:P + 'tint.a', l:'濃さ', min:0, max:1, step:0.01, show:S + '&' + P + 'tint.on=true'},
   {pg, sel:P + 'tint.mode', l:'重ね方', opts:[['overlay', 'オーバーレイ'], ['multiply', '乗算（暗く）'], ['screen', 'スクリーン（明るく）'], ['soft-light', 'ソフトライト'], ['color', 'カラー（単色化）']], show:S + '&' + P + 'tint.on=true'},
+  {pg, chk:P + 'sil.on', l:'シルエット（絵を1色で塗る）', show:S},
+  {pg, c:P + 'sil.c', l:'色', show:S + '&' + P + 'sil.on=true'},
+  {pg, r:P + 'sil.a', l:'濃さ', min:0, max:1, step:0.01, show:S + '&' + P + 'sil.on=true'},
 ];
 // 選択中のレイヤー用の行。pg ごとにだいたい次の順で並ぶ：グループ → 配置（大きさ・回転・不透明度・描画モード・ロック・配置）→
 // 動的エフェクト（fx）→ 分割フレーム（split / cells / ctext / cfx）→ 画像（frame / color / edge / cut）。

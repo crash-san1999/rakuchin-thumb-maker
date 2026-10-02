@@ -58,10 +58,10 @@ function tinted(A, color){
 // 画像の明度・彩度（0 で元のまま）。フチ・影にはかけず、絵だけにかける
 /** @param {Layer} L */
 const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.max(0, 1 + L.bright)})`); if(L.sat) f.push(`saturate(${Math.max(0, 1 + L.sat)})`); return f.join(' ') || 'none'; };
-// 画像レイヤーの「効果」（コントラスト・色相・ぼかし・トーン・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる。分割フレームのマスと同じ L.fx）。
+// 画像レイヤーの「効果」（コントラスト・色相・ぼかし・トーン・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット。分割フレームのマスと同じ L.fx）。
 // 明度・彩度だけは従来どおり L.bright / L.sat に持つ（imgFilter）ので、ここでは数えない
 /** @param {Layer} L */
-const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on); };
+const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on)); };
 /* 画像の絵を ctx の (dx,dy,dw,dh) に描く。効果が無ければ従来どおり明度・彩度のフィルターだけで直接描く。
    効果があるときは、絵だけを別キャンバス（ぼかし・ブラーのぶん余白付き）に描いて効果をかけてから置く（フチ・影にはかけない）。
    f＝DOC 座標→描画先ピクセルの倍率（効果の量は DOC 座標で持っているため）。暗く・色かぶり・周辺減光は source-atop で、絵のある部分にだけかける。
@@ -82,6 +82,8 @@ function imgPicture(x, A, L, f, dx, dy, dw, dh){
     const vx = m + dw / 2, vy = m + dh / 2, g = ox.createRadialGradient(vx, vy, Math.min(dw, dh) * 0.3, vx, vy, Math.hypot(dw, dh) / 2);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox.fillStyle = g; ox.fillRect(0, 0, o.width, o.height);
   }
+  // シルエット：ほかの効果の後に、絵のある部分だけを 1 色で塗る（フチ・影は別に描くので塗られない）
+  if(fx.sil && fx.sil.on && fx.sil.a > 0){ ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = fx.sil.a; ox.fillStyle = fx.sil.c; ox.fillRect(0, 0, o.width, o.height); ox.globalAlpha = 1; }
   ox.restore();
   x.drawImage(o, dx - m, dy - m);
 }

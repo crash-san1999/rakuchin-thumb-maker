@@ -66,6 +66,8 @@ function drawGroup(ctx, G, f, live, cache){
       const w = (b.x1 - b.x0) * f, h = (b.y1 - b.y0) * f, g = ox.createRadialGradient(cx, cy, Math.min(w, h) * 0.3, cx, cy, Math.hypot(w, h) / 2);
       g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox.fillStyle = g; ox.fillRect(0, 0, o.width, o.height);
     }
+    // シルエット：ほかの効果の後に、絵のある部分だけを 1 色で塗る（フチ・影は別に描くので塗られない）
+    if(fx.sil && fx.sil.on && fx.sil.a > 0){ ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = fx.sil.a; ox.fillStyle = fx.sil.c; ox.fillRect(0, 0, o.width, o.height); ox.globalAlpha = 1; }
     ox.restore(); src = o; off = -m;
   }
   ctx.save(); ctx.globalAlpha = G.op ?? 1; ctx.globalCompositeOperation = G.blend || 'source-over';

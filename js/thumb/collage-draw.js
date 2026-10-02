@@ -135,6 +135,8 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
     const vx = bx0 + cw / 2 + ox, vy = by0 + ch / 2 + oy, g = ox2.createRadialGradient(vx, vy, Math.min(cw, ch) * 0.3, vx, vy, Math.hypot(cw, ch) / 2);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${fx.vignette})`); ox2.fillStyle = g; ox2.fillRect(0, 0, o.width, o.height);
   }
+  // シルエット：ほかの効果の後に、絵のある部分だけを 1 色で塗る（フチ・影は別に描くので塗られない）
+  if(fx.sil && fx.sil.on && fx.sil.a > 0){ ox2.globalCompositeOperation = 'source-atop'; ox2.globalAlpha = fx.sil.a; ox2.fillStyle = fx.sil.c; ox2.fillRect(0, 0, o.width, o.height); ox2.globalAlpha = 1; }
   ox2.restore();
   x.drawImage(o, bx0 - m, by0 - m);
 }

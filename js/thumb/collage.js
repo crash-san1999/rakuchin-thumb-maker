@@ -8,18 +8,20 @@
      collage-cells.js … 位置→マス（collageCellAt・collageCellSize）・マスの文字のスタイル・1週間の自動入力・画像の割り当て（collageTakeFiles・collageSetCell）・入れ替え
      collage-panel.js … 操作パネル（renderCells・renderCellText）・パネルのイベント登録（document への addEventListener）・レイアウトのアイコン（collageIcon）
    座標系：マスの多角形は W×H（描画先キャンバスのピクセル）。レイヤー自体の位置・大きさはドキュメント座標（L.bw×L.bh を L.sc 倍）。 */
-/* マスの画像にかける効果（色調・ぼかし・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる） */
+/* マスの画像にかける効果（色調・ぼかし・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット） */
 const CELL_FX_BASE = () => ({bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
-  zb:{on:false, amt:0.25}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28}, dim:0, vignette:0, tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'}});
+  zb:{on:false, amt:0.25}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28}, dim:0, vignette:0, tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'},
+  sil:{on:false, c:'#111111', a:1}});   // sil＝シルエット：絵のある部分を c で塗る（a＝濃さ。1 で完全に 1 色、下げると元の絵が透ける）
 // 保存データの効果を既定値と合わせる（入れ子の項目も）
 // 効果の項目が増えた後でも古い保存データが壊れないよう、必ず CELL_FX_BASE にマージして使う（zb・mb などは1段だけ深くマージ）
 function mergeCellFx(o){
   const b = CELL_FX_BASE(); o = o || {};
   for(const k in b) if(o[k] != null) b[k] = b[k] && typeof b[k] === 'object' ? Object.assign(b[k], o[k]) : o[k];
+  b.sil.c = safeColor(b.sil.c, '#111111');   // シルエットの色は fillStyle にそのまま入るので、使える色の文字列にそろえる
   return b;
 }
 // 何か1つでも効果が有効か。無効なら別キャンバスを作らず直接描ける（描画の軽量化に使う）
-const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on);
+const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on));
 // マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
 /** @param {Layer} L */
 const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
