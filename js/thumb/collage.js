@@ -326,6 +326,13 @@ function weekLabel(d, wk){
   if(wk.show === 'date') return dt; if(wk.show === 'wd') return w;
   return wk.layout === 'side' ? dt + (wk.paren && wk.paren !== 'none' ? '' : ' ') + w : `${dt}\n${w}`;   // 日付の横（括弧があればくっつける）／日付の下
 }
+/** マス一覧の小さいボタンに出す文字：1行目だけ。「10/7(月)」のような日付は括弧の手前までを出して、途中で（の前で切れないようにする */
+function cellBtnLabel(text){
+  const first = String(text || '').split('\n')[0].trim();
+  const m = first.match(/^[^(（]+/);                    // 括弧より前（日付そのもの）
+  const head = (m ? m[0] : first).trim() || first;
+  return head.length > 6 ? head.slice(0, 5) + '…' : head;
+}
 // 7日ぶんをマス0から順に入れる（マスが少なければそこまで）。画像のあるマスは文字を上寄せ('t')にして絵を隠さない。
 // 8分割のときは最後のマスを「MEMO」にする（ただし文字が入っていれば上書きしない）
 function collageFillWeek(L){
@@ -402,7 +409,7 @@ function renderCells(){
   if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
     const c = L.cells[i], bgs = c.bg.on ? ` style="background:${c.bg.grad ? `linear-gradient(${safeColor(c.bg.c)},${safeColor(c.bg.c2)})` : safeColor(c.bg.c)}"` : '';
-    return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" draggable="${A ? 'true' : 'false'}"${bgs} title="マス${i + 1}（ドラッグで別のマスと入れ替え）">${A ? `<img src="${A.thumb}" alt="" draggable="false">` : `<span>${cellHasText(c) ? escapeHtml(c.tx.text.split('\n')[0].slice(0, 5)) : i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
+    return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" draggable="${A ? 'true' : 'false'}"${bgs} title="マス${i + 1}（ドラッグで別のマスと入れ替え）">${A ? `<img src="${A.thumb}" alt="" draggable="false">` : `<span>${cellHasText(c) ? escapeHtml(cellBtnLabel(c.tx.text)) : i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
     <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>${ASSETS[L.cells[L.ac].asset] ? `<div class="crow"><button class="btn sm ghost" data-cellact="flip">${ic('fliph')}左右反転</button><button class="btn sm ghost" data-cellact="flipV">${ic('flipv')}上下反転</button><button class="btn sm ghost" data-cellact="reset">${ic('reset')}位置・大きさを元に戻す</button></div>` : ''}`;
   });
 }

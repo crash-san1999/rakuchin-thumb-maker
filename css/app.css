@@ -51,7 +51,7 @@ section{padding:18px 18px 20px;margin:12px 0;background:#fff;border:2px solid va
 #genSections > section:first-child{margin-top:12px}
 section.off .rows{opacity:.35;pointer-events:none}
 h3{margin:0 0 14px;font-size:14px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:10px;letter-spacing:.03em}
-h3 .hint{font-weight:500;color:var(--mute);font-size:11px;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+h3 .hint{font-weight:500;color:var(--mute);font-size:11px;letter-spacing:.01em;line-height:1.35;min-width:0;overflow-wrap:anywhere}  /* 長い説明は切らずに折り返す */
 section > h3{cursor:pointer;user-select:none}
 section > h3::after{content:"";order:3;flex:none;width:7px;height:7px;border-right:2.5px solid var(--ink);border-bottom:2.5px solid var(--ink);transform:translateY(-2px) rotate(45deg);margin-left:auto;transition:transform .3s var(--ease)}
 section[data-on] > h3::after{margin-left:8px}
@@ -67,7 +67,7 @@ h3 .sw{order:2;margin-left:auto}
 .sec-actions.top{margin:0 0 4px}
 
 /* ---------- 行 ---------- */
-.row{display:grid;grid-template-columns:74px 1fr 50px;align-items:center;gap:12px;margin:11px 0}
+.row{display:grid;grid-template-columns:74px minmax(0,1fr) 50px;align-items:center;gap:12px;margin:11px 0}
 .row>label:first-child{color:var(--sub);font-size:12px;font-weight:700;line-height:1.3;min-width:0;overflow-wrap:anywhere}
 .row .seg,.row .cpick,.row .chk,.row select,.row .reroll,.row .place{grid-column:2 / 4}
 .row .reroll{justify-self:start}
@@ -131,7 +131,7 @@ svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;strok
 
 /* セグメント */
 .seg{display:flex;background:var(--surface-2);border:2px solid var(--ink);border-radius:12px;padding:3px;gap:3px}
-.seg.shapes{display:grid;grid-template-columns:repeat(6,1fr);flex:1}
+.seg.shapes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));flex:1;min-width:0}
 .seg.shapes button{padding:5px 0;display:flex;align-items:center;justify-content:center;min-height:34px}
 .seg.shapes img{width:22px;height:22px;display:block}
 .seg.shapes span{font-size:10.5px;font-weight:800}
@@ -169,7 +169,7 @@ svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;strok
 
 /* プリセット */
 .presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
-.presets button{position:relative;height:54px;padding:0 6px;border-radius:14px;border:2px solid var(--ink);cursor:pointer;font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--pop-sm);transition:transform .2s var(--ease),box-shadow .2s}
+.presets button{position:relative;height:54px;padding:0 6px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;border-radius:14px;border:2px solid var(--ink);cursor:pointer;font-weight:700;font-size:14.5px;overflow:hidden;box-shadow:var(--pop-sm);transition:transform .2s var(--ease),box-shadow .2s}
 .presets button:hover{transform:translate(-2px,-3px) rotate(-2deg);box-shadow:4px 5px 0 var(--ink)}
 .presets button:nth-child(even):hover{transform:translate(-2px,-3px) rotate(2deg)}
 .presets button:active{transform:translate(1px,1px);box-shadow:0 0 0 var(--ink)}
@@ -182,7 +182,7 @@ svg.ic{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;strok
 .theme .bars{display:flex;height:24px;border-radius:8px;overflow:hidden;margin-bottom:8px;border:2px solid var(--ink)}
 .theme .bars i{flex:1}
 .theme b{display:block;font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.theme small{display:block;font-size:10.5px;color:var(--mute);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.theme small{display:block;font-size:10.5px;color:var(--mute);font-weight:500;line-height:1.3;overflow-wrap:anywhere;margin-top:1px}
 .bgsw{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--mute);font-weight:700}
 .bgsw i{width:18px;height:18px;border-radius:50%;border:2px solid var(--ink);display:inline-block}
 
@@ -580,3 +580,24 @@ body.is-mobile .cellfab{bottom:14px}
 .newopts{display:flex;flex-direction:column;gap:6px;margin:12px 0 14px}
 .newopts .btn{justify-content:center;padding:10px 14px}
 .newopts small{color:var(--muted,#7a7590);font-size:12px;line-height:1.5;margin:0 4px 10px}
+
+/* ---------- 見切れ対策（ヘッダー）：狭いほど文字ラベルを順に消して、右端の保存ボタンまで必ず収める ---------- */
+@media (max-width:1700px){ body:not(.is-mobile) .app-head .hide-sm{display:none} body:not(.is-mobile) .app-head .btn{padding-left:10px;padding-right:10px} }
+@media (max-width:1180px){ body:not(.is-mobile) .app-head .brand-name{display:none} body:not(.is-mobile) #exportW{max-width:112px} }
+@media (max-width:1100px){ body:not(.is-mobile) .app-head{gap:4px;padding-left:10px;padding-right:10px} body:not(.is-mobile) .app-head .head-group{gap:4px} body:not(.is-mobile) .app-head .add-btn span,body:not(.is-mobile) #dlLabel{display:none} body:not(.is-mobile) .divider{margin:0} }
+/* スマホ表示：ヘッダーのボタンは絵だけにして、右端まで収める（保存ボタンは色つきの丸で残る） */
+body.is-mobile .app-head .btn.ghost span,body.is-mobile .app-head .head-group .btn span{display:none}
+body.is-mobile .app-head .btn{padding-left:9px;padding-right:9px}
+body.is-mobile .app-head .head-group{flex:none}
+/* スマホ表示：切替ボタンの文字を短くし（サムネ／文字）、幅が足りない端末では ? ボタンとロゴを外して、右端の保存ボタンまで収める */
+@media (max-width:480px){ body.is-mobile .xs-x{display:none} body.is-mobile .app-head .icon-btn{width:30px;height:30px} body.is-mobile .app-head .btn{padding-left:7px;padding-right:7px} }
+@media (max-width:420px){ body.is-mobile #helpBtn{display:none} }
+@media (max-width:400px){ body.is-mobile .brand svg{display:none} body.is-mobile .app-head{padding-left:8px;padding-right:8px} }
+/* マス一覧の小さいボタン：中の文字（日付など）は枠の中で折り返さず、はみ出す分は … にする */
+.cellbtn span{max-width:100%;padding:0 2px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;line-height:1.1}
+@media (max-width:340px){ body.is-mobile #redo{display:none} body.is-mobile .app-head .seg button{padding:5px 6px} body.is-mobile .app-head .btn{padding-left:5px;padding-right:5px} }
+/* ロゴ部分は縮めない（縮むと「THUMBNAIL STUDIO」がモード切替に重なる） */
+.brand{flex:none}
+@media (max-width:340px){ .seg button{padding-left:5px;padding-right:5px;font-size:11px} .seg.shapes button{padding-left:0;padding-right:0} }
+@media (max-width:2100px){ body:not(.is-mobile) #copyBtn .hide-sm{display:none} }
+@media (max-width:2000px){ body:not(.is-mobile) .brand-sub{display:none} }

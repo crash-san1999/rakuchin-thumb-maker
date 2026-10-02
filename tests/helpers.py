@@ -24,10 +24,10 @@ async def wait_until(pg, expr, timeout=15000):
 
 OPEN_BROWSERS = []   # 開いたまま残ったブラウザを、run_all が片付けるための一覧
 
-async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500):
+async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500, viewport=None, touch=False):
     """アプリを開いて操作ガイドを閉じた状態のページを返す。外部への通信はすべて止める（結果を安定させるため）"""
     b = await p.chromium.launch(args=['--no-sandbox']); OPEN_BROWSERS.append(b)
-    ctx = await (b.new_context(**p.devices['iPhone 13']) if mobile else b.new_context(viewport={'width': 1440, 'height': 900}))
+    ctx = await (b.new_context(**p.devices['iPhone 13']) if mobile else b.new_context(viewport=viewport or {'width': 1440, 'height': 900}, **({'is_mobile': True, 'has_touch': True} if touch else {})))
     pg = await ctx.new_page(); pg.errors = []
     pg.on('pageerror', lambda e: pg.errors.append(str(e)))
     async def route(r):
