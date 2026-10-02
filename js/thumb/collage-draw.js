@@ -8,11 +8,18 @@ let exporting = false;
 /* 分割のしかた → マスの多角形（W×H のピクセル座標） */
 // 戻り値：マスごとの頂点列の配列（マス番号の順。文字・画像の割り当て順と一致）。slant＝斜めの傾き（0〜）、main＝「大きく」系の大きいマスの幅の割合。
 // 縦に並べる(cols)を基本形にして、横並び・縦長はその x/y を入れ替えて作る（swap。向きを保つため頂点順も反転）
-function collageCells(lay, n, W, H, slant = 0, main = 0.55){
+// レイヤー L のマスの形（W×H のピクセル座標）。lay を渡すとその配置で（書き出しのアイコンなど）
+/** @param {Layer} L */
+function collageCellsOf(L, W, H, lay){ return collageCells(lay || L.layout, collageN(L), W, H, L.slant, L.main, L.cells.map(c => clamp(+c.w || 1, 0.05, 20))); }
+// ws＝マスごとの幅の比率（「縦に並べる」「横に並べる」だけで使う）。全部同じなら等分（従来と同じ計算）
+function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   if(!collageLayoutOk(lay, n)) lay = 'cols';
+  const wk = ws && ws.slice(0, n).some(v => v !== ws[0]) ? ws.slice(0, n) : null, wsum = wk ? wk.reduce((a, b) => a + b, 0) : 0;
+  // 境界 i の位置（0〜1）。比率が全部同じときは i / k（従来どおり）
+  const edgeAt = (i, k) => { if(!wk || k !== n) return i / k; let a = 0; for(let j = 0; j < i; j++) a += wk[j]; return a / wsum; };
   const quadCols = (x0, x1, y0, y1, k, d) => { // x0..x1 を k 列に、上下で d ずらす
     const tops = [], bots = [];
-    for(let i = 0; i <= k; i++){ const x = x0 + (x1 - x0) * i / k, e = i === 0 || i === k ? 0 : d; tops.push([x + e, y0]); bots.push([x - e, y1]); }
+    for(let i = 0; i <= k; i++){ const x = x0 + (x1 - x0) * edgeAt(i, k), e = i === 0 || i === k ? 0 : d; tops.push([x + e, y0]); bots.push([x - e, y1]); }
     return [...Array(k)].map((_, i) => [tops[i], tops[i + 1], bots[i + 1], bots[i]]);
   };
   const swap = cells => cells.map(p => p.map(([x, y]) => [y, x]).reverse());
@@ -38,6 +45,14 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55){
       return out;
     };
     return lay === 'bigL' ? big(W, H) : swap(big(H, W));
+  }
+  if(lay === 'bigR' || lay === 'bigB'){
+    // 右（下）に大きい1マス：左（上）に大きい形を左右（上下）反転して作る。大きいマスが 1 番目なのは同じ。
+    // 小さいマスは、反転すると読む順が逆になるので、左（上）の列（段）から順に数え直す
+    const k = n - 1, half = Math.ceil(k / 2);
+    const mir = lay === 'bigR' ? p => p.map(([x, y]) => [W - x, y]).reverse() : p => p.map(([x, y]) => [x, H - y]).reverse();
+    const m = collageCells(lay === 'bigR' ? 'bigL' : 'bigT', n, W, H, slant, main).map(mir);
+    return k <= 3 ? m : [m[0], ...m.slice(1 + half), ...m.slice(1, 1 + half)];
   }
   // 放射状：中心から扇形に分ける
   // 各扇は中心＋境界の光線が画面の縁に当たる点＋その間にある画面の角。角を含めないと、扇の間に隙間（欠け）ができる
@@ -144,16 +159,23 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
 // 文字スタイルは分割フレーム全体で1つ（L.tstyle。null なら既定の「ポップ」）。文字だけはマスごと
 const cellHasText = c => !!(c && c.tx && c.tx.on && String(c.tx.text || '').trim());
 /** @param {Layer} L */
-function cellTextStyle(L, text){ return Object.assign({}, L.tstyle || collageDefaultStyle(), {text, pad:2}); }
+// マスの文字のスタイル：分割フレーム共通の文字スタイルに、マスごとの色の上書き（t＝cell.tx）を重ねる。
+// 文字の色は単色の塗りに、フチの色は全部のフチをその色にする（共通のスタイルは書き換えない）
+function cellTextStyle(L, text, t){
+  const st = Object.assign({}, L.tstyle || collageDefaultStyle(), {text, pad:2});
+  if(t && t.fcOn){ st.fillType = 'solid'; st.fill1 = t.fc; }
+  if(t && t.ecOn) st.strokes = st.strokes.map(s => Object.assign({}, s, {c:t.ec}));
+  return st;
+}
 /** @param {Layer} L */
 function drawCellText(x, L, cell, bx0, by0, cw, ch){
-  const t = cell.tx, st = cellTextStyle(L, String(t.text)), band = t.pos === 'c' ? 0.86 : 0.3;
+  const t = cell.tx, st = cellTextStyle(L, String(t.text), t), band = t.pos === 'c' ? 0.86 : 0.3, tt = L.ttx || {sc:1, ox:0, oy:0};
   // まず 0.25 倍で試し描きして文字の大きさを測り、マスに収まる倍率 k を出してから本描画する（band＝文字が使える高さの割合。中央は大きく、上下寄せは帯状）。
-  // sc（ユーザー調整）は 0.2〜3 倍、最終の k は 0.03〜8 に制限
+  // sc（ユーザー調整）は 0.2〜3 倍、最終の k は 0.03〜8 に制限。tt（L.ttx）は全部のマスにまとめて上乗せする大きさ・位置（既定は倍率 1・ずれ 0）
   const c0 = render(0.25, st); if(c0.width <= 2) return;
-  const k = clamp(Math.min(cw * 0.86 / (c0.width / 0.25), ch * band / (c0.height / 0.25)) * clamp(t.sc || 1, 0.2, 3), 0.03, 8);
+  const k = clamp(Math.min(cw * 0.86 / (c0.width / 0.25), ch * band / (c0.height / 0.25)) * clamp(t.sc || 1, 0.2, 3) * (tt.sc ?? 1), 0.03, 8);
   const c = render(k, st);
-  const cx = bx0 + cw / 2 + (t.ox || 0) * cw, cy = (t.pos === 't' ? by0 + ch * 0.05 + c.height / 2 : t.pos === 'b' ? by0 + ch * 0.95 - c.height / 2 : by0 + ch / 2) + (t.oy || 0) * ch;
+  const cx = bx0 + cw / 2 + ((t.ox || 0) + (tt.ox || 0)) * cw, cy = (t.pos === 't' ? by0 + ch * 0.05 + c.height / 2 : t.pos === 'b' ? by0 + ch * 0.95 - c.height / 2 : by0 + ch / 2) + ((t.oy || 0) + (tt.oy || 0)) * ch;
   x.drawImage(c, cx - c.width / 2, cy - c.height / 2);
 }
 // マス1つ分（背景色 → 画像 → 文字 の順）を描く。背景も文字も無ければ画像だけの軽い経路に任せる。
@@ -179,7 +201,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 /** @param {Layer} L */
 function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = c.getContext('2d'), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
-  const cells = collageCells(lay || L.layout, n, W, H, L.slant, L.main), A = Math.max(2, (L.amp || 20) * f);
+  const cells = collageCellsOf(L, W, H, lay), A = Math.max(2, (L.amp || 20) * f);
   const {polys, lines} = collageShape(cells, W, H, L.edge || 'straight', A);
   const lw = Math.max(0, (L.lw ?? 10) * f), st = L.bstyle || 'line', showEmpty = !exporting;
   const rad = Math.max(0, (L.radius || 0) * s);

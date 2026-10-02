@@ -34,14 +34,18 @@ const CELL_FX_PRESETS = {
 };
 // マスの背景色と文字（画像の代わり、または画像の上に重ねる）
 const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE(),
-  bg:{on:false, c:'#ffffff', c2:'#ffd9e8', grad:false}, tx:{on:false, text:'', pos:'c', sc:1, ox:0, oy:0}});
+  bg:{on:false, c:'#ffffff', c2:'#ffd9e8', grad:false}, tx:{on:false, text:'', pos:'c', sc:1, ox:0, oy:0, fcOn:false, fc:'#ffffff', ecOn:false, ec:'#1f1b2d', wk:false},
+  w:1});
+// w＝マスの幅の比率（「縦に並べる」「横に並べる」だけで使う。全部同じなら等分）。tx の fcOn・fc／ecOn・ec＝このマスだけ文字の色・フチの色を変える。
+// tx.wk＝「1週間を入れる」が書いた文字の目印（MEMO の位置を変えて入れ直すとき、日付を書いたマスは上書きしてよい）
 // bw/bh は作った時点のドキュメントの大きさ（以後 DOC のサイズ変更とは独立。表示の大きさは bw/bh × sc）。DOC が未初期化のときは 1920×1080
 // cells は常に8個ぶん確保（n を増減しても画像を失わない）。ac は操作パネルで選択中のマス
 function COLLAGE_BASE(){
   return Object.assign(LAYER_BASE(), {type:'collage',
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true},
+    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true, memo:8},
+    ttx:{sc:1, ox:0, oy:0},   // 全部のマスの文字にまとめて上乗せする大きさ（倍率）・左右・上下（マスの幅・高さに対する割合）
     cells:[...Array(8)].map(() => CELL_BASE())});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
@@ -59,7 +63,7 @@ function applyCellFx(name){
 /** @type {Array<[string, string, (n: number) => boolean]>} */
 const COLLAGE_LAYOUTS = [
   ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6 || n === 8], ['grid2', 'グリッド（縦長）', n => n === 6 || n === 8],
-  ['bigL', '左に大きく', n => n >= 3], ['bigT', '上に大きく', n => n >= 3], ['radial', '放射状', n => n >= 2],
+  ['bigL', '左に大きく', n => n >= 3], ['bigT', '上に大きく', n => n >= 3], ['bigR', '右に大きく', n => n >= 3], ['bigB', '下に大きく', n => n >= 3], ['radial', '放射状', n => n >= 2],
   // 1週間の予定表向け：2段に分けて、上から順に数える（7分割なら「月〜日」を上段・下段に並べられる）
   ['wk43', '上4・下3（月〜木／金〜日）', n => n === 7], ['wk34', '上3・下4', n => n === 7], ['wk52', '上5・下2（平日／土日）', n => n === 7], ['wk25', '上2・下5', n => n === 7],
   ['wk53', '上5・下3', n => n === 8], ['wk35', '上3・下5', n => n === 8],

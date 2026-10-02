@@ -9,14 +9,46 @@ function collageCellAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y;
   const w = L.bw * L.sc, h = L.bh * L.sc, u = (dx * Math.cos(a) - dy * Math.sin(a)) / w + 0.5, v = (dx * Math.sin(a) + dy * Math.cos(a)) / h + 0.5;
   if(u < 0 || u > 1 || v < 0 || v > 1) return -1;
-  const cells = collageCells(L.layout, collageN(L), 1000, 1000 * h / w, L.slant, L.main), px = u * 1000, py = v * 1000 * h / w;
+  const cells = collageCellsOf(L, 1000, 1000 * h / w), px = u * 1000, py = v * 1000 * h / w;
   const inside = poly => { let c = false; for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [xi, yi] = poly[i], [xj, yj] = poly[j];
     if((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; };
   const i = cells.findIndex(inside); return i;
 }
+/* 境界線のドラッグでマスの幅を変える（「縦に並べる」「横に並べる」だけ。マスの調整モードから使う）
+   座標はレイヤーの回転を戻したローカル座標。傾き（slant）があると境界線は斜めなので、押した高さ（横に並べるなら横位置）での線の位置で比べる */
+// ドキュメント座標 (x,y) → 並べる向きに沿った位置 u（0〜1）と、その向きの長さ len。並べる向き以外のレイアウトは null
 /** @param {Layer} L */
+function collageAxisPos(L, x, y){
+  if(L.layout !== 'cols' && L.layout !== 'rows') return null;
+  const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
+  const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
+  if(L.layout === 'cols'){ const d = (L.slant || 0) * h * 0.5; return {u:(lx - d * (1 - 2 * ly / h)) / w, len:w, cross:ly / h}; }
+  const d = (L.slant || 0) * w * 0.5; return {u:(ly - d * (1 - 2 * lx / w)) / h, len:h, cross:lx / w};
+}
+// いまのマスの幅の比率と、境界の位置（0〜1。先頭は 0、最後は 1）
+/** @param {Layer} L */
+function collageEdges(L){
+  const n = collageN(L), ws = L.cells.slice(0, n).map(c => clamp(+c.w || 1, 0.05, 20)), sum = ws.reduce((a, b) => a + b, 0), e = [0];
+  ws.forEach(v => e.push(e[e.length - 1] + v / sum)); e[n] = 1; return {ws, sum, e};
+}
+// (x,y) の近くにある境界線の番号 j（マス j-1 と j の間。1〜n-1）。無ければ 0
+/** @param {Layer} L */
+function collageBorderAt(L, x, y){
+  const q = collageAxisPos(L, x, y); if(!q || q.cross < 0 || q.cross > 1) return 0;
+  const {e} = collageEdges(L), tol = Math.max(10, q.len * 0.012) / q.len;
+  let best = 0, bd = tol; for(let j = 1; j < e.length - 1; j++){ const dd = Math.abs(q.u - e[j]); if(dd < bd){ bd = dd; best = j; } }
+  return best;
+}
+// 境界線 j を (x,y) の位置まで動かす。両隣のマス（j-1 と j）の幅だけを変え、比率の合計は変えない（ほかのマスの幅は動かない）
+/** @param {Layer} L */
+function collageDragBorder(L, j, x, y){
+  const q = collageAxisPos(L, x, y); if(!q) return;
+  const {sum, e} = collageEdges(L), min = Math.min(0.04, (e[j + 1] - e[j - 1]) / 3);
+  const b = clamp(q.u, e[j - 1] + min, e[j + 1] - min);
+  L.cells[j - 1].w = r3((b - e[j - 1]) * sum); L.cells[j].w = r3((e[j + 1] - b) * sum);
+}
 function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標）
-  const w = L.bw * L.sc, h = L.bh * L.sc, p = collageCells(L.layout, collageN(L), w, h, L.slant, L.main)[i] || [[0, 0], [w, h]];
+  const w = L.bw * L.sc, h = L.bh * L.sc, p = collageCellsOf(L, w, h)[i] || [[0, 0], [w, h]];
   const xs = p.map(q => clamp(q[0], 0, w)), ys = p.map(q => clamp(q[1], 0, h));
   return [Math.max(1, Math.max(...xs) - Math.min(...xs)), Math.max(1, Math.max(...ys) - Math.min(...ys))];
 }
@@ -60,16 +92,25 @@ function cellBtnLabel(text){
 }
 // 7日ぶんをマス0から順に入れる（マスが少なければそこまで）。画像のあるマスは文字を上寄せ('t')にして絵を隠さない。
 // 8分割のときは最後のマスを「MEMO」にする（ただし文字が入っていれば上書きしない）
+// 「1週間を入れる」が書く形の文字か（例：10/12(月)・10/12\n（月）・月曜日・MON・10/12）
+function isWeekText(s){
+  const t = String(s || '').replace(/\s+/g, ''), wd = '(?:[日月火水木金土](?:曜日)?|SUN|MON|TUE|WED|THU|FRI|SAT)';
+  return new RegExp(`^(?:\\d{1,2}/\\d{1,2}(?:[(（]?${wd}[)）]?)?|[(（]?${wd}[)）]?)$`).test(t);
+}
 /** @param {Layer} L */
 function collageFillWeek(L){
   const wk = L.wk, days = weekDates(wk.start, wk.first), n = collageN(L);
   if(!L.tstyle) collageSetStyle(L, 'ポップ');
-  days.slice(0, n).forEach((d, i) => {
-    const c = L.cells[i], k = d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : 'wd';
-    c.tx = Object.assign(c.tx, {on:true, text:weekLabel(d, wk), pos: ASSETS[c.asset] ? 't' : 'c', sc:1, ox:0, oy:0});
+  // 8 分割では MEMO のマス（wk.memo 番目。既定は 8 番目）を除いたマスに、上から順に 7 日ぶんを入れる
+  const mi = n >= 8 ? clamp(Math.round(+wk.memo) || 8, 1, n) - 1 : -1, order = [...Array(n).keys()].filter(i => i !== mi);
+  days.slice(0, order.length).forEach((d, j) => {
+    const c = L.cells[order[j]], k = d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : 'wd';
+    c.tx = Object.assign(c.tx, {on:true, text:weekLabel(d, wk), pos: ASSETS[c.asset] ? 't' : 'c', sc:1, ox:0, oy:0, wk:true});
     if(wk.color) c.bg = Object.assign(c.bg, {on:true, c:WK_BG[k][0], c2:WK_BG[k][1], grad:true});
   });
-  if(n >= 8 && !cellHasText(L.cells[7])) L.cells[7].tx = Object.assign(L.cells[7].tx, {on:true, text:'MEMO', pos:'c', sc:0.6});
+  // MEMO：空のマスと、前に「1週間を入れる」で書いた日付のマスにだけ書く（自分で書いた文字・調整済みの MEMO は消さない）。
+  // 目印 tx.wk が無い古いデータでも、日付・曜日の形の文字なら自動で書いたものとみなす
+  if(mi >= 0){ const c = L.cells[mi]; if(!cellHasText(c) || c.tx.wk || isWeekText(c.tx.text)) c.tx = Object.assign(c.tx, {on:true, text:'MEMO', pos:'c', sc:0.6, ox:0, oy:0, wk:false}); }
 }
 
 /* 追加・画像の割り当て */

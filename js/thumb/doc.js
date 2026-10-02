@@ -54,7 +54,7 @@ function layerName(L){
 // 保存データ L に無い項目は既定値で埋まる。入れ子のオブジェクト（shadow・cells の中など）は 1 段ずつ既定値と混ぜる
 const LAYER_NORMALIZE = {
   text: L => Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})}),
-  collage: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
+  collage: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), ttx: Object.assign(b.ttx, L.ttx || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
         cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE()),
   group: L => (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE())),
   fx: L => Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})}),
@@ -94,7 +94,9 @@ function sanitizeDocRefs(o){
   if(o.bg.asset != null && !okId(o.bg.asset)) o.bg.asset = null;
   // 色：不正な文字列だと、HTML 属性を壊すだけでなく addColorStop が例外を出して描画が止まるので、読み込み時に使える色へそろえる
   o.layers.forEach(l => {
-    if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8'); });
+    if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
+      c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = clamp(+c.w || 1, 0.05, 20); });
+    if(l.type === 'collage'){ const t = l.ttx; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); }
     if(l.type === 'fx' && l.p) l.p.c = safeColor(l.p.c, '#ffffff');
   });
 }

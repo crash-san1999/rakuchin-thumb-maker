@@ -55,17 +55,19 @@ function renderCellText(){
         <div class="row"><label>曜日の位置</label><select data-wk="layout">${opts([['below', '日付の下'], ['side', '日付の横']], L.wk.layout)}</select></div>
         <div class="row"><label>曜日の括弧</label><select data-wk="paren">${opts([['none', 'なし'], ['full', '（月）全角'], ['half', '(月) 半角']], L.wk.paren)}</select></div>
         <div class="row"><label>曜日の書き方</label><select data-wk="fmt">${opts([['ja1', '月'], ['ja3', '月曜日'], ['en', 'MON']], L.wk.fmt)}</select></div>
+        <div class="row" data-wkmemo><label>MEMO のマス（8分割）</label><select data-wk="memo">${[1, 2, 3, 4, 5, 6, 7, 8].map(i => `<option value="${i}">${i}番目</option>`).join('')}</select></div>
         <div class="row"><label class="chk"><input type="checkbox" data-wk="color"> 平日・土・日で背景色を分ける</label></div>
         <div class="crow"><button class="btn sm" id="wkGo">${ic('grid')}1週間を入れる</button></div>`;
     }
     const st = box.querySelector('#wkStart'); if(document.activeElement !== st) st.value = L.wk.start || today;
     box.querySelector('[data-wk="color"]').checked = !!L.wk.color;
+    box.querySelector('[data-wkmemo]').hidden = collageN(L) < 8; box.querySelector('[data-wk="memo"]').value = String(L.wk.memo || 8);
   });
 }
 /* ---------- 操作パネルのイベント（document に委譲。パネルは再描画されるので、要素ごとには付けない） ---------- */
 document.addEventListener('input', e => {
   const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
-  if(t.id === 'ctText'){ const c = L.cells[L.ac || 0]; c.tx.text = t.value; c.tx.on = t.value.trim() !== ''; syncDoc(); docChanged(false); }
+  if(t.id === 'ctText'){ const c = L.cells[L.ac || 0]; c.tx.text = t.value; c.tx.on = t.value.trim() !== ''; c.tx.wk = false; syncDoc(); docChanged(false); }
 });
 document.addEventListener('change', e => {
   const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
@@ -79,7 +81,7 @@ document.addEventListener('change', e => {
     } else L.tstyle.weight = +t.value;
     syncDoc(); docChanged(false);
   }
-  else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.value; }
+  else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.dataset.wk === 'memo' ? +t.value : t.value; }
 });
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
@@ -87,6 +89,14 @@ document.addEventListener('click', e => {
   collageFillWeek(L); syncDoc(); docChanged(false); toast('1週間を入れました。マスをクリックして、文字や色を直せます');
 });
 document.addEventListener('click', e => { const b = e.target.closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
+// 幅をそろえる／文字の色を全部のマスに／まとめての調整を戻す
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#cwReset, #ctColorAll, #ttxReset'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
+  if(b.id === 'cwReset'){ L.cells.forEach(c => c.w = 1); toast('マスの幅をそろえました'); }
+  else if(b.id === 'ctColorAll'){ const s = L.cells[L.ac || 0].tx; L.cells.forEach(c => Object.assign(c.tx, {fcOn:s.fcOn, fc:s.fc, ecOn:s.ecOn, ec:s.ec})); toast(`マス${(L.ac || 0) + 1}の文字色・フチ色を、全部のマスにそろえました`); }
+  else L.ttx = {sc:1, ox:0, oy:0};
+  syncDoc(); docChanged(false);
+});
 // 一覧のマスをドラッグして、別のマスに落とすと入れ替え
 // dragover／drop はキャプチャ段階で受けて stopPropagation する（ファイルのドロップで画像を追加する側の処理に渡さないため）。cellDragFrom<0 のときは何もしない
 let cellDragFrom = -1;
