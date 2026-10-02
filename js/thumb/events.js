@@ -213,7 +213,8 @@ async function openProjectFile(f){
   try{
     const j = JSON.parse(await f.text()); if(j.type === 'library'){ libImport(f); return; }   // 素材置き場のバックアップ
     if(!j.doc) throw new Error('プロジェクトファイルではありません');
-    for(const [id, src] of Object.entries(j.assets || {})) await addAsset(src, id, id);
+    // セキュリティ：画像は「data:image/…」だけ受け付ける（外部URLだと、開いただけで第三者のサーバーに接続してしまう）。id も安全な文字だけ
+    for(const [id, src] of Object.entries(j.assets || {})){ if(okId(id) && typeof src === 'string' && /^data:image\//i.test(src)) await addAsset(src, id, id); }
     loadDocObj(j.doc); toast('プロジェクトを開きました');
   }catch(err){ toast('開けませんでした: ' + err.message, true); }
 }

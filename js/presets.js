@@ -306,7 +306,7 @@ function presetStyle(p){
   const col = q.fillType === 'metal' ? (METALS[q.metal] || METALS.gold)[1][1] : q.fill1;
   const [r, g, b] = hex2rgb(col), dark = (0.299 * r + 0.587 * g + 0.114 * b) < 90;
   const stroke = st ? st.c : (dark ? '#e9ebf1' : null);
-  return `background:var(--tile);color:${col};font-family:"${q.font}","Noto Sans JP";paint-order:stroke fill;` +
+  return `background:var(--tile);color:${col};font-family:"${String(q.font).replace(/["\\;{}<>]/g, '')}","Noto Sans JP";paint-order:stroke fill;` +
     (stroke ? `-webkit-text-stroke:2px ${stroke};` : '');
 }
 // 分類タブとボタン一覧を作り直す。「マイ」は素材置き場に保存した自作スタイルで、1件以上あるときだけタブを出す。

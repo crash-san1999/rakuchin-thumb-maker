@@ -40,7 +40,7 @@ async def run(p):
         await pg.goto(base + 'index.html'); await pg.wait_for_timeout(2500)
         assert not await pg.evaluate("document.querySelector('#updBar').classList.contains('show')"), '更新がないのにお知らせが出ている'
         sw = (app / 'sw.js'); sw.write_text(sw.read_text().replace(f"'{ver}'", "'v-next'"))
-        await pg.evaluate("pwaReg.update()"); await pg.wait_for_function("document.querySelector('#updBar').classList.contains('show')", timeout=15000)
+        await pg.evaluate("pwaReg.update()"); await wait_until(pg, "document.querySelector('#updBar').classList.contains('show')", 15000)
         assert await pg.evaluate("document.querySelector('#updBar').textContent.includes('新しいバージョン')")
         # まだ切り替わっていない（作業中に勝手に入れ替わらない）
         assert f'ttm-app-{ver}' in await pg.evaluate("caches.keys()")

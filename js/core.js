@@ -179,4 +179,9 @@ function rng(seed){
 }
 
 // innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " も変換する（' は変換しない：属性は必ず "" で囲むこと）
+// 色の文字列を、HTML 属性（style="…"）に入れても安全なものだけ通す（#rgb／#rrggbb(aa)／rgb()／hsl()）。細工されたプロジェクトファイルが属性を壊して
+// スクリプトを差し込むのを防ぐ。合わなければ既定色 d を返す
+const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;
+// 読み込んだデータの id（レイヤー・画像）として使ってよい文字列か。HTML 属性や querySelector に入るので、英数字・_・- だけ許す
+const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // ASSETS[id] のようにオブジェクトのキーにもなるので、特別な名前も除く
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }

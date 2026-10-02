@@ -17,7 +17,7 @@ async def run(p):
         await pg.route('**/*', route)
         await pg.goto(url); await pg.wait_for_timeout(3000)
         await pg.evaluate("document.querySelector('#help').classList.remove('show')")
-        await pg.wait_for_function("navigator.serviceWorker.controller || navigator.serviceWorker.ready.then(() => true)")
+        await wait_until(pg, "!!navigator.serviceWorker.controller")
         await pg.evaluate("navigator.serviceWorker.ready.then(() => 1)")
         # ★を付けると、選ばなくても先に読み込まれる（1MB以下の同梱フォント）
         await pg.evaluate("selectLayer(DOC.layers.find(l => l.type === 'text').id)"); await page(pg, 'txt-font')

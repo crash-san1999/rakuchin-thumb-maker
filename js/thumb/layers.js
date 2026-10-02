@@ -34,9 +34,9 @@ function renderLayers(){
   const rows = arr.map(L => {
     const sub = layerSubText(L);
     const mode = L.blend && L.blend !== 'source-over' ? ' ・ ' + (BLEND_NAMES[L.blend] || L.blend) : '';
-    const th = L.type === 'group' ? `<span class="fxth grpth">${ic('group')}</span>` : L.type === 'fx' ? `<span class="fxth" style="--fxc:${L.p.c || '#fff'}">${ic(FX_ICONS[L.kind])}</span>` : L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${L.id}" width="72" height="72"></canvas>`;
+    const th = L.type === 'group' ? `<span class="fxth grpth">${ic('group')}</span>` : L.type === 'fx' ? `<span class="fxth" style="--fxc:${safeColor(L.p.c)}">${ic(FX_ICONS[L.kind])}</span>` : L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${escapeHtml(L.id)}" width="72" height="72"></canvas>`;
     const fold = isGroup(L) ? `<button data-la="fold" title="${L.open === false ? '開く' : '閉じる'}">${L.open === false ? '▸' : '▾'}</button>` : '';
-    return `<div class="ly${L.id === DOC.sel ? ' on' : ''}${ms.has(L.id) ? ' multi' : ''}${L.hidden ? ' hid' : ''}${L.locked ? ' locked' : ''}${isGroup(L) ? ' grp' : ''}${L.gid ? ' kid' : ''}" data-lid="${L.id}"${L.gid ? ` data-gid="${L.gid}"` : ''} title="ドラッグで重なり順を変更・ダブルクリックで名前を変更・Ctrl／Shift＋クリックで複数選択（スマホは長押し）">
+    return `<div class="ly${L.id === DOC.sel ? ' on' : ''}${ms.has(L.id) ? ' multi' : ''}${L.hidden ? ' hid' : ''}${L.locked ? ' locked' : ''}${isGroup(L) ? ' grp' : ''}${L.gid ? ' kid' : ''}" data-lid="${escapeHtml(L.id)}"${L.gid ? ` data-gid="${escapeHtml(L.gid)}"` : ''} title="ドラッグで重なり順を変更・ダブルクリックで名前を変更・Ctrl／Shift＋クリックで複数選択（スマホは長押し）">
       <span class="grip">${ic('grip')}</span>
       <span class="ly-th">${th}</span>
       <span class="ly-name"><span class="nm">${escapeHtml(layerName(L))}</span><small>${sub}${mode}${L.op < 1 ? ` ・ ${Math.round(L.op * 100)}%` : ''}</small></span>
@@ -44,7 +44,7 @@ function renderLayers(){
         <button data-la="eye" class="${L.hidden ? 'act' : ''}" title="表示・非表示">${ic(L.hidden ? 'eyeoff' : 'eye')}</button>
         <button data-la="lock" class="${L.locked ? 'act' : ''}" title="ロック（キャンバス上で動かないように）">${ic(L.locked ? 'lock' : 'unlock')}</button>
         <button data-la="menu" title="メニュー">${ic('more')}</button>
-      </span>${L.id === DOC.sel ? `<div class="ly-op" title="不透明度"><span>不透明度</span><input type="range" min="0" max="1" step="0.01" data-d="@op" value="${L.op ?? 1}"><b>${Math.round((L.op ?? 1) * 100)}%</b></div>` : ''}</div>`;
+      </span>${L.id === DOC.sel ? `<div class="ly-op" title="不透明度"><span>不透明度</span><input type="range" min="0" max="1" step="0.01" data-d="@op" value="${+L.op || 1}"><b>${Math.round((L.op ?? 1) * 100)}%</b></div>` : ''}</div>`;
   }).join('');
   const bgName = {image:'背景画像', grad:'グラデーション', color:'単色'}[DOC.bg.type];
   const multi = ms.size >= 2 ? `<div class="lp-multi"><b>${ms.size}個を選択中</b><button class="btn sm" data-multi="group">${ic('group')}グループにする</button><button class="btn sm" data-multi="clear">選択を解除</button></div>` : '';

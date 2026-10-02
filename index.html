@@ -2,6 +2,10 @@
 <html lang="ja" translate="no">
 <head>
 <meta charset="UTF-8">
+<!-- セキュリティ：スクリプトは同じ場所のファイルだけ実行する（細工されたデータでHTMLが差し込まれても、スクリプトは動かない）。
+     フォント・画像・通信は、ユーザーが好きな配信元のフォントURLを追加できる機能のため https 全般を許可している -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; connect-src 'self' https: data: blob:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta http-equiv="content-language" content="ja">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=bfd5d635">
+<link rel="stylesheet" href="css/app.css?v=a7efc2f0">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -359,37 +363,37 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=bfd5d635"></script>
-<script src="js/bind.js?v=bfd5d635"></script>
-<script src="js/presets.js?v=bfd5d635"></script>
-<script src="js/data/font-list.js?v=bfd5d635"></script>
-<script src="js/fonts.js?v=bfd5d635"></script>
-<script src="js/controls.js?v=bfd5d635"></script>
-<script src="js/text-render.js?v=bfd5d635"></script>
-<script src="js/preview.js?v=bfd5d635"></script>
-<script src="js/colors.js?v=bfd5d635"></script>
-<script src="js/history.js?v=bfd5d635"></script>
-<script src="js/thumb/frames.js?v=bfd5d635"></script>
-<script src="js/thumb/collage.js?v=bfd5d635"></script>
-<script src="js/thumb/library.js?v=bfd5d635"></script>
-<script src="js/thumb/canvas.js?v=bfd5d635"></script>
-<script src="js/thumb/group.js?v=bfd5d635"></script>
-<script src="js/thumb/fx.js?v=bfd5d635"></script>
-<script src="js/thumb/cutout.js?v=bfd5d635"></script>
-<script src="js/thumb/assets.js?v=bfd5d635"></script>
-<script src="js/thumb/doc.js?v=bfd5d635"></script>
-<script src="js/thumb/finish.js?v=bfd5d635"></script>
-<script src="js/thumb/render.js?v=bfd5d635"></script>
-<script src="js/thumb/overlay.js?v=bfd5d635"></script>
-<script src="js/thumb/editmodes.js?v=bfd5d635"></script>
-<script src="js/thumb/layers.js?v=bfd5d635"></script>
-<script src="js/thumb/export.js?v=bfd5d635"></script>
-<script src="js/thumb/inspector.js?v=bfd5d635"></script>
-<script src="js/thumb/events.js?v=bfd5d635"></script>
-<script src="js/mobile.js?v=bfd5d635"></script>
-<script src="js/pwa.js?v=bfd5d635"></script>
-<script src="js/changelog.js?v=bfd5d635"></script>
-<script src="js/popups.js?v=bfd5d635"></script>
-<script src="js/main.js?v=bfd5d635"></script>
+<script src="js/core.js?v=a7efc2f0"></script>
+<script src="js/bind.js?v=a7efc2f0"></script>
+<script src="js/presets.js?v=a7efc2f0"></script>
+<script src="js/data/font-list.js?v=a7efc2f0"></script>
+<script src="js/fonts.js?v=a7efc2f0"></script>
+<script src="js/controls.js?v=a7efc2f0"></script>
+<script src="js/text-render.js?v=a7efc2f0"></script>
+<script src="js/preview.js?v=a7efc2f0"></script>
+<script src="js/colors.js?v=a7efc2f0"></script>
+<script src="js/history.js?v=a7efc2f0"></script>
+<script src="js/thumb/frames.js?v=a7efc2f0"></script>
+<script src="js/thumb/collage.js?v=a7efc2f0"></script>
+<script src="js/thumb/library.js?v=a7efc2f0"></script>
+<script src="js/thumb/canvas.js?v=a7efc2f0"></script>
+<script src="js/thumb/group.js?v=a7efc2f0"></script>
+<script src="js/thumb/fx.js?v=a7efc2f0"></script>
+<script src="js/thumb/cutout.js?v=a7efc2f0"></script>
+<script src="js/thumb/assets.js?v=a7efc2f0"></script>
+<script src="js/thumb/doc.js?v=a7efc2f0"></script>
+<script src="js/thumb/finish.js?v=a7efc2f0"></script>
+<script src="js/thumb/render.js?v=a7efc2f0"></script>
+<script src="js/thumb/overlay.js?v=a7efc2f0"></script>
+<script src="js/thumb/editmodes.js?v=a7efc2f0"></script>
+<script src="js/thumb/layers.js?v=a7efc2f0"></script>
+<script src="js/thumb/export.js?v=a7efc2f0"></script>
+<script src="js/thumb/inspector.js?v=a7efc2f0"></script>
+<script src="js/thumb/events.js?v=a7efc2f0"></script>
+<script src="js/mobile.js?v=a7efc2f0"></script>
+<script src="js/pwa.js?v=a7efc2f0"></script>
+<script src="js/changelog.js?v=a7efc2f0"></script>
+<script src="js/popups.js?v=a7efc2f0"></script>
+<script src="js/main.js?v=a7efc2f0"></script>
 </body>
 </html>

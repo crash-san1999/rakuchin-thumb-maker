@@ -84,6 +84,18 @@ function normalizeDoc(d){
         btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
         shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {}), glow: Object.assign(IMAGE_BASE().glow, L.glow || {})}));
+  // セキュリティ：id・画像の参照は HTML 属性や querySelector に入るので、安全な文字だけにそろえる（細工されたプロジェクトファイル対策）。
+  // 使えない id は作り直し、そのレイヤーを指す gid も同じ新しい id に付け替える
+  const idMap = {};
+  o.layers.forEach(l => { if(!okId(l.id)){ const n = uid(); idMap[l.id] = n; l.id = n; } });
+  o.layers.forEach(l => { if(l.gid != null){ l.gid = idMap[l.gid] || l.gid; if(!okId(l.gid)) delete l.gid; } });
+  o.layers.forEach(l => { if(l.asset != null && !okId(l.asset)) l.asset = null; if(l.cells) l.cells.forEach(c => { if(c.asset != null && !okId(c.asset)) c.asset = null; }); });
+  if(o.bg.asset != null && !okId(o.bg.asset)) o.bg.asset = null;
+  // 色：不正な文字列だと、HTML 属性を壊すだけでなく addColorStop が例外を出して描画が止まるので、読み込み時に使える色へそろえる
+  o.layers.forEach(l => {
+    if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8'); });
+    if(l.type === 'fx' && l.p) l.p.c = safeColor(l.p.c, '#ffffff');
+  });
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
   const gids = new Set(o.layers.filter(l => l.type === 'group').map(l => l.id));
   o.layers.forEach(l => { if(l.gid && (!gids.has(l.gid) || l.type === 'group')) delete l.gid; if(!l.gid) delete l.gid; });

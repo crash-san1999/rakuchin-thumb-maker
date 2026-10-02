@@ -117,7 +117,8 @@ async function libImport(file){
   if(!j || j.type !== 'library' || !Array.isArray(j.items)){ toast('素材置き場のバックアップではありません', true); return; }
   let ok = 0, dup = 0, skip = 0, reason = '';
   for(const it of j.items){
-    if(!it || LIB.some(l => l.id === it.id)){ dup++; continue; }
+    if(!it || !okId(it.id)){ skip++; reason = reason || 'バックアップの中に、読み込めない形式の素材がありました'; continue; }   // id は HTML 属性に入るので、安全な文字だけ許す
+    if(LIB.some(l => l.id === it.id)){ dup++; continue; }
     if(it.kind === 'img' && typeof it.src === 'string'){
       try{
         const img = await loadImg(it.src), blob = dataUrlToBlob(it.src), thumb = makeThumb(img);
@@ -160,11 +161,11 @@ function renderLib(){
   if(libTab === 'img'){
     const it = libItems('img').sort((a, b) => b.created - a.created);
     el.className = 'libgrid';
-    el.innerHTML = it.length ? it.map(i => `<div class="libcard" data-lid="${i.id}" title="クリックでキャンバスに追加"><span class="th"><img src="${i.thumb}" alt=""></span><b>${escapeHtml(i.name)}</b><small>${fmtBytes(i.size)}</small><span class="x" data-ldel="${i.id}" title="削除">×</span></div>`).join('') : '<p class="libempty">まだ画像がありません。「画像を追加」か、レイヤーを右クリック →「素材に登録」で入れられます。</p>';
+    el.innerHTML = it.length ? it.map(i => `<div class="libcard" data-lid="${escapeHtml(i.id)}" title="クリックでキャンバスに追加"><span class="th"><img src="${i.thumb}" alt=""></span><b>${escapeHtml(i.name)}</b><small>${fmtBytes(i.size)}</small><span class="x" data-ldel="${escapeHtml(i.id)}" title="削除">×</span></div>`).join('') : '<p class="libempty">まだ画像がありません。「画像を追加」か、レイヤーを右クリック →「素材に登録」で入れられます。</p>';
   }else{
     const it = libItems('style').sort((a, b) => b.created - a.created);
     el.className = 'libstyles';
-    el.innerHTML = it.length ? it.map(i => `<div class="libst" data-lid="${i.id}" title="クリックで今の文字に適用"><button style="${presetStyle(i.s).replace(/"/g, '&quot;')}">${escapeHtml(i.name)}</button><span class="x" data-ldel="${i.id}" title="削除">×</span></div>`).join('') : '<p class="libempty">まだ文字スタイルがありません。文字を整えてから「今の文字スタイルを登録」を押してください。</p>';
+    el.innerHTML = it.length ? it.map(i => `<div class="libst" data-lid="${escapeHtml(i.id)}" title="クリックで今の文字に適用"><button style="${presetStyle(i.s).replace(/"/g, '&quot;')}">${escapeHtml(i.name)}</button><span class="x" data-ldel="${escapeHtml(i.id)}" title="削除">×</span></div>`).join('') : '<p class="libempty">まだ文字スタイルがありません。文字を整えてから「今の文字スタイルを登録」を押してください。</p>';
     it.forEach(i => { const f = findFont(i.s.font); if(f) ensureCss(f); });
   }
 }

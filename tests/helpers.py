@@ -13,6 +13,15 @@ def app_url(root=ROOT):
 # GitHub 配布フォントのテスト用：jsDelivr への通信を、この PC にある TrueType フォントで代用する
 SYSTEM_TTF = next(iter(sorted(glob.glob('/usr/share/fonts/**/*.ttf', recursive=True) + glob.glob('/Library/Fonts/*.ttf') + glob.glob('C:/Windows/Fonts/*.ttf'))), None)
 
+async def wait_until(pg, expr, timeout=15000):
+    """式が真になるまで待つ。Playwright の wait_for_function は式を文字列として評価するので、CSP（script-src 'self'）に止められる。
+    evaluate で繰り返し確認する形にして、CSP の影響を受けないようにする"""
+    end = asyncio.get_event_loop().time() + timeout / 1000
+    while True:
+        if await pg.evaluate(expr): return
+        if asyncio.get_event_loop().time() > end: raise TimeoutError(f'待っても条件を満たさない: {expr}')
+        await pg.wait_for_timeout(100)
+
 OPEN_BROWSERS = []   # 開いたまま残ったブラウザを、run_all が片付けるための一覧
 
 async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500):

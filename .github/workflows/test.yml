@@ -14,7 +14,8 @@ jobs:
           python-version: '3.11'
       - name: Playwright を入れる
         run: |
-          pip install playwright
+          pip install playwright pillow
           playwright install --with-deps chromium
+          sudo apt-get install -y fonts-noto-cjk fonts-dejavu-core
       - name: 全テストを実行（1件ごとの制限時間つき）
         run: python3 tests/run_all.py
