@@ -50,6 +50,7 @@ function applyCellFx(name){
   syncDoc(); docChanged(false);
 }
 // レイアウト：[キー, 表示名, 使える分割数の条件]。キーは L.layout に保存される。条件外の組み合わせは collageLayoutOk で 'cols' に戻して描く
+/** @type {Array<[string, string, (n: number) => boolean]>} */
 const COLLAGE_LAYOUTS = [
   ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6 || n === 8], ['grid2', 'グリッド（縦長）', n => n === 6 || n === 8],
   ['bigL', '左に大きく', n => n >= 3], ['bigT', '上に大きく', n => n >= 3], ['radial', '放射状', n => n >= 2],
@@ -106,11 +107,12 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55){
   const ray = a => { const dx = Math.cos(a), dy = Math.sin(a); let t = Infinity;
     if(dx > 1e-9) t = Math.min(t, (W - cx) / dx); if(dx < -1e-9) t = Math.min(t, -cx / dx); if(dy > 1e-9) t = Math.min(t, (H - cy) / dy); if(dy < -1e-9) t = Math.min(t, -cy / dy);
     return [cx + dx * t, cy + dy * t]; };
+  /** @type {Array<[number[], number]>} */
   const corners = [[0, 0], [W, 0], [W, H], [0, H]].map(p => [p, Math.atan2(p[1] - cy, p[0] - cx)]);
   const norm = a => ((a % (2 * PI)) + 2 * PI) % (2 * PI);
   return [...Array(n)].map((_, i) => {
     const s = a0 + 2 * PI * i / n, span = 2 * PI / n;
-    const mid = corners.map(([p, a]) => [p, norm(a - s)]).filter(([, r]) => r > 1e-6 && r < span - 1e-6).sort((u, v) => u[1] - v[1]).map(([p]) => p);
+    const mid = corners.map(([p, a]) => /** @type {[number[], number]} */ ([p, norm(a - s)])).filter(([, r]) => r > 1e-6 && r < span - 1e-6).sort((u, v) => u[1] - v[1]).map(([p]) => p);
     return [[cx, cy], ray(s), ...mid, ray(s + span)];
   });
 }

@@ -69,8 +69,8 @@ $('#viewBtn').onclick = () => { LS.set('ttm_view', isMobile ? 'pc' : 'mobile'); 
    pointer capture で、指がつまみの外に出てもイベントを受け続ける */
 document.querySelectorAll('.sheet-grip').forEach(g => {
   let y0 = null;
-  g.addEventListener('pointerdown', e => { if(e.target.closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
-  g.addEventListener('pointermove', e => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0); g.parentElement.style.transform = `translateY(${dy}px)`; g.parentElement.style.transition = 'none'; });
+  g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(e.target.closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0); g.parentElement.style.transform = `translateY(${dy}px)`; g.parentElement.style.transition = 'none'; });
   const up = e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
   g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
 });

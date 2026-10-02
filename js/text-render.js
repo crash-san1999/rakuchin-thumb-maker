@@ -486,6 +486,7 @@ function withCell(ctx, c, fn){
 const RANSOM =['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b'];
 /* ランダム配色（脅迫状風）で使う色の組み合わせ（おまかせ）。[名前の key, 表示名, 色, 使う色数] */
 // 色は常に8個で、使う数（4番目の値）は box.pn に入る。controls.js のおまかせチップが data-boxpal に key を載せて参照する
+/** @type {Array<[string, string, string[], number]>} */
 const BOX_PALETTES = [
   ['classic', '脅迫状', ['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b', '#ffd500'], 7],
   ['pastel', 'パステル', ['#ffb3c7', '#ffd9a0', '#fff3a3', '#b9f0c4', '#a9dcff', '#d3bfff', '#ffc9f0', '#ffffff'], 7],

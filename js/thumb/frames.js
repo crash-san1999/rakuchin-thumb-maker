@@ -69,6 +69,7 @@ const FRAME_PRESETS = [
   ['off','フレームなし', {shape:'none'}, null],
 ];
 // プリセットの表示用の分類（FRAME_PRESETS のキーを参照。ここに無いキーは分類されない）
+/** @type {Array<[string, string[]]>} */
 const FRAME_GROUPS = [
   ['かわいい・ポップ', ['icon', 'photo', 'heart', 'bubble', 'tape', 'star', 'cloud', 'sticker', 'patch', 'drop', 'pill', 'wave']],
   ['カッコいい', ['cyber', 'glitch', 'metal', 'gold', 'vs', 'twin', 'crystal', 'arrow', 'aura']],

@@ -119,7 +119,7 @@ const EA_FONTS = [
 ].map(([family, slug, cat, usage]) => ({family, slug, cat, usage, weights:[400], src:'ea'}));
 /* Fontsource（jsDelivr 配信）の Google 以外のオープンフォント。mb = 1書体あたりのおおよそのサイズ
    要素：[Fontsource の id, family, 分類, 用途, 太さの数字列（"47" → 400,700）, mb（省略可）] */
-const FS_FONTS = [
+const FS_FONTS = /** @type {Array<[string, string, string, string, string, number?]>} */ ([
   ['genjyuu-gothic','Genjyuu Gothic','ゴシック','インパクト・ポップ・万能（源柔ゴシック）','1234579',3.5],
   ['fusion-pixel-12px-proportional-jp','Fusion Pixel 12px Proportional JP','デザイン','ゲーム・レトロ（ドット）','4',0.6],
   ['fusion-pixel-10px-proportional-jp','Fusion Pixel 10px Proportional JP','デザイン','ゲーム・レトロ（ドット）','4',0.5],
@@ -143,7 +143,7 @@ const FS_FONTS = [
   ['dseg14-classic','DSEG14 Classic','欧文','ゲーム・テック（電光掲示板）','347'],
   ['league-mono','League Mono','欧文','テック・プログラミング（等幅）','12345678'],
   ['comic-mono','Comic Mono','欧文','ゆるい・手書き風（等幅）','47'],
-].map(([id, family, cat, usage, w, mb]) => ({id, family, cat, usage, weights:[...w].map(n => +n * 100), src:'fontsource', mb}));
+]).map(([id, family, cat, usage, w, mb]) => ({id, family, cat, usage, weights:[...w].map(n => +n * 100), src:'fontsource', mb}));
 /* GitHub で配布されている漢字入りフリーフォント（jsDelivr 経由で原本をそのまま読み込み）。files = 太さ→パス
    要素：[family, 分類, 用途（配布元・ライセンス名を含む）, files, mb]。パスの「@」のあとはコミットの ID で、
    配布元が更新・改名しても同じファイルを取れるよう固定している（差し替えるときは ID ごと更新する） */
@@ -491,7 +491,7 @@ async function addWebFontUrl(raw){
       const ws = spec && spec.includes('@') ? [...new Set(spec.split('@')[1].split(';').map(x => +x.split(',').pop()).filter(Boolean))] : [400];
       added.push(findFont(fam) || addWebEntry({family: fam, cat:'欧文', usage:'', weights: ws, src:'google'}));
     });
-    if(!added.length && url.pathname.includes('earlyaccess')){ const slug = url.pathname.split('/').pop().replace('.css', ''); added.push(await addCssFamilies(url.href, slug)); }
+    if(!added.length && url.pathname.includes('earlyaccess')) added.push(await addCssFamilies(url.href));
   }else if(/(^|\.)fontsource\.org$/.test(h) || /@fontsource\//.test(url.pathname)){
     const m = url.pathname.match(/fonts\/([a-z0-9-]+)/) || url.pathname.match(/@fontsource\/([a-z0-9-]+)/);
     if(!m){ toast('Fontsource のフォントのページURLを貼ってください', true); return; }

@@ -173,6 +173,7 @@ function drawFx(ctx, L, f){
       path(x0, y0, mx, my, dev / 2, depth - 1, out); path(mx, my, x1, y1, dev / 2, depth - 1, out);
     };
     const main = [[(R() - 0.5) * bw * 0.3, -bh / 2]]; path(main[0][0], main[0][1], (R() - 0.5) * bw * 0.4, bh / 2, bw * 0.7, 6, main);
+    /** @type {Array<[number[][], number]>} */
     const lines = [[main, 1]];
     for(let i = 4; i < main.length - 6; i += 6) if(R() < p.branch){ const [sx, sy] = main[i], br = [[sx, sy]], ex = sx + (R() - 0.5) * bw * 0.9, ey = sy + bh * (0.15 + R() * 0.25); path(sx, sy, ex, ey, bw * 0.3, 4, br); lines.push([br, 0.45]); }
     // 太い色の線（グロー）の上に細い白線を重ねて、芯が光って見えるようにする

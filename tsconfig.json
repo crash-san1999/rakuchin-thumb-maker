@@ -1,0 +1,13 @@
+{
+  "//": "型チェック専用（出力なし）。実行：npx -p typescript tsc -p .  ／ 厳しさは段階的に上げる（まず strict:false で 0 件にする）",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "es2022",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["js/**/*.js", "types/**/*.js", "types/**/*.d.ts"]
+}

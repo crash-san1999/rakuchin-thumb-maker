@@ -111,6 +111,7 @@ function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.
 function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
 document.addEventListener('input', e => { if(e.target.type === 'range') paintRange(e.target); });
 // サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める
+/** @type {Doc | null} */
 let DOC = null;
 
 // 文字スタイルの完全な初期値。保存データ・プリセットはここからの差分だけを持ち、merged() で補う。
@@ -161,6 +162,7 @@ function merged(p){
 }
 // いま編集中の文字スタイル（グローバル）。applyPreset などで代入し直されるため、S を別変数に保持し続けないこと。
 // 自動保存は preview.js の schedule() → saveDoc()（thumb/doc.js）が ttm_state に書く
+/** @type {TextStyle} */
 let S = merged(LS.get('ttm_state', {}));
 /* ============ 配色 ============ */
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
