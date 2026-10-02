@@ -49,7 +49,8 @@ function renderLayers(){
         <button data-la="menu" title="メニュー">${ic('more')}</button>
       </span>${L.id === DOC.sel ? `<div class="ly-op" title="不透明度"><span>不透明度</span><input type="range" min="0" max="1" step="0.01" data-d="@op" value="${+L.op || 1}"><b>${Math.round((L.op ?? 1) * 100)}%</b></div>` : ''}</div>`;
   }).join('');
-  const bgName = {image:'背景画像', grad:'グラデーション', color:'単色'}[DOC.bg.type];
+  // 未知の種類は、描画側（drawBackground）と同じく画像として扱う
+  const BG_NAMES = {image:'背景画像', grad:'グラデーション', color:'単色'}, bgName = hasKey(BG_NAMES, DOC.bg.type) ? BG_NAMES[DOC.bg.type] : '背景画像';
   const multi = ms.size >= 2 ? `<div class="lp-multi"><b>${ms.size}個を選択中</b><button class="btn sm" data-multi="group">${ic('group')}グループにする</button><button class="btn sm" data-multi="clear">選択を解除</button></div>` : '';
   box.innerHTML = multi + (rows || '<p class="note" style="padding:0 8px">文字や画像を追加すると、ここに重なり順どおりに並びます。</p>') +
     `<div class="ly bgrow${DOC.bg.hidden ? ' hid' : ''}" data-bgrow="1" title="クリックで背景の設定を開く"><span class="grip">${ic('grip')}</span><span class="ly-th"><canvas data-th="__bg" width="72" height="72"></canvas></span>

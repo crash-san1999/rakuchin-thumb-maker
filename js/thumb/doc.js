@@ -75,7 +75,7 @@ function normalizeDoc(d){
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
   // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、未対応の fx 種別（バージョン違いの保存データ）は捨てる。
   // 画像は crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
-  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || FX_DEF[L.kind]).map(L => L.type === 'text'
+  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || hasKey(FX_DEF, L.kind)).map(L => L.type === 'text'
     ? Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})})
     : L.type === 'collage' ? (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
         cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE())

@@ -83,7 +83,8 @@ new MutationObserver(() => { if(!$('#stage').classList.contains('img')) $('#stag
 // 金属は METALS（text-render.js）の stops のうち index 1 と 5（上下の明るい帯）の色で代表させる。中抜き・くり抜き（fillMode が normal 以外）は塗りの色で見え方が決まらないので判定しない。
 // 基準値は WCAG の 7 / 4.5 / 3（colors.js の contrast()）。update() から毎回呼ばれる。
 function updateVis(){
-  const fills = S.fillType === 'metal' ? [(METALS[S.metal] || METALS.gold)[1][1], (METALS[S.metal] || METALS.gold)[5][1]]
+  const mt = hasKey(METALS, S.metal) ? METALS[S.metal] : METALS.gold;
+  const fills = S.fillType === 'metal' ? [mt[1][1], mt[5][1]]
     : S.fillType === 'solid' ? [S.fill1] : [S.fill1, S.fill2];
   const st = S.strokes.find(x => x.on && x.w > 0);
   const edge = st ? st.c : S.plate.on ? S.plate.c : S.shadow.on ? S.shadow.c : null;

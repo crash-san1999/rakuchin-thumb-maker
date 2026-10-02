@@ -120,6 +120,7 @@ python3 -m playwright install chromium   # Chromium が入っていない場合
 |---|---|
 | `python3 tests/run_all.py` | 自動テストをすべて実行（`run_all.py fonts -v` のように名前で絞り込み・詳細表示も可。1件ごとの制限時間は既定150秒で、`--timeout=秒` で変更可。止まったテストは失敗扱いにして次へ進み、残ったブラウザも自動で片付けます） |
 | `npx -p typescript@6.0.3 tsc -p .` | 型チェックだけを実行（設定は `tsconfig.json`、型の定義は `types/`）。`run_all.py` にも `test_typecheck` として入っていて、Node.js が無い環境では「省略」と表示されます |
+| `python3 tests/compare_render.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、動的エフェクト全種類・切り抜きフレームの全形状×全デザインの描画結果を**ピクセル単位**で比べる（1ピクセルの違いも検出。描き方を整理するリファクタリングの確認用） |
 | `python3 tests/compare.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、画面・全プリセットの描画・設定パネルの中身を比べ、見た目が変わっていないか確認 |
 | `python3 tools/docs-screenshots.py` | 説明書の画像を今の画面で撮り直す |
 

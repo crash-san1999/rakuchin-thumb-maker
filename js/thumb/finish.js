@@ -68,7 +68,7 @@ function applyFinish(c, F, f){
   }
   if(F.leak > 0){
     // 光漏れ：P は光源の位置（画面に対する割合）。2つ目の光はずらした位置に、色を赤みへ寄せて重ねる
-    const P = {tl:[0, 0], tr:[1, 0], bl:[0, 1], br:[1, 1], l:[0, 0.5], r:[1, 0.5]}[F.leakPos] || [1, 0], M = Math.max(W, H);
+    const LP = {tl:[0, 0], tr:[1, 0], bl:[0, 1], br:[1, 1], l:[0, 0.5], r:[1, 0.5]}, P = hasKey(LP, F.leakPos) ? LP[F.leakPos] : [1, 0], M = Math.max(W, H);
     x.globalCompositeOperation = 'screen'; x.globalAlpha = clamp(F.leak, 0, 1);
     for(const [k, col, rr] of [[0, F.leakC, 0.8], [0.12, hexMix(F.leakC, '#ff2d6e', 0.5), 0.45]]){
       const px = (P[0] + (P[0] < 0.5 ? k : -k)) * W, py = P[1] * H, g = x.createRadialGradient(px, py, 0, px, py, M * rr);

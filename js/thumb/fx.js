@@ -86,15 +86,12 @@ function addFx(kind){
 // ctx に fx レイヤー L を描く。f＝倍率（ドキュメント座標→ピクセル）。L.x/y はドキュメント座標の中心、rot は度
 // 以降の座標は「L の中心が原点・sc=1 の局所座標」。translate→rotate→scale の順は変えない（回転・拡大の中心が中心点になる）
 /** @param {Layer} L */
-function drawFx(ctx, L, f){
-  const p = L.p, [bw, bh] = FX_BOX(L);
-  // 選択枠・グループの範囲計算のため、描画のたびに大きさを登録する
-  dims.set(L.id, {w:bw * L.sc, h:bh * L.sc});
-  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
-  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
-  // 乱数は種類ごとに seed 固定。各ブロック内の R() を呼ぶ順番・回数が見た目そのものなので、順序を入れ替えない
-  const R = rng(p.seed || 1);
-  if(L.kind === 'lines'){
+// 種類ごとの描画（drawFx から呼ぶ）。キーは FX_DEF と同じ。座標の原点はエフェクトの中心で、位置・回転・拡大・不透明度・合成は drawFx が設定済み。
+// 引数：p＝パラメータ（L.p）、R＝この種類の seed で作った乱数、bw・bh＝基準サイズ（FX_BOX）、f＝プレビュー倍率（shadowBlur を px に直すのに使う）。
+// 乱数 R() を呼ぶ順番・回数が見た目そのもの（保存済みのサムネの見た目が変わる）なので、各関数の中の順序を入れ替えないこと
+/** @type {Record<string, (ctx: CanvasRenderingContext2D, L: Layer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} */
+const FX_DRAW = {
+  lines(ctx, L, p, R, bw, bh, f){
     const rx = DOC.w / 2 * p.inner, ry = DOC.h / 2 * p.inner, step = 2 * PI / p.n, full = p.full !== false;
     // 楕円を円として扱う（縦方向を縮めて描く）
     ctx.scale(1, ry / rx);
@@ -114,11 +111,14 @@ function drawFx(ctx, L, f){
       ctx.closePath();
     }
     ctx.fill();
-  }else if(L.kind === 'light'){   // 光（スポット）：放射グラデーション。明るくするので、レイヤーの合成は screen が既定（FX_LAYER_DEF）
+  },
+  // 光（スポット）：放射グラデーション。明るくするので、レイヤーの合成は screen が既定（FX_LAYER_DEF）
+  light(ctx, L, p, R, bw, bh, f){
     const r = Math.max(DOC.w, DOC.h) * p.r * 0.55, g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
     g.addColorStop(0, rgba(p.c, p.amt)); g.addColorStop(0.35, rgba(p.c, p.amt * 0.55)); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
-  }else if(L.kind === 'sparkle'){
+  },
+  sparkle(ctx, L, p, R, bw, bh, f){
     ctx.fillStyle = p.c;
     for(let i = 0; i < p.n; i++){
       const px = (R() - 0.5) * bw, py = (R() - 0.5) * bh, r = (0.35 + R() * 0.9) * 42 * p.size, k = r * 0.16;
@@ -129,20 +129,26 @@ function drawFx(ctx, L, f){
       ctx.quadraticCurveTo(px - k, py + k, px - r, py); ctx.quadraticCurveTo(px - k, py - k, px, py - r);
       ctx.fill();
     }
-  }else if(L.kind === 'rays'){   // 放射光：中心から広がる光の帯
+  },
+  // 放射光：中心から広がる光の帯
+  rays(ctx, L, p, R, bw, bh, f){
     const n = Math.max(4, Math.round(p.n)), RR = Math.max(bw, bh) / 2, g = ctx.createRadialGradient(0, 0, 0, 0, 0, RR), fd = clamp(p.fade, 0, 1);
     g.addColorStop(0, rgba(p.c, 1)); g.addColorStop(1 - fd * 0.9, rgba(p.c, 0.9)); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.beginPath();
     for(let i = 0; i < n; i++){ const a = i / n * 2 * PI + (R() - 0.5) * 0.15, w = PI / n * (0.55 + R() * 0.5);
       ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a - w / 2) * RR, Math.sin(a - w / 2) * RR); ctx.lineTo(Math.cos(a + w / 2) * RR, Math.sin(a + w / 2) * RR); ctx.closePath(); }
     ctx.fill();
-  }else if(L.kind === 'speed'){   // スピード線：横に流れる細長い線
+  },
+  // スピード線：横に流れる細長い線
+  speed(ctx, L, p, R, bw, bh, f){
     ctx.fillStyle = p.c;
     for(let i = 0; i < p.n; i++){
       const y = (R() - 0.5) * bh, len = bw * (0.15 + R() * 0.45) * p.len, x0 = (R() - 0.5) * bw, t = (1.5 + R() * 5) * p.w;
       ctx.beginPath(); ctx.moveTo(x0 - len / 2, y); ctx.quadraticCurveTo(x0, y - t, x0 + len / 2, y); ctx.quadraticCurveTo(x0, y + t, x0 - len / 2, y); ctx.fill();
     }
-  }else if(L.kind === 'gaan'){   // 効果線（ガーン）：上から垂れる縦線
+  },
+  // 効果線（ガーン）：上から垂れる縦線
+  gaan(ctx, L, p, R, bw, bh, f){
     const g = ctx.createLinearGradient(0, -bh / 2, 0, bh / 2); g.addColorStop(0, rgba(p.c, 1)); g.addColorStop(clamp(p.len, 0.05, 1), rgba(p.c, 0));
     ctx.fillStyle = g; ctx.beginPath();
     for(let i = 0; i < p.n; i++){
@@ -150,7 +156,9 @@ function drawFx(ctx, L, f){
       ctx.moveTo(x - t, -bh / 2); ctx.lineTo(x + t, -bh / 2); ctx.lineTo(x, -bh / 2 + len); ctx.closePath();
     }
     ctx.fill();
-  }else if(L.kind === 'confetti'){   // 紙吹雪
+  },
+  // 紙吹雪
+  confetti(ctx, L, p, R, bw, bh, f){
     const pal = ['#ff4f6d', '#ffd400', '#2fc7ff', '#5be37a', '#b46bff', '#ff8a2a', '#ffffff'];
     for(let i = 0; i < p.n; i++){
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, w = (22 + R() * 30) * p.size, h = w * (0.4 + R() * 0.5), a = R() * PI;
@@ -159,14 +167,18 @@ function drawFx(ctx, L, f){
       if(R() < 0.3){ ctx.beginPath(); ctx.arc(0, 0, w * 0.4, 0, 7); ctx.fill(); } else ctx.fillRect(-w / 2, -h / 2, w, h);
       ctx.restore();
     }
-  }else if(L.kind === 'snow'){   // 雪・雨
+  },
+  // 雪・雨
+  snow(ctx, L, p, R, bw, bh, f){
     ctx.fillStyle = ctx.strokeStyle = p.c;
     // 粒ごとに globalAlpha を変えるので、レイヤーの不透明度 L.op を掛け直している（上で設定した値を上書きするため）
     if(p.type === 'rain'){ ctx.lineCap = 'round';
       for(let i = 0; i < p.n; i++){ const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, l = (30 + R() * 50) * p.size; ctx.globalAlpha = (L.op ?? 1) * (0.35 + R() * 0.5); ctx.lineWidth = (1.5 + R() * 2) * p.size; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - l * 0.25, y + l); ctx.stroke(); } }
     else for(let i = 0; i < p.n; i++){ const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (2 + R() * R() * 9) * p.size;
       ctx.globalAlpha = (L.op ?? 1) * (0.5 + R() * 0.5); ctx.shadowColor = p.c; ctx.shadowBlur = r * L.sc * f; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
-  }else if(L.kind === 'bolt'){   // 稲妻：上から下へジグザグに折れる線＋枝分かれ
+  },
+  // 稲妻：上から下へジグザグに折れる線＋枝分かれ
+  bolt(ctx, L, p, R, bw, bh, f){
     // 中点変位法：線分の中点を横にずらして再帰的に折る（depth 回）。ずれ幅 dev は再帰ごとに半分
     const path = (x0, y0, x1, y1, dev, depth, out) => {
       if(depth <= 0){ out.push([x1, y1]); return; }
@@ -181,21 +193,27 @@ function drawFx(ctx, L, f){
     ctx.lineJoin = ctx.lineCap = 'round';
     for(const [w, col, blur] of [[22 * p.w, p.c, 30], [6 * p.w, '#ffffff', 10]])
       for(const [pts, k] of lines){ ctx.lineWidth = w * k; ctx.strokeStyle = col; ctx.shadowColor = p.c; ctx.shadowBlur = blur * L.sc * f; ctx.beginPath(); pts.forEach(([x, y], j) => j ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
-  }else if(L.kind === 'bokeh'){   // ボケの光
+  },
+  // ボケの光
+  bokeh(ctx, L, p, R, bw, bh, f){
     const pal = ['#ffd27a', '#ff8ad8', '#7fd6ff', '#b9a3ff', '#9dffc8'];
     for(let i = 0; i < p.n; i++){
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (20 + R() * 70) * p.size, col = p.colorful ? pal[Math.floor(R() * pal.length)] : p.c, a = 0.25 + R() * 0.5;
       const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, rgba(col, a * 0.7)); g.addColorStop(0.8, rgba(col, a)); g.addColorStop(1, rgba(col, 0));
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
     }
-  }else if(L.kind === 'scatter'){   // ハート・星・音符・しずく
+  },
+  // ハート・星・音符・しずく
+  scatter(ctx, L, p, R, bw, bh, f){
     const pal = ['#ff4f9a', '#ffd400', '#2fc7ff', '#b46bff', '#ff7a2a'];
     for(let i = 0; i < p.n; i++){
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (28 + R() * 46) * p.size;
       ctx.save(); ctx.translate(x, y); ctx.rotate((R() - 0.5) * 0.9); ctx.fillStyle = p.colorful ? pal[Math.floor(R() * pal.length)] : p.c;
       ctx.beginPath(); scatterShape(ctx, p.shape, r); ctx.fill(); ctx.restore();
     }
-  }else if(L.kind === 'burst'){   // 爆発：山（外側）と谷（内側）を交互に結ぶギザギザ。偶数番が山、depth が谷の深さ
+  },
+  // 爆発：山（外側）と谷（内側）を交互に結ぶギザギザ。偶数番が山、depth が谷の深さ
+  burst(ctx, L, p, R, bw, bh, f){
     const rx = bw / 2 * 0.92, ry = bh / 2 * 0.92, n = Math.max(5, Math.round(p.spikes));
     ctx.beginPath();
     for(let i = 0; i <= n * 2; i++){
@@ -206,7 +224,17 @@ function drawFx(ctx, L, f){
     ctx.closePath(); ctx.lineJoin = 'round';
     if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.c2; ctx.stroke(); }
     ctx.fillStyle = p.c; ctx.fill();
-  }
+  },
+};
+function drawFx(ctx, L, f){
+  const p = L.p, [bw, bh] = FX_BOX(L);
+  // 選択枠・グループの範囲計算のため、描画のたびに大きさを登録する
+  dims.set(L.id, {w:bw * L.sc, h:bh * L.sc});
+  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
+  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
+  // 乱数は種類ごとに seed 固定（R() を呼ぶ順番・回数は FX_DRAW の各関数の中で決まる）
+  const R = rng(p.seed || 1);
+  if(hasKey(FX_DRAW, L.kind)) FX_DRAW[L.kind](ctx, L, p, R, bw, bh, f);
   ctx.restore();
 }
 // ハート・星などの輪郭パスだけを作る（beginPath／fill は呼び出し側）。原点中心、r が大きさ。未知の shape はハートになる

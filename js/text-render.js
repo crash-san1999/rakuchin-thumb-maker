@@ -226,7 +226,7 @@ function fillStyles(ctx, L){
       main = () => gm; acc = () => ga;
     }
   }else{
-    const st = METALS[RS.metal] || METALS.gold, as = two(RS.accent1, RS.accent2);
+    const st = hasKey(METALS, RS.metal) ? METALS[RS.metal] : METALS.gold, as = two(RS.accent1, RS.accent2);
     // 金属は行ごとの縦グラデ（中央付近の暗い帯が映り込みの地平線になるので、行ごとに作る）。ホログラムだけ斜め20度。未知の metal 名は gold にフォールバック
     const gm = idx.map(i => RS.metal === 'holo' ? angGrad(ctx, L, st, i, 20) : vGrad(ctx, L, i, st));
     const ga = idx.map(i => vGrad(ctx, L, i, as));
@@ -409,14 +409,15 @@ function warp(src){
     return o;
   }
   const U = px => Math.min(1, Math.max(0, (px - bb.l) / cw)), amp = A * ch;
-  const fn = {
+  const WARPS = {
     arch:  u => [-amp * 0.6 * (1 - (2*u - 1) ** 2), 1],
     wave:  u => [amp * 0.35 * Math.sin(2 * PI * w.freq * u), 1],
     bulge: u => [0, Math.max(0.1, 1 + A * 0.8 * (1 - (2*u - 1) ** 2))],
     persp: u => [0, Math.max(0.1, 1 + A * 0.8 * (2*u - 1))],
     rise:  u => [-amp * 0.5 * (2*u - 1), 1],
-  }[w.type];
-  if(!fn) return src;
+  };
+  if(!hasKey(WARPS, w.type)) return src;
+  const fn = WARPS[w.type];
   let minY = 0, maxY = H;
   for(let px = 0; px < W; px += 2){ const [dy, s] = fn(U(px)); minY = Math.min(minY, cy - cy * s + dy); maxY = Math.max(maxY, cy + (H - cy) * s + dy); }
   const off = -Math.floor(minY), o = mk(W, Math.ceil(maxY - minY) + 2), x = o.getContext('2d');
