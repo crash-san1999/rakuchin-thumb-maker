@@ -11,5 +11,3 @@ interface Function { t?: any; r?: any; f?: any; lt?: any; }
 // ブラウザ API のうち TypeScript の標準型に入っていないもの
 interface Navigator { connection?: any; }
 declare class EyeDropper { open(): Promise<{ sRGBHex: string }>; }
-// events.js が globalThis に生やす関数（render.js が存在チェックして呼ぶ）
-declare var pruneMasks: ((ids: Set<string>) => void) | undefined;

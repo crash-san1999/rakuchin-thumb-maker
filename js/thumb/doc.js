@@ -3,7 +3,7 @@
   役割：サムネ作成モードの保存データ DOC（キャンバス寸法・背景 bg・仕上げ fin・レイヤー配列 layers・選択状態）の
   初期値・読み込み時の正規化・自動保存・「パス文字列での値の読み書き」・変更通知を持つ。
   主な公開：DOC_BASE / normalizeDoc / loadSavedDoc / saveDoc / dGet・dSet・setD / docChanged / syncDoc / DB（入力欄との結び付け）/
-           selLayer・textLayer / usedAssets / layerName / uid / mkTextLayer
+           selLayer・textLayer / usedAssets / layerName / mkTextLayer（uid は core.js）
   依存：LS・S・clamp（core.js）、bind.js の makeBinder、LAYER_BASE・IMAGE_BASE・COLLAGE_BASE・GROUP_BASE・FRAME_BASE・FIN_BASE などの
        各レイヤー定義（assets.js / collage.js / group.js / frames.js / finish.js / fx.js）。
   呼び出し元：main.js（起動時 loadSavedDoc）、export.js（プロジェクトを開く時の loadDocObj → normalizeDoc）、
@@ -32,8 +32,6 @@ const DOC_BASE = () => ({
   fin:FIN_BASE(),
   layers:[], sel:null, textSel:null, msel:[],
 });
-// レイヤー・素材のid。時刻＋乱数なので、プロジェクトの読み込みや複製で衝突しにくい
-const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:'text', x, y, sc, style});
 const selLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.sel)) || null;
 const textLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.textSel)) || null;

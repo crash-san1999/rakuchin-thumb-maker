@@ -13,7 +13,6 @@
   resetAdj（colors.js）、refreshTextUI・schedule、toast。
 */
 /* ============ プリセット ============ */
-const P = (o) => o;
 /** @type {Array<[string, Record<string, any>]>} */
 const PRESETS = [
   ['対戦格闘', {font:'Dela Gothic One',weight:400,fillType:'grad',fill1:'#ffffff',fill2:'#ffe14d',accent1:'#ff3b3b',accent2:'#ffb000',

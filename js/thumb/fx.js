@@ -21,7 +21,6 @@ const FX_DEF = {
 };
 const FX_NAMES = {lines:'集中線', light:'光（スポット）', sparkle:'キラキラ', burst:'爆発（ギザギザ）', rays:'放射光', speed:'スピード線', gaan:'効果線（ガーン）', confetti:'紙吹雪', snow:'雪・雨', bolt:'稲妻', bokeh:'ボケの光', scatter:'ハート・星'};
 const FX_ICONS = {lines:'burst', light:'sun', sparkle:'sparkle', burst:'boom', rays:'rays', speed:'speed', gaan:'gaan', confetti:'confetti', snow:'snow', bolt:'bolt', bokeh:'bokeh', scatter:'heart'};
-const FX_HINT = {lines:'放射状の線で視線を集める。中心の空きを動かして注目させたい所へ', light:'光が差しているように明るく（スクリーン合成）', sparkle:'星のきらめきを散らす', burst:'マンガ風の爆発。文字の後ろに敷いて「ドーン！」', rays:'中心から光の帯が広がる（優勝・登場シーンに）', speed:'横に流れる線で疾走感', gaan:'上から垂れる縦線で「ガーン…」', confetti:'お祝いの紙吹雪', snow:'雪や雨を降らせる', bolt:'稲妻（光る）', bokeh:'丸くぼけた光の粒', scatter:'ハートや星を散らす'};
 // 種類ごとのレイヤー側の既定値（不透明度・合成・拡大率）。LAYER_BASE より優先して mkFx で重ねる
 const FX_LAYER_DEF ={lines:{op:0.55}, light:{blend:'screen'}, burst:{sc:0.8}, rays:{op:0.4}, speed:{op:0.75}, gaan:{op:0.8}, bokeh:{blend:'screen'}, bolt:{sc:0.9}};
 // 種類ごとの「描画の基準サイズ [幅, 高さ]」（sc=1 のときのドキュメント座標）。選択枠(dims)と、粒を散らす範囲の両方の基準になる

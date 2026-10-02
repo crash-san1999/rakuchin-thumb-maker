@@ -2,7 +2,7 @@
 /*
   最初に読み込まれる土台のファイル。ほかのファイルはすべてここの定義に依存する（逆向きの依存はない）。
   主な中身：
-    ・$ / clone / LS（localStorage の安全な読み書き）/ toast / downloadBlob などの小道具
+    ・$ / clone / uid（レイヤー・素材のid）/ LS（localStorage の安全な読み書き）/ toast / downloadBlob などの小道具
     ・ICONS と ic()（SVG アイコン）
     ・DEFAULT / merged() / S … 「文字素材モード」の文字スタイルの初期値と、今の編集中の値（グローバル S）
     ・DOC … サムネモードの作品データ。ここでは宣言だけで、中身は thumb/doc.js の loadSavedDoc() が入れる
@@ -12,6 +12,8 @@
 /* ============ 基本 ============ */
 const $ = s => document.querySelector(s);
 const clone = o => JSON.parse(JSON.stringify(o));
+// レイヤー・素材のid。時刻＋乱数なので、プロジェクトの読み込みや複製で衝突しにくい
+const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 // localStorage の薄いラッパー。値は JSON で保存し、読み出し失敗（プライベートモード・壊れたデータ）は既定値 d を返す。
 // 保存の失敗（容量オーバー・禁止設定）は握りつぶさず、利用者に知らせて false を返す。キーは ttm_ で始まる
 const LS = {

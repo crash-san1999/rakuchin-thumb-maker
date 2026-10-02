@@ -273,6 +273,11 @@ async function openProjectFile(f){
    pointerdown で何をつかんだかを drag.mode に決める（'fx' 背景効果の中心／'edit' 編集モード／'rot'・'scale' ハンドル／'move' 移動／'bg' 背景ドラッグ）。
    決める優先順位は pointerdown の中の並び順そのもの（上ほど優先）：中心◎ → 編集モード → ハンドル → Alt+クリックで下のレイヤー →
    Shift/Ctrl+クリックで複数選択 → 通常のヒット判定 → 何も無ければ背景。pointermove が drag.mode ごとに値を更新し、pointerup（end）で確定する。 */
+// 当たり判定用のマスク（下のブロックの layerMask が作る）。レイヤーid → マスク。maskFx は描画中の効果キャッシュ
+const maskCache = new Map(), maskFx = new Map();
+// 消えたレイヤーのマスクを捨てる。render.js の pruneLayerCaches（取り消しで復元したとき）から呼ばれる
+/** @param {Set<string>} ids 今あるレイヤーの id */
+function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
 {
   const tv = $('#tv');
   const toDoc = e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };
@@ -280,7 +285,7 @@ async function openProjectFile(f){
      レイヤーを単独で小さく描いた透明度マスクを作って調べる（変更がなければ使い回す）。
      2 = その位置に絵がある／1 = すぐ近く（細い文字を掴みやすくするための余裕）／0 = 枠の中だけ */
   // MASK_K：当たり判定用の絵の縮小率（DOC 座標の 1/4 で描く＝軽くする）。NEAR：その絵の上で「すぐ近く」とみなす範囲（px。DOC 座標では約 16px）
-  const MASK_K = 0.25, NEAR = 4, maskCache = new Map(), maskFx = new Map();
+  const MASK_K = 0.25, NEAR = 4;
   // マスクは、レイヤーの内容・キャンバス寸法・フォント数・画像の読み込み状況のどれかが変わらない限り使い回す（キーに全部入れてある）。
   // 影・光彩は当たり判定に含めない（見えている本体だけを掴めるように）
   /** @param {Layer} L */
@@ -296,8 +301,6 @@ async function openProjectFile(f){
     maskCache.set(L.id, m);
     return m;
   };
-  // render.js の pruneLayerCaches が（このファイルより先に読み込まれるため globalThis 経由で）呼ぶ。消えたレイヤーのマスクを捨てる
-  globalThis.pruneMasks = ids => { for(const m of [maskCache, maskFx]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); };
   // その位置の「絵の濃さ」の段階：2＝絵がある（アルファ>24）／1＝すぐ近く／0＝無い。マスクを作れなかったら 0
   /** @param {Layer} L */
   const pixelRank = (L, x, y) => {

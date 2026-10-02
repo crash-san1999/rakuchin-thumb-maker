@@ -22,7 +22,7 @@
 const prevCache = new Map(), dims = new Map();
 // 消えたレイヤーの描画キャッシュ・大きさの記録を捨てる（取り消し・削除のあと）。キャッシュは画像1枚ぶんの canvas を持つのでメモリ解放が目的。
 // '__bg' はレイヤーではなく背景のキャッシュなので残す
-function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); if(globalThis.pruneMasks) pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
+function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
 // tvCss：プレビュー canvas の画面上の表示幅（CSS px）。画面上の px を DOC 座標に直す（DOC.w / tvCss）ときに使う。
 // snapLines：ドラッグ中のスナップ線（DOC 座標）。drag：キャンバス上のドラッグ状態（events.js が設定）
 let tvCss = 800, snapLines = {x:null, y:null}, drag = null;
