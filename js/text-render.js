@@ -535,14 +535,15 @@ function dotPath(ctx){
 /* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 none=なし） */
 const TAIL_ANGLE = {left:115, center:90, right:65, tl:245, tr:295, sl:180, sr:0};
 // 戻り値は本体とは別の Path2D。drawPlate が枠線→塗りの順に本体としっぽを別々に描くので、しっぽの付け根の枠線は塗りで隠れる。tail なし／未知の向きなら null。
-// 第1引数 _c は未使用。rx,ry は図形の半径、kind: 'box'=四角の縁 / 'ellipse'=楕円の縁 / 'dots'=雲用の小さな丸の列。
+// 第1引数 _c は未使用。rx,ry は図形の半径、kind: 'box'=四角の縁 / 'ellipse'=楕円の縁 / 'dots'=雲用の小さな丸の列 /
+// 'ray'=縁までの距離を rx にそのまま渡す（ギザギザのように、縁が楕円で表せない形用。ry は使わない）。
 // 角度は画面座標（下が正）で、TAIL_ANGLE の度数＝中心から見た向き
 function bubbleTail(_c, p, cx, cy, rx, ry, kind){
   const t = p.tail || 'left', deg = TAIL_ANGLE[t]; if(deg === undefined) return null;
   const ctx = new Path2D();
   const S = RS.size * (p.ts || 1), a = deg * PI / 180, dx = Math.cos(a), dy = Math.sin(a);
   // 中心から角度の向きに進んで、図形の縁に当たる点
-  const k = kind === 'box' ? 1 / Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry) : 1 / Math.hypot(dx / rx, dy / ry), bx = cx + dx * k, by = cy + dy * k;
+  const k = kind === 'ray' ? rx : kind === 'box' ? 1 / Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry) : 1 / Math.hypot(dx / rx, dy / ry), bx = cx + dx * k, by = cy + dy * k;
   if(kind === 'dots'){   // 考え事の雲：小さな丸が3つ、外へ小さくなりながら並ぶ
     [[0.34, 0.26], [0.78, 0.17], [1.1, 0.1]].forEach(([d, r]) => { const px = bx + dx * S * d, py = by + dy * S * d; ctx.moveTo(px + S * r, py); ctx.arc(px, py, S * r, 0, 7); });
     return ctx;
@@ -552,6 +553,17 @@ function bubbleTail(_c, p, cx, cy, rx, ry, kind){
   ctx.lineTo(bx + dx * S * 0.62 + (Math.abs(dy) > 0.5 ? lean : 0), by + dy * S * 0.62);
   ctx.lineTo(bx - dx * S * 0.2 - nx * S * 0.27, by - dy * S * 0.2 - ny * S * 0.27); ctx.closePath();
   return ctx;
+}
+// 中心 (cx,cy) から角度 deg（画面座標・TAIL_ANGLE と同じ）の向きに進んで、折れ線 pts（閉じた多角形の頂点列）の縁に当たるまでの距離。当たらなければ 0。
+// ギザギザの吹き出しは、とげの長さが向きごとに違う（半径の 1.04〜1.44 倍）ので、固定の楕円では縁に付けられない。実際の輪郭との交点を求めて、しっぽの付け根にする
+function rayToPolygon(pts, cx, cy, deg){
+  const a = deg * PI / 180, dx = Math.cos(a), dy = Math.sin(a); let best = 0;
+  for(let i = 0; i < pts.length - 1; i++){
+    const [x1, y1] = pts[i], ex = pts[i + 1][0] - x1, ey = pts[i + 1][1] - y1, den = dx * ey - dy * ex; if(Math.abs(den) < 1e-9) continue;
+    const t = ((x1 - cx) * ey - (y1 - cy) * ex) / den, u = ((x1 - cx) * dy - (y1 - cy) * dx) / den;
+    if(t > best && u >= 0 && u <= 1) best = t;
+  }
+  return best;
 }
 /* 背景シェイプ（角丸・楕円・ギザギザ・吹き出し・斜め帯） */
 // 文字全体（L.ty0〜ty1 × 0〜L.w）の外側に pad＋フチの最大幅 outer を足した矩形を基準に描く。背面レイヤー A に最初に描かれる。
@@ -587,13 +599,15 @@ function drawPlate(ctx, L, outer){
       for(let i = 0; i < n; i++){ const a = i / n * 2 * PI, px = cx + Math.cos(a) * rx, py = cy + Math.sin(a) * ry; ctx.moveTo(px + r, py); ctx.arc(px, py, r, 0, 7); }
       tail = bubbleTail(ctx, p, cx, cy, rx + r * 0.6, ry + r * 0.6, 'dots'); break;
     }
-    case 'shout': {   // 叫び：ギザギザの吹き出し
-      const R = rng(p.seed), n = Math.max(12, Math.round((w + h) / (RS.size * 0.4)));
+    case 'shout': {   // 叫び：ギザギザの吹き出し。しっぽは、実際の輪郭（とげの先・谷）との交点に付ける（固定の楕円に付けると、長いとげの下に隠れる）
+      const R = rng(p.seed), n = Math.max(12, Math.round((w + h) / (RS.size * 0.4))), pts = [];
       for(let i = 0; i <= n * 2; i++){
         const a = i / (n * 2) * 2 * PI, k = i % 2 === 0 ? 1.28 + R() * 0.16 : 1.04, px = cx + Math.cos(a) * w / 2 * k, py = cy + Math.sin(a) * h / 2 * k * 1.08;
-        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+        pts.push([px, py]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
       }
-      ctx.closePath(); tail = bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse'); break;
+      ctx.closePath();
+      const deg = TAIL_ANGLE[p.tail || 'left'], reach = deg === undefined ? 0 : rayToPolygon(pts, cx, cy, deg);
+      tail = reach > 0 ? bubbleTail(ctx, p, cx, cy, reach, 0, 'ray') : bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse'); break;
     }
     case 'para': { const k = h * 0.35; ctx.moveTo(x0 + k, y0); ctx.lineTo(x1 + k, y0); ctx.lineTo(x1 - k, y1); ctx.lineTo(x0 - k, y1); ctx.closePath(); break; }
     default: ctx.roundRect(x0, y0, w, h, Math.min(h / 2, RS.size * 0.3));
