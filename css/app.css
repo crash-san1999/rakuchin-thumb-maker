@@ -601,3 +601,4 @@ body.is-mobile .app-head .head-group{flex:none}
 @media (max-width:340px){ .seg button{padding-left:5px;padding-right:5px;font-size:11px} .seg.shapes button{padding-left:0;padding-right:0} }
 @media (max-width:2100px){ body:not(.is-mobile) #copyBtn .hide-sm{display:none} }
 @media (max-width:2000px){ body:not(.is-mobile) .brand-sub{display:none} }
+.float .chip[hidden]{display:none}

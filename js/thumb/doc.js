@@ -20,7 +20,8 @@
 // 毎回新しいオブジェクトを返す（Object.assign のベースに使うので、共有すると保存データを書き換えてしまう）
 const DOC_BASE = () => ({
   mode:'thumb', w:1920, h:1080, exportW:1920, fmt:'png', limit2mb:true,
-  guides:{thirds:false, badge:true, snap:true, fx:true},
+  guides:{thirds:false, badge:true, snap:true, fx:true, safe:false},
+  hdr:'',   // ヘッダー画像の種類（'yt'＝YouTubeチャンネルアート / 'tw'＝Twitchバナー / ''＝なし）。あるときだけセーフエリアのガイドが使える（canvas.js の HEADER_SPECS）
   bg:{hidden:false, op:1, type:'grad', color:'#16161c', c1:'#ff5a2e', c2:'#ffbe3b', angle:120, asset:null, fit:'cover', zoom:1, ox:0, oy:0, rot:0, flip:false,
       gap:'blur', gapColor:'#111114', bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
       dim:0, vignette:0, fcx:0.5, fcy:0.5, shade:{on:false, c:'#000000', amt:0.75, angle:90, cover:0.55},
@@ -69,6 +70,8 @@ function normalizeDoc(d){
   o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none';
   for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
+  // ヘッダー画像の種類は、キャンバスの大きさがその規定サイズと同じときだけ有効（食い違う保存データは無効にする）
+  const hs = HEADER_SPECS[d.hdr]; o.hdr = hs && hs.w === o.w && hs.h === o.h ? d.hdr : ''; if(!o.hdr) o.guides.safe = false;
   // 旧データ互換：背景効果の中心はもとはズームブラー専用（zb.cx/cy）だった。fcx/fcy が無い古いデータでは、そちらの値を引き継ぐ
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
   // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、未対応の fx 種別（バージョン違いの保存データ）は捨てる。
@@ -181,6 +184,7 @@ function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syn
 function syncDoc(except){
   DB.sync(except);
   document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
+  const sc = $('#safeChip'); if(sc) sc.hidden = !DOC.hdr;   // セーフエリアのボタンはヘッダー画像のときだけ出す
   const L = selLayer(); document.querySelectorAll('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
   renderInspector();
   renderCells(); renderCellText();

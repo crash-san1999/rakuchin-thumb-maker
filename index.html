@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=4c7ee40b">
+<link rel="stylesheet" href="css/app.css?v=ac6db5fd">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -171,6 +171,7 @@
   </div>
   <div class="float top only-thumb">
     <span class="lbl">ガイド</span>
+    <button class="chip" id="safeChip" data-guide="safe" hidden title="ヘッダー画像で、どの端末でも見える範囲（セーフエリア）をキャンバス上に表示">セーフエリア</button>
     <button class="chip" data-guide="thirds">三分割</button>
     <button class="chip" data-guide="badge">再生時間</button>
     <button class="chip" data-guide="snap">スナップ</button>
@@ -250,7 +251,7 @@
       <div class="row"><label>形</label><select id="canvasPreset"></select></div>
       <div class="row"><label>自由指定</label><span class="sizein"><input type="number" id="cvW" min="200" max="5000" step="1" inputmode="numeric" aria-label="横"><i>×</i><input type="number" id="cvH" min="200" max="5000" step="1" inputmode="numeric" aria-label="縦"><button class="btn sm" id="cvApply">適用</button></span></div>
       <label class="chk"><input type="checkbox" id="cvFit" checked> 今ある内容も、新しいサイズに合わせて置き直す</label>
-      <p class="note">縦配信（1080×1920）などに切り替えられます。200〜5000 px で自由にも指定できます。取り消し（Ctrl+Z）で戻せます。</p>
+      <p class="note">縦配信（1080×1920）などに切り替えられます。YouTube／Twitch のヘッダー画像を選ぶと、セーフエリア（どの端末でも見える範囲）のガイドが自動で出ます。200〜5000 px で自由にも指定できます。取り消し（Ctrl+Z）で戻せます。</p>
     </div>
 </div>
 <div class="pop" id="fileMenu">
@@ -363,37 +364,37 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=4c7ee40b"></script>
-<script src="js/bind.js?v=4c7ee40b"></script>
-<script src="js/presets.js?v=4c7ee40b"></script>
-<script src="js/data/font-list.js?v=4c7ee40b"></script>
-<script src="js/fonts.js?v=4c7ee40b"></script>
-<script src="js/controls.js?v=4c7ee40b"></script>
-<script src="js/text-render.js?v=4c7ee40b"></script>
-<script src="js/preview.js?v=4c7ee40b"></script>
-<script src="js/colors.js?v=4c7ee40b"></script>
-<script src="js/history.js?v=4c7ee40b"></script>
-<script src="js/thumb/frames.js?v=4c7ee40b"></script>
-<script src="js/thumb/collage.js?v=4c7ee40b"></script>
-<script src="js/thumb/library.js?v=4c7ee40b"></script>
-<script src="js/thumb/canvas.js?v=4c7ee40b"></script>
-<script src="js/thumb/group.js?v=4c7ee40b"></script>
-<script src="js/thumb/fx.js?v=4c7ee40b"></script>
-<script src="js/thumb/cutout.js?v=4c7ee40b"></script>
-<script src="js/thumb/assets.js?v=4c7ee40b"></script>
-<script src="js/thumb/doc.js?v=4c7ee40b"></script>
-<script src="js/thumb/finish.js?v=4c7ee40b"></script>
-<script src="js/thumb/render.js?v=4c7ee40b"></script>
-<script src="js/thumb/overlay.js?v=4c7ee40b"></script>
-<script src="js/thumb/editmodes.js?v=4c7ee40b"></script>
-<script src="js/thumb/layers.js?v=4c7ee40b"></script>
-<script src="js/thumb/export.js?v=4c7ee40b"></script>
-<script src="js/thumb/inspector.js?v=4c7ee40b"></script>
-<script src="js/thumb/events.js?v=4c7ee40b"></script>
-<script src="js/mobile.js?v=4c7ee40b"></script>
-<script src="js/pwa.js?v=4c7ee40b"></script>
-<script src="js/changelog.js?v=4c7ee40b"></script>
-<script src="js/popups.js?v=4c7ee40b"></script>
-<script src="js/main.js?v=4c7ee40b"></script>
+<script src="js/core.js?v=ac6db5fd"></script>
+<script src="js/bind.js?v=ac6db5fd"></script>
+<script src="js/presets.js?v=ac6db5fd"></script>
+<script src="js/data/font-list.js?v=ac6db5fd"></script>
+<script src="js/fonts.js?v=ac6db5fd"></script>
+<script src="js/controls.js?v=ac6db5fd"></script>
+<script src="js/text-render.js?v=ac6db5fd"></script>
+<script src="js/preview.js?v=ac6db5fd"></script>
+<script src="js/colors.js?v=ac6db5fd"></script>
+<script src="js/history.js?v=ac6db5fd"></script>
+<script src="js/thumb/frames.js?v=ac6db5fd"></script>
+<script src="js/thumb/collage.js?v=ac6db5fd"></script>
+<script src="js/thumb/library.js?v=ac6db5fd"></script>
+<script src="js/thumb/canvas.js?v=ac6db5fd"></script>
+<script src="js/thumb/group.js?v=ac6db5fd"></script>
+<script src="js/thumb/fx.js?v=ac6db5fd"></script>
+<script src="js/thumb/cutout.js?v=ac6db5fd"></script>
+<script src="js/thumb/assets.js?v=ac6db5fd"></script>
+<script src="js/thumb/doc.js?v=ac6db5fd"></script>
+<script src="js/thumb/finish.js?v=ac6db5fd"></script>
+<script src="js/thumb/render.js?v=ac6db5fd"></script>
+<script src="js/thumb/overlay.js?v=ac6db5fd"></script>
+<script src="js/thumb/editmodes.js?v=ac6db5fd"></script>
+<script src="js/thumb/layers.js?v=ac6db5fd"></script>
+<script src="js/thumb/export.js?v=ac6db5fd"></script>
+<script src="js/thumb/inspector.js?v=ac6db5fd"></script>
+<script src="js/thumb/events.js?v=ac6db5fd"></script>
+<script src="js/mobile.js?v=ac6db5fd"></script>
+<script src="js/pwa.js?v=ac6db5fd"></script>
+<script src="js/changelog.js?v=ac6db5fd"></script>
+<script src="js/popups.js?v=ac6db5fd"></script>
+<script src="js/main.js?v=ac6db5fd"></script>
 </body>
 </html>
