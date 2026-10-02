@@ -10,7 +10,7 @@
   呼び出し元：events.js（キャンバスのポインタ・ホイール・ダブルクリック・Esc・各ボタン）、mobile.js（ピンチ）、
             overlay.js（drawEditOverlay。編集中は通常の選択枠を出さずこちらを描く）、layers.js（別のレイヤーを選ぶと setEdit(null)）。
   依存：DOC・selLayer・syncDoc（doc.js）、drag・tvCss・livePaint・paintPreview（render.js）、frameGeom・frameCompensate・framePath（frames.js）、
-       cutPixelColor・cropSrc・cropRect（cutout.js / assets.js）、collageCellAt・swapCells など（collage.js）。
+       cutPixelColor・cropSrc・cropRect（cutout.js / assets.js）、collageCellAt・swapCells など（collage-cells.js）。
 
   EDIT_MODES の各モードが持つもの（無いものは省略可）：
     btn・label … 切り替えボタンの id と通常時の文字（編集中は「調整を終える」に差し替える）

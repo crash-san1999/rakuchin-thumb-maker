@@ -68,7 +68,10 @@ js/preview.js              文字素材モードのプレビュー・書き出�
 js/colors.js               配色（パレット・色調整・背景画像からの配色）
 js/history.js              取り消し／やり直し
 js/thumb/frames.js         画像の切り抜きフレーム（形・枠のデザイン・プリセット）
-js/thumb/collage.js        分割フレーム（複数の画像を2〜8分割で並べる）
+js/thumb/collage.js        分割フレーム（複数の画像を2〜8分割で並べる）① データの形・マスの効果・分割のしかたの一覧
+js/thumb/collage-draw.js   分割フレーム ② 分割の計算・境界の形・マスの画像と文字の描画
+js/thumb/collage-cells.js  分割フレーム ③ 位置→マスの判定・マスの文字のスタイル・1週間の自動入力・画像の割り当て
+js/thumb/collage-panel.js  分割フレーム ④ 操作パネル（マス一覧・背景色と文字タブ）とイベント、レイアウトのアイコン
 js/pwa.js                   アプリとして使う（Service Worker の登録・更新のお知らせ・アプリとして追加）
 js/thumb/cutout.js         背景透過（色指定で透明化・消す／戻すブラシ）
 js/thumb/library.js        素材置き場（画像・文字スタイルのストック、容量の上限、バックアップ）

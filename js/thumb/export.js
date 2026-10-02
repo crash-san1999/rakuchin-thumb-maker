@@ -15,7 +15,7 @@ async function thumbBlob(fmt){
   // JPEG は透明を持てない（黒くなる）ので、先に白で塗っておく。PNG は背景非表示のとき透明のまま
   if(fmt !== 'png'){ const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }
   // 書き出し用の描画：live=false（高品質）、キャッシュは使い捨ての new Map()（プレビュー用 prevCache と倍率が違うので混ぜない）。
-  // exporting は書き出し中だけ true にする目印（collage.js が、画像の無い空きマスの目印表示を書き出しには出さないために見る）。例外でも必ず戻す
+  // exporting は書き出し中だけ true にする目印（collage-draw.js が、画像の無い空きマスの目印表示を書き出しには出さないために見る）。例外でも必ず戻す
   exporting = true; try{ compose(c.getContext('2d'), W, H, false, new Map()); } finally { exporting = false; }
   const toB = (t, q) => new Promise(r => c.toBlob(r, t, q));
   if(fmt === 'png') return toB('image/png');
