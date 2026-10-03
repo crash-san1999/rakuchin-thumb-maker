@@ -5,6 +5,7 @@
    ・text   … 文字の装飾：文字パネルの定義から作る全装飾 × 全選択肢・スライダーの最小／最大、全装飾の重ね合わせ、プリセットの縦書き
    ・normalize … 保存データの読み込み（normalizeDoc）：古い形式・壊れた値・細工された値の入力に対する出力の JSON
    ・layers … レイヤーパネルの HTML（種類・選択・複数選択・非表示・ロック・グループ・背景などの状態ごと。1 文字の違いも検出）
+   ・fontlist … フォント一覧（renderFontList）の HTML・件数表示・見本の遅延読み込みの対象（検索語 × 分類 × 用途 × 選択中・英数字用・お気に入り・本文の状態ごと）
    ・collage … 分割フレームの全レイアウト × 分割数・境界・効果・背景色と文字・1週間の自動入力・位置→マスの判定・アイコン
    compare.py と違い、1 ピクセルの違いも許さない（同じブラウザで描くので、描画内容が同じなら結果も完全に同じになる）。
    「描き方を整理しただけで、見た目は変えない」リファクタリングの確認に使う。違いがあれば、その組み合わせの名前を表示する"""
@@ -212,11 +213,35 @@ run('選択 なし', D([I()], {sel:'Lnone', textSel:'Lnone'}));
 run('選択 文字あり', D([I(), T({id:'Lt2'})], {sel:'Li', textSel:'Lnone'}));
 return out;"""
 
+# フォント一覧：検索語・分類・用途・選択中のフォント・英数字用フォント・お気に入り・本文を変えて renderFontList を呼び、
+# #flist の HTML（長いのでハッシュ）・件数表示・使用中表示・遅延読み込みに登録された書体を比べる。
+# 読み込み済みの書体（cssState）で表示が変わるので、比べる間は決まった中身にし、遅延読み込みは実際には始めない（登録された名前だけ記録）
+FONTLIST = """
+const out = [], hs = s => { let a = 2166136261, b = 5381; for(let i = 0; i < s.length; i++){ const c = s.charCodeAt(i); a = Math.imul(a ^ c, 16777619); b = (b * 33 + c) | 0; } return s.length + ':' + (a >>> 0).toString(16) + (b >>> 0).toString(16); };
+const keepCss = new Map(cssState), keepFav = new Set(favs), keepS = JSON.parse(JSON.stringify(S)), obs0 = io.observe; let obs = [];
+io.observe = el => { obs.push(el.dataset.family); };
+const fake = [{family:'テストPC書体', src:'local', cat:'ゴシック'}, {family:'テストファイル書体 <b>', src:'file', cat:'手書き', usage:'ポップ・<i>'}]; fonts.push(...fake);   // PC 内・ファイルの書体（テスト環境には無いので足す）
+cssState.clear(); const heavy = fonts.filter(f => f.mb > 1); if(heavy[0]) cssState.set(heavy[0].family, Promise.resolve());
+const g = fonts.find(f => f.src === 'google' && !f.more), w = fonts.find(f => WEB_SRC.includes(f.src)); if(g) cssState.set(g.family, Promise.resolve());
+const lat = fonts.find(f => f.cat === '欧文');
+const opt = sel => [...document.querySelectorAll(sel + ' option')].map(o => o.value);
+const shot = name => { obs = []; renderFontList(); out.push([name, hs(document.querySelector('#flist').innerHTML) + '|' + document.querySelector('#fcount').textContent + '|' + document.querySelector('#curFont').textContent + '|' + hs(obs.join(','))]); };
+const set = (q, cat, use) => { document.querySelector('#fq').value = q; document.querySelector('#fcat').value = cat; document.querySelector('#fuse').value = use; };
+favs.clear(); [fonts[0], heavy[0], w, lat].filter(Boolean).forEach(f => favs.add(f.family));
+for(const q of ['', 'noto', 'ポップ', 'A', 'zzzz', '  Gothic  ']) for(const cat of opt('#fcat')) for(const use of ['', ...opt('#fuse').filter(Boolean).slice(0, 2)]){ set(q, cat, use); shot(`検索「${q}」 分類 ${cat} 用途 ${use}`); }
+for(const use of opt('#fuse')){ set('', '', use); shot('用途だけ ' + use); }
+set('', '', ''); 
+for(const [t, f, fl] of [['RANK UP 99', fonts[3].family, lat ? lat.family : ''], ['あいう\\n\\n2行目', heavy[0] ? heavy[0].family : fonts[1].family, ''], ['{強調}だけ', 'ない書体', ''], ['', fonts[0].family, ''], ['ABCDEFGHIJKLMNOPQRSTUV xyz', fonts[2].family, '']])
+  for(const cat of ['', '欧文', 'お気に入り']){ S.text = t; S.font = f; S.fontLatin = fl; set('', cat, ''); shot(`本文「${t}」 使用中 ${f} 英数字 ${fl} 分類 ${cat}`); }
+fonts.splice(fonts.length - fake.length, fake.length); io.observe = obs0; cssState.clear(); keepCss.forEach((v, k) => cssState.set(k, v)); favs.clear(); keepFav.forEach(f => favs.add(f)); Object.assign(S, keepS); set('', '', ''); renderFontList();
+return out;"""
+
 async def capture(p, root, suites):
     pg = await open_app(p, root=root)
     res = {}
     if 'fx' in suites: res['fx'] = await pg.evaluate('(() => {' + FX + '})()')
     if 'text' in suites: res['text'] = await pg.evaluate('(() => {' + TEXT + '})()')
+    if 'fontlist' in suites: res['fontlist'] = await pg.evaluate('(() => {' + FONTLIST + '})()')
     if 'normalize' in suites: res['normalize'] = await pg.evaluate('(() => {' + NORMALIZE + '})()')
     if 'frames' in suites or 'collage' in suites or 'layers' in suites:
         # テスト用の画像を、決まった id の素材として登録する（変更前後とも同じ条件にする。IndexedDB には書かない）
@@ -252,5 +277,5 @@ async def main(ref, suites):
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers', 'normalize'])
+    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers', 'normalize', 'fontlist'])
     sys.exit(1 if asyncio.run(main(args[0] if args else 'HEAD', suites)) else 0)

@@ -334,36 +334,43 @@ function sampleText(){
   const s = plainText().split('\n').find(l => l.trim()) || '';
   return (s.trim() || 'サンプル文字あア亜').slice(0, 14);
 }
-// フォント一覧を作り直す（検索・分類・用途・お気に入り・選択状態が変わるたびに呼ぶ。毎回 DOM を作り直す）。
-// 絞り込みの注意：「お気に入り」「web」は分類より優先。more（Google の残りの欧文）は、検索中か「欧文」タブのときだけ出す。
-// 重い書体（mb>1）は見本の自動読み込みをせず「選ぶと読込」と表示する（一覧を見ただけで数十MB取得しないため）
-function renderFontList(){
-  const q = $('#fq').value.trim().toLowerCase(), cat = $('#fcat').value, use = $('#fuse').value;
-  const list = fonts.filter(f => {
-    if(q && !f.family.toLowerCase().includes(q) && !usageOf(f).includes(q)) return false;
-    if(use && !USE_KEYS[use].some(k => usageOf(f).includes(k))) return false;
+// 一覧の絞り込み条件（検索語・分類・用途）を画面から読む
+const fontQuery = () => ({q: $('#fq').value.trim().toLowerCase(), cat: $('#fcat').value, use: $('#fuse').value});
+// 絞り込み：「お気に入り」「web」は分類より優先。more（Google の残りの欧文）は、検索中か「欧文」タブのときだけ出す
+function filterFonts({q, cat, use}){
+  return fonts.filter(f => {
+    const u = usageOf(f);
+    if(q && !f.family.toLowerCase().includes(q) && !u.includes(q)) return false;
+    if(use && !USE_KEYS[use].some(k => u.includes(k))) return false;
     if(cat === 'お気に入り') return favs.has(f.family);
     if(cat === 'web') return WEB_SRC.includes(f.src);
     if(cat && f.cat !== cat) return false;
     if(f.more && !q && cat !== '欧文') return false;
     return true;
   });
-  const box = $('#flist'); box.innerHTML = '';
-  const frag = document.createDocumentFragment(); const smp = sampleText();
-  list.forEach(f => {
-    const d = document.createElement('div');
-    d.className = 'fi' + (f.family === S.font ? ' on' : ''); d.dataset.family = f.family;
-    const badge = f.src === 'local' ? 'PC' : f.src === 'file' ? 'FILE' : WEB_SRC.includes(f.src) ? 'WEB・' + f.cat : f.cat;
-    const lazy = f.mb > 1 && !cssState.has(f.family);
-    const latBtn = f.cat === '欧文' ? `<button class="lat${S.fontLatin === f.family ? ' on' : ''}" title="英字・数字だけこのフォントにする">英数字</button>` : '';
-    d.innerHTML = `<div class="fn"><span></span><span>${latBtn}<button class="fav${favs.has(f.family)?' on':''}" title="お気に入り">${ic('star')}</button></span></div><div class="fs"></div>`;
-    d.querySelector('.fn span').innerHTML = `${escapeHtml(f.family)}<b>${escapeHtml(badge)}</b>${usageOf(f) ? `<span class="tag">${escapeHtml(usageOf(f))}</span>` : ''}${lazy ? `<span class="tag">選ぶと読込（約${f.mb}MB）</span>` : ''}`;
-    const fs = d.querySelector('.fs'); fs.style.fontFamily = `"${f.family}", "Noto Sans JP", sans-serif`;
-    fs.textContent = f.cat === '欧文' ? (latinSample() || 'RANK UP 1000') : smp;
-    frag.appendChild(d);
-    if(!lazy && ['google', ...WEB_SRC].includes(f.src) && !cssState.has(f.family)) io.observe(d);
-  });
-  box.appendChild(frag);
+}
+// 書体名の横の小さな札（PC 内・ファイル・Web の取得元・分類）
+const fontBadge = f => f.src === 'local' ? 'PC' : f.src === 'file' ? 'FILE' : WEB_SRC.includes(f.src) ? 'WEB・' + f.cat : f.cat;
+// 見本を遅延読み込みする取得元（Google と Web 系）
+const LAZY_SRC = ['google', ...WEB_SRC];
+// 一覧の1行。smp＝和文の見本、lsmp＝欧文の見本。重い書体（mb>1）は見本を自動で読み込まず「選ぶと読込」と出す（一覧を見ただけで数十MB取得しないため）。
+// 戻り値の watch＝見本を画面に近づいたら読み込む行か
+function fontRow(f, smp, lsmp){
+  const d = document.createElement('div'), u = usageOf(f), lazy = f.mb > 1 && !cssState.has(f.family);
+  d.className = 'fi' + (f.family === S.font ? ' on' : ''); d.dataset.family = f.family;
+  const latBtn = f.cat === '欧文' ? `<button class="lat${S.fontLatin === f.family ? ' on' : ''}" title="英字・数字だけこのフォントにする">英数字</button>` : '';
+  const name = `${escapeHtml(f.family)}<b>${escapeHtml(fontBadge(f))}</b>${u ? `<span class="tag">${escapeHtml(u)}</span>` : ''}${lazy ? `<span class="tag">選ぶと読込（約${f.mb}MB）</span>` : ''}`;
+  d.innerHTML = `<div class="fn"><span>${name}</span><span>${latBtn}<button class="fav${favs.has(f.family) ? ' on' : ''}" title="お気に入り">${ic('star')}</button></span></div><div class="fs"></div>`;
+  const fs = d.querySelector('.fs'); fs.style.fontFamily = `"${f.family}", "Noto Sans JP", sans-serif`;
+  fs.textContent = f.cat === '欧文' ? lsmp : smp;
+  return {d, watch: !lazy && LAZY_SRC.includes(f.src) && !cssState.has(f.family)};
+}
+// フォント一覧を作り直す（検索・分類・用途・お気に入り・選択状態が変わるたびに呼ぶ。毎回 DOM を作り直す）
+function renderFontList(){
+  const fq = fontQuery(), {q, cat} = fq, list = filterFonts(fq);
+  const box = $('#flist'), frag = document.createDocumentFragment(), smp = sampleText(), lsmp = latinSample() || 'RANK UP 1000';
+  list.forEach(f => { const {d, watch} = fontRow(f, smp, lsmp); frag.appendChild(d); if(watch) io.observe(d); });
+  box.innerHTML = ''; box.appendChild(frag);
   $('#fcount').textContent = `${list.length.toLocaleString()} / ${fonts.length.toLocaleString()} 書体` + (!q && cat !== '欧文' && cat !== 'web' && !cat ? '（欧文の全書体は「欧文」か検索で）' : '');
   $('#curFont').textContent = `使用中: ${S.font}`;
 }
