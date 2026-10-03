@@ -19,7 +19,7 @@ function collageCellAt(L, x, y){
 // ドキュメント座標 (x,y) → 並べる向きに沿った位置 u（0〜1）と、その向きの長さ len。並べる向き以外のレイアウトは null
 /** @param {Layer} L */
 function collageAxisPos(L, x, y){
-  if(L.layout !== 'cols' && L.layout !== 'rows') return null;
+  if(!collageResizable(L.layout)) return null;
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
   if(L.layout === 'cols'){ const d = (L.slant || 0) * h * 0.5; return {u:(lx - d * (1 - 2 * ly / h)) / w, len:w, cross:ly / h}; }
@@ -28,7 +28,7 @@ function collageAxisPos(L, x, y){
 // いまのマスの幅の比率と、境界の位置（0〜1。先頭は 0、最後は 1）
 /** @param {Layer} L */
 function collageEdges(L){
-  const n = collageN(L), ws = L.cells.slice(0, n).map(c => clamp(+c.w || 1, 0.05, 20)), sum = ws.reduce((a, b) => a + b, 0), e = [0];
+  const n = collageN(L), ws = L.cells.slice(0, n).map(cellW), sum = ws.reduce((a, b) => a + b, 0), e = [0];
   ws.forEach(v => e.push(e[e.length - 1] + v / sum)); e[n] = 1; return {ws, sum, e};
 }
 // (x,y) の近くにある境界線の番号 j（マス j-1 と j の間。1〜n-1）。無ければ 0

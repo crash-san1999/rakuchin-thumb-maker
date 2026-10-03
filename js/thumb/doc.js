@@ -95,7 +95,7 @@ function sanitizeDocRefs(o){
   // 色：不正な文字列だと、HTML 属性を壊すだけでなく addColorStop が例外を出して描画が止まるので、読み込み時に使える色へそろえる
   o.layers.forEach(l => {
     if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
-      c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = clamp(+c.w || 1, 0.05, 20); });
+      c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = cellW(c); });
     if(l.type === 'collage'){ const t = l.ttx; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); }
     if(l.type === 'fx' && l.p) l.p.c = safeColor(l.p.c, '#ffffff');
   });

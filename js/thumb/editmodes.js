@@ -134,7 +134,7 @@ const EDIT_MODES = {
     btn:'collageEditBtn', label:'キャンバスでマスの画像を調整',
     ok: L => L.type === 'collage',
     hint: () => isMobile ? 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ピンチで拡大縮小。外をタップで終了' : 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ホイールで拡大縮小（Shift+ホイールで回転）。Esc か外をクリックで終了',
-    banner: L => (isMobile ? `マス${L.ac + 1}：ドラッグで移動／別のマスへで入れ替え／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}：ドラッグで移動／別のマスへ持っていくと入れ替え／ホイールで拡大縮小・Shift+ホイールで回転／Esc で終了`) + (L.layout === 'cols' || L.layout === 'rows' ? '／境界線をドラッグで幅' : ''),
+    banner: L => (isMobile ? `マス${L.ac + 1}：ドラッグで移動／別のマスへで入れ替え／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}：ドラッグで移動／別のマスへ持っていくと入れ替え／ホイールで拡大縮小・Shift+ホイールで回転／Esc で終了`) + (collageResizable(L.layout) ? '／境界線をドラッグで幅' : ''),
     enter(L, x, y){ if(x != null){ const i = collageCellAt(L, x, y); if(i >= 0) L.ac = i; } },
     down(L, x, y){
       // 「縦に並べる」「横に並べる」の境界線の近くなら、境界線のドラッグ（マスの幅を変える）
@@ -173,7 +173,7 @@ const EDIT_MODES = {
       const sw = swapTarget && swapTarget.id === L.id ? swapTarget.j : -1;
       cells.forEach((p, i) => { collagePath(ctx, p); if(i === sw){ ctx.fillStyle = 'rgba(92,240,138,.28)'; ctx.fill(); } ctx.lineWidth = (i === L.ac || i === sw ? 3 : 1.5) * dpr / f; ctx.strokeStyle = i === sw ? '#5cf08a' : i === L.ac ? '#ffb800' : 'rgba(255,255,255,.8)'; ctx.setLineDash(i === L.ac || i === sw ? [] : [6 * dpr / f, 5 * dpr / f]); ctx.stroke(); });
       // 「縦に並べる」「横に並べる」は境界線をドラッグできるので、境界線の中央につまみを出す
-      if(L.layout === 'cols' || L.layout === 'rows') for(let j = 1; j < cells.length; j++){
+      if(collageResizable(L.layout)) for(let j = 1; j < cells.length; j++){
         const near = (p, q) => Math.abs(p[0] - q[0]) < 0.5 && Math.abs(p[1] - q[1]) < 0.5, sh = cells[j].filter(p => cells[j - 1].some(q => near(p, q)));
         if(sh.length < 2) continue;
         const mx = sh.reduce((a, p) => a + p[0], 0) / sh.length, my = sh.reduce((a, p) => a + p[1], 0) / sh.length, r = 7 * dpr / f;

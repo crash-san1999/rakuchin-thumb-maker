@@ -10,12 +10,13 @@ let exporting = false;
 // 縦に並べる(cols)を基本形にして、横並び・縦長はその x/y を入れ替えて作る（swap。向きを保つため頂点順も反転）
 // レイヤー L のマスの形（W×H のピクセル座標）。lay を渡すとその配置で（書き出しのアイコンなど）
 /** @param {Layer} L */
-function collageCellsOf(L, W, H, lay){ return collageCells(lay || L.layout, collageN(L), W, H, L.slant, L.main, L.cells.map(c => clamp(+c.w || 1, 0.05, 20))); }
+function collageCellsOf(L, W, H, lay){ return collageCells(lay || L.layout, collageN(L), W, H, L.slant, L.main, L.cells.map(cellW)); }
 // ws＝マスごとの幅の比率（「縦に並べる」「横に並べる」だけで使う）。全部同じなら等分（従来と同じ計算）
 function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   if(!collageLayoutOk(lay, n)) lay = 'cols';
   const wk = ws && ws.slice(0, n).some(v => v !== ws[0]) ? ws.slice(0, n) : null, wsum = wk ? wk.reduce((a, b) => a + b, 0) : 0;
-  // 境界 i の位置（0〜1）。比率が全部同じときは i / k（従来どおり）
+  // 境界 i の位置（0〜1）。比率が全部同じときは i / k（従来どおり）。k === n（マスを1列に全部並べる）のは「縦に並べる」「横に並べる」だけなので、
+  // ほかの配置（グリッド・大きく・2段など）には比率は効かない
   const edgeAt = (i, k) => { if(!wk || k !== n) return i / k; let a = 0; for(let j = 0; j < i; j++) a += wk[j]; return a / wsum; };
   const quadCols = (x0, x1, y0, y1, k, d) => { // x0..x1 を k 列に、上下で d ずらす
     const tops = [], bots = [];

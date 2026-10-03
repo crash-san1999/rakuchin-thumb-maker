@@ -16,7 +16,9 @@ async def run(p):
     doc['layers'] = [
         {'id': EVIL, 'type': 'fx', 'kind': 'confetti', 'p': {'c': EVIL}},
         {'id': 'ok1', 'type': 'collage', 'n': 2, 'gid': EVIL, 'asset': EVIL,
-         'cells': [{'asset': EVIL, 'bg': {'on': True, 'c': EVIL, 'c2': EVIL, 'grad': True}, 'tx': {'on': True, 'text': '<img src=x onerror="window.__pwn=1">'}}, {}]},
+         'ttx': {'sc': EVIL, 'ox': 1e9, '__proto__': {'polluted': 1}}, 'wk': {'memo': EVIL, 'start': EVIL},
+         'cells': [{'asset': EVIL, 'w': EVIL, 'bg': {'on': True, 'c': EVIL, 'c2': EVIL, 'grad': True},
+                    'tx': {'on': True, 'text': '<img src=x onerror="window.__pwn=1">', 'fcOn': True, 'fc': EVIL, 'ecOn': True, 'ec': EVIL}}, {'w': -5}]},
     ]
     doc['bg']['asset'] = EVIL
     await pg.evaluate("d => { loadDocObj(d); }", doc); await settle(pg, 1500)
@@ -26,6 +28,11 @@ async def run(p):
       okIds: DOC.layers.every(l => okId(l.id)), asset: [DOC.bg.asset, DOC.layers[1].asset, DOC.layers[1].cells[0].asset], gid: DOC.layers[1].gid})""")
     assert r['bad'] == 0, f'画面に onerror 付きの要素が出来た {r}'
     assert r['okIds'] and r['asset'] == [None, None, None] and r['gid'] is None, f'id・画像参照が安全な形にそろっていない {r}'
+    # 分割フレームのマスの文字色・フチ色・幅・まとめての調整・MEMO の位置：不正な値は既定値・範囲内にそろい、ほかのオブジェクトを汚さない
+    r = await pg.evaluate("""(() => { const L = DOC.layers[1], c = L.cells[0]; return [c.tx.fc, c.tx.ec, c.w, L.cells[1].w, L.ttx.sc, L.ttx.ox, L.wk.memo, ({}).polluted === undefined, Object.prototype.polluted === undefined]; })()""")
+    assert r == ['#ffffff', '#1f1b2d', 1, 0.05, 1, 1, 8, True, True], f'分割フレームの新しい項目が安全な値にそろっていない {r}'
+    await page(pg, 'lay-ctext'); await settle(pg, 400)
+    assert await pg.evaluate("window.__pwn") == 0 and await pg.evaluate("document.querySelectorAll('[onerror]').length") == 0
     # 3) 色の検査
     r = await pg.evaluate("[safeColor('#ff00aa'), safeColor('rgba(1,2,3,.5)'), safeColor('red\"><x>', '#111'), safeColor(null, '#222'), okId('A1b-_'), okId('a b'), okId('__proto__'), okId('')]")
     assert r == ['#ff00aa', 'rgba(1,2,3,.5)', '#111', '#222', True, False, False, False], r
