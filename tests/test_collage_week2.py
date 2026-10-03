@@ -5,10 +5,12 @@ from helpers import *
 WEEK = """([lay, n]) => { DOC.layers.forEach(l => l.hidden = true); addCollage(); const L = selLayer();
   Object.assign(L, {n, layout:lay, bstyle:'line', lw:6, lc:'#111111'}); L.wk.start = '2026-10-12'; collageFillWeek(L); syncDoc(); docChanged(false); return L.id; }"""
 # 分割フレームだけを描いて、画素を数える（色を指定すればその色の数）
-COUNT = """([col]) => { const L = selLayer(), c = mk(800, 450), x = c.getContext('2d'); prevCache.clear(); drawCollage(x, L, 0.5, false, new Map());
+COUNT = """([col]) => { const L = selLayer(), c = mk(800, 450), x = c.getContext('2d'); drawCollage(x, L, 0.5, false, window.__cc || (window.__cc = new Map()));
   const d = x.getImageData(0, 0, 800, 450).data, [r, g, b] = [1, 3, 5].map(i => parseInt(col.slice(i, i + 2), 16)); let k = 0;
   for(let i = 0; i < d.length; i += 4) if(Math.abs(d[i] - r) < 6 && Math.abs(d[i + 1] - g) < 6 && Math.abs(d[i + 2] - b) < 6) k++; return k; }"""
-HASH = "(() => { const c = mk(800, 450); prevCache.clear(); drawCollage(c.getContext('2d'), selLayer(), 0.5, false, new Map()); return c.toDataURL(); })()"
+# 画面のプレビューそのもの（キャッシュは消さない）。設定を変えたのにキャッシュの印（drawCollage の sk）に入っておらず、
+# 古い絵が使い回される不具合も見つけられるように、実際の画面と同じ経路で描く
+HASH = "(() => { paintPreview(false); return document.querySelector('#tv').toDataURL(); })()"
 
 async def run(p):
     pg = await open_app(p)
@@ -18,20 +20,49 @@ async def run(p):
           if(el.type === 'checkbox'){{ el.checked = {str(bool(v)).lower()}; el.dispatchEvent(new Event('change', {{bubbles:true}})); el.dispatchEvent(new Event('input', {{bubbles:true}})); }} else {{ el.value = {v!r}; el.dispatchEvent(new Event('input', {{bubbles:true}})); }} }})()""")
         await settle(pg, 300)
 
-    # 1) まとめて：全部のマスの文字の大きさ・左右・上下。既定では見た目は変わらない／マスごとの調整（tx.sc 等）は残る
+    # 1) まとめて：初期はオフ（スライダーは出ない・値を入れても効かない）。オンにすると全部のマスの文字の大きさ・左右・上下が動く
     await pg.evaluate(WEEK, ['rows', 7]); await settle(pg, 1200)
     h0 = await pg.evaluate(HASH)
     await page(pg, 'lay-ctext'); await settle(pg, 300)
     keys = await vis()
-    for k in ['@ttx.sc', '@ttx.ox', '@ttx.oy', '@cell.tx.fcOn', '@cell.tx.ecOn']: assert k in keys, f'{k} が出ない {keys}'
-    assert '@cell.tx.fc' not in keys, 'オフなのに文字の色が出ている'
-    await setv('@ttx.sc', 0.7); await setv('@ttx.ox', -0.3); await setv('@ttx.oy', 0.1)
+    for k in ['@ttx.on', '@cell.tx.fcOn', '@cell.tx.ecOn']: assert k in keys, f'{k} が出ない {keys}'
+    assert '@ttx.sc' not in keys and '@cell.tx.fc' not in keys, f'オフなのにスライダー・色が出ている {keys}'
+    await pg.evaluate("(() => { const L = selLayer(); L.ttx.sc = 2; docChanged(false); })()"); await settle(pg, 300)
+    assert await pg.evaluate(HASH) == h0, 'オフなのにまとめての調整が効いている'
+    await pg.evaluate("(() => { selLayer().ttx.sc = 1; docChanged(false); })()"); await settle(pg, 300)
+    await setv('@ttx.on', True)
+    keys = await vis()
+    for k in ['@ttx.sc', '@ttx.ox', '@ttx.oy']: assert k in keys, f'オンにしても {k} が出ない {keys}'
+    assert await pg.evaluate(HASH) == h0, 'オンにしただけ（値は既定）で見た目が変わった'
+    await setv('@ttx.sc', 0.7)
+    h1 = await pg.evaluate(HASH)
+    assert h1 != h0, 'まとめての大きさが画面にすぐ出ない'
+    await setv('@ttx.ox', -0.3); await setv('@ttx.oy', 0.1)
+    h2 = await pg.evaluate(HASH)
+    assert h2 != h1, 'まとめての左右・上下が画面にすぐ出ない'
     r = await pg.evaluate("(() => { const L = selLayer(); return [L.ttx, L.cells.slice(0, 7).map(c => [c.tx.sc, c.tx.ox, c.tx.oy])]; })()")
-    assert r[0] == {'sc': 0.7, 'ox': -0.3, 'oy': 0.1}, f'まとめての値が入らない {r[0]}'
+    assert r[0] == {'on': True, 'sc': 0.7, 'ox': -0.3, 'oy': 0.1}, f'まとめての値が入らない {r[0]}'
     assert all(c == [1, 0, 0] for c in r[1]), f'マスごとの値が書き換わった {r[1]}'
-    assert await pg.evaluate(HASH) != h0, 'まとめての調整が見た目に効かない'
+    # マス1つの文字だけを動かしても、ほかのマスの文字は動かない（まとめての調整があとから一斉にかかる不具合の確認）
+    def band(i):   # 横に並べる・7分割の i 番目のマスの帯（キャンバスの画素）
+        return f"""(() => {{ paintPreview(false); const c = document.querySelector('#tv'), L = selLayer(), k = c.width / DOC.w;
+          const top = (L.y - L.bh * L.sc / 2) * k, h = L.bh * L.sc * k / 7, x0 = Math.round((L.x - L.bw * L.sc / 2) * k);
+          return c.getContext('2d').getImageData(x0, Math.round(top + h * {i}), Math.round(L.bw * L.sc * k), Math.round(h)).data.join(','); }})()"""
+    before = [await pg.evaluate(band(i)) for i in range(7)]
+    await pg.click('[data-pg="ctext"] [data-cell="0"]'); await settle(pg, 300)
+    await setv('@cell.tx.sc', 0.5)
+    after = [await pg.evaluate(band(i)) for i in range(7)]
+    assert after[0] != before[0], 'マス1の文字の大きさが変わらない'
+    moved = [i + 1 for i in range(1, 7) if after[i] != before[i]]
+    assert not moved, f'マス1だけ動かしたのに、ほかのマスの文字も変わった: マス{moved}'
+    await setv('@cell.tx.sc', 1); await settle(pg, 200)
+    # オフにすると、値は残したまま効かなくなる／元に戻す
+    await setv('@ttx.on', False)
+    assert await pg.evaluate(HASH) == h0 and await pg.evaluate("selLayer().ttx.sc") == 0.7, 'オフにしても効いたまま／値が消えた'
+    await setv('@ttx.on', True)
+    assert await pg.evaluate(HASH) == h2, 'オンに戻しても元の調整に戻らない'
     await pg.click('#ttxReset'); await settle(pg, 400)
-    assert await pg.evaluate("selLayer().ttx") == {'sc': 1, 'ox': 0, 'oy': 0}
+    assert await pg.evaluate("selLayer().ttx") == {'on': True, 'sc': 1, 'ox': 0, 'oy': 0}
     assert await pg.evaluate(HASH) == h0, '元に戻すで見た目が戻らない'
 
     # 2) マスごとの文字色・フチ色。選んだマスだけ変わる／「全部のマスに」でそろう
@@ -139,10 +170,30 @@ async def run(p):
       L.ttx = {sc:99, ox:-9, oy:'x'}; L.wk.memo = 42; L.cells[0].w = -3; L.cells[1].w = 'abc'; L.cells[2].tx.fc = '"><img src=x onerror=alert(1)>'; L.cells[2].tx.ec = 'red;}';
       const b = normalizeDoc(JSON.parse(JSON.stringify(d))).layers.find(l => l.type === 'collage');
       return {a:[a.ttx, a.wk.memo, a.cells[0].w, a.cells[0].tx.fcOn, a.cells[0].tx.fc], b:[b.ttx, b.wk.memo, b.cells[0].w, b.cells[1].w, b.cells[2].tx.fc, b.cells[2].tx.ec]}; })()""")
-    assert r['a'] == [{'sc': 1, 'ox': 0, 'oy': 0}, 8, 1, False, '#ffffff'], f'古いデータの既定値が違う {r["a"]}'
+    assert r['a'] == [{'on': False, 'sc': 1, 'ox': 0, 'oy': 0}, 8, 1, False, '#ffffff'], f'古いデータの既定値が違う {r["a"]}'
+    # 最初の版で保存したデータ（on が無い）：値を動かしていればオン、既定のままならオフ
+    r2 = await pg.evaluate("""(() => { const d = JSON.parse(JSON.stringify(DOC)), L = d.layers.find(l => l.type === 'collage');
+      const f = t => { L.ttx = t; return normalizeDoc(JSON.parse(JSON.stringify(d))).layers.find(l => l.type === 'collage').ttx.on; };
+      return [f({sc:1, ox:0, oy:0}), f({sc:1.4, ox:0, oy:0}), f({sc:1, ox:0, oy:-0.2}), f({sc:1.4, on:false}), f('文字列'), f(null)]; })()""")
+    assert r2 == [False, True, True, False, False, False], f'on の無い古いデータの扱いが違う {r2}'
     b = r['b']
     assert b[0]['sc'] <= 3 and b[0]['ox'] >= -1 and b[0]['oy'] == 0, f'まとめての値が範囲外 {b[0]}'
     assert 1 <= b[1] <= 8 and 0.05 <= b[2] <= 20 and b[3] == 1, f'MEMO の位置・幅が範囲外 {b}'
     assert b[4] == '#ffffff' and b[5] == '#1f1b2d', f'不正な色がそのまま残った {b}'
+    # 7) キャッシュの使い回し：どの設定を変えても、画面（キャッシュあり）と描き直し（キャッシュなし）が同じ絵になる。
+    #    描画に効く項目をキャッシュの印に入れ忘れると「設定を変えても画面が変わらない」になる（ttx で実際に起きた）
+    bad = await pg.evaluate("""(() => { DOC.layers.forEach(l => l.hidden = true); addCollage(); const L = selLayer();
+      Object.assign(L, {n:7, layout:'rows'}); L.wk.start = '2026-10-12'; collageFillWeek(L); docChanged(false);
+      const shot = () => { paintPreview(false); return document.querySelector('#tv').toDataURL(); };
+      const muts = [['ttx.on', L => L.ttx.on = true], ['ttx.sc', L => L.ttx.sc = 1.8], ['ttx.ox', L => L.ttx.ox = 0.2], ['ttx.oy', L => L.ttx.oy = -0.2],
+        ['tx.fc', L => { L.cells[1].tx.fcOn = true; L.cells[1].tx.fc = '#00ff00'; }], ['tx.ec', L => { L.cells[2].tx.ecOn = true; L.cells[2].tx.ec = '#0000ff'; }],
+        ['w', L => L.cells[0].w = 2.5], ['bigR', L => L.layout = 'bigR'], ['bigB', L => L.layout = 'bigB'], ['memo', L => { L.n = 8; L.wk.memo = 2; collageFillWeek(L); }],
+        ['tx.sc', L => L.cells[3].tx.sc = 0.5], ['bg', L => L.cells[4].bg.c = '#123456'], ['tstyle', L => collageSetStyle(L, PRESETS[5][0])]];
+      // レイヤーの数値・真偽の項目すべて（位置・大きさなど、キャッシュの外で効くものも含めて確かめる）
+      for(const [k, v] of Object.entries(COLLAGE_BASE())) if(typeof v === 'number' && !['n', 'ac', 'op', 'sc', 'rot', 'x', 'y', 'bw', 'bh'].includes(k)) muts.push([k, L => L[k] = v + 0.37 * (Math.abs(v) || 1)]); else if(typeof v === 'boolean') muts.push([k, L => L[k] = !v]);
+      const bad = []; shot();
+      for(const [name, f] of muts){ f(L); docChanged(false); const a = shot(); prevCache.clear(); const b = shot(); if(a !== b) bad.push(name); }
+      return bad; })()""")
+    assert bad == [], f'設定を変えても画面が描き直されない（キャッシュの使い回し）: {bad}'
     assert not pg.errors, f'ページでエラー: {pg.errors[:3]}'
     await close(pg)

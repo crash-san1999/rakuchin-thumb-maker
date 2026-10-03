@@ -52,9 +52,16 @@ function layerName(L){
    d が不正（null・layers なし）のときは、文字レイヤー1枚の新規ドキュメントを返す。 */
 // レイヤー 1 枚を、種類ごとの既定値と混ぜ直す（normalizeDoc から呼ぶ）。表に無い種類（image と未知の種類）は normalizeImageLayer。
 // 保存データ L に無い項目は既定値で埋まる。入れ子のオブジェクト（shadow・cells の中など）は 1 段ずつ既定値と混ぜる
+// 全部のマスの文字のまとめての調整：on（オン／オフ）が無い古いデータは、値を動かしていればオンとみなす（最初の版では書き出しに効いていたので、見た目を保つ）
+function collageTtx(base, t){
+  if(!t || typeof t !== 'object') return base;
+  const o = Object.assign(base, t);
+  if(t.on === undefined) o.on = (t.sc !== undefined && +t.sc !== 1) || !!+t.ox || !!+t.oy;
+  return o;
+}
 const LAYER_NORMALIZE = {
   text: L => Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})}),
-  collage: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), ttx: Object.assign(b.ttx, L.ttx || {}), tstyle: L.tstyle ? merged(L.tstyle) : null,
+  collage: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), ttx: collageTtx(b.ttx, L.ttx), tstyle: L.tstyle ? merged(L.tstyle) : null,
         cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE()),
   group: L => (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE())),
   fx: L => Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})}),
@@ -96,7 +103,7 @@ function sanitizeDocRefs(o){
   o.layers.forEach(l => {
     if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
       c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = cellW(c); });
-    if(l.type === 'collage'){ const t = l.ttx; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); }
+    if(l.type === 'collage'){ const t = l.ttx; t.on = !!t.on; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); }
     if(l.type === 'fx' && l.p) l.p.c = safeColor(l.p.c, '#ffffff');
   });
 }

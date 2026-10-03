@@ -170,9 +170,9 @@ function cellTextStyle(L, text, t){
 }
 /** @param {Layer} L */
 function drawCellText(x, L, cell, bx0, by0, cw, ch){
-  const t = cell.tx, st = cellTextStyle(L, String(t.text), t), band = t.pos === 'c' ? 0.86 : 0.3, tt = L.ttx || {sc:1, ox:0, oy:0};
+  const t = cell.tx, st = cellTextStyle(L, String(t.text), t), band = t.pos === 'c' ? 0.86 : 0.3, tt = L.ttx && L.ttx.on ? L.ttx : {sc:1, ox:0, oy:0};
   // まず 0.25 倍で試し描きして文字の大きさを測り、マスに収まる倍率 k を出してから本描画する（band＝文字が使える高さの割合。中央は大きく、上下寄せは帯状）。
-  // sc（ユーザー調整）は 0.2〜3 倍、最終の k は 0.03〜8 に制限。tt（L.ttx）は全部のマスにまとめて上乗せする大きさ・位置（既定は倍率 1・ずれ 0）
+  // sc（ユーザー調整）は 0.2〜3 倍、最終の k は 0.03〜8 に制限。tt（L.ttx）は全部のマスにまとめて上乗せする大きさ・位置（「まとめて動かす」がオンのときだけ。オフなら倍率 1・ずれ 0）
   const c0 = render(0.25, st); if(c0.width <= 2) return;
   const k = clamp(Math.min(cw * 0.86 / (c0.width / 0.25), ch * band / (c0.height / 0.25)) * clamp(t.sc || 1, 0.2, 3) * (tt.sc ?? 1), 0.03, 8);
   const c = render(k, st);
@@ -240,8 +240,9 @@ function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});
-  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), L.tstyle, L.tstyle && fontKey(Object.assign({}, L.tstyle, {text:collageAllText(L)})), exporting]);
-  // sk：見た目が変わる設定すべての印（使っているマスだけ・画像の有無・文字フォントも含む）。同じならキャッシュを再利用する。
+  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), L.tstyle, L.tstyle && fontKey(Object.assign({}, L.tstyle, {text:collageAllText(L)})), L.ttx, exporting]);
+  // sk：見た目が変わる設定すべての印（使っているマスだけ・画像の有無・文字フォント・全部のマスの文字のまとめての調整 ttx も含む）。同じならキャッシュを再利用する。
+  // 描画に効く項目をレイヤーに足したら、ここにも必ず足す（足し忘れると、設定を変えても画面が変わらない）
   // 操作中(live)はサイズが半分以上ずれない限り使い回す（拡大縮小ドラッグ中の再生成を避ける）。確定時はピクセルサイズが完全に一致するときだけ使う
   let e = cache.get(L.id);
   if(!(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H))){

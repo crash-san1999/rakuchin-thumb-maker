@@ -49,7 +49,7 @@ function COLLAGE_BASE(){
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
     tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true, memo:8},
-    ttx:{sc:1, ox:0, oy:0},   // 全部のマスの文字にまとめて上乗せする大きさ（倍率）・左右・上下（マスの幅・高さに対する割合）
+    ttx:{on:false, sc:1, ox:0, oy:0},   // 全部のマスの文字にまとめて上乗せする大きさ（倍率）・左右・上下（マスの幅・高さに対する割合）。on のときだけ効く
     cells:[...Array(8)].map(() => CELL_BASE())});
 }
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す

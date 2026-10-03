@@ -94,7 +94,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('#cwReset, #ctColorAll, #ttxReset'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
   if(b.id === 'cwReset'){ L.cells.forEach(c => c.w = 1); toast('マスの幅をそろえました'); }
   else if(b.id === 'ctColorAll'){ const s = L.cells[L.ac || 0].tx; L.cells.forEach(c => Object.assign(c.tx, {fcOn:s.fcOn, fc:s.fc, ecOn:s.ecOn, ec:s.ec})); toast(`マス${(L.ac || 0) + 1}の文字色・フチ色を、全部のマスにそろえました`); }
-  else L.ttx = {sc:1, ox:0, oy:0};
+  else L.ttx = {on:L.ttx.on, sc:1, ox:0, oy:0};
   syncDoc(); docChanged(false);
 });
 // 一覧のマスをドラッグして、別のマスに落とすと入れ替え
