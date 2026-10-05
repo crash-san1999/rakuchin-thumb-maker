@@ -7,7 +7,8 @@
 /* ---------- 画像の切り抜きフレーム ---------- */
 // 「筆のかすれ（別パターンにする）」で形が変わる、乱数を使う形
 const FRAME_SEEDED = ['swipe', 'drybrush', 'brushbox', 'rip', 'brushtri', 'brushcircle', 'torn', 'splash', 'burst'];
-function FRAME_BASE(){ return {shape:'none', ar:'auto', fs:1, cx:0.5, cy:0.5, r:0.12, style:'solid', c2:'#1f1b2d', seed:1}; }
+function FRAME_BASE(){ return {shape:'none', ar:'auto', fs:1, cx:0.5, cy:0.5, r:0.12, style:'solid', c2:'#1f1b2d', seed:1, tside:'b', tp:0.3, tt:-0.16, tw:0.2, tb:0}; }
+// 吹き出しの形のしっぽ：tside＝付ける辺（b 下／t 上／l 左／r 右）、tp＝付け根の位置（辺の長さに対する割合）、tt＝先の位置（付け根からのずれ。割合）、tw＝付け根の太さ（割合）、tb＝曲がり（−1〜1）
 const FRAME_SHAPES = [
   ['none','なし'], ['rect','四角（角丸）'], ['circle','丸'], ['arch','アーチ'], ['hex','六角形'], ['oct','八角形'], ['diamond','ひし形'], ['tri','三角'],
   ['slant','平行四辺形'], ['shield','盾'], ['star','星'], ['kira','キラッ'], ['heart','ハート'], ['burst','バクハツ'], ['cloud','もこもこ'], ['flower','花'],
@@ -101,7 +102,21 @@ const FRAME_PATHS = {
   cloud(x, {scallop}){ scallop(11, 0.84, 1.13); },
   flower(x, {scallop}){ scallop(8, 0.6, 1.25); },
   // 吹き出し：本体は高さの 80%、残りの下側にしっぽ。しっぽの根元を本体に 1px 食い込ませて隙間を防ぐ
-  bubble(x, {a, b, w, h, r}){ const bh = h * 0.8, rr = Math.min(w, bh) * Math.min(0.5, r); x.roundRect(-a, -b, w, bh, rr); x.moveTo(-a + w * 0.2, -b + bh - 1); x.lineTo(-a + w * 0.14, b); x.lineTo(-a + w * 0.4, -b + bh - 1); x.closePath(); },
+  // 吹き出し：本体はしっぽの辺（tside）の反対側に寄せて 80%、残りにしっぽ。しっぽの根元を本体に 1px 食い込ませて隙間を防ぐ。
+  // 下の辺・位置 0.3・先 −0.16・太さ 0.2・曲がり 0（初期値）は、以前の固定のしっぽと同じ座標になる
+  bubble(x, {a, b, w, h, r, o}){
+    const side = ['b', 't', 'l', 'r'].includes(o.tside) ? o.tside : 'b', tp = clamp(+o.tp || 0.3, 0, 1), tt = clamp(+(o.tt ?? -0.16) || 0, -1, 1), tw = clamp(+o.tw || 0.2, 0.02, 0.9), tb = clamp(+o.tb || 0, -1, 1);
+    const vert = side === 'b' || side === 't', L = vert ? w : h, bw = vert ? w : w * 0.8, bh = vert ? h * 0.8 : h, rr = Math.min(bw, bh) * Math.min(0.5, r);
+    x.roundRect(side === 'l' ? -a + w * 0.2 : -a, side === 't' ? -b + h * 0.2 : -b, bw, bh, rr);
+    // 辺に沿った位置 u（−a/−b からの距離）と、辺からの深さ（本体の縁＝0、しっぽの先＝1）を、画面の座標に直す
+    const at = (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
+      : side === 'l' ? [-a + w * 0.2 + 1 - depth * (w * 0.2 + 1), -b + u] : [-a + bw - 1 + depth * (w - bw + 1), -b + u];
+    const p1 = at(L * (tp - tw / 2), 0), tip = at(L * (tp + tt), 1), p2 = at(L * (tp + tw / 2), 0);
+    x.moveTo(p1[0], p1[1]);
+    if(tb){ const mid = at(L * (tp + tt / 2 + tb * 0.15), 0.5); x.quadraticCurveTo(mid[0], mid[1], tip[0], tip[1]); x.quadraticCurveTo(mid[0], mid[1], p2[0], p2[1]); }
+    else { x.lineTo(tip[0], tip[1]); x.lineTo(p2[0], p2[1]); }
+    x.closePath();
+  },
   torn(x, {a, b, w, h, seed, poly}){ const R = rng((seed || 1) * 11), p = [], n = 26, j = Math.min(w, h) * 0.025;
       for(let i = 0; i < n; i++) p.push([-a + w * i / n, -b + R() * j]); for(let i = 0; i < n; i++) p.push([a - R() * j, -b + h * i / n]);
       for(let i = 0; i < n; i++) p.push([a - w * i / n, b - R() * j]); for(let i = 0; i < n; i++) p.push([-a + R() * j, b - h * i / n]); poly(p);
@@ -150,7 +165,7 @@ const FRAME_PATHS = {
   // 'rect'・'none'・未知の形はここ（角丸四角）。r は短辺に対する割合で 0〜0.5
   rect(x, {a, b, w, h, r}){ x.roundRect(-a, -b, w, h, Math.min(w, h) * Math.min(0.5, Math.max(0, r))); },
 };
-function framePath(x, shape, w, h, r = 0.12, seed = 1){
+function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ごとの追加の設定（吹き出しのしっぽ。L.frame をそのまま渡す）
   const a = w / 2, b = h / 2, mn = Math.min(w, h);
   const R = rng((seed || 1) * 97 + shape.length * 13);
   // なめらかなゆらぎ（knots個の乱数を補間）＋トゲ
@@ -171,7 +186,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1){
     if(!i) x.moveTo(...p0);
     x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); }
     x.closePath(); };
-  const g = {a, b, w, h, mn, r, seed, R, noise, rough, poly, ring, scallop};
+  const g = {a, b, w, h, mn, r, seed, R, noise, rough, poly, ring, scallop, o: o || {}};
   // 表に登録されている形だけを引く（保存データに 'constructor' などの名前が入っていても、Object の関数を呼ばないように）
   (hasKey(FRAME_PATHS, shape) ? FRAME_PATHS[shape] : FRAME_PATHS.rect)(x, g);
 }
@@ -291,7 +306,7 @@ const FRAME_STYLE_DRAW = {
     under({x, c, E, FW, FH, o, fr, stroke}){
       // フチの帯の中だけにドット（3段階の帯で外へ向かって小さく）を打つ。判定は Path2D の isPointInPath／isPointInStroke。
       // 判定はキャンバス座標なので、setTransform で変換を外し、中心からの位置 qx,qy に直して判定する
-      const p2 = new Path2D(); framePath(p2, fr.shape, FW, FH, fr.r, fr.seed); const cw = c.width, ch = c.height, ox = cw / 2, oy = ch / 2;
+      const p2 = new Path2D(); framePath(p2, fr.shape, FW, FH, fr.r, fr.seed, fr); const cw = c.width, ch = c.height, ox = cw / 2, oy = ch / 2;
       const step = Math.max(E * 1.15, Math.max(cw, ch) / 150, 3), bands = [2 * E * 2.1, 2 * E * 3.1, 2 * E * 4.2], rs = [0.5, 0.36, 0.22];
       x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = fr.c2;
       for(let py = step / 2; py < ch; py += step) for(let px = step / 2 + ((py / step | 0) % 2) * step / 2; px < cw; px += step){
@@ -330,7 +345,7 @@ const FRAME_STYLE_DRAW = {
     // ドット絵：縮小したキャンバス(1/pz)にフチを描いて、補間なしで拡大してドット絵風にする（影は pz*1.5 ずらし）
     under({x, c, E, FW, FH, o, fr}){ const pz = Math.max(2, Math.round(E * 0.6)), tmp = mk(c.width / pz, c.height / pz), t = tmp.getContext('2d');
       t.translate(tmp.width / 2, tmp.height / 2); t.scale(1 / pz, 1 / pz); t.lineJoin = 'miter';
-      const TP = () => { t.beginPath(); framePath(t, fr.shape, FW, FH, fr.r, fr.seed); };
+      const TP = () => { t.beginPath(); framePath(t, fr.shape, FW, FH, fr.r, fr.seed, fr); };
       t.save(); t.translate(pz * 1.5, pz * 1.5); TP(); t.lineWidth = 2 * E; t.strokeStyle = fr.c2; t.stroke(); t.restore(); TP(); t.lineWidth = 2 * E; t.strokeStyle = o.c; t.stroke();
       x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.imageSmoothingEnabled = false; x.drawImage(tmp, 0, 0, tmp.width * pz, tmp.height * pz); x.restore();
     },
@@ -369,7 +384,7 @@ function framedCanvas(L, f, live, cache){
   const pad =Math.ceil(E * (hasKey(FRAME_PAD, st) ? FRAME_PAD[st] : 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
   const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
   x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
-  const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed); };
+  const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed, fr); };
   const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };
   // 画像の下：デザインごとのフチ（FRAME_STYLE_DRAW の under。無ければ単色のフチ）。表に登録されている名前だけを引く
   const SD = hasKey(FRAME_STYLE_DRAW, st) ? FRAME_STYLE_DRAW[st] : null;

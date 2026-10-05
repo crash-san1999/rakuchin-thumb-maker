@@ -76,8 +76,12 @@ const SECTIONS = [
   ]},
   {t:'背景シェイプ', on:'plate.on', hint:'文字全体の後ろに図形', rows:[
     {sel:'plate.shape', l:'形', opts:[['round','角丸'],['ellipse','楕円'],['burst','ギザギザ（爆発）'],['bubble','吹き出し（角丸）'],['sbubble','吹き出し（四角）'],['obubble','吹き出し（楕円）'],['cloud','吹き出し（雲・考え中）'],['shout','吹き出し（叫び）'],['para','斜め帯']]},
-    {sel:'plate.tail', l:'しっぽの向き', show:'plate.shape=bubble|sbubble|obubble|cloud|shout', opts:[['left','左下'],['center','下'],['right','右下'],['tl','左上'],['tr','右上'],['sl','左'],['sr','右'],['none','なし']]},
+    {sel:'plate.tail', l:'しっぽの位置', show:'plate.shape=bubble|sbubble|obubble|cloud|shout', opts:[['left','左下'],['center','下'],['right','右下'],['tl','左上'],['tr','右上'],['sl','左'],['sr','右'],['free','自由（角度で指定）'],['none','なし']]},
+    {r:'plate.tpos', l:'しっぽの位置（角度）', min:0, max:359, step:1, show:'plate.shape=bubble|sbubble|obubble|cloud|shout&plate.tail=free'},
     {r:'plate.ts', l:'しっぽの大きさ', min:0.3, max:2, step:0.05, show:'plate.shape=bubble|sbubble|obubble|cloud|shout&plate.tail!=none'},
+    {r:'plate.tdir', l:'しっぽの先の向き', min:-80, max:80, step:1, show:'plate.shape=bubble|sbubble|obubble|cloud|shout&plate.tail!=none'},
+    {r:'plate.tw', l:'しっぽの太さ', min:0.3, max:2.5, step:0.05, show:'plate.shape=bubble|sbubble|obubble|cloud|shout&plate.tail!=none'},
+    {r:'plate.tbend', l:'しっぽの曲がり', min:-1, max:1, step:0.02, show:'plate.shape=bubble|sbubble|obubble|cloud|shout&plate.tail!=none'},
     {seed:'plate.seed', l:'ギザギザ', show:'plate.shape=burst|shout'},
     {c:'plate.c', l:'塗り'}, {r:'plate.a', l:'濃さ', min:0, max:1, step:0.01},
     {c:'plate.sc', l:'枠線'}, {r:'plate.sw', l:'枠の太さ', min:0, max:30, step:0.5},

@@ -533,26 +533,35 @@ function dotPath(ctx){
   else ctx.arc(0, 0, r, 0, 7);
   ctx.restore();   // 経路は作った時点の座標で残る（上の translate/rotate は経路に焼き込み済みで、restore しても動かない。変換だけ元に戻る）
 }
-/* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 none=なし） */
+/* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 free=自由（tpos の角度） none=なし） */
 const TAIL_ANGLE = {left:115, center:90, right:65, tl:245, tr:295, sl:180, sr:0};
+// しっぽを付ける位置の角度（度。画面座標で下が正）。なし・未知の向きは undefined。free のときは p.tpos（0〜360）
+const tailDeg = p => { const t = p.tail || 'left'; return t === 'free' ? ((+p.tpos || 0) % 360 + 360) % 360 : TAIL_ANGLE[t]; };
 // 戻り値は本体とは別の Path2D。drawPlate が枠線→塗りの順に本体としっぽを別々に描くので、しっぽの付け根の枠線は塗りで隠れる。tail なし／未知の向きなら null。
 // 第1引数 _c は未使用。rx,ry は図形の半径、kind: 'box'=四角の縁 / 'ellipse'=楕円の縁 / 'dots'=雲用の小さな丸の列 /
 // 'ray'=縁までの距離を rx にそのまま渡す（ギザギザのように、縁が楕円で表せない形用。ry は使わない）。
-// 角度は画面座標（下が正）で、TAIL_ANGLE の度数＝中心から見た向き
+// 角度は画面座標（下が正）で、tailDeg の度数＝中心から見た付け根の位置。
+// 付け根の位置とは別に、先の向きを tdir（度。±）でずらし、tw で付け根の太さ、tbend で曲がり（−1〜1。先のほうが横へしなる）を変えられる。
+// tdir・tbend が 0、tw が 1 のときは、以前と同じ形（同じ座標・同じ直線）になる（保存済みのサムネの見た目を変えないため）
 function bubbleTail(_c, p, cx, cy, rx, ry, kind){
-  const t = p.tail || 'left', deg = TAIL_ANGLE[t]; if(deg === undefined) return null;
+  const deg = tailDeg(p); if(deg === undefined) return null;
   const ctx = new Path2D();
   const S = RS.size * (p.ts || 1), a = deg * PI / 180, dx = Math.cos(a), dy = Math.sin(a);
+  const tw = clamp(+p.tw || 1, 0.2, 3), bend = clamp(+p.tbend || 0, -1, 1), ta = a + clamp(+p.tdir || 0, -89, 89) * PI / 180, ux = Math.cos(ta), uy = Math.sin(ta);
   // 中心から角度の向きに進んで、図形の縁に当たる点
   const k = kind === 'ray' ? rx : kind === 'box' ? 1 / Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry) : 1 / Math.hypot(dx / rx, dy / ry), bx = cx + dx * k, by = cy + dy * k;
-  if(kind === 'dots'){   // 考え事の雲：小さな丸が3つ、外へ小さくなりながら並ぶ
-    [[0.34, 0.26], [0.78, 0.17], [1.1, 0.1]].forEach(([d, r]) => { const px = bx + dx * S * d, py = by + dy * S * d; ctx.moveTo(px + S * r, py); ctx.arc(px, py, S * r, 0, 7); });
+  if(kind === 'dots'){   // 考え事の雲：小さな丸が3つ、外へ小さくなりながら並ぶ（向き ux,uy に並べ、曲がりのぶん横へずらす）
+    [[0.34, 0.26], [0.78, 0.17], [1.1, 0.1]].forEach(([d, r]) => { const sd = bend * S * d * d * 0.5, px = bx + ux * S * d - uy * sd, py = by + uy * S * d + ux * sd; ctx.moveTo(px + S * r * tw, py); ctx.arc(px, py, S * r * tw, 0, 7); });
     return ctx;
   }
-  const nx = -dy, ny = dx, lean = (dx >= 0 ? 1 : -1) * S * 0.12;   // 先を外側へ少しはらう
-  ctx.moveTo(bx - dx * S * 0.2 + nx * S * 0.27, by - dy * S * 0.2 + ny * S * 0.27);
-  ctx.lineTo(bx + dx * S * 0.62 + (Math.abs(dy) > 0.5 ? lean : 0), by + dy * S * 0.62);
-  ctx.lineTo(bx - dx * S * 0.2 - nx * S * 0.27, by - dy * S * 0.2 - ny * S * 0.27); ctx.closePath();
+  const nx = -dy, ny = dx, lean = (ux >= 0 ? 1 : -1) * S * 0.12;   // 先を外側へ少しはらう
+  const tx = bx + ux * S * 0.62 + (Math.abs(uy) > 0.5 ? lean : 0), ty = by + uy * S * 0.62;
+  const p1x = bx - dx * S * 0.2 + nx * S * 0.27 * tw, p1y = by - dy * S * 0.2 + ny * S * 0.27 * tw, p2x = bx - dx * S * 0.2 - nx * S * 0.27 * tw, p2y = by - dy * S * 0.2 - ny * S * 0.27 * tw;
+  ctx.moveTo(p1x, p1y);
+  if(bend){ const qx = -uy * bend * S * 0.35, qy = ux * bend * S * 0.35;   // 曲がり：両側の辺を、先の向きに直角な方向へふくらませる
+    ctx.quadraticCurveTo((p1x + tx) / 2 + qx, (p1y + ty) / 2 + qy, tx, ty); ctx.quadraticCurveTo((p2x + tx) / 2 + qx, (p2y + ty) / 2 + qy, p2x, p2y); }
+  else { ctx.lineTo(tx, ty); ctx.lineTo(p2x, p2y); }
+  ctx.closePath();
   return ctx;
 }
 // 中心 (cx,cy) から角度 deg（画面座標・TAIL_ANGLE と同じ）の向きに進んで、折れ線 pts（閉じた多角形の頂点列）の縁に当たるまでの距離。当たらなければ 0。
@@ -607,7 +616,7 @@ function drawPlate(ctx, L, outer){
         pts.push([px, py]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
       }
       ctx.closePath();
-      const deg = TAIL_ANGLE[p.tail || 'left'], reach = deg === undefined ? 0 : rayToPolygon(pts, cx, cy, deg);
+      const deg = tailDeg(p), reach = deg === undefined ? 0 : rayToPolygon(pts, cx, cy, deg);
       tail = reach > 0 ? bubbleTail(ctx, p, cx, cy, reach, 0, 'ray') : bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse'); break;
     }
     case 'para': { const k = h * 0.35; ctx.moveTo(x0 + k, y0); ctx.lineTo(x1 + k, y0); ctx.lineTo(x1 - k, y1); ctx.lineTo(x0 - k, y1); ctx.closePath(); break; }
@@ -944,13 +953,15 @@ function styleMargin(L, layers, outer, ex){
   const gli = RS.glitch.on ? Math.max(RS.glitch.rgb, RS.glitch.shift) : 0;
   const mrk = RS.marker.on ? RS.size * RS.marker.over : 0;
   const pl = RS.plate.on ? RS.size * (RS.plate.pad + 0.9) + RS.plate.sw + (['burst', 'ellipse', 'obubble', 'cloud', 'shout'].includes(RS.plate.shape) ? 0.3 * (L.w + L.h) : 0) : 0;
+  // しっぽを長く・太く・曲げたときは、上の余白（0.9 文字ぶん）を超えるぶんだけ足す（初期値のしっぽは収まるので、余白は以前と同じ）
+  const tailOver = RS.plate.on && ['bubble', 'sbubble', 'obubble', 'cloud', 'shout'].includes(RS.plate.shape) ? Math.max(0, RS.size * ((RS.plate.ts || 1) * (0.7 + Math.abs(+RS.plate.tbend || 0) * 0.4) * Math.max(1, (+RS.plate.tw || 1) * 0.6)) - RS.size * 0.9) : 0;
   const bxm = RS.box.on ? RS.size * (RS.box.pad + 0.45) + RS.box.sw : 0;
   const ofm = RS.offset.on ? Math.max(Math.abs(RS.offset.x), Math.abs(RS.offset.y)) + RS.offset.w : 0;
   const dtm = RS.dots.on ? RS.size * (RS.dots.size * 2 + 0.3) : 0;
   const xtra = (RS.fire.on ? RS.fire.height * RS.size + RS.size * 0.25 : 0) + (RS.drip.on ? RS.drip.len * RS.size * 1.2 : 0)
     + (RS.trail.on ? RS.trail.len * RS.size : 0) + (RS.distort.on ? RS.distort.amt : 0)
     + (RS.sparkle.on ? RS.sparkle.size * RS.size : 0) + (RS.bulbs.on ? RS.bulbs.size * RS.size * 3 : 0);
-  const m = RS.size * 0.35 + outer + ex + sh + gl + sgl + jit + gli + mrk + pl + bxm + ofm + dtm + xtra + 10;   // 最後の +10 は誤差・アンチエイリアス用の固定余白
+  const m = RS.size * 0.35 + outer + ex + sh + gl + sgl + jit + gli + mrk + pl + tailOver + bxm + ofm + dtm + xtra + 10;   // 最後の +10 は誤差・アンチエイリアス用の固定余白
   return m;
 }
 // renderStyle 1) 背面のキャンバス A を作って返す

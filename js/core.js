@@ -159,7 +159,7 @@ const DEFAULT = {
   grunge:  {on:false, amt:0.4, size:3, seed:1},
   glitch:  {on:false, rgb:6, slices:6, shift:30, seed:1},
   inner:   {on:false, x:3, y:5, blur:6, c:'#000000', a:0.55},
-  plate:   {on:false, shape:'round', c:'#ffffff', a:1, sc:'#111111', sw:6, pad:0.22, tail:'left', ts:1, seed:3},
+  plate:   {on:false, shape:'round', c:'#ffffff', a:1, sc:'#111111', sw:6, pad:0.22, tail:'left', ts:1, tpos:115, tdir:0, tw:1, tbend:0, seed:3},   // しっぽ：tpos＝自由のときの位置（角度）、tdir＝先の向きのずれ（度）、tw＝付け根の太さ、tbend＝曲がり
   box:     {on:false, shape:'square', c:'#e8132b', rand:false, seq:false, seed:0, pn:7, pal:['#e8132b', '#111111', '#1f5fd6', '#0f9d58', '#7b2cbf', '#ff6a00', '#c2185b', '#ffd500'], alt:true, c2:'#111111', pad:0.06, sc:'#ffffff', sw:0},
   dots:    {on:false, shape:'dot', c:'#e8132b', size:0.14},
   offset:  {on:false, x:12, y:12, c:'#00c8ff', hollow:false, w:4},
