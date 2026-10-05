@@ -29,7 +29,7 @@ LABELS = {
     'frame-edit': 'フレーム調整モード', 'collage': '分割フレーム', 'ins-cells': 'マスの画像', 'collage-fx': '分割フレームの効果', 'fx-layer': '動的エフェクト',
     'layers': 'レイヤー', 'file-menu': 'ファイルメニュー', 'text-mode': '文字素材モード',
     'mobile': 'スマホ画面', 'mobile-add': '追加', 'mobile-ins': '設定', 'mobile-layers': 'レイヤー',
-    'fx-manga': 'マンガの表現', 'fx-light': '光のエフェクト', 'fx-stage': '演出のエフェクト', 'fx-game': 'ゲーム・配信', 'imgfx': '画像の加工', 'imgfx-warp': 'ゆがみ', 'fin-looks': '新しい仕上げ',
+    'fx-manga': 'マンガの表現', 'fx-light': '光のエフェクト', 'fx-stage': '演出のエフェクト', 'fx-game': 'ゲーム・配信', 'imgfx': '画像の加工', 'imgfx-warp': 'ゆがみ', 'fin-looks': '新しい仕上げ', 'tail-handle': 'しっぽのつまみ',
     'week': '1週間の予定表', 'ins-ctext': '背景色・文字タブ', 'new-project': '新規作成',
 }
 # 下に余白が大きく空く縦長のパネル画像は、中身のところまでで切る

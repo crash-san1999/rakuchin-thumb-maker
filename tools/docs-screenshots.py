@@ -39,6 +39,11 @@ async def main_screens(p):
         await page(pg, pgn); await shot(pg, name, clip=SIDE)
     await shot(pg, 'layers.png', clip={'x': 1166, 'y': 62, 'width': 274, 'height': 420})
     await pg.evaluate("selectLayer(DOC.layers.find(l => l.type === 'fx').id)"); await settle(pg, 900); await shot(pg, 'fx-layer.png')
+    # 吹き出しのしっぽのつまみ：文字を吹き出しにして選ぶと、しっぽの先に緑のつまみが出る（撮ったら元の文字に戻す）
+    keep = await pg.evaluate("(() => { const L = DOC.layers.find(l => l.type === 'text'), k = JSON.stringify({plate:L.style.plate, x:L.x, y:L.y, sc:L.sc}); Object.assign(L, {x:720, y:400, sc:0.55}); L.style.plate = Object.assign(clone(L.style.plate), {on:true, shape:'obubble', tail:'free', tpos:62, ts:1.4, tbend:0.5, c:'#ffffff', sc:'#1f1b2d', sw:6}); selectLayer(L.id); prevCache.clear(); docChanged(false); return k; })()")
+    await settle(pg, 1000); box = await canvas_box(pg)
+    await shot(pg, 'tail-handle.png', clip={'x': box[0], 'y': box[1], 'width': box[2], 'height': box[3]})
+    await pg.evaluate("k => { const L = DOC.layers.find(l => l.type === 'text'); const o = JSON.parse(k); L.style.plate = o.plate; Object.assign(L, {x:o.x, y:o.y, sc:o.sc}); prevCache.clear(); docChanged(false); }", keep); await settle(pg, 600)
     # フレーム調整モード
     await pg.evaluate("(() => { const L = DOC.layers.find(l => l.type === 'image'); selectLayer(L.id); const g0 = frameGeom(L); L.frame.fs = 0.55; L.frame.cy = 0.32; frameCompensate(L, g0); syncDoc(); docChanged(false); })()")
     await page(pg, 'lay-frame'); await settle(pg, 1200); await pg.click('#frameEditBtn'); await settle(pg); await shot(pg, 'frame-edit.png')
