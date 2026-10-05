@@ -31,7 +31,7 @@ async def drag(pg, frm, to, shift=False):
     for i in range(1, 7): await pg.mouse.move(a[0] + (b[0] - a[0]) * i / 6, a[1] + (b[1] - a[1]) * i / 6)
     await pg.mouse.up()
     if shift: await pg.keyboard.up('Shift')
-    await settle(pg, 300)
+    await settle(pg, 800)   # 取り消しの履歴は 450ms 待ってから積まれる（history.js）。次の操作・取り消しの前に積み終わるまで待つ
 
 async def run(p):
     pg = await open_app(p)
