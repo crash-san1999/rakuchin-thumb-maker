@@ -7,7 +7,7 @@
    登録は js/pwa.js。この中はウィンドウとは別のスコープで動くため、core.js などのグローバル（$ や LS）は使えない（使わないこと）。
    ここを書き換えると、ブラウザは sw.js のバイト列が変わったことで更新を検知する。そのため APP_VER を手で触らず、
    中身の変更は bump-version.sh に任せる（index.html の ?v= も同じ値に揃える） */
-const APP_VER = '07d85ac3';
+const APP_VER = '11bcbccd';
 const FONT_CACHE = 'ttm-fonts-v1', APP_CACHE = 'ttm-app-' + APP_VER;
 // 保存の対象の判定。フォントは「同梱の fonts/」と、外部の配信元（jsDelivr の gh/npm、Google の gstatic）に限る
 // （任意の外部 URL まで保存すると、容量を食うだけでなく想定外のものを残してしまうため）
