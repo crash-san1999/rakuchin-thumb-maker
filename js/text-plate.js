@@ -7,7 +7,11 @@
   依存：RS・PI・clamp・rng・rgba（text-render.js / core.js）。読み込みは text-render.js の直後。
 */
 // 直前の drawPlate が描いた吹き出しの位置（論理座標と、そのときの変換）。renderStyle が開始時に null に戻す
+/** @type {any} */
 let platePlace = null;
+// 直前の bubbleTail が作ったしっぽの付け根・先と、吹き出しの中心・半径・種類（論理座標）。drawPlate が platePlace にまとめる
+/** @type {any} */
+let tailPts = null;
 /* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 free=自由（tpos の角度） none=なし） */
 const TAIL_ANGLE = {left:115, center:90, right:65, tl:245, tr:295, sl:180, sr:0};
 // しっぽを付ける位置の角度（度。画面座標で下が正）。なし・未知の向きは undefined。free のときは p.tpos（0〜360）
@@ -26,7 +30,9 @@ function bubbleTail(_c, p, cx, cy, rx, ry, kind){
   // 中心から角度の向きに進んで、図形の縁に当たる点
   const k = kind === 'ray' ? rx : kind === 'box' ? 1 / Math.max(Math.abs(dx) / rx, Math.abs(dy) / ry) : 1 / Math.hypot(dx / rx, dy / ry), bx = cx + dx * k, by = cy + dy * k;
   if(kind === 'dots'){   // 考え事の雲：小さな丸が3つ、外へ小さくなりながら並ぶ（向き ux,uy に並べ、曲がりのぶん横へずらす）
-    [[0.34, 0.26], [0.78, 0.17], [1.1, 0.1]].forEach(([d, r]) => { const sd = bend * S * d * d * 0.5, px = bx + ux * S * d - uy * sd, py = by + uy * S * d + ux * sd; ctx.moveTo(px + S * r * tw, py); ctx.arc(px, py, S * r * tw, 0, 7); });
+    let last = [bx, by];
+    [[0.34, 0.26], [0.78, 0.17], [1.1, 0.1]].forEach(([d, r]) => { const sd = bend * S * d * d * 0.5, px = bx + ux * S * d - uy * sd, py = by + uy * S * d + ux * sd; ctx.moveTo(px + S * r * tw, py); ctx.arc(px, py, S * r * tw, 0, 7); last = [px, py]; });
+    tailPts = {lc:[cx, cy], rx, ry, kind, base:[bx, by], tip:last};
     return ctx;
   }
   const nx = -dy, ny = dx, lean = (ux >= 0 ? 1 : -1) * S * 0.12;   // 先を外側へ少しはらう
@@ -37,6 +43,7 @@ function bubbleTail(_c, p, cx, cy, rx, ry, kind){
     ctx.quadraticCurveTo((p1x + tx) / 2 + qx, (p1y + ty) / 2 + qy, tx, ty); ctx.quadraticCurveTo((p2x + tx) / 2 + qx, (p2y + ty) / 2 + qy, p2x, p2y); }
   else { ctx.lineTo(tx, ty); ctx.lineTo(p2x, p2y); }
   ctx.closePath();
+  tailPts = {lc:[cx, cy], rx, ry, kind, base:[bx, by], tip:[tx, ty]};
   return ctx;
 }
 // 中心 (cx,cy) から角度 deg（画面座標・TAIL_ANGLE と同じ）の向きに進んで、折れ線 pts（閉じた多角形の頂点列）の縁に当たるまでの距離。当たらなければ 0。
@@ -58,7 +65,8 @@ function drawPlate(ctx, L, outer){
   const p = RS.plate, pad = RS.size * p.pad + outer;
   const x0 = -pad, y0 = L.ty0 - pad, x1 = L.w + pad, y1 = L.ty1 + pad;
   const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  let tail = null;
+  let tail = null; tailPts = null;
+  const m = ctx.getTransform();   // 論理座標 → この絵のピクセル（しっぽのつまみの位置合わせ用に残す）
   ctx.save(); ctx.beginPath(); ctx.lineJoin = 'round';
   switch(p.shape){
     case 'ellipse': ctx.ellipse(cx, cy, w / 2 * 1.18, h / 2 * 1.3, 0, 0, 7); break;
@@ -92,11 +100,14 @@ function drawPlate(ctx, L, outer){
       }
       ctx.closePath();
       const deg = tailDeg(p), reach = deg === undefined ? 0 : rayToPolygon(pts, cx, cy, deg);
-      tail = reach > 0 ? bubbleTail(ctx, p, cx, cy, reach, 0, 'ray') : bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse'); break;
+      tail = reach > 0 ? bubbleTail(ctx, p, cx, cy, reach, 0, 'ray') : bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse');
+      if(tailPts){ tailPts.rx = w / 2 * 1.16; tailPts.ry = h / 2 * 1.25; tailPts.kind = 'ellipse'; }   // つまみで長さを決めるときは、とげの平均くらいの楕円で見る
+      break;
     }
     case 'para': { const k = h * 0.35; ctx.moveTo(x0 + k, y0); ctx.lineTo(x1 + k, y0); ctx.lineTo(x1 - k, y1); ctx.lineTo(x0 - k, y1); ctx.closePath(); break; }
     default: ctx.roundRect(x0, y0, w, h, Math.min(h / 2, RS.size * 0.3));
   }
+  if(tail && tailPts) platePlace = Object.assign({m, size:RS.size}, tailPts);
   if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.sc; ctx.stroke(); if(tail) ctx.stroke(tail); }
   ctx.fillStyle = rgba(p.c, p.a); ctx.fill(); if(tail) ctx.fill(tail);
   ctx.restore();

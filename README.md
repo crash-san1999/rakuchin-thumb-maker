@@ -66,6 +66,7 @@ icons/                     アプリのアイコン
 js/fonts.js                フォント管理（Google Fonts・Webフリー・PC内・URL追加）
 js/controls.js             文字の操作パネル（テキスト・装飾）の生成と同期
 js/text-render.js          文字の描画エンジン・装飾
+js/text-plate.js           文字の背景シェイプ（角丸・楕円・ギザギザ・吹き出し）と吹き出しのしっぽ
 js/preview.js              文字素材モードのプレビュー・書き出し・視認性
 js/colors.js               配色（パレット・色調整・背景画像からの配色）
 js/history.js              取り消し／やり直し
@@ -80,11 +81,14 @@ js/thumb/library.js        素材置き場（画像・文字スタイルのス�
 js/thumb/canvas.js         キャンバスのサイズ（プリセット・自由指定・中身の置き直し）
 js/thumb/group.js          グループ（まとめて描画・まとめて動かす・作成と解除）
 js/thumb/fx.js             動的エフェクト（集中線・光・キラキラ・爆発・放射光・紙吹雪・雪など）とワンクリック背景エフェクト
+js/thumb/fx-draw.js        動的エフェクトの種類ごとの描き方（fx.js はデータと追加・ワンクリックの処理）
+js/thumb/imgfx.js          画像の加工エフェクト（色収差・網点・線画・油絵・ゆがみなど。背景・画像・マス共通）
 js/thumb/finish.js         仕上げ（全体にかける色フィルター・ブルーム・粒子など）と、背景の追加エフェクト（ポスタライズ・柄など）
 js/thumb/assets.js         画像アセット（IndexedDB に保存）・画像や背景の追加
 js/thumb/doc.js            サムネのデータ構造・値の読み書き・変更通知
 js/thumb/render.js         サムネの描画（文字・画像レイヤー・背景・合成）
 js/thumb/overlay.js        選択枠・ハンドル・背景効果の中心の表示
+js/thumb/tailhandle.js     吹き出しのしっぽのつまみ（キャンバス上でドラッグして位置・長さ・向きを変える）
 js/thumb/editmodes.js      キャンバス上の編集モード（フレーム調整・マスの調整）
 js/thumb/layers.js         レイヤーパネル・レイヤーの選択と操作
 js/changelog.js            アップデート履歴の元データ（機能を足したら先頭に追記。CHANGELOG.md は tools/gen-changelog.js が生成）

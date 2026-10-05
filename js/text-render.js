@@ -251,10 +251,12 @@ function bbox(c){
   return r < 0 ? null : {l, t, r, b};
 }
 // 透明な余白を切り落とし、四方に pad px だけ余白を付けて返す（最終出力用）。全透明なら 1x1 を返す
+let trimShift = [0, 0];
 function trim(c, pad){
   const bb = bbox(c); if(!bb) return mk(1, 1);
   const cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, o = mk(cw + pad * 2, ch + pad * 2);
   o.getContext('2d').drawImage(c, bb.l, bb.t, cw, ch, pad, pad, cw, ch);
+  trimShift = [pad - bb.l, pad - bb.t];   // 切り取りで絵がずれた量（しっぽのつまみの位置合わせ用。renderStyle が読む）
   return o;
 }
 // 箱型ブラー（横→縦の2パス、端は最寄りの値で延長）。移動平均で走査するので半径 r によらず O(w×h)。bevel / drawBulbs が高さマップを作るのに使う。
@@ -981,6 +983,7 @@ function styleRotate(B){
   return R;
 }
 function renderStyle(scale){
+  platePlace = null;
   if(!plainText().trim()) return mk(1, 1);
   const L = layout(), items = glyphs(L);
   const cells = (RS.box.on || RS.dots.on) ? charCells(items) : [];
@@ -1022,7 +1025,25 @@ function renderStyle(scale){
   if(RS.reflect.on) B = addReflection(B, body, scale);
   if(RS.glitch.on) B = glitch(B, scale);
   // 7) 回転（最後に画像全体を回す。回転後に収まる外接サイズのキャンバスを作り、中心を合わせて貼る）
+  const rotM = RS.rotate ? rotateMatrix(B) : null;
   if(RS.rotate) B = styleRotate(B);
   // 8) 自動トリミング（余白 RS.pad は論理 px なので scale 倍。サムネ側の thumb/render.js は pad:2 を渡す）
-  return trim(B, Math.round(RS.pad * scale));
+  const out = trim(B, Math.round(RS.pad * scale));
+  // 吹き出しのしっぽの位置を、この絵のピクセル座標に直して付ける（thumb/tailhandle.js のつまみ用）。ワープ・残像・反射・グリッチは絵の原点を動かさない
+  if(platePlace) /** @type {any} */ (out).plate = plateOnCanvas(platePlace, rotM);
+  return out;
+}
+// 回転（styleRotate）で、回転前の絵のピクセル → 回転後のピクセルへの変換
+function rotateMatrix(B){
+  const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
+  const RW = Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), RH = Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a)));
+  return new DOMMatrix().translate(RW / 2, RH / 2).rotate(RS.rotate).translate(-cw / 2, -chh / 2);
+}
+// platePlace（論理座標と、論理→背面の絵の変換 m）を、最終の絵（回転・トリミング後）のピクセル座標にまとめる
+function plateOnCanvas(P, rotM){
+  let M = new DOMMatrix().translate(trimShift[0], trimShift[1]);
+  if(rotM) M = M.multiply(rotM);
+  M = M.multiply(P.m);
+  const at = ([x, y]) => { const q = M.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };
+  return {m:[M.a, M.b, M.c, M.d, M.e, M.f], tip:at(P.tip), base:at(P.base), center:at(P.lc), lc:P.lc, lbase:P.base, ltip:P.tip, rx:P.rx, ry:P.ry, kind:P.kind, size:P.size};
 }

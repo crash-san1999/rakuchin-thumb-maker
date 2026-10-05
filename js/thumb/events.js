@@ -270,8 +270,8 @@ async function openProjectFile(f){
 }
 
 /* キャンバス上の操作。
-   pointerdown で何をつかんだかを drag.mode に決める（'fx' 背景効果の中心／'edit' 編集モード／'rot'・'scale' ハンドル／'move' 移動／'bg' 背景ドラッグ）。
-   決める優先順位は pointerdown の中の並び順そのもの（上ほど優先）：中心◎ → 編集モード → ハンドル → Alt+クリックで下のレイヤー →
+   pointerdown で何をつかんだかを drag.mode に決める（'fx' 背景効果の中心／'edit' 編集モード／'tail' 吹き出しのしっぽのつまみ（tailhandle.js）／'rot'・'scale' ハンドル／'move' 移動／'bg' 背景ドラッグ）。
+   決める優先順位は pointerdown の中の並び順そのもの（上ほど優先）：中心◎ → 編集モード → しっぽのつまみ → ハンドル → Alt+クリックで下のレイヤー →
    Shift/Ctrl+クリックで複数選択 → 通常のヒット判定 → 何も無ければ背景。pointermove が drag.mode ごとに値を更新し、pointerup（end）で確定する。 */
 // 当たり判定用のマスク（下のブロックの layerMask が作る）。レイヤーid → マスク。maskFx は描画中の効果キャッシュ
 const maskCache = new Map(), maskFx = new Map();
@@ -364,6 +364,9 @@ function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [..
       drag = {mode:'fx'}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return;
     }
     if(editPointerDown(e, x, y, tv)) return;
+    // 吹き出しのしっぽのつまみ（tailhandle.js）：ハンドルより優先（つまみは枠の外や四隅の近くに出ることがあるため）
+    const tail = tailHandleAt(x, y);
+    if(tail){ const T0 = selLayer(); drag = {mode:'tail', L:T0, st:tailDragStart(T0, tail, e)}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return; }
     let mode = handleAt(x, y), T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
@@ -399,9 +402,11 @@ function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [..
     const [x, y] = toDoc(e);
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
     if(!drag && editLayer()){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
+    if(!drag && tailHandleAt(x, y)){ tv.style.cursor = 'grab'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
     if(drag.mode === 'edit'){ editPointerMove(x, y); return; }
+    if(drag.mode === 'tail'){ tailDragMove(drag.st, x, y, e); syncDocSoon(); livePaint(); return; }
     if(drag.mode === 'fx'){
       let fx = x / DOC.w, fy = y / DOC.h;
       if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * DOC.h / DOC.w < 8) fy = v; } }

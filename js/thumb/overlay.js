@@ -106,6 +106,7 @@ function drawOverlay(ctx, W, H, dpr){
     const hs = 4.5 * dpr; ctx.fillStyle = '#fff';
     g.pts.forEach(([x, y]) => { ctx.beginPath(); ctx.rect(x * f - hs, y * f - hs, hs * 2, hs * 2); ctx.fill(); ctx.stroke(); });
     ctx.beginPath(); ctx.arc(g.rot[0] * f, g.rot[1] * f, 6 * dpr, 0, 7); ctx.fill(); ctx.stroke();
+    drawTailHandle(ctx, f, dpr);   // 吹き出しのしっぽのつまみ（tailhandle.js。出せるときだけ描く）
   }
   ctx.restore();
 }
