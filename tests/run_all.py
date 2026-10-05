@@ -1,5 +1,5 @@
 """すべてのテストを順に実行する：python3 tests/run_all.py [テスト名の一部 ...] [--timeout=秒]
-1件が止まっても全体が止まらないよう、1件ごとに制限時間（既定 150 秒）を設け、超えたら失敗として次へ進む。失敗・時間切れで残ったブラウザも閉じる"""
+1件が止まっても全体が止まらないよう、1件ごとに制限時間（既定 150 秒。テストのモジュールに TIMEOUT＝秒 があればそれ以上）を設け、超えたら失敗として次へ進む。失敗・時間切れで残ったブラウザも閉じる"""
 import asyncio, importlib, sys, time, traceback
 import helpers
 from pathlib import Path
@@ -15,11 +15,12 @@ async def main(filters, limit):
             doc = (importlib.import_module(n).__doc__ or '').strip().split('\n')[0]
             t = time.time()
             try:
-                r = await asyncio.wait_for(importlib.import_module(n).run(p), limit)
+                mod = importlib.import_module(n); lim = max(limit, getattr(mod, 'TIMEOUT', 0))   # 項目が多くて時間のかかるテストは、モジュールの TIMEOUT で長くできる
+                r = await asyncio.wait_for(mod.run(p), lim)
                 print(f"{'－' if r else '✔'} {n}  {doc}  ({time.time() - t:.0f}s){'  ' + r if r else ''}", flush=True)
             except BaseException as e:
                 if isinstance(e, (KeyboardInterrupt, SystemExit)): raise
-                failed += 1; msg = f'時間切れ（{limit:.0f} 秒を超えました）' if isinstance(e, asyncio.TimeoutError) else f'{type(e).__name__}: {e}'
+                failed += 1; msg = f'時間切れ（{max(limit, getattr(importlib.import_module(n), "TIMEOUT", 0)):.0f} 秒を超えました）' if isinstance(e, asyncio.TimeoutError) else f'{type(e).__name__}: {e}'
                 print(f"✘ {n}  {doc}\n   {msg}", flush=True)
                 if '-v' in sys.argv: traceback.print_exc()
             finally:

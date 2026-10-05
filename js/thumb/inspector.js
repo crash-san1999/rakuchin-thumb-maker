@@ -61,7 +61,55 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
   {pg, chk:P + 'sil.on', l:'シルエット（絵を1色で塗る）', show:S},
   {pg, c:P + 'sil.c', l:'色', show:S + '&' + P + 'sil.on=true'},
   {pg, r:P + 'sil.a', l:'濃さ', min:0, max:1, step:0.01, show:S + '&' + P + 'sil.on=true'},
+  ...EXTRA_ROWS(P, S, pg, true),
 ];
+// 加工エフェクト（imgfx.js）の行。背景（P='bg.'）とマス・グループ・画像レイヤー（CFX_ROWS）で共通。
+// withOld：ポスタライズ・2値化・ミニチュアの行も作るか（背景には前からあるので false で呼ぶ）
+function EXTRA_ROWS(P, S, pg, withOld){
+  const on = k => S + '&' + P + k + '=true';
+  return [
+    {pg, sub:'加工', show:S},
+    {pg, chk:P + 'rgb.on', l:'色収差（赤と青がずれる）', show:S},
+    {pg, r:P + 'rgb.d', l:'ずれ幅', min:1, max:40, step:0.5, show:on('rgb.on')},
+    {pg, r:P + 'rgb.angle', l:'向き', min:-180, max:180, step:1, show:on('rgb.on')},
+    {pg, chk:P + 'gmap.on', l:'グラデーションマップ（明るさで色を付け替え）', show:S},
+    {pg, c:P + 'gmap.c1', l:'暗い所', show:on('gmap.on')}, {pg, c:P + 'gmap.c2', l:'中間', show:on('gmap.on')}, {pg, c:P + 'gmap.c3', l:'明るい所', show:on('gmap.on')},
+    {pg, r:P + 'gmap.a', l:'濃さ', min:0, max:1, step:0.01, show:on('gmap.on')},
+    {pg, chk:P + 'rep.on', l:'色の置き換え（指定した色だけ変える）', show:S},
+    {pg, c:P + 'rep.from', l:'元の色', show:on('rep.on')}, {pg, c:P + 'rep.to', l:'新しい色', show:on('rep.on')},
+    {pg, r:P + 'rep.tol', l:'範囲', min:0.02, max:0.5, step:0.01, show:on('rep.on')},
+    ...(withOld ? [
+      {pg, chk:P + 'posterize.on', l:'ポスタライズ（イラスト風）', show:S},
+      {pg, r:P + 'posterize.n', l:'色の段階', min:2, max:10, step:1, show:on('posterize.on')},
+      {pg, chk:P + 'thresh.on', l:'2値化（マンガ・版画風）', show:S},
+      {pg, r:P + 'thresh.lvl', l:'しきい値', min:0.05, max:0.95, step:0.01, show:on('thresh.on')},
+      {pg, c:P + 'thresh.c1', l:'暗い色', show:on('thresh.on')}, {pg, c:P + 'thresh.c2', l:'明るい色', show:on('thresh.on')},
+    ] : []),
+    {pg, chk:P + 'half.on', l:'網点（マンガのトーン）', show:S},
+    {pg, r:P + 'half.size', l:'点の大きさ', min:3, max:40, step:0.5, show:on('half.on')},
+    {pg, c:P + 'half.c', l:'点の色', show:on('half.on')},
+    {pg, r:P + 'half.mix', l:'元の色を残す', min:0, max:1, step:0.01, show:on('half.on')},
+    {pg, chk:P + 'edge.on', l:'線画（輪郭を線にする）', show:S},
+    {pg, r:P + 'edge.amt', l:'線の濃さ', min:0.2, max:3, step:0.05, show:on('edge.on')},
+    {pg, c:P + 'edge.c', l:'線の色', show:on('edge.on')},
+    {pg, chk:P + 'edge.keep', l:'元の絵を残す（オフで白い紙に線だけ）', show:on('edge.on')},
+    {pg, chk:P + 'paint.on', l:'油絵風（筆で塗ったように）', show:S},
+    {pg, r:P + 'paint.r', l:'筆の大きさ', min:1, max:12, step:0.5, show:on('paint.on')},
+    {pg, r:P + 'sharp', l:'シャープ', min:0, max:2, step:0.05, show:S},
+    {pg, r:P + 'noise', l:'ノイズ（ざらつき）', min:0, max:1, step:0.01, show:S},
+    {pg, sub:'ゆがみ', show:S},
+    {pg, seg:P + 'warp.type', l:'種類', opts:WARP_TYPES, show:S},
+    {pg, r:P + 'warp.amt', l:'強さ', min:0, max:1, step:0.01, show:S + '&' + P + 'warp.type!=none'},
+    {pg, r:P + 'warp.n', l:'波の数', min:1, max:20, step:0.5, show:S + '&' + P + 'warp.type=wave'},
+    ...(withOld ? [
+      {pg, chk:P + 'tilt.on', l:'ミニチュア風（上下をぼかす）', show:S},
+      {pg, r:P + 'tilt.pos', l:'くっきりの位置', min:0, max:1, step:0.01, show:on('tilt.on')},
+      {pg, r:P + 'tilt.w', l:'くっきりの幅', min:0.05, max:0.9, step:0.01, show:on('tilt.on')},
+      {pg, r:P + 'tilt.blur', l:'ぼかし', min:2, max:40, step:0.5, show:on('tilt.on')},
+      {pg, r:P + 'tilt.sat', l:'色の濃さ', min:0, max:1, step:0.01, show:on('tilt.on')},
+    ] : []),
+  ];
+}
 // 選択中のレイヤー用の行。pg ごとにだいたい次の順で並ぶ：グループ → 配置（大きさ・回転・不透明度・描画モード・ロック・配置）→
 // 動的エフェクト（fx）→ 分割フレーム（split / cells / ctext / cfx）→ 画像（frame / color / edge / cut）。
 // 配置（base）と効果（cfx）には、種類（@type）ごとに出す行・出さない行がある
@@ -100,7 +148,48 @@ const SEL_ROWS = [
   {pg:'fx', r:'@p.size', l:'粒の大きさ', min:0.2, max:4, step:0.05, show:'@kind=confetti|snow|bokeh|scatter'},
   {pg:'fx', chk:'@p.colorful', l:'カラフルにする', show:'@kind=confetti|bokeh|scatter'},
   {pg:'fx', r:'@p.branch', l:'枝分かれ', min:0, max:1, step:0.01, show:'@kind=bolt'},
-  {pg:'fx', seed:'@p.seed', l:'ランダム', show:'@kind=lines|sparkle|burst|rays|speed|gaan|confetti|snow|bolt|bokeh|scatter'},
+  // 追加のエフェクト（漫画・光・演出・ゲーム配信）
+  {pg:'fx', c:'@p.c2', l:'フチの色', show:'@kind=anger|sweat|mark'},
+  {pg:'fx', c:'@p.c2', l:'芯の色', show:'@kind=aura|fire'},
+  {pg:'fx', c:'@p.c2', l:'外側の色', show:'@kind=hit'},
+  {pg:'fx', r:'@p.sw', l:'フチの太さ', min:0, max:30, step:0.5, show:'@kind=anger|mark'},
+  {pg:'fx', sel:'@p.text', l:'マーク', opts:FX_MARKS, show:'@kind=mark'},
+  {pg:'fx', chk:'@p.fill', l:'ベタフラッシュ（外側を塗りつぶす）', show:'@kind=uni'},
+  {pg:'fx', r:'@p.n', l:'本数', min:20, max:400, step:1, show:'@kind=uni'},
+  {pg:'fx', r:'@p.inner', l:'中心の空き', min:0.05, max:1.2, step:0.01, show:'@kind=uni'},
+  {pg:'fx', r:'@p.len', l:'長さ', min:0.1, max:2, step:0.01, show:'@kind=uni'},
+  {pg:'fx', r:'@p.w', l:'太さ', min:0.2, max:4, step:0.05, show:'@kind=uni'},
+  {pg:'fx', r:'@p.n', l:'しずくの数', min:1, max:8, step:1, show:'@kind=sweat'},
+  {pg:'fx', r:'@p.size', l:'大きさ', min:0.3, max:3, step:0.05, show:'@kind=sweat|cross|smoke|petals|bubbles|hit'},
+  {pg:'fx', r:'@p.n', l:'線の数', min:2, max:120, step:1, show:'@kind=gloom'},
+  {pg:'fx', r:'@p.len', l:'長さ', min:0.1, max:1, step:0.01, show:'@kind=gloom'},
+  {pg:'fx', r:'@p.w', l:'線の太さ', min:0.2, max:4, step:0.05, show:'@kind=gloom'},
+  {pg:'fx', r:'@p.amt', l:'暗さ', min:0, max:1, step:0.01, show:'@kind=gloom'},
+  {pg:'fx', r:'@p.amt', l:'明るさ', min:0, max:2, step:0.01, show:'@kind=flare'},
+  {pg:'fx', r:'@p.n', l:'ゴーストの数', min:0, max:16, step:1, show:'@kind=flare'},
+  {pg:'fx', r:'@p.angle', l:'ゴーストの向き', min:-180, max:180, step:1, show:'@kind=flare'},
+  {pg:'fx', seg:'@p.spikes', l:'光の本数', opts:[['4', '4本'], ['6', '6本'], ['8', '8本']], show:'@kind=cross'},
+  {pg:'fx', r:'@p.n', l:'数', min:1, max:40, step:1, show:'@kind=cross'},
+  {pg:'fx', r:'@p.n', l:'炎の数', min:6, max:120, step:1, show:'@kind=aura'},
+  {pg:'fx', r:'@p.h', l:'炎の長さ', min:0.2, max:3, step:0.05, show:'@kind=aura|fire'},
+  {pg:'fx', r:'@p.rise', l:'上向きの強さ', min:0, max:1, step:0.01, show:'@kind=aura'},
+  {pg:'fx', r:'@p.n', l:'炎の数', min:3, max:60, step:1, show:'@kind=fire'},
+  {pg:'fx', r:'@p.n', l:'数', min:1, max:120, step:1, show:'@kind=smoke'},
+  {pg:'fx', r:'@p.n', l:'割れ目の数', min:3, max:40, step:1, show:'@kind=crack'},
+  {pg:'fx', r:'@p.w', l:'線の太さ', min:0.2, max:4, step:0.05, show:'@kind=crack|shock|shine'},
+  {pg:'fx', r:'@p.ring', l:'輪の広がり', min:0.1, max:1.2, step:0.01, show:'@kind=crack'},
+  {pg:'fx', r:'@p.n', l:'帯の数', min:1, max:120, step:1, show:'@kind=glitch'},
+  {pg:'fx', r:'@p.amt', l:'強さ', min:0, max:1, step:0.01, show:'@kind=glitch'},
+  {pg:'fx', chk:'@p.colorful', l:'カラフルにする', show:'@kind=glitch|petals'},
+  {pg:'fx', seg:'@p.shape', l:'形', opts:[['sakura', '桜'], ['leaf', '葉っぱ'], ['momiji', 'もみじ']], show:'@kind=petals'},
+  {pg:'fx', r:'@p.n', l:'数', min:1, max:300, step:1, show:'@kind=petals|bubbles'},
+  {pg:'fx', seg:'@p.type', l:'種類', opts:[['bubble', '泡'], ['splash', '水しぶき']], show:'@kind=bubbles'},
+  {pg:'fx', r:'@p.n', l:'輪の数', min:1, max:8, step:1, show:'@kind=shock'},
+  {pg:'fx', r:'@p.tilt', l:'平たさ', min:0.1, max:1, step:0.01, show:'@kind=shock'},
+  {pg:'fx', r:'@p.n', l:'トゲの数', min:4, max:40, step:1, show:'@kind=hit'},
+  {pg:'fx', r:'@p.n', l:'帯の数', min:1, max:6, step:1, show:'@kind=shine'},
+  {pg:'fx', r:'@p.angle', l:'角度', min:-90, max:90, step:1, show:'@kind=shine'},
+  {pg:'fx', seed:'@p.seed', l:'ランダム', show:'@kind=lines|sparkle|burst|rays|speed|gaan|confetti|snow|bolt|bokeh|scatter|uni|sweat|gloom|flare|cross|aura|fire|smoke|crack|glitch|petals|bubbles|shock|hit|shine'},
   {pg:'base', r:'@op', l:'不透明度', min:0.05, max:1, step:0.01},
   {pg:'base', sel:'@blend', l:'描画モード', opts:Object.entries({'source-over':'通常', multiply:'乗算（暗く重ねる）', screen:'スクリーン（明るく重ねる）', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト', 'color-dodge':'覆い焼き（光る）', lighter:'加算（発光）', difference:'差の絶対値', luminosity:'輝度'})},
   {pg:'base', chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
@@ -272,6 +361,7 @@ const BG_ROWS = [
   {pg:'fx', r:'bg.tilt.w', l:'くっきりの幅', min:0.05, max:0.9, step:0.01, show:'bg.type=image&bg.tilt.on=true'},
   {pg:'fx', r:'bg.tilt.blur', l:'ぼかし', min:2, max:40, step:0.5, show:'bg.type=image&bg.tilt.on=true'},
   {pg:'fx', r:'bg.tilt.sat', l:'色の濃さ', min:0, max:1, step:0.01, show:'bg.type=image&bg.tilt.on=true'},
+  ...EXTRA_ROWS('bg.', 'bg.type=image', 'fx', false),
   {pg:'main', c:'bg.color', l:'色', show:'bg.type=color'},
   {pg:'main', c:'bg.c1', l:'色1', show:'bg.type=grad'}, {pg:'main', c:'bg.c2', l:'色2', show:'bg.type=grad'},
   {pg:'main', r:'bg.angle', l:'角度', min:0, max:360, step:1, show:'bg.type=grad'},
@@ -314,12 +404,16 @@ const BG_ROWS = [
   {pg:'fin', r:'fin.scan', l:'走査線（VHS風）', min:0, max:1, step:0.01},
   {pg:'fin', r:'fin.half', l:'網点（アメコミ風）', min:0, max:1, step:0.01},
   {pg:'fin', r:'fin.halfSize', l:'網点の大きさ', min:4, max:40, step:1},
+  {pg:'fin', r:'fin.paper', l:'紙の質感', min:0, max:1, step:0.01},
+  {pg:'fin', r:'fin.dust', l:'傷・ほこり（古い映画風）', min:0, max:1, step:0.01},
 ];
 // ワンクリック背景エフェクトの一覧 [id, 表示名]。適用処理は applyBgFx（fx.js）で、id をそちらと合わせること
 const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走'], ['soft', 'ふんわり'], ['pop', '文字を目立たせる'], ['vivid', '鮮やか'],
   ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'], ['spot', 'スポットライト'], ['mosaic', 'モザイク'],
   ['horror', 'ホラー'], ['emo', 'エモい'], ['game', 'ゲーム実況'], ['news', 'ニュース'], ['manga', 'マンガ'], ['shock', 'ガーン'], ['mini', 'ミニチュア'],
-  ['popart', 'ポップアート'], ['illust', 'イラスト風'], ['sunray', '放射ライン'], ['win', '優勝・お祝い'], ['winter', '冬・雪'], ['rain', '雨'], ['reset', 'リセット']];
+  ['popart', 'ポップアート'], ['illust', 'イラスト風'], ['sunray', '放射ライン'], ['win', '優勝・お祝い'], ['winter', '冬・雪'], ['rain', '雨'],
+  ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['wave', 'ゆらゆら'], ['swirl', 'ぐるぐる'],
+  ['fisheye', '魚眼'], ['sakura', '桜'], ['fire', '炎'], ['reset', 'リセット']];
 // 行がどのページ（タブ）に出るか。行の定義の pg（"frame|edge" のように複数可）で決める。
 // ページの出し分けは行を包む div の data-pg で行い（setPage が pgoff クラスを切り替える）、表示条件 show（data-dshow）とは別の仕組み
 const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');
@@ -338,7 +432,7 @@ function drow(r){
     return `<div${sa}>${FRAME_GROUPS.map(([g, ks]) => `<div class="frgrp">${g}</div><div class="pcats frpre">${ks.map(k => `<button data-frpre="${k}">${nm[k]}</button>`).join('')}</div>`).join('')}<div class="pcats frpre"><button data-frpre="off">フレームなし</button></div></div>`; }
   if(r.shapes) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes" data-dseg="@frame.shape">${FRAME_SHAPES.map(([k, t]) => `<button data-v="${k}" title="${t}">${k === 'none' ? '<span>なし</span>' : `<img src="${shapeIcon(k)}" alt="${t}">`}</button>`).join('')}</div></div>`;
   if(r.sub) return `<div class="subhead" style="margin-top:24px"${sa}>${r.sub}${r.note ? `<span class="subnote">${r.note}</span>` : ''}</div>`;
-  if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="crow">${Object.keys(FX_DEF).map(k => `<button class="btn sm" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`;
+  if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="fxgrps">${fxChipsHtml('btn sm')}</div>`;
   if(r.finchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック仕上げ<span class="subnote">サムネ全体の雰囲気を一発で変えます</span></div><div class="pcats fxchips">${Object.entries(FIN_PRESETS).map(([k, v]) => `<button data-finfx="${k}">${v[0]}</button>`).join('')}</div></div>`;
   if(r.fx) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック背景エフェクト</div><div class="pcats fxchips">${FX_CHIPS.map(([k, t]) => `<button data-bgfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.place) return `<div class="row"${sa}><label>${r.l}</label><div class="place">${['t', 'm', 'b'].map(v => ['l', 'c', 'r'].map(h => `<button data-place="${h}${v}" title="この位置に配置"></button>`).join('')).join('')}</div></div>`;

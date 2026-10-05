@@ -61,7 +61,7 @@ const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.ma
 // 画像レイヤーの「効果」（コントラスト・色相・ぼかし・トーン・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット。分割フレームのマスと同じ L.fx）。
 // 明度・彩度だけは従来どおり L.bright / L.sat に持つ（imgFilter）ので、ここでは数えない
 /** @param {Layer} L */
-const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on)); };
+const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x)); };
 // 「色を重ねる」：重ね方（乗算・オーバーレイなど）で色を重ねた結果を、絵のある部分にだけ置く。
 // 重ね方の指定（globalCompositeOperation）と「絵のある部分だけ」（source-atop）は同時に使えないので、別のキャンバスで重ねてから
 // source-atop で戻す。こうしないと、切り抜き画像の周りやグループの外など透明な部分まで色が付く。不透明な部分の結果は直接塗るのと同じ
@@ -227,18 +227,19 @@ function toneFilter(b, f){
   if(b.blur > 0) fl.push(`blur(${b.blur * f}px)`);
   return fl.join(' ') || 'none';
 }
-// 描き終えた画像にかける効果（2色・ポスタライズ・2値化・ミニチュア・モザイク・モーションブラー・ズームブラー）。cx, cy はズームブラーの中心。
+// 描き終えた画像にかける効果（2色・imgfx.js の加工・ミニチュア・モザイク・ゆがみ・色収差・モーションブラー・ズームブラー・ノイズ）。cx, cy はズームブラーの中心。
 // 順序依存：色を減らす系（2色・ポスタライズ・2値化）→ ぼかし系（ミニチュア）→ モザイク →（新しい canvas を作る）モーション → ズーム。
 // 前半は c を直接書き換え、後半は新しい canvas を返すので、必ず戻り値を使うこと
 function postFx(c, b, f, cx, cy){
   if(b.tone === 'duotone') duotone(c, b.duo1, b.duo2);
-  if(b.posterize && b.posterize.on) posterize(c, b.posterize.n);
-  if(b.thresh && b.thresh.on) threshold(c, b.thresh);
+  extraFxColor(c, b, f);   // グラデーションマップ・色の置き換え・油絵・ポスタライズ・2値化・線画・網点・シャープ（imgfx.js）
   if(b.tilt && b.tilt.on) tiltShift(c, b.tilt, f);
   if(b.mosaic.on) mosaic(c, b.mosaic.size * f);
+  extraFxShape(c, b, f, cx, cy);   // ゆがみ・色収差（imgfx.js）
   let out = c;
   if(b.mb.on && b.mb.dist > 0) out = motionBlur(out, b.mb.dist * f, b.mb.angle);
   if(b.zb.on && b.zb.amt > 0) out = zoomBlur(out, b.zb.amt, cx, cy);
+  if(b.noise > 0) addNoise(out, b.noise);   // ノイズは最後（ブラーでならされないように）
   return out;
 }
 // 背景画像を W×H の canvas に描いて効果までかけて返す。余白（画像が画面より小さい／contain のとき）は、

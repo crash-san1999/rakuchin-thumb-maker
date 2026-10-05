@@ -2,7 +2,7 @@
    主な公開関数：applyFinish（仕上げ本体）／finOn（仕上げが何か有効か）／applyFinPreset／posterize・threshold・tiltShift・drawBgPattern（背景用）
    保存データ：DOC.fin（FIN_BASE の形）。項目が増えても古い保存データは FIN_BASE と Object.assign で合わせる前提なので、項目追加時は FIN_BASE に既定値（0＝無効）を入れる
    依存：mk・clamp・rgba・hex2rgb・rng・PI・DOC・syncDoc・docChanged（共通ユーティリティ側）。呼び出し側は描画の最後（全レイヤーを描き終えたあと）。 */
-const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leakC:'#ff8a3d', vig:0, grain:0, rgb:0, scan:0, half:0, halfSize:10});
+const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leakC:'#ff8a3d', vig:0, grain:0, rgb:0, scan:0, half:0, halfSize:10, paper:0, dust:0});   // paper＝紙の質感、dust＝傷・ほこり
 // 色フィルター：f は CSS フィルター、o は [重ね方, 色, 濃さ] の色の重ね
 // 配列は [表示名, CSSフィルター, 色の重ね]。キー名は DOC.fin.look に保存されるので、名前を変えると古い保存データが「なし」扱いになる
 const FIN_LOOKS = {
@@ -19,6 +19,11 @@ const FIN_LOOKS = {
   bleach: ['銀残し', 'saturate(.4) contrast(1.35)'],
   mono:   ['モノクロ', 'grayscale(1) contrast(1.25)'],
   retro:  ['レトロ（VHS）', 'saturate(1.25) contrast(.95)', [['screen', '#1a0a2a', 0.3], ['soft-light', '#ff6ad5', 0.15]]],
+  game:   ['ゲーム実況（くっきり）', 'contrast(1.28) saturate(1.35)', [['soft-light', '#2a6bff', 0.2]]],
+  sunset: ['夕焼け', 'saturate(1.2) contrast(1.05)', [['soft-light', '#ff7a2a', 0.55], ['multiply', '#ffd0a0', 0.25]]],
+  cyber:  ['サイバー', 'saturate(1.3) contrast(1.15) hue-rotate(-10deg)', [['soft-light', '#00e5ff', 0.4], ['screen', '#2a0a4a', 0.35]]],
+  wafu:   ['和風', 'sepia(.35) saturate(.85) contrast(1.05)', [['soft-light', '#c8102e', 0.18], ['multiply', '#f3e6c8', 0.3]]],
+  pastel: ['くすみパステル', 'saturate(.65) brightness(1.1) contrast(.85)', [['screen', '#5a4a6a', 0.25], ['soft-light', '#ffd6e8', 0.4]]],
 };
 // プリセットは FIN_BASE に上書きする差分だけを書く（書かなかった項目は既定値に戻る）
 const FIN_PRESETS = {
@@ -32,11 +37,17 @@ const FIN_PRESETS = {
   horror: ['ホラー', {look:'horror', vig:0.6, grain:0.3, rgb:2}],
   dream:  ['ゆめかわ', {look:'dream', bloom:0.5, leak:0.3, leakC:'#ff9ad5'}],
   glitch: ['グリッチ', {rgb:12, scan:0.35, look:'neon', amt:0.5}],
+  game:   ['ゲーム実況', {look:'game', bloom:0.2, vig:0.25}],
+  sunset: ['夕焼け', {look:'sunset', leak:0.45, leakC:'#ff7a2a', bloom:0.2}],
+  cyber:  ['サイバー', {look:'cyber', rgb:3, bloom:0.35, scan:0.2}],
+  pastel: ['くすみパステル', {look:'pastel', grain:0.12, bloom:0.2}],
+  wafu:   ['和風・紙', {look:'wafu', amt:0.8, paper:0.75}],
+  oldfilm:['古い映画', {look:'film', grain:0.4, dust:0.7, vig:0.5, amt:0.9}],
   reset:  ['なし', {}],
 };
 const hexMix = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 // 無効なときに applyFinish を丸ごと飛ばすための判定（コピー用キャンバスを何枚も作るので重い）。applyFinish の各分岐の条件と合わせること
-const finOn = F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0) || F.bloom > 0 || F.leak > 0 || F.vig > 0 || F.grain > 0 || F.rgb > 0 || F.scan > 0 || F.half > 0);
+const finOn = F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0) || F.bloom > 0 || F.leak > 0 || F.vig > 0 || F.grain > 0 || F.rgb > 0 || F.scan > 0 || F.half > 0 || F.paper > 0 || F.dust > 0);
 function applyFinPreset(name){ DOC.fin = Object.assign(FIN_BASE(), (FIN_PRESETS[name] || FIN_PRESETS.reset)[1]); syncDoc(); docChanged(false); }
 
 // 粒子の柄は 256px の1枚をキャッシュして繰り返す。乱数は固定シード(7)なので、書き出しのたびにノイズが変わらない（プレビューと出力が一致）
@@ -48,7 +59,7 @@ function grainPattern(x){
 }
 // 仕上げ：c（描き終えたサムネ）をそのまま書き換える。透明な部分は透明のまま
 // f：キャンバスの倍率（ドキュメント座標→ピクセル）。ぼかし・ずれ・粒などのピクセル量は f を掛けて、プレビューと書き出しで見た目を揃える
-// 順序依存：ルック→網点→ブルーム→光漏れ→RGBずれ→走査線→粒子→ビネット。最後に元の透明部分で切り抜く（mask は処理前のコピー）
+// 順序依存：ルック→網点→ブルーム→光漏れ→RGBずれ→走査線→粒子→紙の質感→傷・ほこり→ビネット。最後に元の透明部分で切り抜く（mask は処理前のコピー）
 function applyFinish(c, F, f){
   const W = c.width, H = c.height, x = c.getContext('2d'), mask = mk(W, H); mask.getContext('2d').drawImage(c, 0, 0);
   const copy = (filter) => { const t = mk(W, H), tx = t.getContext('2d'); if(filter) tx.filter = filter; tx.drawImage(c, 0, 0); tx.filter = 'none'; return t; };
@@ -94,11 +105,34 @@ function applyFinish(c, F, f){
     const p = grainPattern(x), s = Math.max(0.5, f * 1.2); x.save(); x.scale(s, s); x.fillStyle = p; x.fillRect(0, 0, W / s, H / s); x.restore();
     x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
   }
+  if(F.paper > 0) paperOver(x, W, H, clamp(F.paper, 0, 1), f);
+  if(F.dust > 0) dustOver(x, W, H, clamp(F.dust, 0, 1), f);
   if(F.vig > 0){
     const g = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32, W / 2, H / 2, Math.hypot(W, H) / 2);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${clamp(F.vig, 0, 1)})`); x.fillStyle = g; x.fillRect(0, 0, W, H);
   }
   x.globalCompositeOperation = 'destination-in'; x.drawImage(mask, 0, 0);
+  x.restore();
+}
+// 紙の質感：生成りの色を乗算でうっすら重ね、むらの柄（低い周波数のノイズ＋細かい繊維）をオーバーレイで重ねる。柄は 512px を1枚作って繰り返す（固定シード）
+let paperTile = null;
+function paperOver(x, W, H, a, f){
+  if(!paperTile){ paperTile = mk(512, 512); const g = paperTile.getContext('2d'), R = rng(29);
+    const lo = mk(16, 16), lx = lo.getContext('2d'), im = lx.createImageData(16, 16);
+    for(let i = 0; i < im.data.length; i += 4){ const v = 128 + (R() - 0.5) * 60; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+    lx.putImageData(im, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(lo, 0, 0, 512, 512);
+    g.lineWidth = 0.8; for(let i = 0; i < 900; i++){ const px = R() * 512, py = R() * 512, l = 4 + R() * 14, an = R() * PI; g.strokeStyle = R() < 0.5 ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(an) * l, py + Math.sin(an) * l); g.stroke(); } }
+  x.save(); x.globalCompositeOperation = 'multiply'; x.globalAlpha = a * 0.35; x.fillStyle = '#f2e6cf'; x.fillRect(0, 0, W, H);
+  x.globalCompositeOperation = 'overlay'; x.globalAlpha = a * 0.7; const s = Math.max(0.5, f * 1.5); x.scale(s, s); x.fillStyle = x.createPattern(paperTile, 'repeat'); x.fillRect(0, 0, W / s, H / s); x.restore();
+}
+// 傷・ほこり：細い縦の傷と、小さな点（白と黒）を散らす（固定シードなので、書き出すたびに位置は変わらない）。大きさは f で画面に合わせる
+function dustOver(x, W, H, a, f){
+  const R = rng(31), k = Math.max(0.5, f);
+  x.save(); x.lineCap = 'round';
+  for(let i = 0; i < Math.round(14 * a) + 2; i++){ const px = R() * W, y0 = R() * H * 0.6, len = H * (0.2 + R() * 0.8); x.strokeStyle = R() < 0.6 ? `rgba(255,255,255,${0.15 + a * 0.35})` : `rgba(0,0,0,${0.1 + a * 0.3})`;
+    x.lineWidth = (0.6 + R() * 1.4) * k; x.beginPath(); x.moveTo(px, y0); x.quadraticCurveTo(px + (R() - 0.5) * 30 * k, y0 + len / 2, px + (R() - 0.5) * 20 * k, y0 + len); x.stroke(); }
+  for(let i = 0; i < Math.round(260 * a); i++){ const r = (0.6 + R() * R() * 4) * k; x.fillStyle = R() < 0.5 ? `rgba(255,255,255,${0.3 + R() * 0.5})` : `rgba(0,0,0,${0.25 + R() * 0.45})`;
+    x.beginPath(); x.ellipse(R() * W, R() * H, r, r * (0.4 + R() * 0.6), R() * PI, 0, 2 * PI); x.fill(); }
   x.restore();
 }
 // アメコミ風の網点：マスごとの色で、暗いほど大きい点を打つ

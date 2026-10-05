@@ -27,6 +27,7 @@ function thumbInit(){
 // 起動の順序は依存関係そのもの：アイコン置換 → 保存データ（DOC）の復元 → 文字パネルの部品 → フォント一覧 → UI 同期 → サムネ側 → 初回描画。
 // 順番を入れ替えると、DOC が null のまま参照したり、まだ無い入力欄に値を入れたりする
 function boot(){
+  $('#addFxChips').innerHTML = fxChipsHtml('pop-chip');   // 追加メニューの動的エフェクト（種類の一覧は fx.js の FX_GROUPS）
   paintIcons();
   loadSavedDoc();
   buildTextControls();

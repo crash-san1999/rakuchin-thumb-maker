@@ -4,6 +4,7 @@
 # 「paintPreview（キャッシュあり）」と「prevCache を消してから paintPreview」を比べる。項目は自動で集めるので、
 # 新しい設定をレイヤーに足すと、このテストが自動的にその設定も確かめる（テストの書き足し忘れも防ぐ）。
 from helpers import *
+TIMEOUT = 420   # 全レイヤーの全項目を1つずつ描き比べるので時間がかかる（CI は手元より遅い）。run_all.py がこの値まで待つ
 import base64
 from pathlib import Path
 

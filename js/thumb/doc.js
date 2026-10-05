@@ -27,7 +27,7 @@ const DOC_BASE = () => ({
       dim:0, vignette:0, fcx:0.5, fcy:0.5, shade:{on:false, c:'#000000', amt:0.75, angle:90, cover:0.55},
       zb:{on:false, amt:0.25, cx:0.5, cy:0.5}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28},
       tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'},
-      posterize:{on:false, n:4}, thresh:{on:false, lvl:0.5, c1:'#111111', c2:'#ffffff'}, tilt:{on:false, pos:0.55, w:0.3, blur:14, sat:0.3},
+      ...EXTRA_FX_BASE(),   // ポスタライズ・2値化・ミニチュア・色収差・網点・線画・ゆがみなど（imgfx.js。マス・画像レイヤーと共通）
       pat:{on:false, type:'dot', c:'#000000', a:0.25, size:16, mode:'source-over'}},
   fin:FIN_BASE(),
   layers:[], sel:null, textSel:null, msel:[],
@@ -69,7 +69,7 @@ const LAYER_NORMALIZE = {
 // 画像レイヤー：crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
 function normalizeImageLayer(L){
   return Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
-        fx: (x => { x.duo1 = safeColor(x.duo1, '#1b1464'); x.duo2 = safeColor(x.duo2, '#ff9d5c'); x.tint.c = safeColor(x.tint.c, '#ff7a50'); return x; })(mergeCellFx(L.fx)),
+        fx: mergeCellFx(L.fx),   // 色は mergeCellFx の中で fxColorsSafe が安全な値にそろえる
         outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
         btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
         frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
@@ -83,7 +83,7 @@ function normalizeDocSettings(o, d){
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
   o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none';
-  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
+  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat', 'rgb', 'gmap', 'rep', 'half', 'edge', 'paint', 'warp']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   // ヘッダー画像の種類は、キャンバスの大きさがその規定サイズと同じときだけ有効（食い違う保存データは無効にする）
   const hs = HEADER_SPECS[d.hdr]; o.hdr = hs && hs.w === o.w && hs.h === o.h ? d.hdr : ''; if(!o.hdr) o.guides.safe = false;
@@ -99,12 +99,14 @@ function sanitizeDocRefs(o){
   o.layers.forEach(l => { if(l.gid != null){ l.gid = idMap[l.gid] || l.gid; if(!okId(l.gid)) delete l.gid; } });
   o.layers.forEach(l => { if(l.asset != null && !okId(l.asset)) l.asset = null; if(l.cells) l.cells.forEach(c => { if(c.asset != null && !okId(c.asset)) c.asset = null; }); });
   if(o.bg.asset != null && !okId(o.bg.asset)) o.bg.asset = null;
+  fxColorsSafe(o.bg);   // 背景の効果の色（2色・2値化・グラデーションマップなど）
+  o.fin.leakC = safeColor(o.fin.leakC, '#ff8a3d');
   // 色：不正な文字列だと、HTML 属性を壊すだけでなく addColorStop が例外を出して描画が止まるので、読み込み時に使える色へそろえる
   o.layers.forEach(l => {
     if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
       c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = cellW(c); });
     if(l.type === 'collage'){ const t = l.ttx; t.on = !!t.on; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); }
-    if(l.type === 'fx' && l.p) l.p.c = safeColor(l.p.c, '#ffffff');
+    if(l.type === 'fx' && l.p){ l.p.c = safeColor(l.p.c, '#ffffff'); if(l.p.c2 != null) l.p.c2 = safeColor(l.p.c2, '#1f1b2d'); }
   });
 }
 // グループの整理（存在しないグループへの gid・空のグループ）と、複数選択のリセット

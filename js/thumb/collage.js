@@ -11,26 +11,32 @@
 /* マスの画像にかける効果（色調・ぼかし・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット） */
 const CELL_FX_BASE = () => ({bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
   zb:{on:false, amt:0.25}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28}, dim:0, vignette:0, tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'},
-  sil:{on:false, c:'#111111', a:1}});   // sil＝シルエット：絵のある部分を c で塗る（a＝濃さ。1 で完全に 1 色、下げると元の絵が透ける）
+  sil:{on:false, c:'#111111', a:1}, ...EXTRA_FX_BASE()});   // 加工エフェクト（色収差など）は imgfx.js。sil＝シルエット：絵のある部分を c で塗る（a＝濃さ。1 で完全に 1 色、下げると元の絵が透ける）
 // 保存データの効果を既定値と合わせる（入れ子の項目も）
 // 効果の項目が増えた後でも古い保存データが壊れないよう、必ず CELL_FX_BASE にマージして使う（zb・mb などは1段だけ深くマージ）
 function mergeCellFx(o){
   const b = CELL_FX_BASE(); o = o || {};
   for(const k in b) if(o[k] != null) b[k] = b[k] && typeof b[k] === 'object' ? Object.assign(b[k], o[k]) : o[k];
-  b.sil.c = safeColor(b.sil.c, '#111111');   // シルエットの色は fillStyle にそのまま入るので、使える色の文字列にそろえる
+  b.sil.c = safeColor(b.sil.c, '#111111'); fxColorsSafe(b);   // シルエットの色は fillStyle にそのまま入るので、使える色の文字列にそろえる
   return b;
 }
 // 何か1つでも効果が有効か。無効なら別キャンバスを作らず直接描ける（描画の軽量化に使う）
-const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on));
+const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x));
 // マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
 /** @param {Layer} L */
 const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
 const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
-  ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'], ['reset', 'なし']];
+  ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'],
+  ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['popart', 'ポップアート'], ['wave', 'ゆらゆら'], ['reset', 'なし']];
 const CELL_FX_PRESETS = {
   reset:{}, vivid:{sat:0.45, contrast:0.18}, soft:{blur:6, bright:0.05, vignette:0.3}, mono:{tone:'mono', contrast:0.25, vignette:0.4},
   retro:{tone:'sepia', contrast:0.08, vignette:0.55}, duo:{tone:'duotone', contrast:0.1}, red:{tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}},
   dark:{dim:0.45, vignette:0.4}, focus:{zb:{on:true, amt:0.25}, contrast:0.1, vignette:0.45}, speed:{mb:{on:true, dist:120, angle:0}, contrast:0.1}, mosaic:{mosaic:{on:true, size:28}},
+  // 加工エフェクト（imgfx.js）を使うもの
+  dot:{mosaic:{on:true, size:14}, posterize:{on:true, n:5}, sat:0.3}, tone:{half:{on:true, size:9, c:'#111111', mix:0.35}, contrast:0.2, edge:{on:true, amt:1.2, c:'#111111', keep:true}},
+  sketch:{edge:{on:true, amt:1.4, c:'#2a2a2a', keep:false}}, paint:{paint:{on:true, r:5}, sat:0.2}, glitch:{rgb:{on:true, d:10, angle:0}, noise:0.25, contrast:0.15},
+  cyber:{gmap:{on:true, c1:'#12002e', c2:'#ff2bd6', c3:'#38f6ff', a:0.9}, contrast:0.15}, popart:{posterize:{on:true, n:4}, sat:0.5, half:{on:true, size:12, c:'#000000', mix:0.8}},
+  wave:{warp:{type:'wave', amt:0.4, n:6}},
 };
 // マスの背景色と文字（画像の代わり、または画像の上に重ねる）
 const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE(),

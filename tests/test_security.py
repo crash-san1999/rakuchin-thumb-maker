@@ -40,6 +40,24 @@ async def run(p):
     assert r == ['#ffffff', '#1f1b2d', 1, 0.05, 1, 1, 8, True, True], f'分割フレームの新しい項目が安全な値にそろっていない {r}'
     await page(pg, 'lay-ctext'); await settle(pg, 400)
     assert await pg.evaluate("window.__pwn") == 0 and await pg.evaluate("document.querySelectorAll('[onerror]').length") == 0
+    # 加工エフェクト・新しい動的エフェクト・仕上げ：色は安全な値に、種類名は選択肢の中にそろう。極端な数値でも描画が固まらない
+    FXE = {'gmap': {'on': True, 'c1': EVIL, 'c2': EVIL, 'c3': EVIL}, 'rep': {'on': True, 'from': EVIL, 'to': EVIL, 'tol': 1e9}, 'half': {'on': True, 'c': EVIL, 'size': 1e-9},
+           'edge': {'on': True, 'c': EVIL, 'amt': 1e9}, 'thresh': {'on': True, 'c1': EVIL, 'c2': EVIL}, 'warp': {'type': EVIL, 'amt': 1e9, 'n': 1e9},
+           'paint': {'on': True, 'r': 1e9}, 'rgb': {'on': True, 'd': 1e9, 'angle': EVIL}, 'tint': {'on': True, 'c': EVIL}, 'duo1': EVIL}
+    doc = await pg.evaluate("JSON.parse(JSON.stringify(DOC))")
+    doc['layers'] = [{'id': 'im1', 'type': 'image', 'asset': None, 'fx': FXE}, {'id': 'col1', 'type': 'collage', 'n': 2, 'fx': FXE, 'cells': [{'fx': FXE}]},
+                     {'id': 'fx1', 'type': 'fx', 'kind': 'mark', 'p': {'text': EVIL, 'c': EVIL, 'c2': EVIL}}, {'id': 'fx2', 'type': 'fx', 'kind': 'petals', 'p': {'shape': EVIL, 'n': 1e9}}]
+    doc['bg'].update({k: v for k, v in FXE.items()}); doc['fin'] = {'paper': 1e9, 'dust': 1e9, 'leakC': EVIL}
+    await pg.evaluate("d => { loadDocObj(d); }", doc); await settle(pg, 1500)
+    r = await pg.evaluate("""(() => { const fx = [DOC.bg, DOC.layers.find(l => l.id === 'im1').fx, DOC.layers.find(l => l.id === 'col1').fx, DOC.layers.find(l => l.id === 'col1').cells[0].fx];
+      const cols = fx.flatMap(x => [x.gmap.c1, x.gmap.c2, x.gmap.c3, x.rep.from, x.rep.to, x.half.c, x.edge.c, x.thresh.c1, x.thresh.c2, x.tint.c, x.duo1]);
+      const m = DOC.layers.find(l => l.id === 'fx1').p; return {cols, warp: fx.map(x => x.warp.type), mc: [m.c, m.c2], leak: DOC.fin.leakC}; })()""")
+    assert all(c.startswith('#') for c in r['cols']) and r['warp'] == ['none'] * 4 and all(c.startswith('#') for c in r['mc']) and r['leak'].startswith('#'), f'加工エフェクトの色・種類が安全な値にそろっていない {r}'
+    t = await pg.evaluate("""(() => { const t0 = performance.now(), c = mk(320, 180), x = c.getContext('2d'); x.fillStyle = '#c86'; x.fillRect(0, 0, 320, 180);
+      const b = mergeCellFx(JSON.parse(JSON.stringify(DOC.layers.find(l => l.id === 'col1').fx))); b.warp.type = 'swirl'; postFx(c, b, 1, 160, 90);
+      const L = DOC.layers.find(l => l.id === 'fx2'); drawFx(x, L, 0.2); drawFx(x, DOC.layers.find(l => l.id === 'fx1'), 0.2); applyFinish(c, DOC.fin, 1); return performance.now() - t0; })()""")
+    assert t < 8000, f'極端な数値で描画に時間がかかりすぎる {t}ms'
+    assert await pg.evaluate("window.__pwn") == 0
     # 3) 色の検査
     r = await pg.evaluate("[safeColor('#ff00aa'), safeColor('rgba(1,2,3,.5)'), safeColor('red\"><x>', '#111'), safeColor(null, '#222'), okId('A1b-_'), okId('a b'), okId('__proto__'), okId('')]")
     assert r == ['#ff00aa', 'rgba(1,2,3,.5)', '#111', '#222', True, False, False, False], r
