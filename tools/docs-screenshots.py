@@ -9,7 +9,8 @@ from helpers import ROOT, IMG, open_app, close, settle, page, canvas_box
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from docs_decorate import decorate_file
 from playwright.async_api import async_playwright
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+import base64, io
 
 OUT = ROOT / '.docs-raw'          # 撮ったまま（Git には入れない）
 FINAL = ROOT / 'docs' / 'img'      # 飾りを付けた、説明書に載せる画像
@@ -42,7 +43,9 @@ async def main_screens(p):
     await pg.evaluate("(() => { const L = DOC.layers.find(l => l.type === 'image'); selectLayer(L.id); const g0 = frameGeom(L); L.frame.fs = 0.55; L.frame.cy = 0.32; frameCompensate(L, g0); syncDoc(); docChanged(false); })()")
     await page(pg, 'lay-frame'); await settle(pg, 1200); await pg.click('#frameEditBtn'); await settle(pg); await shot(pg, 'frame-edit.png')
     await pg.keyboard.press('Escape'); await pg.evaluate("selectLayer(null)"); await settle(pg, 600)
-    await pg.click('#addBtn'); await pg.wait_for_timeout(500); await shot(pg, 'add-menu.png', clip={'x': 380, 'y': 0, 'width': 560, 'height': 420}); await pg.keyboard.press('Escape')
+    await pg.click('#addBtn'); await pg.wait_for_timeout(500)
+    r = await pg.evaluate("(() => { const b = document.querySelector('#addMenu').getBoundingClientRect(); return [b.left, b.top, b.width, b.height]; })()")
+    await shot(pg, 'add-menu.png', clip={'x': r[0] - 10, 'y': 0, 'width': r[2] + 20, 'height': r[1] + r[3] + 12}); await pg.keyboard.press('Escape')
     await pg.click('#fileBtn'); await pg.wait_for_timeout(500)
     r = await pg.eval_on_selector('#fileMenu', 'e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }')
     await shot(pg, 'file-menu.png', clip={'x': r[0] - 10, 'y': 0, 'width': r[2] + 20, 'height': r[1] + r[3] + 12}); await pg.keyboard.press('Escape')
@@ -87,6 +90,66 @@ async def frame_groups(p):
         for t in tiles: t.unlink()
     await close(pg)
 
+# 一覧画像：同じ場面（背景の街＋キャラ）に、種類ごとの効果をかけたタイルを並べ、名前の札を付ける。
+# 描くのはアプリの描画（compose）そのものなので、画面と同じ絵になる（選択枠などの表示は入らない）
+FONT = ROOT / 'fonts' / 'nikumaru' / 'Nikumaru.otf'
+def tile_grid(tiles, name, cols=3, w=480):
+    ims = [(Image.open(io.BytesIO(base64.b64decode(u.split(',')[1]))).convert('RGB'), t) for t, u in tiles]
+    h = int(ims[0][0].height * w / ims[0][0].width); gap = 8
+    G = Image.new('RGB', (cols * w + (cols + 1) * gap, ((len(ims) + cols - 1) // cols) * (h + gap) + gap), '#ffffff'); d = ImageDraw.Draw(G)
+    f = ImageFont.truetype(str(FONT), 22)
+    for i, (im, t) in enumerate(ims):
+        x, y = gap + (i % cols) * (w + gap), gap + (i // cols) * (h + gap); G.paste(im.resize((w, h), Image.LANCZOS), (x, y))
+        tw = d.textlength(t, font=f); d.rounded_rectangle([x + 8, y + 8, x + 8 + tw + 20, y + 8 + 34], 17, fill='#1f1b2d'); d.text((x + 18, y + 12), t, font=f, fill='#ffffff')
+    G.save(OUT / name, optimize=True)
+
+# 動的エフェクトを置く場所（キャラの後ろ＝奥に置くものは under）。値は DOC 座標と、パラメータ・レイヤーの上書き
+FX_POSE = {
+  'uni':{'under':1}, 'anger':{'x':1240, 'y':330, 'sc':1.3}, 'sweat':{'x':760, 'y':360, 'sc':1.3}, 'gloom':{'y':260, 'sc':1.4}, 'mark':{'x':1330, 'y':360, 'sc':1.2},
+  'flare':{'x':1500, 'y':240}, 'cross':{'sc':1.4}, 'aura':{'under':1, 'y':600, 'sc':1.0},
+  'fire':{'under':1}, 'smoke':{'under':1, 'y':640, 'sc':1.4}, 'crack':{'under':1, 'sc':1.6}, 'glitch':{}, 'petals':{}, 'bubbles':{},
+  'shock':{'under':1, 'y':860, 'sc':1.6}, 'hit':{'x':1150, 'y':520, 'sc':1.3}, 'shine':{'sc':1.2},
+}
+IMGFX = [['色収差', {'rgb': {'on': True, 'd': 12}}], ['グラデーションマップ', {'gmap': {'on': True, 'c1': '#12002e', 'c2': '#ff2bd6', 'c3': '#38f6ff'}}], ['色の置き換え', {'rep': {'on': True, 'from': '#ffd060', 'to': '#ff4f8b', 'tol': 0.12}}],
+         ['網点（マンガのトーン）', {'half': {'on': True, 'size': 9, 'mix': 0.85}}], ['線画', {'edge': {'on': True, 'keep': False, 'amt': 1.4}}], ['油絵風', {'paint': {'on': True, 'r': 12}}],
+         ['ポスタライズ', {'posterize': {'on': True, 'n': 4}}], ['ノイズ', {'noise': 0.6}], ['ドット絵（ワンクリック）', {'mosaic': {'on': True, 'size': 14}, 'posterize': {'on': True, 'n': 5}, 'sat': 0.3}]]
+WARPS = [['波', {'warp': {'type': 'wave', 'amt': 0.5, 'n': 6}}], ['渦巻き', {'warp': {'type': 'swirl', 'amt': 0.6}}], ['魚眼', {'warp': {'type': 'fisheye', 'amt': 0.6}}], ['すぼめる', {'warp': {'type': 'pinch', 'amt': 0.6}}]]
+FINS = ['game', 'sunset', 'cyber', 'pastel', 'wafu', 'oldfilm']
+SNAP = """() => { const W = 960, H = 540, c = mk(W, H); compose(c.getContext('2d'), W, H, false, new Map()); return c.toDataURL('image/png'); }"""
+async def galleries(p):
+    pg = await open_app(p)
+    await pg.set_input_files('#bgimgfile', IMG['city.jpg']); await settle(pg, 1500)
+    await pg.set_input_files('#imgfile', IMG['chara.jpg']); await settle(pg, 1500)
+    # キャラの背景（四隅の色）を透明にして、切り抜いたキャラにする（オーラ・汗などが体のまわりに見えるように）
+    await pg.evaluate("""(() => { DOC.layers = DOC.layers.filter(l => l.type === 'image'); const L = DOC.layers[0], A = ASSETS[L.asset];
+      const c = mk(4, 4), x = c.getContext('2d'); x.drawImage(A.img, 0, 0, 4, 4, 0, 0, 4, 4); const d = x.getImageData(0, 0, 1, 1).data;
+      Object.assign(L.key, {on:true, c:'#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''), mode:'edge', tol:30});
+      L.x = 960; L.y = 600; L.sc = 820 / A.img.naturalHeight; selectLayer(null); docChanged(false); })()"""); await settle(pg, 900)
+    groups = await pg.evaluate("FX_GROUPS.filter(g => g[0] !== '定番')")
+    slug = {'マンガ': 'fx-manga', '光': 'fx-light', '演出': 'fx-stage', 'ゲーム・配信': 'fx-game'}
+    for gname, kinds in groups:
+        tiles = []
+        for k in kinds:
+            pose = dict(FX_POSE.get(k, {})); under = pose.pop('under', 0)
+            u = await pg.evaluate("""([k, pose, under]) => { const img = DOC.layers.find(l => l.type === 'image'); const L = Object.assign(mkFx(k), pose);
+              DOC.layers = under ? [L, img] : [img, L]; prevCache.clear(); return (""" + SNAP + """)(); }""", [k, pose, under])
+            tiles.append([await pg.evaluate("k => FX_NAMES[k]", k), u])
+        tile_grid(tiles, slug[gname] + '.png', cols=3 if len(tiles) != 4 else 2)
+    await pg.evaluate("DOC.layers = DOC.layers.filter(l => l.type === 'image')")
+    APPLY = """([diff]) => { const b = DOC.bg, base = EXTRA_FX_BASE(); for(const k in base) b[k] = typeof base[k] === 'object' ? Object.assign(b[k], base[k]) : base[k];
+      Object.assign(b, {bright:0, contrast:0, sat:0}); b.mosaic.on = false; for(const k in diff){ const v = diff[k]; if(v && typeof v === 'object') Object.assign(b[k], v); else b[k] = v; } prevCache.clear(); }"""
+    for name, sets in [['imgfx.png', IMGFX], ['imgfx-warp.png', WARPS]]:
+        tiles = []
+        for t, diff in sets:
+            await pg.evaluate(APPLY, [diff]); tiles.append([t, await pg.evaluate(SNAP)])
+        tile_grid(tiles, name, cols=3 if len(sets) != 4 else 2)
+    await pg.evaluate(APPLY, [{}])
+    tiles = []
+    for k in FINS:
+        tiles.append([await pg.evaluate("k => (applyFinPreset(k), FIN_PRESETS[k][0])", k), await pg.evaluate(SNAP)])
+    tile_grid(tiles, 'fin-looks.png'); await pg.evaluate("applyFinPreset('reset')")
+    await close(pg)
+
 async def mobile(p):
     pg = await open_app(p, mobile=True)
     await pg.set_input_files('#bgimgfile', IMG['city.jpg']); await settle(pg, 1500)
@@ -109,7 +172,7 @@ def decorate_all():
 
 async def main():
     async with async_playwright() as p:
-        await main_screens(p); await frame_groups(p); await mobile(p)
+        await main_screens(p); await frame_groups(p); await galleries(p); await mobile(p)
     decorate_all()
 
 if __name__ == '__main__':

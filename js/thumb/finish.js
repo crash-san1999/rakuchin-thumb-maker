@@ -118,10 +118,13 @@ function applyFinish(c, F, f){
 let paperTile = null;
 function paperOver(x, W, H, a, f){
   if(!paperTile){ paperTile = mk(512, 512); const g = paperTile.getContext('2d'), R = rng(29);
-    const lo = mk(16, 16), lx = lo.getContext('2d'), im = lx.createImageData(16, 16);
-    for(let i = 0; i < im.data.length; i += 4){ const v = 128 + (R() - 0.5) * 60; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
-    lx.putImageData(im, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(lo, 0, 0, 512, 512);
-    g.lineWidth = 0.8; for(let i = 0; i < 900; i++){ const px = R() * 512, py = R() * 512, l = 4 + R() * 14, an = R() * PI; g.strokeStyle = R() < 0.5 ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(an) * l, py + Math.sin(an) * l); g.stroke(); } }
+    g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+    // むら：ぼんやりした明暗の丸。端をまたぐ丸は反対側にも描いて、つなぎ目のない柄にする
+    for(let i = 0; i < 70; i++){ const px = R() * 512, py = R() * 512, r = 40 + R() * 110, light = R() < 0.5, al = 0.05 + R() * 0.07;
+      for(const ox of [-512, 0, 512]) for(const oy of [-512, 0, 512]){ const gr = g.createRadialGradient(px + ox, py + oy, 0, px + ox, py + oy, r);
+        gr.addColorStop(0, light ? `rgba(255,255,255,${al})` : `rgba(0,0,0,${al})`); gr.addColorStop(1, 'rgba(128,128,128,0)'); g.fillStyle = gr; g.fillRect(px + ox - r, py + oy - r, r * 2, r * 2); } }
+    // 繊維：短い細い線
+    g.lineWidth = 0.8; for(let i = 0; i < 900; i++){ const px = R() * 512, py = R() * 512, l = 4 + R() * 14, an = R() * PI; g.strokeStyle = R() < 0.5 ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(an) * l, py + Math.sin(an) * l); g.stroke(); } }
   x.save(); x.globalCompositeOperation = 'multiply'; x.globalAlpha = a * 0.35; x.fillStyle = '#f2e6cf'; x.fillRect(0, 0, W, H);
   x.globalCompositeOperation = 'overlay'; x.globalAlpha = a * 0.7; const s = Math.max(0.5, f * 1.5); x.scale(s, s); x.fillStyle = x.createPattern(paperTile, 'repeat'); x.fillRect(0, 0, W / s, H / s); x.restore();
 }

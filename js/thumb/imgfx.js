@@ -85,20 +85,20 @@ function addNoise(c, amt){
   for(let i = 0; i < d.length; i += 4){ const v = (R() - 0.5) * 2 * a; d[i] += v; d[i + 1] += v; d[i + 2] += v; }
   c.getContext('2d').putImageData(im, 0, 0);
 }
-// 網点：縮小して読んだ1マスの明るさで点の大きさを決め、白い紙に c の点を打つ。mix の割合で元の色を乗算で戻す。透明な部分は透明のまま
+// 網点：縮小して読んだ1マスの明るさで点の大きさを決め、紙（白と元の絵を mix で混ぜたもの）に c の点を打つ。透明な部分は透明のまま
 function halftoneImg(c, h, f){
   const W = c.width, H = c.height, s = Math.max(3, clamp(+h.size || 10, 2, 80) * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
   const sm = mk(gw, gh), sx = sm.getContext('2d', {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
   const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = t.getContext('2d');
-  tx.fillStyle = '#ffffff'; tx.fillRect(0, 0, W, H); tx.fillStyle = h.c;
+  // 紙：白と元の絵を mix の割合で混ぜたもの（mix が大きいほど元の色が残る）。その上に点を打つ
+  const mx = clamp(+h.mix || 0, 0, 1); tx.fillStyle = '#ffffff'; tx.fillRect(0, 0, W, H); if(mx > 0){ tx.globalAlpha = mx; tx.drawImage(c, 0, 0); tx.globalAlpha = 1; } tx.fillStyle = h.c;
   tx.beginPath();
   for(let j = 0; j < gh; j++) for(let i = 0; i < gw; i++){
-    const k = (j * gw + i) * 4, l = fxLum(d, k) / 255, r = s * 0.7 * Math.sqrt(Math.max(0, 1 - l));
+    const k = (j * gw + i) * 4, l = fxLum(d, k) / 255, r = s * 0.55 * Math.sqrt(Math.max(0, 1 - l));
     if(r < 0.4) continue;
     const x = i * s + s / 2 + (j % 2 ? s / 2 : 0), y = j * s + s / 2; tx.moveTo(x + r, y); tx.arc(x, y, r, 0, 2 * PI);
   }
   tx.fill();
-  const mx = clamp(+h.mix || 0, 0, 1); if(mx > 0){ tx.globalCompositeOperation = 'multiply'; tx.globalAlpha = mx; tx.drawImage(c, 0, 0); tx.globalAlpha = 1; }
   tx.globalCompositeOperation = 'destination-in'; tx.drawImage(c, 0, 0);
   const x = c.getContext('2d'); x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0);
 }
