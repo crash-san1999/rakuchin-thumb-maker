@@ -1,6 +1,6 @@
 """すべてのテストを順に実行する：python3 tests/run_all.py [テスト名の一部 ...] [--timeout=秒]
 1件が止まっても全体が止まらないよう、1件ごとに制限時間（既定 150 秒。テストのモジュールに TIMEOUT＝秒 があればそれ以上）を設け、超えたら失敗として次へ進む。失敗・時間切れで残ったブラウザも閉じる"""
-import asyncio, importlib, sys, time, traceback
+import asyncio, importlib, os, sys, time, traceback
 import helpers
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -22,6 +22,8 @@ async def main(filters, limit):
                 if isinstance(e, (KeyboardInterrupt, SystemExit)): raise
                 failed += 1; msg = f'時間切れ（{max(limit, getattr(importlib.import_module(n), "TIMEOUT", 0)):.0f} 秒を超えました）' if isinstance(e, asyncio.TimeoutError) else f'{type(e).__name__}: {e}'
                 print(f"✘ {n}  {doc}\n   {msg}", flush=True)
+                # GitHub Actions では、失敗をまとめ（annotations）にも出す。ログを開かなくても、API や画面の一覧でどのテストが落ちたか分かる
+                if os.environ.get('GITHUB_ACTIONS'): print(f"::error title={n}::{msg[:900].replace(chr(10), ' ')}", flush=True)
                 if '-v' in sys.argv: traceback.print_exc()
             finally:
                 for b in list(helpers.OPEN_BROWSERS):   # 失敗・時間切れで閉じられなかったブラウザを片付ける
