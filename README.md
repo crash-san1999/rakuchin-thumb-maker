@@ -43,7 +43,8 @@
 - **データの扱い**：サーバーは使いません。画像・作りかけはすべて使っている人のブラウザの中だけに保存されます（上の「データについて」）。
 - **スクリプトの実行制限（CSP）**：`index.html` の Content-Security-Policy で、スクリプトは同じ場所のファイルしか実行しません。万一 HTML が差し込まれても、インラインのスクリプトは動きません。
 - **他人から受け取ったファイルへの備え**：プロジェクト（.json）や素材置き場のバックアップは、読み込むときに検査します。レイヤー・素材の id は英数字・`_`・`-` だけ許可し、色は `#rgb`／`rgb()`／`hsl()` の形だけ通します。画像は `data:image/` だけ受け付けます（外部URLの画像だと、開いただけで第三者のサーバーに接続してしまうため）。画面に出す文字は HTML エスケープします。
-- **外部への通信**：フォント（Google Fonts・jsDelivr・Fontsource の API）と、ユーザーが自分で入れたフォントURL・ドラッグした画像のURLだけです。画像やテキストを外部へ送ることはありません。
+- **外部への通信**：フォント（Google Fonts・jsDelivr・Fontsource の API）と、ユーザーが自分で入れたフォントURL・ドラッグした画像のURL、アクセス数の計測（Cloudflare Web Analytics）だけです。画像やテキストを外部へ送ることはありません。
+- **アクセス数の計測**：公開サイトの閲覧数を Cloudflare Web Analytics で数えています。Cookie は使わず、送るのはページを開いた回数・参照元・国・端末の種類などだけです。CSP で外部から読み込めるスクリプトは `https://static.cloudflareinsights.com` だけに限っています（テストは `tests/test_security.py`）。
 - **開発のルール**：ユーザーの入力やファイルの値を HTML（`innerHTML` など）に入れるときは、`escapeHtml()`（文字）か `safeColor()`（色）、`okId()`（id）を必ず通します。テストは `tests/test_security.py` です。
 
 ## ファイル構成

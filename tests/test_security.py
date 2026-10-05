@@ -11,6 +11,13 @@ async def run(p):
     assert await pg.evaluate("window.__pwn") == 0, 'CSP が効いておらず、インラインのスクリプトが動いた'
     await pg.evaluate("document.querySelectorAll('[onerror]').forEach(e => e.parentElement.remove())")   # 手順1でテストが作った要素は片付ける
     assert await pg.evaluate("document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]') !== null")
+    # 1b) CSP で外部から読めるスクリプトは、アクセス計測（Cloudflare Web Analytics）の配信元だけ。外部スクリプトの読み込みもその1本だけ
+    csp = await pg.evaluate("document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]').content")
+    ss = next(d.split()[1:] for d in csp.split(';') if d.split() and d.split()[0] == 'script-src')
+    assert ss == ["'self'", 'https://static.cloudflareinsights.com'], f'script-src に想定外の許可がある {ss}'
+    ext = await pg.evaluate("[...document.scripts].filter(s => s.src && !s.src.startsWith(location.origin) && !s.src.startsWith('file:')).map(s => ({src: s.src, defer: s.defer, cfg: s.dataset.cfBeacon}))")
+    assert len(ext) == 1 and ext[0]['src'] == 'https://static.cloudflareinsights.com/beacon.min.js' and ext[0]['defer'], f'外部スクリプトが想定と違う {ext}'
+    assert json.loads(ext[0]['cfg']).get('token'), f'計測タグのトークンが読めない {ext}'
     # 2) 細工したプロジェクト：レイヤーの id・gid・色・マスの文字や色に、属性を壊す文字列を入れる
     doc = await pg.evaluate("JSON.parse(JSON.stringify(DOC))")
     doc['layers'] = [
