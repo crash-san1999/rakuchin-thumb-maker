@@ -102,19 +102,12 @@ const FRAME_PATHS = {
   cloud(x, {scallop}){ scallop(11, 0.84, 1.13); },
   flower(x, {scallop}){ scallop(8, 0.6, 1.25); },
   // 吹き出し：本体は高さの 80%、残りの下側にしっぽ。しっぽの根元を本体に 1px 食い込ませて隙間を防ぐ
-  // 吹き出し：本体はしっぽの辺（tside）の反対側に寄せて 80%、残りにしっぽ。しっぽの根元を本体に 1px 食い込ませて隙間を防ぐ。
-  // 下の辺・位置 0.3・先 −0.16・太さ 0.2・曲がり 0（初期値）は、以前の固定のしっぽと同じ座標になる
-  bubble(x, {a, b, w, h, r, o}){
-    const side = ['b', 't', 'l', 'r'].includes(o.tside) ? o.tside : 'b', tp = clamp(+o.tp || 0.3, 0, 1), tt = clamp(+(o.tt ?? -0.16) || 0, -1, 1), tw = clamp(+o.tw || 0.2, 0.02, 0.9), tb = clamp(+o.tb || 0, -1, 1);
-    const vert = side === 'b' || side === 't', L = vert ? w : h, bw = vert ? w : w * 0.8, bh = vert ? h * 0.8 : h, rr = Math.min(bw, bh) * Math.min(0.5, r);
-    x.roundRect(side === 'l' ? -a + w * 0.2 : -a, side === 't' ? -b + h * 0.2 : -b, bw, bh, rr);
-    // 辺に沿った位置 u（−a/−b からの距離）と、辺からの深さ（本体の縁＝0、しっぽの先＝1）を、画面の座標に直す
-    const at = (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
-      : side === 'l' ? [-a + w * 0.2 + 1 - depth * (w * 0.2 + 1), -b + u] : [-a + bw - 1 + depth * (w - bw + 1), -b + u];
-    const p1 = at(L * (tp - tw / 2), 0), tip = at(L * (tp + tt), 1), p2 = at(L * (tp + tw / 2), 0);
-    x.moveTo(p1[0], p1[1]);
-    if(tb){ const mid = at(L * (tp + tt / 2 + tb * 0.15), 0.5); x.quadraticCurveTo(mid[0], mid[1], tip[0], tip[1]); x.quadraticCurveTo(mid[0], mid[1], p2[0], p2[1]); }
-    else { x.lineTo(tip[0], tip[1]); x.lineTo(p2[0], p2[1]); }
+  // 吹き出し：本体＋しっぽ（形の計算は frameBubbleGeom。キャンバス上のしっぽのつまみも同じ計算を使う）
+  bubble(x, {w, h, r, o}){
+    const g = frameBubbleGeom(w, h, r, o);
+    x.roundRect(...g.rect); x.moveTo(g.p1[0], g.p1[1]);
+    if(g.mid){ x.quadraticCurveTo(g.mid[0], g.mid[1], g.tip[0], g.tip[1]); x.quadraticCurveTo(g.mid[0], g.mid[1], g.p2[0], g.p2[1]); }
+    else { x.lineTo(g.tip[0], g.tip[1]); x.lineTo(g.p2[0], g.p2[1]); }
     x.closePath();
   },
   torn(x, {a, b, w, h, seed, poly}){ const R = rng((seed || 1) * 11), p = [], n = 26, j = Math.min(w, h) * 0.025;
@@ -165,6 +158,20 @@ const FRAME_PATHS = {
   // 'rect'・'none'・未知の形はここ（角丸四角）。r は短辺に対する割合で 0〜0.5
   rect(x, {a, b, w, h, r}){ x.roundRect(-a, -b, w, h, Math.min(w, h) * Math.min(0.5, Math.max(0, r))); },
 };
+/* 吹き出しの形（中心が原点・幅 w・高さ h）の計算。本体はしっぽの辺（o.tside）の反対側に寄せて 80%、残りにしっぽ。
+   しっぽの根元は本体に 1px 食い込ませて隙間を防ぐ。下の辺・位置 0.3・先 −0.16・太さ 0.2・曲がり 0（初期値）は、以前の固定のしっぽと同じ座標になる。
+   戻り値：rect＝本体の roundRect の引数、p1・p2＝しっぽの付け根の両端、tip＝先、mid＝曲がりの制御点（曲がり 0 なら null）、side・tp・tt（丸めたあとの値）、
+   at(u, depth)＝辺に沿った位置 u と辺からの深さ（本体の縁 0〜しっぽの先 1）を座標に直す関数、len＝しっぽの辺の長さ */
+function frameBubbleGeom(w, h, r, o){
+  o = o || {};
+  const a = w / 2, b = h / 2;
+  const side = ['b', 't', 'l', 'r'].includes(o.tside) ? o.tside : 'b', tp = clamp(+o.tp || 0.3, 0, 1), tt = clamp(+(o.tt ?? -0.16) || 0, -1, 1), tw = clamp(+o.tw || 0.2, 0.02, 0.9), tb = clamp(+o.tb || 0, -1, 1);
+  const vert = side === 'b' || side === 't', len = vert ? w : h, bw = vert ? w : w * 0.8, bh = vert ? h * 0.8 : h, rr = Math.min(bw, bh) * Math.min(0.5, r);
+  const at = (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
+    : side === 'l' ? [-a + w * 0.2 + 1 - depth * (w * 0.2 + 1), -b + u] : [-a + bw - 1 + depth * (w - bw + 1), -b + u];
+  return {side, tp, tt, len, at, rect:[side === 'l' ? -a + w * 0.2 : -a, side === 't' ? -b + h * 0.2 : -b, bw, bh, rr],
+    p1:at(len * (tp - tw / 2), 0), tip:at(len * (tp + tt), 1), p2:at(len * (tp + tw / 2), 0), mid:tb ? at(len * (tp + tt / 2 + tb * 0.15), 0.5) : null};
+}
 function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ごとの追加の設定（吹き出しのしっぽ。L.frame をそのまま渡す）
   const a = w / 2, b = h / 2, mn = Math.min(w, h);
   const R = rng((seed || 1) * 97 + shape.length * 13);
