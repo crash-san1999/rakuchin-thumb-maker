@@ -97,6 +97,12 @@ function EXTRA_ROWS(P, S, pg, withOld){
     {pg, r:P + 'paint.r', l:'筆の大きさ', min:1, max:12, step:0.5, show:on('paint.on')},
     {pg, r:P + 'sharp', l:'シャープ', min:0, max:2, step:0.05, show:S},
     {pg, r:P + 'noise', l:'ノイズ（ざらつき）', min:0, max:1, step:0.01, show:S},
+    {pg, chk:P + 'scan.on', l:'走査線（ブラウン管・ゲーム画面風）', show:S},
+    {pg, r:P + 'scan.a', l:'濃さ', min:0, max:1, step:0.01, show:on('scan.on')},
+    {pg, r:P + 'scan.size', l:'間隔', min:1, max:20, step:0.5, show:on('scan.on')},
+    {pg, chk:P + 'crt.on', l:'ブラウン管（画面のふくらみ・RGBの点）', show:S},
+    {pg, r:P + 'crt.curve', l:'ふくらみ', min:0, max:1, step:0.01, show:on('crt.on')},
+    {pg, r:P + 'crt.mask', l:'RGBの点の濃さ', min:0, max:1, step:0.01, show:on('crt.on')},
     {pg, sub:'ゆがみ', show:S},
     {pg, seg:P + 'warp.type', l:'種類', opts:WARP_TYPES, show:S},
     {pg, r:P + 'warp.amt', l:'強さ', min:0, max:1, step:0.01, show:S + '&' + P + 'warp.type!=none'},
@@ -418,7 +424,7 @@ const FX_CHIPS = [['focus', '集中'], ['lines', '集中線'], ['speed', '疾走
   ['horror', 'ホラー'], ['emo', 'エモい'], ['game', 'ゲーム実況'], ['news', 'ニュース'], ['manga', 'マンガ'], ['shock', 'ガーン'], ['mini', 'ミニチュア'],
   ['popart', 'ポップアート'], ['illust', 'イラスト風'], ['sunray', '放射ライン'], ['win', '優勝・お祝い'], ['winter', '冬・雪'], ['rain', '雨'],
   ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['wave', 'ゆらゆら'], ['swirl', 'ぐるぐる'],
-  ['fisheye', '魚眼'], ['sakura', '桜'], ['fire', '炎'], ['reset', 'リセット']];
+  ['fisheye', '魚眼'], ['crt', 'ブラウン管'], ['scan', '走査線'], ['sakura', '桜'], ['fire', '炎'], ['reset', 'リセット']];
 // 行がどのページ（タブ）に出るか。行の定義の pg（"frame|edge" のように複数可）で決める。
 // ページの出し分けは行を包む div の data-pg で行い（setPage が pgoff クラスを切り替える）、表示条件 show（data-dshow）とは別の仕組み
 const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');

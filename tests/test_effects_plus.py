@@ -7,7 +7,8 @@ NEW_FX = ['uni', 'anger', 'sweat', 'gloom', 'mark', 'flare', 'cross', 'aura', 'f
 EXTRA = [['色収差', {'rgb': {'on': True, 'd': 14}}], ['グラデーションマップ', {'gmap': {'on': True}}], ['色の置き換え', {'rep': {'on': True, 'from': '#ff3d9a', 'to': '#2fff7a', 'tol': 0.2}}],
          ['網点', {'half': {'on': True}}], ['線画', {'edge': {'on': True, 'keep': False}}], ['油絵', {'paint': {'on': True, 'r': 8}}], ['シャープ', {'sharp': 2}], ['ノイズ', {'noise': 0.8}],
          ['波', {'warp': {'type': 'wave', 'amt': 0.8}}], ['渦巻き', {'warp': {'type': 'swirl', 'amt': 0.8}}], ['魚眼', {'warp': {'type': 'fisheye', 'amt': 0.8}}], ['すぼめる', {'warp': {'type': 'pinch', 'amt': 0.8}}],
-         ['ポスタライズ', {'posterize': {'on': True, 'n': 2}}], ['2値化', {'thresh': {'on': True}}], ['ミニチュア', {'tilt': {'on': True, 'blur': 30}}]]
+         ['ポスタライズ', {'posterize': {'on': True, 'n': 2}}], ['2値化', {'thresh': {'on': True}}], ['ミニチュア', {'tilt': {'on': True, 'blur': 30}}],
+         ['走査線', {'scan': {'on': True, 'a': 1, 'size': 6}}], ['ブラウン管', {'crt': {'on': True, 'curve': 0.6, 'mask': 0.8}}]]
 # 画面と同じ経路（キャッシュを残したまま paintPreview）で描いた結果
 SHOT = "(() => { paintPreview(false); return document.querySelector('#tv').toDataURL(); })()"
 APPLY = """([path, diff]) => { const o = path.split('.').reduce((a, k) => a[k], {DOC, L: selLayer()});
@@ -51,7 +52,7 @@ async def run(p):
         await pg.evaluate(setup, aid); await settle(pg, 500)
         await page(pg, tab); await settle(pg, 300)
         keys = await pg.evaluate("[...document.querySelectorAll('[data-d], [data-dseg]')].filter(e => e.offsetParent).map(e => e.dataset.d || e.dataset.dseg)")
-        for k in ['rgb.on', 'gmap.on', 'rep.on', 'half.on', 'edge.on', 'paint.on', 'sharp', 'noise', 'warp.type']:
+        for k in ['rgb.on', 'gmap.on', 'rep.on', 'half.on', 'edge.on', 'paint.on', 'sharp', 'noise', 'warp.type', 'scan.on', 'crt.on']:
             assert P + k in keys, f'{name}の設定に {k} がない'
         base = await pg.evaluate(SHOT)
         for label, diff in EXTRA:
@@ -65,12 +66,12 @@ async def run(p):
     assert await pg.evaluate(SHOT) != base, 'マスごとの加工エフェクトが効かない'
     # 3) ワンクリック効果：マス（と画像）の新しいボタン・背景の新しいボタン
     await pg.evaluate("(() => { const L = selLayer(); L.fxMode = 'all'; docChanged(false); syncDoc(); })()"); await page(pg, 'lay-cfx'); await settle(pg, 300)
-    for k, chk in [['dot', "L.fx.mosaic.on && L.fx.posterize.on"], ['sketch', "L.fx.edge.on && !L.fx.edge.keep"], ['glitch', "L.fx.rgb.on && L.fx.noise > 0"], ['cyber', "L.fx.gmap.on"], ['wave', "L.fx.warp.type === 'wave'"], ['reset', "!cellFxOn(L.fx)"]]:
+    for k, chk in [['dot', "L.fx.mosaic.on && L.fx.posterize.on"], ['crt', "L.fx.crt.on && L.fx.scan.on"], ['scan', "L.fx.scan.on && !L.fx.crt.on"], ['sketch', "L.fx.edge.on && !L.fx.edge.keep"], ['glitch', "L.fx.rgb.on && L.fx.noise > 0"], ['cyber', "L.fx.gmap.on"], ['wave', "L.fx.warp.type === 'wave'"], ['reset', "!cellFxOn(L.fx)"]]:
         await pg.evaluate(f"[...document.querySelectorAll('[data-cfx=\"{k}\"]')].find(e => e.offsetParent).click()"); await settle(pg, 200)
         assert await pg.evaluate(f"(L => {chk})(selLayer())"), f'マスのワンクリック効果 {k} が効かない'
     await pg.evaluate("(a => { DOC.layers = []; Object.assign(DOC.bg, {type:'image', asset:a}); selectLayer(null); docChanged(false); syncDoc(); })", aid)
     await page(pg, 'bg-fx'); await settle(pg, 300)
-    for k, chk in [['paint', "b.paint.on"], ['swirl', "b.warp.type === 'swirl' && !b.paint.on"], ['glitch', "b.rgb.on && DOC.layers.some(l => l.kind === 'glitch' && l.auto)"],
+    for k, chk in [['crt', "b.crt.on && b.scan.on"], ['paint', "b.paint.on && !b.crt.on && !b.scan.on"], ['swirl', "b.warp.type === 'swirl' && !b.paint.on"], ['glitch', "b.rgb.on && DOC.layers.some(l => l.kind === 'glitch' && l.auto)"],
                    ['sakura', "DOC.layers.some(l => l.kind === 'petals') && !DOC.layers.some(l => l.kind === 'glitch')"], ['fire', "DOC.layers.some(l => l.kind === 'fire' && l.y > DOC.h / 2)"], ['reset', "!b.rgb.on && b.warp.type === 'none' && !b.paint.on"]]:
         await pg.evaluate(f"[...document.querySelectorAll('[data-bgfx=\"{k}\"]')].find(e => e.offsetParent).click()"); await settle(pg, 300)
         assert await pg.evaluate(f"(b => {chk})(DOC.bg)"), f'ワンクリック背景エフェクト {k} が効かない'
@@ -79,7 +80,7 @@ async def run(p):
     for diff in [{'look': 'game'}, {'look': 'sunset'}, {'look': 'cyber'}, {'look': 'wafu'}, {'look': 'pastel'}, {'paper': 1}, {'dust': 1}]:
         await pg.evaluate("d => { DOC.fin = Object.assign(FIN_BASE(), d); docChanged(false); }", diff)
         assert await pg.evaluate("finOn(DOC.fin)") and await pg.evaluate(SHOT) != base, f'仕上げ {diff} が効かない'
-    for k in ['game', 'sunset', 'cyber', 'pastel', 'wafu', 'oldfilm']:
+    for k in ['game', 'sunset', 'cyber', 'pastel', 'wafu', 'oldfilm', 'crt']:
         assert await pg.evaluate(f"(() => {{ applyFinPreset('{k}'); return finOn(DOC.fin); }})()"), f'ワンクリック仕上げ {k} が効かない'
     await page(pg, 'bg-fin'); await settle(pg, 300)
     assert await pg.evaluate("['fin.paper', 'fin.dust'].every(k => [...document.querySelectorAll(`[data-d=\"${k}\"]`)].some(e => e.offsetParent))"), '仕上げに紙の質感・傷の項目がない'

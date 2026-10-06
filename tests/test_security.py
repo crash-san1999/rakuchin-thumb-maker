@@ -43,7 +43,7 @@ async def run(p):
     # 加工エフェクト・新しい動的エフェクト・仕上げ：色は安全な値に、種類名は選択肢の中にそろう。極端な数値でも描画が固まらない
     FXE = {'gmap': {'on': True, 'c1': EVIL, 'c2': EVIL, 'c3': EVIL}, 'rep': {'on': True, 'from': EVIL, 'to': EVIL, 'tol': 1e9}, 'half': {'on': True, 'c': EVIL, 'size': 1e-9},
            'edge': {'on': True, 'c': EVIL, 'amt': 1e9}, 'thresh': {'on': True, 'c1': EVIL, 'c2': EVIL}, 'warp': {'type': EVIL, 'amt': 1e9, 'n': 1e9},
-           'paint': {'on': True, 'r': 1e9}, 'rgb': {'on': True, 'd': 1e9, 'angle': EVIL}, 'tint': {'on': True, 'c': EVIL}, 'duo1': EVIL}
+           'paint': {'on': True, 'r': 1e9}, 'rgb': {'on': True, 'd': 1e9, 'angle': EVIL}, 'scan': {'on': True, 'a': EVIL, 'size': 1e-9}, 'crt': {'on': True, 'curve': 1e9, 'mask': EVIL}, 'tint': {'on': True, 'c': EVIL}, 'duo1': EVIL}
     doc = await pg.evaluate("JSON.parse(JSON.stringify(DOC))")
     doc['layers'] = [{'id': 'im1', 'type': 'image', 'asset': None, 'fx': FXE}, {'id': 'col1', 'type': 'collage', 'n': 2, 'fx': FXE, 'cells': [{'fx': FXE}]},
                      {'id': 'fx1', 'type': 'fx', 'kind': 'mark', 'p': {'text': EVIL, 'c': EVIL, 'c2': EVIL}}, {'id': 'fx2', 'type': 'fx', 'kind': 'petals', 'p': {'shape': EVIL, 'n': 1e9}}]

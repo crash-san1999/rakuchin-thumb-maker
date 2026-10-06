@@ -27,7 +27,7 @@ const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur
 const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
 const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
   ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'],
-  ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['popart', 'ポップアート'], ['wave', 'ゆらゆら'], ['reset', 'なし']];
+  ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['popart', 'ポップアート'], ['wave', 'ゆらゆら'], ['crt', 'ブラウン管'], ['scan', '走査線'], ['reset', 'なし']];
 const CELL_FX_PRESETS = {
   reset:{}, vivid:{sat:0.45, contrast:0.18}, soft:{blur:6, bright:0.05, vignette:0.3}, mono:{tone:'mono', contrast:0.25, vignette:0.4},
   retro:{tone:'sepia', contrast:0.08, vignette:0.55}, duo:{tone:'duotone', contrast:0.1}, red:{tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}},
@@ -37,6 +37,7 @@ const CELL_FX_PRESETS = {
   sketch:{edge:{on:true, amt:1.4, c:'#2a2a2a', keep:false}}, paint:{paint:{on:true, r:5}, sat:0.2}, glitch:{rgb:{on:true, d:10, angle:0}, noise:0.25, contrast:0.15},
   cyber:{gmap:{on:true, c1:'#12002e', c2:'#ff2bd6', c3:'#38f6ff', a:0.9}, contrast:0.15}, popart:{posterize:{on:true, n:4}, sat:0.5, half:{on:true, size:12, c:'#000000', mix:0.8}},
   wave:{warp:{type:'wave', amt:0.4, n:6}},
+  crt:{crt:{on:true, curve:0.25, mask:0.4}, scan:{on:true, a:0.5, size:4}, rgb:{on:true, d:3, angle:0}, contrast:0.15, sat:0.15, vignette:0.35}, scan:{scan:{on:true, a:0.55, size:4}},
 };
 // マスの背景色と文字（画像の代わり、または画像の上に重ねる）
 const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE(),

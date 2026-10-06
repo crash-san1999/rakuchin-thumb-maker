@@ -15,12 +15,14 @@ const EXTRA_FX_BASE = () => ({
   half:{on:false, size:10, c:'#111111', mix:0.6},                      // 網点：暗いほど大きい点（mix＝元の色を残す割合）
   edge:{on:false, amt:1, c:'#111111', keep:true},                      // 線画：輪郭を c の線にする（keep＝元の絵の上に線を重ねる／オフで白い紙に線だけ）
   paint:{on:false, r:4},                                               // 油絵風（Kuwahara フィルター。r＝筆の大きさ）
-  warp:{type:'none', amt:0.5, n:6},                                    // ゆがみ：none / wave（波）/ swirl（渦巻き）/ fisheye（魚眼）/ pinch（すぼめる）。n＝波の数
+  warp:{type:'none', amt:0.5, n:6},
+  scan:{on:false, a:0.5, size:4},                                      // 走査線：横の暗い縞（a＝濃さ、size＝縞の間隔 px）
+  crt:{on:false, curve:0.25, mask:0.4},                                // ブラウン管：画面のふくらみ（四隅が丸く黒くなる）と RGB の細かい縦じま（mask＝濃さ）                                    // ゆがみ：none / wave（波）/ swirl（渦巻き）/ fisheye（魚眼）/ pinch（すぼめる）。n＝波の数
 });
 const WARP_TYPES = [['none', 'なし'], ['wave', '波'], ['swirl', '渦巻き'], ['fisheye', '魚眼'], ['pinch', 'すぼめる']];
 // どれか1つでも有効か（マス・画像レイヤーで、別キャンバスを作るかどうかの判定に使う）。古いデータで項目が無くても落ちないように ?. で見る
 const extraFxOn = x => !!x && !!(x.posterize?.on || x.thresh?.on || x.tilt?.on || x.rgb?.on || x.gmap?.on || x.rep?.on || x.sharp > 0 || x.noise > 0 ||
-  x.half?.on || x.edge?.on || x.paint?.on || (x.warp && x.warp.type !== 'none' && x.warp.amt > 0));
+  x.half?.on || x.edge?.on || x.paint?.on || (x.warp && x.warp.type !== 'none' && x.warp.amt > 0) || x.scan?.on || x.crt?.on);
 // 効果の中の色を、使える色の文字列にそろえる（細工された保存データ対策。不正な色は描画を止めたり HTML 属性を壊したりする）。x をその場で書き換えて返す
 function fxColorsSafe(x){
   const fix = (o, k, d) => { if(o && typeof o === 'object') o[k] = safeColor(o[k], d); };
@@ -201,5 +203,29 @@ function extraFxColor(c, b, f){
 // postFx から呼ぶ：形を動かす系（モザイクのあと、ブラーの前）。c をその場で書き換える
 function extraFxShape(c, b, f, cx, cy){
   if(b.warp && b.warp.type !== 'none' && b.warp.amt > 0) warpImg(c, b.warp, cx, cy);
+  if(b.crt?.on) crtImg(c, b.crt, f);
   if(b.rgb?.on && b.rgb.d > 0) rgbShift(c, b.rgb, f);
+  if(b.scan?.on && b.scan.a > 0) scanLines(c, b.scan, f);
+}
+// 走査線：size px ごとに、上半分を暗くする縞を、絵のある部分にだけ重ねる（透明な部分は透明のまま）
+function scanLines(c, s, f){
+  const per = Math.max(2, Math.round(clamp(+s.size || 4, 1, 40) * f * 2)), t = mk(1, per), tx = t.getContext('2d');
+  tx.fillStyle = '#000'; tx.fillRect(0, 0, 1, Math.max(1, Math.round(per / 2)));
+  const x = c.getContext('2d'); x.save(); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = clamp(+s.a || 0, 0, 1) * 0.7;
+  x.fillStyle = x.createPattern(t, 'repeat'); x.fillRect(0, 0, c.width, c.height); x.restore();
+}
+// ブラウン管：①画面のふくらみ（中心から外ほど引き伸ばす樽型のゆがみ。はみ出した四隅は黒くなり、丸い角の画面になる）
+// ②RGB の細かい縦じま（3px ごとに赤・緑・青だけを残す光り方。mask で濃さ）。透明な部分は透明のまま
+function crtImg(c, cr, f){
+  const W = c.width, H = c.height, src = fxImgData(c).data, x = c.getContext('2d'), im = x.createImageData(W, H), d = im.data;
+  const k = clamp(+cr.curve || 0, 0, 1) * 0.5, m = clamp(+cr.mask || 0, 0, 1) * 0.55, step = Math.max(3, Math.round(3 * f)) / 3;
+  for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
+    const o = (y * W + X) * 4, nx = X / W * 2 - 1, ny = y / H * 2 - 1, g = (1 + k * (nx * nx + ny * ny)) / (1 + k);
+    const sx = (nx * g + 1) / 2 * W, sy = (ny * g + 1) / 2 * H;
+    if(sx < 0 || sy < 0 || sx > W - 1 || sy > H - 1){ d[o + 3] = src[o + 3]; continue; }   // 画面の外：黒（元の絵の濃さのまま）
+    const i = ((sy | 0) * W + (sx | 0)) * 4, ch = Math.floor(X / step) % 3;
+    for(let j = 0; j < 3; j++) d[o + j] = src[i + j] * (j === ch ? 1 : 1 - m);
+    d[o + 3] = src[i + 3];
+  }
+  x.putImageData(im, 0, 0);
 }

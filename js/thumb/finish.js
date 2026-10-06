@@ -43,6 +43,7 @@ const FIN_PRESETS = {
   pastel: ['くすみパステル', {look:'pastel', grain:0.12, bloom:0.2}],
   wafu:   ['和風・紙', {look:'wafu', amt:0.8, paper:0.75}],
   oldfilm:['古い映画', {look:'film', grain:0.4, dust:0.7, vig:0.5, amt:0.9}],
+  crt:    ['ブラウン管', {look:'retro', amt:0.5, scan:0.6, rgb:2.5, vig:0.5, bloom:0.25}],
   reset:  ['なし', {}],
 };
 const hexMix = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };

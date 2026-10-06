@@ -117,7 +117,7 @@ FX_POSE = {
 }
 IMGFX = [['色収差', {'rgb': {'on': True, 'd': 12}}], ['グラデーションマップ', {'gmap': {'on': True, 'c1': '#12002e', 'c2': '#ff2bd6', 'c3': '#38f6ff'}}], ['色の置き換え', {'rep': {'on': True, 'from': '#ffd060', 'to': '#ff4f8b', 'tol': 0.12}}],
          ['網点（マンガのトーン）', {'half': {'on': True, 'size': 9, 'mix': 0.85}}], ['線画', {'edge': {'on': True, 'keep': False, 'amt': 1.4}}], ['油絵風', {'paint': {'on': True, 'r': 12}}],
-         ['ポスタライズ', {'posterize': {'on': True, 'n': 4}}], ['ノイズ', {'noise': 0.6}], ['ドット絵（ワンクリック）', {'mosaic': {'on': True, 'size': 14}, 'posterize': {'on': True, 'n': 5}, 'sat': 0.3}]]
+         ['ブラウン管（ワンクリック）', {'crt': {'on': True, 'curve': 0.25, 'mask': 0.4}, 'scan': {'on': True, 'a': 0.5, 'size': 4}, 'rgb': {'on': True, 'd': 3}, 'contrast': 0.15, 'sat': 0.15, 'vignette': 0.35}], ['ノイズ', {'noise': 0.6}], ['ドット絵（ワンクリック）', {'mosaic': {'on': True, 'size': 14}, 'posterize': {'on': True, 'n': 5}, 'sat': 0.3}]]
 WARPS = [['波', {'warp': {'type': 'wave', 'amt': 0.5, 'n': 6}}], ['渦巻き', {'warp': {'type': 'swirl', 'amt': 0.6}}], ['魚眼', {'warp': {'type': 'fisheye', 'amt': 0.6}}], ['すぼめる', {'warp': {'type': 'pinch', 'amt': 0.6}}]]
 FINS = ['game', 'sunset', 'cyber', 'pastel', 'wafu', 'oldfilm']
 SNAP = """() => { const W = 960, H = 540, c = mk(W, H); compose(c.getContext('2d'), W, H, false, new Map()); return c.toDataURL('image/png'); }"""

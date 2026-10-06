@@ -105,6 +105,8 @@ const BG_FX = {
   wave:   {bg:{warp:{type:'wave', amt:0.4, n:6}}, fx:[]},
   swirl:  {bg:{warp:{type:'swirl', amt:0.45, n:6}, zb:{on:true, amt:0.12}}, fx:[]},
   fisheye:{bg:{warp:{type:'fisheye', amt:0.55, n:6}, vignette:0.4}, fx:[]},
+  crt:    {bg:{crt:{on:true, curve:0.25, mask:0.4}, scan:{on:true, a:0.5, size:4}, rgb:{on:true, d:3, angle:0}, contrast:0.15, sat:0.15, vignette:0.35}, fx:[]},
+  scan:   {bg:{scan:{on:true, a:0.55, size:4}}, fx:[]},
   sakura: {bg:{bright:0.05, tint:{on:true, c:'#ffb3d0', a:0.3, mode:'soft-light'}}, fx:[['petals', {}]]},
   fire:   {bg:{dim:0.2, contrast:0.15, tint:{on:true, c:'#ff5a1f', a:0.35, mode:'overlay'}}, fx:[['fire', {}]]},
 };
@@ -114,7 +116,7 @@ function applyBgFx(name){
   // まず対象の項目を全部初期値に戻してから差分を当てる（前のエフェクトが残らないように）。on のオブジェクトは中身の設定値は残して on だけ切る
   Object.assign(b, {bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', dim:0, vignette:0});
   b.zb.on = b.mb.on = b.mosaic.on = b.tint.on = b.shade.on = b.posterize.on = b.thresh.on = b.tilt.on = b.pat.on = false;
-  b.rgb.on = b.gmap.on = b.rep.on = b.half.on = b.edge.on = b.paint.on = false; b.sharp = 0; b.noise = 0; b.warp.type = 'none';   // 加工エフェクト（imgfx.js）
+  b.rgb.on = b.gmap.on = b.rep.on = b.half.on = b.edge.on = b.paint.on = false; b.sharp = 0; b.noise = 0; b.warp.type = 'none'; b.scan.on = b.crt.on = false;   // 加工エフェクト（imgfx.js）
   for(const k in P.bg){ const v = P.bg[k]; if(v && typeof v === 'object') Object.assign(b[k], v); else b[k] = v; }
   // ワンクリックで作った動的エフェクトは入れ替え（自分で追加したものはそのまま）
   const had = DOC.layers.some(l => l.type === 'fx' && l.auto);

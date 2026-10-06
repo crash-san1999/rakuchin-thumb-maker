@@ -83,7 +83,7 @@ function normalizeDocSettings(o, d){
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
   o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none';
-  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat', 'rgb', 'gmap', 'rep', 'half', 'edge', 'paint', 'warp']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
+  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat', 'rgb', 'gmap', 'rep', 'half', 'edge', 'paint', 'warp', 'scan', 'crt']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   // ヘッダー画像の種類は、キャンバスの大きさがその規定サイズと同じときだけ有効（食い違う保存データは無効にする）
   const hs = HEADER_SPECS[d.hdr]; o.hdr = hs && hs.w === o.w && hs.h === o.h ? d.hdr : ''; if(!o.hdr) o.guides.safe = false;
