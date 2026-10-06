@@ -21,8 +21,8 @@
 // そのため、まだ描かれていないレイヤーや、キャンバス寸法を変えた直後は未登録・古い値になりうる（canvas.js で clear している）
 const prevCache = new Map(), dims = new Map();
 // 消えたレイヤーの描画キャッシュ・大きさの記録を捨てる（取り消し・削除のあと）。キャッシュは画像1枚ぶんの canvas を持つのでメモリ解放が目的。
-// '__bg' はレイヤーではなく背景のキャッシュなので残す
-function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
+// '__bg'・'__bgfin' はレイヤーではなく背景のキャッシュ（仕上げを背景だけにかけたもの）なので残す
+function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(!k.startsWith('__') && !ids.has(k)) m.delete(k); }
 // tvCss：プレビュー canvas の画面上の表示幅（CSS px）。画面上の px を DOC 座標に直す（DOC.w / tvCss）ときに使う。
 // snapLines：ドラッグ中のスナップ線（DOC 座標）。drag：キャンバス上のドラッグ状態（events.js が設定）
 let tvCss = 800, snapLines = {x:null, y:null}, drag = null;
@@ -300,10 +300,15 @@ function compose(ctx, W, H, live, cache){
   const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
   let b = cache.get('__bg');
   if(!b || b.key !== key){ const c = mk(W, H); drawBackground(c.getContext('2d'), W, H, f); b = {key, c}; cache.set('__bg', b); }
-  const fo = finOn(DOC.fin), T = fo ? mk(W, H) : null, x = fo ? T.getContext('2d') : ctx;
-  if(!DOC.bg.hidden){ x.save(); x.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); x.drawImage(b.c, 0, 0); x.restore(); }
+  // 仕上げの「かける対象」が背景だけ（target='bg'）なら、背景の絵にだけ仕上げをかけて（キャッシュ '__bgfin'）、レイヤーはそのまま重ねる
+  const on = finOn(DOC.fin), bgOnly = on && DOC.fin.target === 'bg', fo = on && !bgOnly, T = fo ? mk(W, H) : null, x = fo ? T.getContext('2d') : ctx;
+  let bc = b.c;
+  if(bgOnly){ const k2 = key + '|' + JSON.stringify(DOC.fin); let bf = cache.get('__bgfin');
+    if(!bf || bf.key !== k2){ const c = mk(W, H); c.getContext('2d').drawImage(b.c, 0, 0); applyFinish(c, DOC.fin, f); bf = {key:k2, c}; cache.set('__bgfin', bf); }
+    bc = bf.c; }
+  if(!DOC.bg.hidden){ x.save(); x.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); x.drawImage(bc, 0, 0); x.restore(); }
   for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(x, L, f, live, cache);
-  // 仕上げエフェクト：全部描いてから、まとめてかける（レイヤーごとではなく全体にかかる）
+  // 仕上げエフェクト（サムネ全体）：全部描いてから、まとめてかける（レイヤーごとではなく全体にかかる）
   if(fo){ applyFinish(T, DOC.fin, f); ctx.drawImage(T, 0, 0); }
 }
 /* プレビュー canvas（#tv）に描く。表示幅 w は、ステージの余白を除いた幅・高さに収まる最大値（縦横比 DOC.w:DOC.h を保つ）。

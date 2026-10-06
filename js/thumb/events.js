@@ -277,7 +277,7 @@ async function openProjectFile(f){
 const maskCache = new Map(), maskFx = new Map();
 // 消えたレイヤーのマスクを捨てる。render.js の pruneLayerCaches（取り消しで復元したとき）から呼ばれる
 /** @param {Set<string>} ids 今あるレイヤーの id */
-function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [...m.keys()]) if(k !== '__bg' && !ids.has(k)) m.delete(k); }
+function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [...m.keys()]) if(!k.startsWith('__') && !ids.has(k)) m.delete(k); }
 {
   const tv = $('#tv');
   const toDoc = e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };

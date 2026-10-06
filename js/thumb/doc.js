@@ -82,7 +82,7 @@ function normalizeDocSettings(o, d){
   // こうしないと、古いデータに zb などが無いとき o.bg.zb.on が未定義参照で落ちる
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
-  o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none';
+  o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none'; if(o.fin.target !== 'bg') o.fin.target = 'all';
   for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat', 'rgb', 'gmap', 'rep', 'half', 'edge', 'paint', 'warp', 'scan', 'crt']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   // ヘッダー画像の種類は、キャンバスの大きさがその規定サイズと同じときだけ有効（食い違う保存データは無効にする）

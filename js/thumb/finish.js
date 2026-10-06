@@ -2,7 +2,7 @@
    主な公開関数：applyFinish（仕上げ本体）／finOn（仕上げが何か有効か）／applyFinPreset／posterize・threshold・tiltShift・drawBgPattern（背景用）
    保存データ：DOC.fin（FIN_BASE の形）。項目が増えても古い保存データは FIN_BASE と Object.assign で合わせる前提なので、項目追加時は FIN_BASE に既定値（0＝無効）を入れる
    依存：mk・clamp・rgba・hex2rgb・rng・PI・DOC・syncDoc・docChanged（共通ユーティリティ側）。呼び出し側は描画の最後（全レイヤーを描き終えたあと）。 */
-const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leakC:'#ff8a3d', vig:0, grain:0, rgb:0, scan:0, half:0, halfSize:10, paper:0, dust:0});   // paper＝紙の質感、dust＝傷・ほこり
+const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leakC:'#ff8a3d', vig:0, grain:0, rgb:0, scan:0, half:0, halfSize:10, paper:0, dust:0, target:'all'});   // paper＝紙の質感、dust＝傷・ほこり、target＝かける対象（'all' サムネ全体＝初期値／'bg' 背景だけ）
 // 色フィルター：f は CSS フィルター、o は [重ね方, 色, 濃さ] の色の重ね
 // 配列は [表示名, CSSフィルター, 色の重ね]。キー名は DOC.fin.look に保存されるので、名前を変えると古い保存データが「なし」扱いになる
 const FIN_LOOKS = {
@@ -49,7 +49,8 @@ const FIN_PRESETS = {
 const hexMix = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 // 無効なときに applyFinish を丸ごと飛ばすための判定（コピー用キャンバスを何枚も作るので重い）。applyFinish の各分岐の条件と合わせること
 const finOn = F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0) || F.bloom > 0 || F.leak > 0 || F.vig > 0 || F.grain > 0 || F.rgb > 0 || F.scan > 0 || F.half > 0 || F.paper > 0 || F.dust > 0);
-function applyFinPreset(name){ DOC.fin = Object.assign(FIN_BASE(), (FIN_PRESETS[name] || FIN_PRESETS.reset)[1]); syncDoc(); docChanged(false); }
+// プリセットを当てても「かける対象」（全体／背景だけ）は今の選択のまま（プリセットは見た目だけを決める）
+function applyFinPreset(name){ const t = DOC.fin.target; DOC.fin = Object.assign(FIN_BASE(), (FIN_PRESETS[name] || FIN_PRESETS.reset)[1], {target: t === 'bg' ? 'bg' : 'all'}); syncDoc(); docChanged(false); }
 
 // 粒子の柄は 256px の1枚をキャッシュして繰り返す。乱数は固定シード(7)なので、書き出しのたびにノイズが変わらない（プレビューと出力が一致）
 let grainTile = null;
