@@ -59,6 +59,7 @@ js/core.js                 共通の小道具（$・保存・トースト・数�
 js/bind.js                 入力欄と値をつなぐしくみ（文字パネル・サムネ用で共通）
 js/presets.js              文字スタイルのプリセット
 js/data/font-list.js       Google Fonts 全書体の一覧データ
+js/data/font-sources.js    フォントの厳選リスト・用途の説明・Google 以外の配布元（Fontsource・GitHub・npm・同梱）の一覧
 fonts/                     同梱フォント（フロップデザイン系ほか。ライセンス付き）
 sw.js                      Service Worker（フォントと本体の端末保存・更新の検知）
 manifest.webmanifest       アプリ情報（PWA）
