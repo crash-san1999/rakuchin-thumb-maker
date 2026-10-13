@@ -94,6 +94,7 @@ js/thumb/layers.js         レイヤーパネル・レイヤーの選択と操�
 js/changelog.js            アップデート履歴の元データ（機能を足したら先頭に追記。CHANGELOG.md は tools/gen-changelog.js が生成）
 js/thumb/export.js         サムネの書き出し・共有・プロジェクト読み込み
 js/thumb/inspector.js      選んだものに合わせた設定パネル（行の定義・ページ切り替え）
+js/thumb/hit.js            キャンバス上の当たり判定（どのレイヤーを掴むか。透明な部分は掴まない）
 js/thumb/events.js         キャンバス・ドラッグ＆ドロップ・ボタンの操作
 js/mobile.js               PC／スマホの自動判定・下のバーとシート・タッチ操作
 js/popups.js               ポップアップ（操作ガイド・追加メニュー・ファイルメニュー）
