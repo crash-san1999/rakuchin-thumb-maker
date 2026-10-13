@@ -116,7 +116,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
       if(drag && drag.L){ drag.L.x = drag.lx; drag.L.y = drag.ly; }   // 長押しの間に少し動いていても、ドラッグ開始時の位置へ戻してからメニューを出す
       drag = null; if(L.id !== DOC.sel && !(DOC.msel || []).includes(L.id)) selectLayer(L.id);
       if(navigator.vibrate) navigator.vibrate(12);
-      showMenu(L.id, x0 - 100, y0 + 12);
+      showMenu(L.id, x0 - 100, y0 + 12, y0 - 12);
     }, 520);
     // ダブルタップ：320ms 以内・30px 以内の2回目のタップ。文字レイヤーは文字入力へ、そのほかは編集モード（切り抜き等）へ入る
     const now = Date.now();

@@ -151,7 +151,7 @@ document.addEventListener('click', e => {
     const row = e.target.closest('[data-lid]'); if(!row) return;
     const act = e.target.closest('[data-la]');
     if(act){
-      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(); if(row.dataset.lid !== DOC.sel && !(DOC.msel || []).includes(row.dataset.lid)) selectLayer(row.dataset.lid); setTimeout(() => showMenu(row.dataset.lid, r.left - 150, r.bottom + 4), 0); return; }
+      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(); if(row.dataset.lid !== DOC.sel && !(DOC.msel || []).includes(row.dataset.lid)) selectLayer(row.dataset.lid); setTimeout(() => showMenu(row.dataset.lid, r.left - 150, r.bottom + 4, r.top - 4), 0); return; }
       layerAction(row.dataset.lid, act.dataset.la); return;
     }
     if(e.target.closest('input')) return;

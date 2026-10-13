@@ -299,7 +299,7 @@ body.mode-thumb #pv, body.mode-text #tv{display:none}
 .ly.bgrow{margin-top:10px;cursor:pointer;background:var(--surface-2);border-style:dashed;box-shadow:none}
 .ly.bgrow::before{display:none}
 .ly.bgrow .grip{visibility:hidden}
-.ctxmenu{position:fixed;z-index:30;min-width:214px;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:6px;box-shadow:5px 5px 0 var(--ink);display:none}
+.ctxmenu{position:fixed;z-index:30;min-width:214px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;overscroll-behavior:contain;background:#fff;border:2px solid var(--ink);border-radius:14px;padding:6px;box-shadow:5px 5px 0 var(--ink);display:none}
 .ctxmenu.show{display:block;animation:pop .22s var(--ease)}
 @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 .ctxmenu button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;padding:7px 10px;border-radius:9px;font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;text-align:left}

@@ -108,8 +108,8 @@ function startRename(id){
 }
 /* 右クリックメニュー */
 // 複数選択中のレイヤーを右クリックしたときは、まとめて操作するメニュー。重なり順の端（最前面・最背面）では該当項目を無効にする。
-// メニューは画面外にはみ出さないよう、位置を画面内に収める
-function showMenu(id, cx, cy){
+// メニューは画面外にはみ出さないよう、位置を画面内に収める（下に入らなければ上に出す。画面より高ければスクロール）
+function showMenu(id, cx, cy, upY = cy){
   const L = DOC.layers.find(l => l.id === id); if(!L) return;
   const peers = peersOf(L), pi = peers.indexOf(L), top = pi === peers.length - 1, bottom = pi === 0, m = $('#ctxmenu');
   const b = (act, icn, t, kbd = '', cls = '', dis = false) => `<button data-ma="${act}" class="${cls}"${dis ? ' disabled style="opacity:.35;pointer-events:none"' : ''}>${ic(icn)}${t}${kbd ? `<kbd>${kbd}</kbd>` : ''}</button>`;
@@ -127,9 +127,12 @@ function showMenu(id, cx, cy){
       '<hr>' + (isGroup(L) ? b('ungroup', 'ungroup', 'グループを解除', 'Ctrl+Shift+G') : L.gid ? b('ungroupOne', 'ungroup', 'グループから出す') : '') +
       (isGroup(L) ? '' : b('multi', 'group', '選択に追加（まとめて動かす・グループにする）')) + '<hr>' + b('del', 'trash', isGroup(L) ? 'グループごと削除' : '削除', 'Delete', 'danger');
   }
-  m.dataset.lid = id; m.classList.add('show');
-  const r = m.getBoundingClientRect();
-  m.style.left = Math.min(cx, innerWidth - r.width - 8) + 'px'; m.style.top = Math.min(cy, innerHeight - r.height - 8) + 'px';
+  m.dataset.lid = id; m.scrollTop = 0; m.classList.add('show');
+  // 大きさは offsetWidth/offsetHeight で測る（getBoundingClientRect は表示アニメーションの縮小中の大きさを返し、下が見切れていた）。
+  // 下に入りきらないときは upY（右クリック位置・メニューボタンの上端）より上に出す。それでも入らなければ画面内に収め、高すぎる分は CSS の max-height でスクロール
+  const w = m.offsetWidth, h = m.offsetHeight, M = 8;
+  const y = cy + h <= innerHeight - M ? cy : upY - h >= M ? upY - h : innerHeight - M - h;
+  m.style.left = Math.max(M, Math.min(cx, innerWidth - w - M)) + 'px'; m.style.top = Math.max(M, y) + 'px';
 }
 const hideMenu = () => $('#ctxmenu').classList.remove('show');
 $('#ctxmenu').addEventListener('click', e => {
