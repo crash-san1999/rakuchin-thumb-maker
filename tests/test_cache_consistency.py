@@ -16,7 +16,7 @@ CHECK = r"""async ([kind]) => {
   opts.set('layout', COLLAGE_LAYOUTS.map(l => l[0]));
   const shot = () => { paintPreview(false); return document.querySelector('#tv').toDataURL(); };
   const leaves = (o, path, out) => { for(const [k, v] of Object.entries(o)){ if(skipKey.has(k)) continue; const p = path ? path + '.' + k : k;
-      if(v && typeof v === 'object' && !Array.isArray(v)) leaves(v, p, out); else if(Array.isArray(v)){ if(k === 'cells') [0, 2].forEach(i => v[i] && leaves(v[i], p + '.' + i, out)); /* マスは項目が同じなので、画像のマス（0）と文字だけのマス（2） */ else if(k === 'strokes' || v.length > 12) continue; else v.forEach((x, i) => { if(x && typeof x === 'object') leaves(x, p + '.' + i, out); }); }
+      if(v && typeof v === 'object' && !Array.isArray(v)) leaves(v, p, out); else if(Array.isArray(v)){ if(k === 'cells' || k === 'rows') [0, 2].forEach(i => v[i] && leaves(v[i], p + '.' + i, out)); /* マスは項目が同じなので、画像のマス（0）と文字だけのマス（2） */ else if(k === 'strokes' || v.length > 12) continue; else v.forEach((x, i) => { if(x && typeof x === 'object') leaves(x, p + '.' + i, out); }); }
       else out.push(p); } return out; };
   const get = (o, p) => p.split('.').reduce((a, k) => a == null ? a : a[k], o);
   const set = (o, p, v) => { const ks = p.split('.'), last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
@@ -54,6 +54,8 @@ SETUP = r"""([kind]) => {
   if(kind === 'group'){ const I = add(Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:'Gi', type:'image', asset:'Acmp', x:800, y:500, gid:'Tgt'}));
     const T = add(Object.assign(mkTextLayer(merged({text:'中身'}), 1100, 500, 1), {id:'Gt', gid:'Tgt'})); DOC.layers.push(Object.assign(LAYER_BASE(), GROUP_BASE(), {id:'Tgt'})); }
   if(kind.startsWith('fx:')) add(Object.assign(mkFx(kind.slice(3)), {id:'Tgt'}));
+  if(kind === 'sched'){ const L = add(Object.assign(SCHED_BASE(), {id:'Tgt', start:'2026-10-12'}));
+    ['A', '', 'B'].forEach((t, i) => L.rows[i].title = t); L.rows[0].asset = 'Acmp'; L.rows[2].asset = 'Acmp2'; L.rows[1].rest = true; }
   selectLayer(kind === 'bg' ? null : 'Tgt'); docChanged(false); return DOC.layers.length; }"""
 
 async def run(p):
@@ -63,7 +65,7 @@ async def run(p):
     src2 = 'data:image/jpeg;base64,' + base64.b64encode(Path(IMG['synth.jpg']).read_bytes()).decode()
     await pg.evaluate("src => addAsset(src, 'cmp2', 'Acmp2', true)", src2)
     base = await pg.evaluate("JSON.stringify(DOC)")
-    kinds = ['text', 'image', 'collage', 'group', 'bg'] + ['fx:' + k for k in await pg.evaluate("Object.keys(FX_DEF)")]
+    kinds = ['text', 'image', 'collage', 'group', 'sched', 'bg'] + ['fx:' + k for k in await pg.evaluate("Object.keys(FX_DEF)")]
     report, fails = [], []
     for kind in kinds:
         await pg.evaluate("b => { DOC = normalizeDoc(JSON.parse(b)); prevCache.clear(); }", base)

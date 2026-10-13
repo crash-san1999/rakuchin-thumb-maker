@@ -18,6 +18,7 @@ const isGroup = L => !!L && L.type === 'group';
 function drawOne(ctx, L, f, live, cache){
   if(L.type === 'fx') drawFx(ctx, L, f);
   else if(L.type === 'collage') drawCollage(ctx, L, f, live, cache);
+  else if(L.type === 'sched') drawSched(ctx, L, f, live, cache);
   else if(L.type === 'group') drawGroup(ctx, L, f, live, cache);
   else drawLayer(ctx, L, f, live, cache);
 }

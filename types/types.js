@@ -22,6 +22,8 @@
 /** @typedef {ReturnType<typeof CELL_BASE>} CollageCell */
 /** @typedef {Omit<ReturnType<typeof COLLAGE_BASE>, 'type'|keyof LayerBase|'tstyle'|'cells'> & {tstyle: TextStyle|null, cells: CollageCell[]}} CollageExtra */
 /** @typedef {Omit<ReturnType<typeof GROUP_BASE>, 'type'|'label'>} GroupExtra */
+/** 週間予定表。rows は7日ぶん、dstyle・tstyle は文字スタイル（null ならプリセット名 dpre・tpre のもの）
+ * @typedef {Omit<ReturnType<typeof SCHED_BASE>, 'type'|keyof LayerBase|'dstyle'|'tstyle'> & {dstyle: TextStyle|null, tstyle: TextStyle|null}} SchedExtra */
 /** 動的エフェクト。kind は FX_DEF のキー、p は種類ごとのパラメータ（種類によってキーが違う）
  * auto は、ワンクリック背景エフェクトが自動で作ったレイヤーの目印（切り替え時に入れ替える対象）
  * @typedef {{kind: string, p: Record<string, any>, auto?: boolean}} FxExtra */
@@ -32,12 +34,13 @@
 /** @typedef {LayerBase & {type: 'collage'} & CollageExtra} CollageLayer */
 /** @typedef {LayerBase & {type: 'group'} & GroupExtra} GroupLayer */
 /** @typedef {LayerBase & {type: 'fx'} & FxExtra} FxLayer */
+/** @typedef {LayerBase & {type: 'sched'} & SchedExtra} SchedLayer */
 
 /** DOC.layers の要素（コードが実際に扱う型）。
  * このアプリは `L.cells ? … : …`・`l.type === 'image' ? l.asset : …` のように、種類ごとの項目を存在確認で使い分けている。
  * そこで「どの種類かの既知の項目」はすべて任意項目（?）として許可し、未知の名前（タイプミス）だけを検出する。
- * type は文字列（'text' | 'image' | 'collage' | 'group' | 'fx'）。厳密に絞りたい所は TextLayer などを使う。
- * @typedef {LayerBase & {type: string} & Partial<TextExtra> & Partial<ImageExtra> & Partial<CollageExtra> & Partial<GroupExtra> & Partial<FxExtra>} Layer */
+ * type は文字列（'text' | 'image' | 'collage' | 'group' | 'fx' | 'sched'）。厳密に絞りたい所は TextLayer などを使う。
+ * @typedef {LayerBase & {type: string} & Partial<TextExtra> & Partial<ImageExtra> & Partial<CollageExtra> & Partial<GroupExtra> & Partial<FxExtra> & Partial<SchedExtra>} Layer */
 
 /** 背景・仕上げ・色効果 */
 /** @typedef {ReturnType<typeof DOC_BASE>['bg']} DocBg */

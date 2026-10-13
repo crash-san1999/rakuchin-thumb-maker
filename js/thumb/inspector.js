@@ -200,6 +200,21 @@ const SEL_ROWS = [
   {pg:'base', sel:'@blend', l:'描画モード', opts:Object.entries({'source-over':'通常', multiply:'乗算（暗く重ねる）', screen:'スクリーン（明るく重ねる）', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト', 'color-dodge':'覆い焼き（光る）', lighter:'加算（発光）', difference:'差の絶対値', luminosity:'輝度'})},
   {pg:'base', chk:'@locked', l:'ロック（キャンバス上で選択・移動しない）'},
   {pg:'base', place:true, l:'配置', show:'@type!=group'},
+  {pg:'sched', sched:true, show:'@type=sched'},
+  {pg:'sdesign', sub:'帯', show:'@type=sched'},
+  {pg:'sdesign', seg:'@band', l:'帯の形', opts:SCHED_BANDS, show:'@type=sched'},
+  {pg:'sdesign', seed:'@seed', l:'筆のかすれ', show:'@type=sched&@band=brush'},
+  {pg:'sdesign', seg:'@bandColor', l:'帯の色', opts:SCHED_COLORS, show:'@type=sched&@band!=none'},
+  {pg:'sdesign', c:'@bandC', l:'色', show:'@type=sched&@band!=none&@bandColor=one'},
+  {pg:'sdesign', r:'@gap', l:'行のすき間', min:0, max:0.6, step:0.01, show:'@type=sched'},
+  {pg:'sdesign', chk:'@img', l:'右端に画像の列を作る', show:'@type=sched'},
+  {pg:'sdesign', sub:'日付', show:'@type=sched'},
+  {pg:'sdesign', sel:'@fmt', l:'曜日の書き方', opts:[['ja1', '月'], ['ja3', '月曜日'], ['en', 'MON']], show:'@type=sched'},
+  {pg:'sdesign', sel:'@paren', l:'曜日の括弧', opts:[['half', '(月) 半角'], ['full', '（月）全角'], ['none', 'なし']], show:'@type=sched'},
+  {pg:'sdesign', sub:'おやすみの日', show:'@type=sched'},
+  {pg:'sdesign', c:'@restC', l:'帯の色', show:'@type=sched'},
+  {pg:'sdesign', sub:'文字のスタイル', show:'@type=sched'},
+  {pg:'sdesign', schedStyle:true, show:'@type=sched'},
   {pg:'split', sub:'分割フレーム', note:'複数の画像を並べます。マスに画像をドロップするか、下の一覧から選んでください', show:'@type=collage'},
   {pg:'split', seg:'@n', l:'分割数', opts:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']], show:'@type=collage'},
   {pg:'split', layouts:true, l:'分割のしかた', show:'@type=collage'},
@@ -439,6 +454,8 @@ function drow(r){
   if(r.cells) return `<div class="cellBox"${sa}></div>`;
   if(r.ctext) return `<div class="ctBox"${sa}></div>`;
   if(r.week) return `<div class="wkBox"${sa}></div>`;
+  if(r.sched) return `<div class="schBox"${sa}></div>`;
+  if(r.schedStyle) return `<div class="schStyleBox"${sa}></div>`;
   if(r.cfxchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック効果</div><div class="pcats fxchips">${CELL_FX_CHIPS.map(([k, t]) => `<button data-cfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.frpre){ const nm = Object.fromEntries(FRAME_PRESETS.map(p => [p[0], p[1]]));
     return `<div${sa}>${FRAME_GROUPS.map(([g, ks]) => `<div class="frgrp">${g}</div><div class="pcats frpre">${ks.map(k => `<button data-frpre="${k}">${nm[k]}</button>`).join('')}</div>`).join('')}<div class="pcats frpre"><button data-frpre="off">フレームなし</button></div></div>`; }
@@ -474,10 +491,11 @@ const INS_PAGES = {
   collage:[['lay-split', '分割'], ['lay-cells', 'マスの画像'], ['lay-ctext', '背景色・文字'], ['lay-cfx', '効果'], ['lay-base', '配置']],
   fx:[['lay-fx', 'エフェクト'], ['lay-base', '配置']],
   group:[['lay-cfx', '効果'], ['lay-base', '配置']],
+  sched:[['lay-sched', '予定'], ['lay-sdesign', 'デザイン'], ['lay-base', '配置']],
   bg:[['bg-main', '背景'], ['bg-tone', '色調'], ['bg-fx', '効果'], ['bg-fin', '仕上げ']],
 };
 // パネル上部の見出し [アイコン名, 種類の表示名]
-const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], group:['group', 'グループ'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
+const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], image:['image', '画像'], collage:['grid', '分割フレーム'], group:['group', 'グループ'], sched:['calendar', '週間予定表'], fx:['fxadd', '動的エフェクト'], bg:['sliders', '背景']};
 // いま何の設定パネルを出すか：文字モード → 'textmode'、レイヤー選択中 → そのレイヤーの type、何も選んでいない → 'bg'（背景の設定）
 function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = selLayer(); return L ? L.type : 'bg'; }
 // ページを切り替える。文字パネルは3つのペイン（text / style / design）と、text ペイン内の2つの節（テキスト・フォント）の出し分け、

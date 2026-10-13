@@ -24,7 +24,7 @@ function layerRowsOrder(){
 // パネルの2行目（種別などの説明）。画像が ASSETS に無いときは「読み込めません」（IndexedDB の復元前・保存失敗のとき）
 /** @param {Layer} L */
 function layerSubText(L){
-  return L.type === 'text' ? '文字' : L.type === 'group' ? `${groupKids(L).length}個のレイヤー${cellFxOn(L.fx) ? ' ・ 効果あり' : ''}` : L.type === 'collage' ? `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚` : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
+  return L.type === 'text' ? '文字' : L.type === 'group' ? `${groupKids(L).length}個のレイヤー${cellFxOn(L.fx) ? ' ・ 効果あり' : ''}` : L.type === 'collage' ? `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚` : L.type === 'sched' ? `${schedDays(L).map(d => `${d.getMonth() + 1}/${d.getDate()}`).filter((_, i) => i === 0 || i === 6).join('〜')}` : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
 }
 // 毎回 innerHTML で作り直す。行のサムネは <canvas data-th> で、描き終わったあと refreshThumbs が prevCache の絵を縮小して入れる。
 // 背景の行は固定（並べ替え・選択の対象外）で、data-th='__bg' のサムネは背景キャッシュを使う

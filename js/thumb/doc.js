@@ -38,7 +38,7 @@ const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
 const selLayer = () => layerById(DOC && DOC.sel);
 const textLayer = () => layerById(DOC && DOC.textSel);
 // いま DOC が参照している画像アセットid の集合。IndexedDB の掃除（assets.js idbRestore）とプロジェクト保存で「使っているものだけ」を残すのに使う
-function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : [])].filter(Boolean)); }
+function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : l.type === 'sched' ? l.rows.map(r => r.asset) : [])].filter(Boolean)); }
 /** @param {Layer} L */
 function layerName(L){
   if(L.label) return L.label;
@@ -46,6 +46,7 @@ function layerName(L){
   if(L.type === 'group') return `グループ（${groupKids(L).length}個）`;
   if(L.type === 'fx') return FX_NAMES[L.kind] || 'エフェクト';
   if(L.type === 'collage') return `分割フレーム（${collageN(L)}分割）`;
+  if(L.type === 'sched') return '週間予定表';
   return L.name || '画像';
 }
 /* 保存データ（localStorage・プロジェクトJSON・取り消し履歴）を、いまの DOC の形に整えて返す。
@@ -67,6 +68,7 @@ const LAYER_NORMALIZE = {
         cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE()),
   group: L => (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE())),
   fx: L => Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})}),
+  sched: L => normalizeSched(L),
 };
 // 画像レイヤー：crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
 function normalizeImageLayer(L){
@@ -224,7 +226,7 @@ function syncDoc(except){
   const sc = $('#safeChip'); if(sc) sc.hidden = !DOC.hdr;   // セーフエリアのボタンはヘッダー画像のときだけ出す
   const L = selLayer(); document.querySelectorAll('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
   renderInspector();
-  renderCells(); renderCellText();
+  renderCells(); renderCellText(); renderSched();
   refreshSizeUI();
 }
 

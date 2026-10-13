@@ -168,6 +168,7 @@ document.addEventListener('click', e => {
     e.preventDefault(); openLayerMenu(row.dataset.lid, e.clientX, e.clientY);
   });
   $('#addCollageBtn').onclick = () => addCollage();
+  $('#addSchedBtn').onclick = () => addSched();
   document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ applyCropChange(L, () => { L.crop = {t:0, b:0, l:0, r:0}; }); syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; L.fx = mergeCellFx(); syncDoc(); docChanged(false); } } });
   document.addEventListener('click', e => { if(e.target.closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
@@ -254,11 +255,11 @@ async function openProjectFile(f){
     if(proj){ openProjectFile(proj); return; }
     if(fontsF.length) addFontFiles(fontsF);
     if(!imgs.length){ if(!fontsF.length) toast('画像（PNG / JPG / WebP など）かフォントファイルをドロップしてください', true); return; }
-    // 画像は、まず分割フレームのマス（ドロップ位置）に入れ、マスに当たらなかった残りだけをレイヤーにする（collageTakeFiles）
+    // 画像は、まず選択中の週間予定表の行（schedTakeFiles）・分割フレームのマス（collageTakeFiles）に入れ、当たらなかった残りだけをレイヤーにする
     if(zone === 'lib'){ await libAddFiles(imgs); renderLib(); return; }   // 素材置き場へ登録だけする（キャンバスには追加しない）
     if(DOC.mode !== 'thumb'){ setMode('thumb'); }
     if(zone === 'bg'){ await setBgFromFile(imgs[0]); openInspector(); toast('背景に設定しました'); if(imgs.length > 1) addImageLayers(imgs.slice(1)); }
-    else { const rest = await collageTakeFiles(imgs, e.clientX, e.clientY); if(rest.length) addImageLayers(rest, true); }
+    else { const rest = await collageTakeFiles(await schedTakeFiles(imgs, e.clientX, e.clientY), e.clientX, e.clientY); if(rest.length) addImageLayers(rest, true); }
   });
   document.addEventListener('paste', e => {
     if(DOC.mode !== 'thumb') return;

@@ -53,6 +53,7 @@ function toast(msg, err){
 // 24×24 の viewBox に収めた線画の中身（path など）だけを持つ。線の色・太さは CSS の .ic が決め、currentColor で文字色に追従する
 const ICONS = {
   grid:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h8.5"/>',
+  calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 17h2M11 17h2"/>',
   crop:'<path d="M7 3v14h14"/><path d="M3 7h14v14"/>',
   group:'<rect x="3.5" y="3.5" width="10" height="10" rx="2"/><rect x="10.5" y="10.5" width="10" height="10" rx="2"/>',
   ungroup:'<rect x="3.5" y="3.5" width="8" height="8" rx="2"/><rect x="12.5" y="12.5" width="8" height="8" rx="2"/><path d="M15 8.5h5M8.5 15v5"/>',
@@ -204,7 +205,7 @@ function rng(seed){
   return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
 
-// innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " も変換する（' は変換しない：属性は必ず "" で囲むこと）
+// innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " と ' も変換する（属性は "" で囲む決まりだが、' で囲んでも安全なように）
 // 色の文字列を、HTML 属性（style="…"）に入れても安全なものだけ通す（#rgb／#rrggbb(aa)／rgb()／hsl()）。細工されたプロジェクトファイルが属性を壊して
 // スクリプトを差し込むのを防ぐ。合わなければ既定色 d を返す
 const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;

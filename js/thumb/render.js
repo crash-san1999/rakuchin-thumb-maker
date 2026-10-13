@@ -339,7 +339,7 @@ function livePaint(){ cancelAnimationFrame(livePaint.r); livePaint.r = requestAn
 // 通常（高品質）の再描画。先にフォントを読み込んでから描く。tok は preview.js の世代番号で、待っている間に次の更新が来たら古いほうを捨てる
 async function drawThumb(){
   const my = ++tok;
-  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style); else if(L.type === 'collage') await ensureCollageFonts(L);
+  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style); else if(L.type === 'collage') await ensureCollageFonts(L); else if(L.type === 'sched') await ensureSchedFonts(L);
   if(my !== tok) return;
   paintPreview(false); updateVis(); updateTextTip();
 }

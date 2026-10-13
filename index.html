@@ -30,7 +30,7 @@
     <span class="brand-sub">THUMBNAIL STUDIO</span>
   </div>
   <div class="seg mode-seg" id="modeSeg"><button data-mode="thumb">サムネ<span class="xs-x">作成</span></button><button data-mode="text">文字<span class="xs-x">素材</span></button></div>
-  <button class="btn add-btn only-thumb" id="addBtn" title="文字・画像・分割フレーム・エフェクトを追加"><i data-ic="plus"></i><span>追加</span></button>
+  <button class="btn add-btn only-thumb" id="addBtn" title="文字・画像・分割フレーム・週間予定表・エフェクトを追加"><i data-ic="plus"></i><span>追加</span></button>
     <button class="btn ghost only-thumb" id="libBtn" title="素材置き場（いつも使う画像・文字スタイルをストック）"><i data-ic="star"></i><span class="hide-sm">素材置き場</span></button>
   <div class="head-sp"></div>
   <div class="head-group">
@@ -192,7 +192,7 @@
   <aside class="lpanel only-thumb" id="lpanel">
     <div class="sheet-grip sp-only" data-close-sheet><span></span><b>レイヤー</b><button class="icon-btn sm" data-close-sheet title="閉じる"><i data-ic="close"></i></button></div>
     <div class="lp-head"><i data-ic="layers"></i>レイヤー<span class="lp-count" id="lpCount"></span><span class="lp-sp"></span>
-      <button class="btn sm add-btn" id="lpAdd" title="文字・画像・分割フレーム・エフェクトを追加"><i data-ic="plus"></i>追加</button>
+      <button class="btn sm add-btn" id="lpAdd" title="文字・画像・分割フレーム・週間予定表・エフェクトを追加"><i data-ic="plus"></i>追加</button>
     </div>
     <div class="lp-hint"><span class="pc-only">ドラッグで重なり順を入れ替え。上にあるほど手前に表示されます。右クリックでメニュー。</span><span class="sp-only">左の ⋮⋮ をつまんで上下に動かすと重なり順を入れ替えられます。長押しでメニュー。</span></div>
     <div class="layers" id="layerList"></div>
@@ -212,6 +212,7 @@
     <button class="pop-item" id="addImg"><i data-ic="image"></i><b>画像</b><small>キャラ・素材（ドロップでもOK）</small></button>
     <button class="pop-item" id="addLib"><i data-ic="star"></i><b>素材置き場</b><small>いつもの画像・文字スタイル</small></button>
     <button class="pop-item" id="addCollageBtn"><i data-ic="grid"></i><b>分割フレーム</b><small>2〜6枚の画像を並べる</small></button>
+    <button class="pop-item" id="addSchedBtn"><i data-ic="calendar"></i><b>週間予定表</b><small>7日ぶんの時刻・タイトル・画像</small></button>
     <button class="pop-item" id="addBgImg"><i data-ic="sliders"></i><b>背景画像</b><small>サムネ全体の背景にする</small></button>
   </div>
   <div class="pop-ttl">動的エフェクト <small>移動・拡大・回転できる効果</small></div>
@@ -369,6 +370,8 @@
 <script src="js/thumb/collage-draw.js?v=6a0f5670"></script>
 <script src="js/thumb/collage-cells.js?v=6a0f5670"></script>
 <script src="js/thumb/collage-panel.js?v=6a0f5670"></script>
+<script src="js/thumb/sched.js?v=6a0f5670"></script>
+<script src="js/thumb/sched-panel.js?v=6a0f5670"></script>
 <script src="js/thumb/library.js?v=6a0f5670"></script>
 <script src="js/thumb/canvas.js?v=6a0f5670"></script>
 <script src="js/thumb/group.js?v=6a0f5670"></script>
