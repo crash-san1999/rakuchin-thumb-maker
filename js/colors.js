@@ -25,10 +25,10 @@ function hsl(h, s, l){
   h = ((h % 360) + 360) % 360; s = clamp(s, 0, 100) / 100; l = clamp(l, 0, 100) / 100;
   const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
   const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
-  return '#' + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, '0')).join('');
+  return rgb2hex([f(0), f(8), f(4)]);
 }
 // 2色の線形補間（t=0 で a、t=1 で b）。RGB 空間での単純な混色
-const mixHex = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+const mixHex = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex(A.map((v, i) => v + (B[i] - v) * t)); };
 // 相対輝度とコントラスト比は WCAG 2.x の定義どおり（0.03928 / 2.4 は sRGB のガンマ補正の閾値・指数）。contrast は 1〜21
 function lum(hex){ const c = hex2rgb(hex).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
 const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
@@ -188,7 +188,7 @@ function extractColors(img, k = 6){
     cent = sum.map((s2, ci) => s2[3] ? [s2[0]/s2[3], s2[1]/s2[3], s2[2]/s2[3]] : cent[ci]);
   }
   const cnt = cent.map(() => 0); asg.forEach(a => cnt[a]++);
-  return cent.map((c2, i) => ({hex:'#' + c2.map(v => Math.round(v).toString(16).padStart(2, '0')).join(''), n:cnt[i]})).filter(c2 => c2.n > 0).sort((a, b) => b.n - a.n);
+  return cent.map((c2, i) => ({hex:rgb2hex(c2), n:cnt[i]})).filter(c2 => c2.n > 0).sort((a, b) => b.n - a.n);
 }
 // 前提：bgImg が読み込み済みであること（呼び出し側が onload 後に呼ぶ）。
 // 支配色(dh, dl)＝最も多い色。強調候補は「彩度 × √画素数」が最大の色（鮮やかさと面積のバランス。面積だけだと灰色の広い面が勝つため）

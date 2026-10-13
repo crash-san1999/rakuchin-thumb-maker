@@ -46,7 +46,6 @@ const FIN_PRESETS = {
   crt:    ['ブラウン管', {look:'retro', amt:0.5, scan:0.6, rgb:2.5, vig:0.5, bloom:0.25}],
   reset:  ['なし', {}],
 };
-const hexMix = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
 // 無効なときに applyFinish を丸ごと飛ばすための判定（コピー用キャンバスを何枚も作るので重い）。applyFinish の各分岐の条件と合わせること
 const finOn = F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0) || F.bloom > 0 || F.leak > 0 || F.vig > 0 || F.grain > 0 || F.rgb > 0 || F.scan > 0 || F.half > 0 || F.paper > 0 || F.dust > 0);
 // プリセットを当てても「かける対象」（全体／背景だけ）は今の選択のまま（プリセットは見た目だけを決める）
@@ -83,7 +82,7 @@ function applyFinish(c, F, f){
     // 光漏れ：P は光源の位置（画面に対する割合）。2つ目の光はずらした位置に、色を赤みへ寄せて重ねる
     const LP = {tl:[0, 0], tr:[1, 0], bl:[0, 1], br:[1, 1], l:[0, 0.5], r:[1, 0.5]}, P = hasKey(LP, F.leakPos) ? LP[F.leakPos] : [1, 0], M = Math.max(W, H);
     x.globalCompositeOperation = 'screen'; x.globalAlpha = clamp(F.leak, 0, 1);
-    for(const [k, col, rr] of [[0, F.leakC, 0.8], [0.12, hexMix(F.leakC, '#ff2d6e', 0.5), 0.45]]){
+    for(const [k, col, rr] of [[0, F.leakC, 0.8], [0.12, mixHex(F.leakC, '#ff2d6e', 0.5), 0.45]]){
       const px = (P[0] + (P[0] < 0.5 ? k : -k)) * W, py = P[1] * H, g = x.createRadialGradient(px, py, 0, px, py, M * rr);
       g.addColorStop(0, rgba(col, 1)); g.addColorStop(0.35, rgba(col, 0.55)); g.addColorStop(1, rgba(col, 0)); x.fillStyle = g; x.fillRect(0, 0, W, H);
     }

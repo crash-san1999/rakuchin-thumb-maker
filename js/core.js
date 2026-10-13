@@ -6,7 +6,7 @@
     ・ICONS と ic()（SVG アイコン）
     ・DEFAULT / merged() / S … 「文字素材モード」の文字スタイルの初期値と、今の編集中の値（グローバル S）
     ・DOC … サムネモードの作品データ。ここでは宣言だけで、中身は thumb/doc.js の loadSavedDoc() が入れる
-    ・hex2rgb / rgba / rng / mk など描画エンジン共通の小道具（text-render.js・thumb/*.js から使う）
+    ・hex2rgb / rgb2hex / rgba / rng / mk など描画エンジン共通の小道具（text-render.js・thumb/*.js から使う）
   素の <script> の読み込みなので、ここで const/let/function にしたものはそのまま全ファイルのグローバルになる。
 */
 /* ============ 基本 ============ */
@@ -193,6 +193,8 @@ const PI = Math.PI;
 // 作業用キャンバスを作る。幅・高さは四捨五入し、0 以下だと描画系が例外を出すので最低 1px にする
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
 const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
+// hex2rgb の逆：[r, g, b]（0-255。小数は四捨五入）→ "#rrggbb"
+const rgb2hex = rgb => '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
 const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
 // 種つきの乱数（mulberry32 系）。同じ seed なら毎回同じ並びになる。
 // 「別パターンにする」で seed を変えるだけで見た目が変わり、再描画しても・保存して開き直しても形が動かないようにするため Math.random は使わない。

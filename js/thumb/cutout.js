@@ -54,13 +54,13 @@ function cutAutoColor(img){
   }
   if(!ch[0].length) return null;
   const med = a => { a.sort((p, q) => p - q); return a[a.length >> 1]; };
-  return '#' + ch.map(a => med(a).toString(16).padStart(2, '0')).join('');
+  return rgb2hex(ch.map(med));
 }
 // 画像上の1点の色（元の絵のまま）
 function cutPixelColor(img, px, py){
   const w = img.naturalWidth, h = img.naturalHeight, X = clamp(Math.round(px), 0, w - 1), Y = clamp(Math.round(py), 0, h - 1);
   const c = mk(1, 1), x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(img, X, Y, 1, 1, 0, 0, 1, 1);
-  const d = x.getImageData(0, 0, 1, 1).data; return d[3] < 8 ? null : '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+  const d = x.getImageData(0, 0, 1, 1).data; return d[3] < 8 ? null : rgb2hex([d[0], d[1], d[2]]);
 }
 // 色指定の透過だけをかけた絵（キャンバス）を作る。img は元の絵を変えず、読み出し専用で使う
 // 処理の順：色の近さ → 透明にする範囲 → 縁を削る → ぼかす → にじみ除去 → アルファ反映。1 画素ずつの処理なので大きい画像では重い（結果は cutSrc でキャッシュ）
