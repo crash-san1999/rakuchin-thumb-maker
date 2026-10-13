@@ -73,11 +73,33 @@ function fontInfoText(){
 function initFonts(){
   localStorage.removeItem('ttm_gfonts'); localStorage.removeItem('ttm_apikey');   // 旧版の Google Fonts API 方式の名残（今は不要）
   const upd = LS.get('ttm_fsupd', null);
-  fonts = buildBaseFonts(upd && upd.items ? upd.items : []);
+  fonts = buildBaseFonts(upd && Array.isArray(upd.items) ? upd.items.map(cleanFontEntry).filter(Boolean) : []);
   restoreWebFonts();
   $('#fsrcinfo').textContent = fontInfoText();
 }
 const findFont = fam => fonts.find(f => f.family === fam);
+
+/* 外から来るフォント情報の検査（Fontsource API の応答・URL 追加・それらを保存した localStorage）。
+   family は CSS の font 指定や "…" の中に入るので、引用符・\・<>・制御文字を含むものは使わない。id・slug は読み込み URL のパスに入るので英小文字・数字・ハイフンだけ。
+   file・css は https の URL だけ（CSP でも止まるが、壊れた登録を保存しないため）。合わないものは null（一覧に入れない） */
+const FAMILY_OK = s => typeof s === 'string' && s.length >= 1 && s.length <= 100 && !/["'\\<>\u0000-\u001f\u007f]/.test(s);
+const FS_ID_OK = s => typeof s === 'string' && /^[a-z0-9][a-z0-9-]{0,99}$/.test(s);
+const httpsUrl = s => { try{ const u = new URL(s); return u.protocol === 'https:' ? u.href : null; }catch{ return null; } };
+const FONT_CATS = ['ゴシック', '明朝', 'デザイン', '手書き', '等幅', '欧文'];
+function cleanFontEntry(f){
+  if(!f || typeof f !== 'object' || !FAMILY_OK(f.family) || !['google', 'fontsource', 'ea', 'url'].includes(f.src)) return null;
+  const ws = (Array.isArray(f.weights) ? f.weights : []).map(Number).filter(n => Number.isInteger(n) && n >= 100 && n <= 900 && n % 100 === 0);
+  const e = {family: f.family, cat: FONT_CATS.includes(f.cat) ? f.cat : 'デザイン', usage: typeof f.usage === 'string' ? f.usage.slice(0, 200) : '',
+    weights: ws.length ? [...new Set(ws)].sort((a, b) => a - b) : [400], src: f.src};
+  if(f.src === 'fontsource'){ if(!FS_ID_OK(f.id)) return null; e.id = f.id; }
+  if(f.src === 'ea'){ if(typeof f.slug !== 'string' || !/^[a-z0-9]{1,60}$/.test(f.slug)) return null; e.slug = f.slug; }
+  if(f.src === 'url'){
+    const file = f.file != null ? httpsUrl(f.file) : null, css = f.css != null ? httpsUrl(f.css) : null;
+    if(!file && !css) return null;
+    if(file) e.file = file; else e.css = css;
+  }
+  return e;
+}
 
 // cssState：family → 読み込みの Promise。「読み込みを始めたか／終わったか」の記録で、重複読み込みの防止と、
 // 一覧での「選ぶと読込」表示の判定（cssState に無い＝まだ）に使う
@@ -269,10 +291,11 @@ async function updateFontList(manual){
     if(!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
     const have = new Set(fonts.map(f => f.family));
-    const items = (Array.isArray(j) ? j : []).filter(x => x && x.family && x.id && !/icons?$/i.test(x.id)).map(x => ({
-      family: x.family, cat: CAT_MAP[x.category] || 'デザイン', weights: (x.weights && x.weights.length ? x.weights : [400]).map(Number),
+    // 応答は外から来るデータなので cleanFontEntry で検査し、合わないものは捨てる
+    const items = (Array.isArray(j) ? j : []).filter(x => x && typeof x.id === 'string' && !/icons?$/i.test(x.id)).map(x => cleanFontEntry({
+      family: x.family, cat: CAT_MAP[x.category] || 'デザイン', weights: x.weights,
       ...(x.type === 'google' ? {src:'google'} : {src:'fontsource', id: x.id})
-    }));
+    })).filter(Boolean);
     const fresh = items.filter(x => !have.has(x.family));
     LS.set('ttm_fsupd', {at: Date.now(), items: fresh});
     fresh.forEach(f => fonts.splice(fonts.findIndex(x => x.cat === '欧文'), 0, f));
@@ -297,13 +320,15 @@ function scheduleFontListCheck(){ setTimeout(() => { const u = LS.get('ttm_fsupd
 /* WebフォントのURLから追加 */
 // 追加したフォントの「定義」だけを ttm_webfonts に保存し（フォント本体は保存しない）、起動時に一覧の先頭へ戻す。読み込みは使うときに ensureCss が行う
 function restoreWebFonts(){
-  (LS.get('ttm_webfonts', []) || []).forEach(f => { if(f && f.family && !fonts.some(x => x.family === f.family)) fonts.unshift({...f, src: f.src || 'url'}); });
+  const saved = LS.get('ttm_webfonts', []);
+  (Array.isArray(saved) ? saved : []).map(f => cleanFontEntry(f && {...f, src: f.src || 'url'})).forEach(f => { if(f && !fonts.some(x => x.family === f.family)) fonts.unshift(f); });
 }
 function saveWebFont(f){
   const list = (LS.get('ttm_webfonts', []) || []).filter(x => x.family !== f.family); list.push(f); LS.set('ttm_webfonts', list);
 }
 // 一覧に無ければ追加して保存し、あるものはそのまま返す（同名 family の二重登録を防ぐ）。戻り値は一覧上の要素
-function addWebEntry(f){
+function addWebEntry(raw){
+  const f = cleanFontEntry(raw); if(!f) return null;
   if(!fonts.some(x => x.family === f.family)){ fonts.unshift(f); saveWebFont(f); }
   return findFont(f.family);
 }
@@ -312,6 +337,7 @@ function addWebEntry(f){
 // （配布元が外部サイトからの読み込みを許可していないと失敗するため）。失敗は toast で知らせて何も追加しない
 async function addWebFontUrl(raw){
   let url; try{ url = new URL(raw.trim()); }catch{ toast('URLの形式が正しくありません', true); return; }
+  if(url.protocol !== 'https:'){ toast('https:// で始まるURLを貼ってください', true); return; }
   const h = url.hostname, added = [];
   if(h === 'fonts.google.com'){
     const m = url.pathname.match(/\/specimen\/([^/?#]+)/); if(!m){ toast('Google Fonts のフォントのページ（…/specimen/名前）のURLを貼ってください', true); return; }
@@ -332,7 +358,9 @@ async function addWebFontUrl(raw){
     const jpOk = meta && (meta.subsets || []).includes('japanese');
     added.push(findFont(fam) || addWebEntry({family: fam, id: m[1], cat: jpOk ? (CAT_MAP[meta.category] || 'デザイン') : '欧文', usage:'', weights: meta && meta.weights || [400], src:'fontsource'}));
   }else if(/\.(woff2?|ttf|otf)$/i.test(url.pathname)){
-    const fam = decodeURIComponent(url.pathname.split('/').pop()).replace(/\.(woff2?|ttf|otf)$/i, '').replace(/[-_]?(Regular|regular|400)$/, '');
+    let fam = url.pathname.split('/').pop(); try{ fam = decodeURIComponent(fam); }catch{}
+    fam = fam.replace(/\.(woff2?|ttf|otf)$/i, '').replace(/[-_]?(Regular|regular|400)$/, '').replace(/["'\\<>\u0000-\u001f\u007f]/g, '').slice(0, 100);
+    if(!FAMILY_OK(fam)){ toast('フォントの名前を読み取れませんでした', true); return; }
     try{ const ff = new FontFace(fam, `url("${url.href}")`); await ff.load(); document.fonts.add(ff); }
     catch{ toast('フォントファイルを読み込めませんでした（配布元が外部サイトからの利用を許可していない可能性があります）', true); return; }
     const e = addWebEntry({family: fam, cat:'デザイン', usage:'', weights:[400], src:'url', file: url.href}); cssState.set(fam, Promise.resolve()); added.push(e);

@@ -210,4 +210,4 @@ function rng(seed){
 const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;
 // 読み込んだデータの id（レイヤー・画像）として使ってよい文字列か。HTML 属性や querySelector に入るので、英数字・_・- だけ許す
 const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // ASSETS[id] のようにオブジェクトのキーにもなるので、特別な名前も除く
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

@@ -1,4 +1,4 @@
-"""セキュリティ：細工されたプロジェクトファイル・素材バックアップで、HTMLやスクリプトを差し込まれない／外部URLの画像を読み込まない／CSP が効いている"""
+"""セキュリティ：細工されたプロジェクトファイル・素材バックアップ・フォント情報（API の応答・保存データ）で、HTMLやスクリプトを差し込まれない／外部URLの画像を読み込まない／CSP が効いている"""
 from helpers import *
 import json
 
@@ -82,5 +82,33 @@ async def run(p):
     ids = await pg.evaluate("LIB.map(i => i.id)")
     assert 'goodlib1' in ids and EVIL not in ids, f'素材バックアップの id 検査が違う {ids}'
     assert await pg.evaluate("window.__pwn") == 0 and await pg.evaluate("document.querySelectorAll('[onerror]').length") == 0
+    # 6) escapeHtml は ' も変換する／CSP の img-src は外部の https を許さない（アプリは外部画像を直接読まない）
+    assert await pg.evaluate("escapeHtml(`<a title='x' href=\"y\">&`)") == '&lt;a title=&#39;x&#39; href=&quot;y&quot;&gt;&amp;'
+    img = next(d.split()[1:] for d in csp.split(';') if d.split() and d.split()[0] == 'img-src')
+    assert img == ["'self'", 'data:', 'blob:'], f'img-src が想定と違う {img}'
+    # 7) 外から来るフォント情報：Fontsource API の応答に細工があっても、不正な名前・id・太さの書体は一覧に入らない
+    api = [{'id': 'good-font', 'family': 'Good Font', 'category': 'display', 'weights': [400, 700, 'x', 1e9], 'type': 'other'},
+           {'id': '../../gh/evil/x', 'family': 'Evil Path', 'category': 'display', 'weights': [400], 'type': 'other'},
+           {'id': 'evil-name', 'family': 'a"; } * { color:red', 'category': 'display', 'weights': [400], 'type': 'other'},
+           {'id': 'evil-obj', 'family': {'x': 1}, 'category': 'display', 'weights': [400], 'type': 'other'},
+           {'id': 7, 'family': 'Num Id', 'weights': [400]}]
+    await pg.route('https://api.fontsource.org/**', lambda r: r.fulfill(json=api, headers={'Access-Control-Allow-Origin': '*'}))
+    await pg.evaluate("updateFontList(false)"); await settle(pg, 800)
+    r = await pg.evaluate("""(() => { const f = findFont('Good Font'); return {good: f && [f.id, f.weights, f.src],
+      bad: fonts.filter(x => /Evil|color:red|Num Id/.test(String(x.family)) || typeof x.family !== 'string').length,
+      saved: (LS.get('ttm_fsupd', {}).items || []).map(x => x.family)}; })()""")
+    assert r['good'] == ['good-font', [400, 700], 'fontsource'] and r['bad'] == 0 and r['saved'] == ['Good Font'], f'Fontsource の応答の検査が違う {r}'
+    # 保存済みの一覧（localStorage）が書き換えられていても、起動時に不正なものは戻さない
+    await pg.evaluate("""LS.set('ttm_webfonts', [{family:'Web OK', src:'url', css:'https://example.com/a.css'}, {family:'Http Bad', src:'url', css:'http://example.com/a.css'},
+      {family:'Js Bad', src:'url', file:'javascript:alert(1)'}, {family:'x\\"<b>', src:'url', css:'https://example.com/b.css'}, {family:'Fs Bad', src:'fontsource', id:'../x'}, null, 5]);
+      LS.set('ttm_fsupd', {at: Date.now(), items: [{family:'Upd OK', src:'fontsource', id:'upd-ok', weights:[400]}, {family:'Upd Bad', src:'fontsource', id:'a/b'}]}); initFonts();""")
+    r = await pg.evaluate("['Web OK', 'Http Bad', 'Js Bad', 'x\\\"<b>', 'Fs Bad', 'Upd OK', 'Upd Bad'].map(f => !!findFont(f))")
+    assert r == [True, False, False, False, False, True, False], f'保存済みフォントの検査が違う {r}'
+    # URL からの追加は https だけ
+    n = await pg.evaluate("fonts.length")
+    await pg.evaluate("addWebFontUrl('http://example.com/font.woff2')"); await settle(pg, 300)
+    await pg.evaluate("addWebFontUrl('data:font/woff2;base64,AAAA')"); await settle(pg, 300)
+    assert await pg.evaluate("fonts.length") == n, 'https 以外の URL からフォントが追加された'
+    assert await pg.evaluate("window.__pwn") == 0
     await close(pg)
-    return 'CSP、細工したプロジェクトの id・色・文字、画像の取り込み条件、素材バックアップの id'
+    return 'CSP、細工したプロジェクトの id・色・文字、画像の取り込み条件、素材バックアップの id、外から来るフォント情報'
