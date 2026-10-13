@@ -5,7 +5,7 @@
        処理の中身は各ファイル（layers.js・editmodes.js・doc.js 等）に任せ、ここは「どの操作を何に振り分けるか」を持つ。
   主な公開：saveProject / newProject / openProjectFile / openNew・closeNew
   依存：DOC・selLayer・docChanged・syncDoc（doc.js）、dims・drag・tvCss・snapLines・livePaint（render.js）、layerGeom・fxHandleOn（overlay.js）、
-       editPointerDown 等（editmodes.js）、selectLayer・layerAction・showMenu 等（layers.js）、groupLayers・xformSnap・xformApply（group.js）、
+       editPointerDown 等（editmodes.js）、selectLayer・layerAction・openLayerMenu 等（layers.js）、groupLayers・xformSnap・xformApply（group.js）、
        addImageLayers・setBgFromFile・addAsset（assets.js）、libAddFiles・libImport（library.js）、loadDocObj（export.js）。
   読み込み順：events.js は inspector.js の次で、ほぼ最後。ほかの全ファイルの関数が使える前提で、読み込み時にイベントを登録する（DOM は存在済み）。
   座標：キャンバス上の操作は toDoc で DOC 座標（px）に直してから扱う。画面上の距離（ハンドルの当たり・スナップ）は
@@ -151,7 +151,7 @@ document.addEventListener('click', e => {
     const row = e.target.closest('[data-lid]'); if(!row) return;
     const act = e.target.closest('[data-la]');
     if(act){
-      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(); if(row.dataset.lid !== DOC.sel && !(DOC.msel || []).includes(row.dataset.lid)) selectLayer(row.dataset.lid); setTimeout(() => showMenu(row.dataset.lid, r.left - 150, r.bottom + 4, r.top - 4), 0); return; }
+      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(), id = row.dataset.lid; if(!isSelected(id)) selectLayer(id); setTimeout(() => showMenu(id, r.left - 150, r.bottom + 4, r.top - 4), 0); return; }
       layerAction(row.dataset.lid, act.dataset.la); return;
     }
     if(e.target.closest('input')) return;
@@ -165,8 +165,7 @@ document.addEventListener('click', e => {
   });
   list.addEventListener('contextmenu', e => {
     const row = e.target.closest('[data-lid]'); if(!row) return;
-    e.preventDefault(); if(row.dataset.lid !== DOC.sel && !(DOC.msel || []).includes(row.dataset.lid)) selectLayer(row.dataset.lid);
-    showMenu(row.dataset.lid, e.clientX, e.clientY);
+    e.preventDefault(); openLayerMenu(row.dataset.lid, e.clientX, e.clientY);
   });
   $('#addCollageBtn').onclick = () => addCollage();
   document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ applyCropChange(L, () => { L.crop = {t:0, b:0, l:0, r:0}; }); syncDoc(); docChanged(false); } } });
@@ -388,7 +387,7 @@ function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [..
         }
         return;
       }
-      mode = 'move'; if(T.id !== DOC.sel && !(DOC.msel || []).includes(T.id)) selectLayer(T.id);
+      mode = 'move'; if(!isSelected(T.id)) selectLayer(T.id);
     }
     // グループ・複数選択は、中身のレイヤーをまとめて動かす（xformSnap が開始時の状態を控える）。
     // drag には開始時の位置・倍率・角度（lx, ly, sc, rot）と、中心からの距離 d0・角度 a0 を持たせ、move では常にそこからの差で計算する（誤差を積まない）
@@ -475,7 +474,7 @@ function pruneMasks(ids){ for(const m of [maskCache, maskFx]) for(const k of [..
   tv.addEventListener('contextmenu', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitLayers(x, y, true)[0]; if(!L) return;
-    e.preventDefault(); if(L.id !== DOC.sel && !(DOC.msel || []).includes(L.id)) selectLayer(L.id); showMenu(L.id, e.clientX, e.clientY);
+    e.preventDefault(); openLayerMenu(L.id, e.clientX, e.clientY);
   });
   // ダブルクリック：グループ→中の1つを選ぶ／文字→文字の編集へ／画像・分割フレーム→編集モードへ
   tv.addEventListener('dblclick', e => {

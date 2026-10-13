@@ -109,30 +109,52 @@ function startRename(id){
 /* 右クリックメニュー */
 // 複数選択中のレイヤーを右クリックしたときは、まとめて操作するメニュー。重なり順の端（最前面・最背面）では該当項目を無効にする。
 // メニューは画面外にはみ出さないよう、位置を画面内に収める（下に入らなければ上に出す。画面より高ければスクロール）
-function showMenu(id, cx, cy, upY = cy){
-  const L = DOC.layers.find(l => l.id === id); if(!L) return;
-  const peers = peersOf(L), pi = peers.indexOf(L), top = pi === peers.length - 1, bottom = pi === 0, m = $('#ctxmenu');
-  const b = (act, icn, t, kbd = '', cls = '', dis = false) => `<button data-ma="${act}" class="${cls}"${dis ? ' disabled style="opacity:.35;pointer-events:none"' : ''}>${ic(icn)}${t}${kbd ? `<kbd>${kbd}</kbd>` : ''}</button>`;
+// メニューの1項目。dis＝押せない（見た目は CSS の :disabled）
+const menuItem = (act, icn, t, kbd = '', cls = '', dis = false) =>
+  `<button data-ma="${act}" class="${cls}"${dis ? ' disabled' : ''}>${ic(icn)}${t}${kbd ? `<kbd>${kbd}</kbd>` : ''}</button>`;
+// 項目のまとまり（区切り線で分ける）。空のまとまりは出さない
+const menuSections = (...secs) => secs.map(s => s.filter(Boolean).join('')).filter(Boolean).join('<hr>');
+// メニューの中身（HTML）。複数選択の中のレイヤーなら、まとめて操作する項目
+function layerMenuHtml(L){
   const ms = DOC.msel || [];
-  if(ms.length >= 2 && ms.includes(id)){
-    // 複数選択中：まとめて操作
-    m.innerHTML = `<div class="ttl">${ms.length}個を選択中</div>` + b('group', 'group', 'グループにする', 'Ctrl+G') + b('clearMulti', 'eyeoff', '選択を解除') + '<hr>' + b('del', 'trash', `${ms.length}個を削除`, 'Delete', 'danger');
-  }else{
-    m.innerHTML = `<div class="ttl">${escapeHtml(layerName(L))}</div>` +
-      b('front', 'front', '最前面へ', 'Ctrl+Shift+]', '', top) + b('up', 'up', '前面へ', 'Ctrl+]', '', top) +
-      b('down', 'down', '背面へ', 'Ctrl+[', '', bottom) + b('back', 'back', '最背面へ', 'Ctrl+Shift+[', '', bottom) + '<hr>' +
-      b('dup', 'dup', '複製', 'Ctrl+D') + b('rename', 'pen', '名前を変更') + b('lock', L.locked ? 'unlock' : 'lock', L.locked ? 'ロックを解除' : 'ロック') +
-      b('eye', L.hidden ? 'eye' : 'eyeoff', L.hidden ? '表示する' : '隠す') +
-      (L.type === 'image' ? '<hr>' + b('flip', 'fliph', '左右反転', 'H') + b('flipV', 'flipv', '上下反転', 'V') + b('toLib', 'star', '素材置き場に登録') : '') + (L.type === 'text' ? '<hr>' + b('toLib', 'star', '文字スタイルを素材置き場に登録') : '') +
-      '<hr>' + (isGroup(L) ? b('ungroup', 'ungroup', 'グループを解除', 'Ctrl+Shift+G') : L.gid ? b('ungroupOne', 'ungroup', 'グループから出す') : '') +
-      (isGroup(L) ? '' : b('multi', 'group', '選択に追加（まとめて動かす・グループにする）')) + '<hr>' + b('del', 'trash', isGroup(L) ? 'グループごと削除' : '削除', 'Delete', 'danger');
+  if(ms.length >= 2 && ms.includes(L.id)){
+    return `<div class="ttl">${ms.length}個を選択中</div>` + menuSections(
+      [menuItem('group', 'group', 'グループにする', 'Ctrl+G'), menuItem('clearMulti', 'eyeoff', '選択を解除')],
+      [menuItem('del', 'trash', `${ms.length}個を削除`, 'Delete', 'danger')]);
   }
-  m.dataset.lid = id; m.scrollTop = 0; m.classList.add('show');
-  // 大きさは offsetWidth/offsetHeight で測る（getBoundingClientRect は表示アニメーションの縮小中の大きさを返し、下が見切れていた）。
-  // 下に入りきらないときは upY（右クリック位置・メニューボタンの上端）より上に出す。それでも入らなければ画面内に収め、高すぎる分は CSS の max-height でスクロール
+  const peers = peersOf(L), pi = peers.indexOf(L), top = pi === peers.length - 1, bottom = pi === 0, grp = isGroup(L);
+  return `<div class="ttl">${escapeHtml(layerName(L))}</div>` + menuSections(
+    [menuItem('front', 'front', '最前面へ', 'Ctrl+Shift+]', '', top), menuItem('up', 'up', '前面へ', 'Ctrl+]', '', top),
+     menuItem('down', 'down', '背面へ', 'Ctrl+[', '', bottom), menuItem('back', 'back', '最背面へ', 'Ctrl+Shift+[', '', bottom)],
+    [menuItem('dup', 'dup', '複製', 'Ctrl+D'), menuItem('rename', 'pen', '名前を変更'),
+     menuItem('lock', L.locked ? 'unlock' : 'lock', L.locked ? 'ロックを解除' : 'ロック'),
+     menuItem('eye', L.hidden ? 'eye' : 'eyeoff', L.hidden ? '表示する' : '隠す')],
+    L.type === 'image' ? [menuItem('flip', 'fliph', '左右反転', 'H'), menuItem('flipV', 'flipv', '上下反転', 'V'), menuItem('toLib', 'star', '素材置き場に登録')] : [],
+    L.type === 'text' ? [menuItem('toLib', 'star', '文字スタイルを素材置き場に登録')] : [],
+    [grp ? menuItem('ungroup', 'ungroup', 'グループを解除', 'Ctrl+Shift+G') : L.gid ? menuItem('ungroupOne', 'ungroup', 'グループから出す') : '',
+     grp ? '' : menuItem('multi', 'group', '選択に追加（まとめて動かす・グループにする）')],
+    [menuItem('del', 'trash', grp ? 'グループごと削除' : '削除', 'Delete', 'danger')]);
+}
+// 開いたメニューを画面内に置く。(cx, cy) から右下に出し、下に入りきらないときは upY（右クリック位置・メニューボタンの上端）より上に出す。
+// それでも入らなければ画面内に収め、高すぎる分は CSS の max-height でスクロール。
+// 大きさは offsetWidth/offsetHeight で測る（getBoundingClientRect は表示アニメーションの縮小中の大きさを返し、下が見切れていた）
+function placeMenu(m, cx, cy, upY){
   const w = m.offsetWidth, h = m.offsetHeight, M = 8;
   const y = cy + h <= innerHeight - M ? cy : upY - h >= M ? upY - h : innerHeight - M - h;
   m.style.left = Math.max(M, Math.min(cx, innerWidth - w - M)) + 'px'; m.style.top = Math.max(M, y) + 'px';
+}
+function showMenu(id, cx, cy, upY = cy){
+  const L = DOC.layers.find(l => l.id === id); if(!L) return;
+  const m = $('#ctxmenu');
+  m.innerHTML = layerMenuHtml(L); m.dataset.lid = id; m.scrollTop = 0; m.classList.add('show');
+  placeMenu(m, cx, cy, upY);
+}
+// 選択中（主選択か複数選択の中）か
+const isSelected = id => id === DOC.sel || (DOC.msel || []).includes(id);
+// レイヤーのメニューを開く（右クリック・「…」ボタン・スマホの長押し共通）。選ばれていないレイヤーなら先に選ぶ（複数選択の中なら選択はそのまま）
+function openLayerMenu(id, cx, cy, upY = cy){
+  if(!isSelected(id)) selectLayer(id);
+  showMenu(id, cx, cy, upY);
 }
 const hideMenu = () => $('#ctxmenu').classList.remove('show');
 $('#ctxmenu').addEventListener('click', e => {

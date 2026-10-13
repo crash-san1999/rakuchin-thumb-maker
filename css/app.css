@@ -304,6 +304,7 @@ body.mode-thumb #pv, body.mode-text #tv{display:none}
 @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 .ctxmenu button{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;padding:7px 10px;border-radius:9px;font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;text-align:left}
 .ctxmenu button:hover{background:var(--acc-2);color:var(--ink)}
+.ctxmenu button:disabled{opacity:.35;pointer-events:none}
 .ctxmenu button .ic{width:15px;height:15px;flex:none}
 .ctxmenu kbd{margin-left:auto;font:600 10.5px Inter,sans-serif;color:var(--mute);background:var(--surface-2);border-radius:6px;padding:1px 6px}
 .ctxmenu hr{border:0;border-top:2px dashed var(--line-2);margin:5px 4px}
