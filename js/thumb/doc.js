@@ -2,7 +2,7 @@
 /*
   役割：サムネ作成モードの保存データ DOC（キャンバス寸法・背景 bg・仕上げ fin・レイヤー配列 layers・選択状態）の
   初期値・読み込み時の正規化・自動保存・「パス文字列での値の読み書き」・変更通知を持つ。
-  主な公開：DOC_BASE / normalizeDoc / loadSavedDoc / saveDoc / dGet・dSet・setD / docChanged / syncDoc / DB（入力欄との結び付け）/
+  主な公開：layerById・selLayer・textLayer（レイヤーを引く）/ DOC_BASE / normalizeDoc / loadSavedDoc / saveDoc / dGet・dSet・setD / docChanged / syncDoc / DB（入力欄との結び付け）/
            selLayer・textLayer / usedAssets / layerName / mkTextLayer（uid は core.js）
   依存：LS・S・clamp（core.js）、bind.js の makeBinder、LAYER_BASE・IMAGE_BASE・COLLAGE_BASE・GROUP_BASE・FRAME_BASE・FIN_BASE などの
        各レイヤー定義（assets.js / collage.js / group.js / frames.js / finish.js / fx.js）。
@@ -33,8 +33,10 @@ const DOC_BASE = () => ({
   layers:[], sel:null, textSel:null, msel:[],
 });
 const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:'text', x, y, sc, style});
-const selLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.sel)) || null;
-const textLayer = () => (DOC && DOC.layers.find(l => l.id === DOC.textSel)) || null;
+// id からレイヤーを探す（無ければ null）。選択中・文字入力中のレイヤーもこれで引く
+const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
+const selLayer = () => layerById(DOC && DOC.sel);
+const textLayer = () => layerById(DOC && DOC.textSel);
 // いま DOC が参照している画像アセットid の集合。IndexedDB の掃除（assets.js idbRestore）とプロジェクト保存で「使っているものだけ」を残すのに使う
 function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : [])].filter(Boolean)); }
 /** @param {Layer} L */

@@ -123,7 +123,7 @@ function applyBgFx(name){
   DOC.layers = DOC.layers.filter(l => !(l.type === 'fx' && l.auto));
   // unshift＝一番下に入れる（背景のすぐ上）。auto フラグで次回の入れ替え対象を見分ける
   DOC.layers.unshift(...P.fx.map(([k, pp, ex]) => Object.assign(mkFx(k, pp, ex), {auto:true})));
-  if(DOC.sel && !DOC.layers.find(l => l.id === DOC.sel)) DOC.sel = null;
+  if(DOC.sel && !layerById(DOC.sel)) DOC.sel = null;
   syncDoc(); renderLayers(); docChanged(false);
   return P.fx.length > 0 || had;
 }

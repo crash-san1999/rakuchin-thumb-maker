@@ -197,7 +197,7 @@ const editModeFor = L => L && Object.keys(EDIT_MODES).find(k => EDIT_MODES[k].ok
 // 編集中のレイヤー。レイヤーが消えた・隠した・条件を外れたときは null（＝実質、編集モードが終わっている）
 function editLayer(){
   if(!edit) return null;
-  const L = DOC.layers.find(l => l.id === edit.id);
+  const L = layerById(edit.id);
   return L && !L.hidden && EDIT_MODES[edit.kind].ok(L) ? L : null;
 }
 // モードに入る（kind と L を渡す）／終える（引数なし）。ボタンの文言の切り替え、トースト、入力欄・プレビューの更新まで行う

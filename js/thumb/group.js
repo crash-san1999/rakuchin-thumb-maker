@@ -12,7 +12,6 @@ const groupKids = G => DOC.layers.filter(l => l.gid === G.id);
 const peersOf = L => DOC.layers.filter(l => (l.gid || '') === (L.gid || ''));
 /** @param {Layer} L */
 const isGroup = L => !!L && L.type === 'group';
-const layerById = id => DOC.layers.find(l => l.id === id) || null;
 
 // 1枚のレイヤーを種別で振り分けて描く。グループの中身の描画と、通常の描画ループの両方から使う（グループは入れ子の描画もここを通る）
 /** @param {Layer} L */

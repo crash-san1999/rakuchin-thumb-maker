@@ -97,7 +97,7 @@ function movePeer(id, to){
 // 名前の変更。label が空なら自動の名前（文字なら本文）に戻る。入力が自動名と同じときも空にして、あとで本文を変えたとき名前が追従するようにする。
 // Enter／blur で確定、Esc で取り消し。キー・ポインタ操作はキャンバスのショートカットに渡さない（stopPropagation）
 function startRename(id){
-  const row = document.querySelector(`#layerList [data-lid="${id}"]`), L = DOC.layers.find(l => l.id === id); if(!row || !L) return;
+  const row = document.querySelector(`#layerList [data-lid="${id}"]`), L = layerById(id); if(!row || !L) return;
   const nm = row.querySelector('.nm'), inp = document.createElement('input');
   inp.type = 'text'; inp.value = layerName(L); nm.replaceWith(inp); inp.focus(); inp.select(); setTimeout(() => { inp.focus(); inp.select(); }, 30);
   let done = false;
@@ -144,7 +144,7 @@ function placeMenu(m, cx, cy, upY){
   m.style.left = Math.max(M, Math.min(cx, innerWidth - w - M)) + 'px'; m.style.top = Math.max(M, y) + 'px';
 }
 function showMenu(id, cx, cy, upY = cy){
-  const L = DOC.layers.find(l => l.id === id); if(!L) return;
+  const L = layerById(id); if(!L) return;
   const m = $('#ctxmenu');
   m.innerHTML = layerMenuHtml(L); m.dataset.lid = id; m.scrollTop = 0; m.classList.add('show');
   placeMenu(m, cx, cy, upY);
