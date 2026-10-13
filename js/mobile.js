@@ -103,20 +103,17 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
       else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]) pinch = {kind:'bg', i:I, zoom:DOC.bg.zoom, ox:DOC.bg.ox, oy:DOC.bg.oy};
       return;
     }
-    // 長押し：520ms 動かさず1本のまま触れていたら、その位置のいちばん上のレイヤーのメニューを出す
-    // （重なり順は後ろ→前なので reverse で前面から探す。回転しているレイヤーは、逆回転した座標で当たり判定する。
-    //  グループの子は、そのグループが選択中でない限り対象外）
+    // 長押し：520ms 動かさず1本のまま触れていたら、その位置のレイヤーのメニューを出す（どれを選ぶかは PC の右クリックと同じ hitMenuLayer）
     const x0 = e.clientX, y0 = e.clientY;
     clearTimeout(lp);
     lp = setTimeout(() => {
       if(pts.size !== 1) return;
-      const [dx, dy] = toDoc(x0, y0);
-      const L = [...DOC.layers].reverse().find(l => { if(l.hidden || (l.gid && l.id !== DOC.sel)) return false; const d = dims.get(l.id); if(!d) return false; const a = -(l.rot || 0) * PI / 180, X = dx - l.x, Y = dy - l.y; return Math.abs(X * Math.cos(a) - Y * Math.sin(a)) <= d.w / 2 && Math.abs(X * Math.sin(a) + Y * Math.cos(a)) <= d.h / 2; });
+      const [dx, dy] = toDoc(x0, y0), L = hitMenuLayer(dx, dy);
       if(!L) return;
       if(drag && drag.L){ drag.L.x = drag.lx; drag.L.y = drag.ly; }   // 長押しの間に少し動いていても、ドラッグ開始時の位置へ戻してからメニューを出す
       drag = null;
       if(navigator.vibrate) navigator.vibrate(12);
-      openLayerMenu(L.id, x0 - 100, y0 + 12, y0 - 12);
+      openLayerMenu(L.id, x0 - 100, y0 + 12, y0 - 12); guardMenuUntilRelease();
     }, 520);
     // ダブルタップ：320ms 以内・30px 以内の2回目のタップ。文字レイヤーは文字入力へ、そのほかは編集モード（切り抜き等）へ入る
     const now = Date.now();

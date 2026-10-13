@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：キャンバス上の当たり判定（クリック・ホイール・右クリックでどのレイヤーを掴むか） */
 /*
-  events.js（キャンバスの操作）から使う。座標はすべて DOC 座標（キャンバスの px ではない）。
-  公開：hitLayers（枠の中のレイヤー一覧）/ hitRanked（一覧＋絵の濃さの段階）/ hitLayer（掴む1つ）/ hitForWheel（ホイールで拡大縮小する1つ）/ pruneMasks（消えたレイヤーのマスクを捨てる）
+  events.js（キャンバスの操作）・mobile.js（長押し）から使う。座標はすべて DOC 座標（キャンバスの px ではない）。
+  公開：hitLayers（枠の中のレイヤー一覧）/ hitRanked（一覧＋絵の濃さの段階）/ hitLayer（掴む1つ）/ hitForWheel（ホイールで拡大縮小する1つ）/ hitMenuLayer（メニューを出す1つ）/ pruneMasks（消えたレイヤーのマスクを捨てる）
 */
 // 当たり判定用のマスク（layerMask が作る）。レイヤーid → マスク。maskFx は描画中の効果キャッシュ
 const maskCache = new Map(), maskFx = new Map();
@@ -73,3 +73,5 @@ const hitForWheel = (x, y) => {
   const {hs, r} = hitRanked(x, y), cur = hs.find(l => l.id === DOC.sel);
   return cur && r.get(cur.id) > 0 ? cur : hitLayer(x, y);
 };
+// メニュー（PC の右クリック・スマホの長押し）を出すレイヤー：ロック中も含め、枠の中のいちばん手前。無ければ null
+const hitMenuLayer = (x, y) => hitLayers(x, y, true)[0] || null;

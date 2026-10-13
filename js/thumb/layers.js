@@ -157,7 +157,16 @@ function openLayerMenu(id, cx, cy, upY = cy){
   showMenu(id, cx, cy, upY);
 }
 const hideMenu = () => $('#ctxmenu').classList.remove('show');
+// 長押しで開いたメニューは、指を離したときの click が指の下の項目に届いて実行されてしまう（メニューが指に重なって出るとき）。
+// そこで、指を離してから少しの間（350ms）は項目を押せなくする。mobile.js の長押しから呼ぶ
+let menuGuard = false;
+function guardMenuUntilRelease(){
+  menuGuard = true;
+  const off = () => { window.removeEventListener('pointerup', off, true); window.removeEventListener('pointercancel', off, true); setTimeout(() => { menuGuard = false; }, 350); };
+  window.addEventListener('pointerup', off, true); window.addEventListener('pointercancel', off, true);
+}
 $('#ctxmenu').addEventListener('click', e => {
+  if(menuGuard) return;
   const b = e.target.closest('[data-ma]'); if(!b) return;
   const id = $('#ctxmenu').dataset.lid; hideMenu();
   if(b.dataset.ma === 'rename'){ setTimeout(() => startRename(id), 0); return; }

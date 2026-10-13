@@ -5,7 +5,7 @@
        処理の中身は各ファイル（layers.js・editmodes.js・doc.js 等）に任せ、ここは「どの操作を何に振り分けるか」を持つ。
   主な公開：saveProject / newProject / openProjectFile / openNew・closeNew
   依存：DOC・selLayer・docChanged・syncDoc（doc.js）、dims・drag・tvCss・snapLines・livePaint（render.js）、layerGeom・fxHandleOn（overlay.js）、
-       editPointerDown 等（editmodes.js）、selectLayer・layerAction・openLayerMenu 等（layers.js）、hitLayer・hitLayers・hitRanked・hitForWheel（hit.js）、groupLayers・xformSnap・xformApply（group.js）、
+       editPointerDown 等（editmodes.js）、selectLayer・layerAction・openLayerMenu 等（layers.js）、hitLayer・hitLayers・hitRanked・hitForWheel・hitMenuLayer（hit.js）、groupLayers・xformSnap・xformApply（group.js）、
        addImageLayers・setBgFromFile・addAsset（assets.js）、libAddFiles・libImport（library.js）、loadDocObj（export.js）。
   読み込み順：events.js は inspector.js の次で、ほぼ最後。ほかの全ファイルの関数が使える前提で、読み込み時にイベントを登録する（DOM は存在済み）。
   座標：キャンバス上の操作は toDoc で DOC 座標（px）に直してから扱う。画面上の距離（ハンドルの当たり・スナップ）は
@@ -403,7 +403,7 @@ async function openProjectFile(f){
   }, {passive:false});
   tv.addEventListener('contextmenu', e => {
     if(DOC.mode !== 'thumb') return;
-    const [x, y] = toDoc(e), L = hitLayers(x, y, true)[0]; if(!L) return;
+    const [x, y] = toDoc(e), L = hitMenuLayer(x, y); if(!L) return;
     e.preventDefault(); openLayerMenu(L.id, e.clientX, e.clientY);
   });
   // ダブルクリック：グループ→中の1つを選ぶ／文字→文字の編集へ／画像・分割フレーム→編集モードへ
