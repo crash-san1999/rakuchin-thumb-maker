@@ -7,7 +7,7 @@
     o.reroll … 「別パターンにする」ボタン（乱数の種を振り直す）
     o.get(k) / o.onInput(k, v, el) / o.onSeg(k, v, btn) / o.onReroll(k) … 値の読み出しと、変更されたときの処理
   キー k は "shadow.blur" のようなドット区切りの道筋。それを実際のオブジェクトにたどる処理は呼び出し側（o.get / o.onInput）の仕事で、ここは知らない。
-  使い手：controls.js の KB（文字スタイル S 用）と thumb/doc.js の DB（サムネ DOC 用）が、それぞれ属性名を変えて makeBinder を1回ずつ呼ぶ。
+  使い手：controls.js の KB（文字スタイル S 用）と thumb/doc-sync.js の DB（サムネ DOC 用）が、それぞれ属性名を変えて makeBinder を1回ずつ呼ぶ。
   読み込み順：core.js の次（paintRange・ic に依存）。イベントは document に委譲で登録するので、あとから作った入力欄にも効く。
   戻り値：{cond, sync, row}。sync() は値→画面、row() は設定行の HTML 作成で、onInput などの画面→値と対になる。
 */

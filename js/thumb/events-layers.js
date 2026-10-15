@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：レイヤーパネルの操作 */
 /*
   役割：レイヤーパネルの並べ替え（ドラッグ）・選択・複数選択・名前の変更・右クリック／長押しメニューを受け付ける。
-  依存：DOC・docChanged（doc.js）、selectLayer・toggleMulti・isSelected・layerAction・movePeer・startRename・openLayerMenu・showMenu 等（layers.js）、
+  依存：DOC（doc.js）、docChanged（doc-sync.js）、selectLayer・toggleMulti・isSelected・layerAction・movePeer・startRename・openLayerMenu・showMenu 等（layers.js）、
        isMobile・openSheet（mobile.js。関数の中からだけ使う）。
   読み込み順：events.js の次。読み込み時にイベントを登録する（DOM は存在済み）。
 */

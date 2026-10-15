@@ -4,9 +4,9 @@
        合わせてタブ（ページ）を切り替え、モード（サムネ／文字）を切り替える。
   主な公開：SEL_ROWS（選択中レイヤー用の行）/ BG_ROWS（背景・仕上げ用の行）/ drowPg・drow（行→HTML）/ renderInspector /
            openInspector / setPage / setMode / insCtx / shapeIcon / FX_CHIPS
-  呼び出し元：main.js（起動時に SEL_ROWS・BG_ROWS を #selBox・#bgRows へ流し込む）、doc.js の syncDoc（renderInspector）、
+  呼び出し元：main.js（起動時に SEL_ROWS・BG_ROWS を #selBox・#bgRows へ流し込む）、doc-sync.js の syncDoc（renderInspector）、
             layers.js・events.js（openInspector・setMode）。
-  依存：DB（doc.js の makeBinder。行の見た目の部品 DB.row と表示条件の評価）、COLLAGE_*・FRAME_*・FIN_*・FX_*（各機能ファイル）、selLayer・DOC。
+  依存：DB（doc-sync.js の makeBinder。行の見た目の部品 DB.row と表示条件の評価）、COLLAGE_*・FRAME_*・FIN_*・FX_*（各機能ファイル）、selLayer・DOC。
 
   ■ 行オブジェクトのキー（SEL_ROWS / BG_ROWS / CFX_ROWS 共通。1行＝画面の1つの入力欄）
     入力欄の種類（どれか1つ。値の入れ先キーを持つ）：
@@ -26,7 +26,7 @@
       l:ラベル（左の項目名）
       pg:ページ名  このタブ（ページ）に出す。'frame|edge' のように | で複数指定可。省略時は背景の行なら 'main'、レイヤーの行なら 'base'
       show:条件   表示条件。'キー=値1|値2' または 'キー!=値' を & で AND 結合（bind.js の cond が評価。一致しない行は display:none）
-  キーの書き方（doc.js の dBase が解決）：'bg.zb.on' は DOC から、'@sc' は選択中のレイヤーから、'@cell.zoom' は選択中のマスから。
+  キーの書き方（doc-sync.js の dBase が解決）：'bg.zb.on' は DOC から、'@sc' は選択中のレイヤーから、'@cell.zoom' は選択中のマスから。
   ページ名と画面のタブの対応：INS_PAGES のタブ id の「-」の後ろ（'lay-frame' → 'frame'）が pg と一致する行だけが表示される（setPage）。
   行の並び順＝画面の上からの順。同じキーの行が複数あるのは、種類（@kind）ごとに値の範囲・ラベルが違うため（show で出し分ける）。
 */

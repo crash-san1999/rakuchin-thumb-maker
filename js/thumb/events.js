@@ -1,14 +1,14 @@
 /* 楽ちんサムネメーカー：ボタンの操作・プロジェクトの保存／読み込み／新規作成 */
 /*
   役割：サムネ作成モードの「入力の受け付け」のうち、設定パネルや上のバーのボタン、レイヤーの追加ボタン、
-       プロジェクトの保存・読み込み・新規作成を受け持つ。処理の中身は各ファイル（layers.js・editmodes.js・doc.js 等）に任せ、
+       プロジェクトの保存・読み込み・新規作成を受け持つ。処理の中身は各ファイル（layers.js・editmodes.js・doc-sync.js 等）に任せ、
        ここは「どの操作を何に振り分けるか」を持つ。入力の受け付けは役割ごとに次のファイルに分けている：
          events.js        … ここ（ボタン・プロジェクト）
          events-layers.js … レイヤーパネル（並べ替えのドラッグ・選択・名前の変更・メニュー）
          events-drop.js   … ファイルのドラッグ＆ドロップ・貼り付け
          events-canvas.js … キャンバス上のドラッグ・ホイール・キー操作
   主な公開：saveProject / newProject / openProjectFile / openNew・closeNew
-  依存：DOC・selLayer・docChanged・syncDoc・saveDoc（doc.js）、dims（render.js）、toggleEdit・setEdit・EDIT_MODES（editmodes.js）、
+  依存：DOC・selLayer・saveDoc（doc.js）、docChanged・syncDoc（doc-sync.js）、dims（render.js）、toggleEdit・setEdit・EDIT_MODES（editmodes.js）、
        FRAME_PRESETS・frameGeom・frameCompensate（frames.js）、addFx・applyBgFx（fx.js）、applyFinPreset（finish.js）、
        addCollage（collage-panel.js）、addSched（sched-panel.js）、ungroupLayers（group.js）、addImageLayers・setBgFromFile・addAsset（assets.js）、
        libImport（library.js）、loadDocObj（export.js）。

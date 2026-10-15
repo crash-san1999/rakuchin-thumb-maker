@@ -91,7 +91,8 @@ js/thumb/fx-draw.js        動的エフェクトの種類ごとの描き方（fx
 js/thumb/imgfx.js          画像の加工エフェクト（色収差・網点・線画・油絵・ゆがみなど。背景・画像・マス共通）
 js/thumb/finish.js         仕上げ（全体にかける色フィルター・ブルーム・粒子など）と、背景の追加エフェクト（ポスタライズ・柄など）
 js/thumb/assets.js         画像アセット（IndexedDB に保存）・画像や背景の追加
-js/thumb/doc.js            サムネのデータ構造・値の読み書き・変更通知
+js/thumb/doc.js            サムネのデータ構造（既定値・読み込み時の整え方 normalizeDoc・自動保存）
+js/thumb/doc-sync.js       サムネのデータと画面のつなぎ（パス文字列での値の読み書き・変更通知 docChanged・入力欄の同期 syncDoc）
 js/thumb/render.js         サムネの描画（文字・画像レイヤー・背景・合成）
 js/thumb/overlay.js        選択枠・ハンドル・背景効果の中心の表示
 js/thumb/tailhandle.js     吹き出しのしっぽのつまみ（キャンバス上でドラッグして位置・長さ・向きを変える）

@@ -2,7 +2,7 @@
 /*
   役割：作業中のドキュメント（グローバル DOC）全体を JSON 文字列のスナップショットとして積み、Ctrl+Z / Ctrl+Y で行き来する。
   公開：pushHist()（変更後に積む）／restoreHist(i)（i 番目に戻す）。#undo / #redo ボタンとキーボードショートカットもここで結ぶ。
-  関係：pushHist は preview.js の schedule()・colors.js の色調整・thumb/doc.js の docChanged()・thumb/export.js・main.js の起動時から
+  関係：pushHist は preview.js の schedule()・colors.js の色調整・thumb/doc-sync.js の docChanged()・thumb/export.js・main.js の起動時から
         450ms のデバウンス付きで呼ばれる。復元時は DOC / S（グローバル）を差し替え、fonts.js・thumb/ 側の UI 同期関数と update()（preview.js）を呼ぶ。
         スクリプトの読み込み順は preview.js・colors.js より後（これらの関数は実行時に参照されるだけなので問題ない）。
 */

@@ -2,8 +2,8 @@
 /*
   役割：キャンバス寸法（DOC.w / DOC.h）と書き出し寸法（DOC.exportW）の変更・上限チェック・選択肢UIの更新。
   主な公開：setCanvasSize / refreshSizeUI / exportSizes / CANVAS_MIN・CANVAS_MAX / EXPORT_MAX_PX
-  依存：DOC・docChanged・syncDoc（doc.js）、renderLayers（layers.js）、paintPreview・prevCache・dims（render.js）。
-  呼び出し元：doc.js の normalizeDoc（EXPORT_MAX_PX で書き出し幅を丸める）、doc.js の syncDoc（refreshSizeUI）。
+  依存：DOC（doc.js）、docChanged・syncDoc（doc-sync.js）、renderLayers（layers.js）、paintPreview・prevCache・dims（render.js）。
+  呼び出し元：doc.js の normalizeDoc（EXPORT_MAX_PX で書き出し幅を丸める）、doc-sync.js の syncDoc（refreshSizeUI）。
   単位：DOC.w/h は作業座標系の px。exportW は実際に書き出す横幅 px（縦は縦横比から計算）。描画倍率 f = exportW / DOC.w。
 */
 // キャンバス寸法のプリセット（[値 'WxH', 表示名]）
