@@ -51,6 +51,18 @@ async def settle(pg, ms=1800):
     """描画の反映を待つ（フォントを読み込めない環境では描画の前に少し待たされるため）"""
     await pg.wait_for_timeout(ms)
 
+async def hist_settled(pg, timeout=8000, strict=True):
+    """取り消しの履歴が、今の DOC まで積み終わるのを待つ（history.js は 450ms まとめてから積む）。
+    決まった時間だけ待つと、並列実行などで重いときに積み終わる前に次の操作・取り消しをしてしまうので、実際に積まれたことを確かめる。
+    strict=False は、履歴に積まない変更（テストが DOC を直接書き換えたなど）のあとでも止まらないよう、時間内に揃わなければそのまま進む"""
+    try: await wait_until(pg, "!restoring && hist[hIdx] === JSON.stringify(DOC)", timeout)
+    except TimeoutError:
+        if strict: raise
+
+async def undo_settled(pg, timeout=8000):
+    """取り消し・やり直しの復元（描き直しまで）が終わるのを待つ"""
+    await pg.wait_for_timeout(50); await wait_until(pg, "!restoring", timeout)
+
 async def canvas_box(pg):
     return await pg.eval_on_selector('#tv', 'e => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }')
 

@@ -27,11 +27,11 @@ async def run(p):
     await pg.wait_for_timeout(300)
 
     # 元に戻す
-    await pg.evaluate("pushHist()"); await pg.keyboard.press('Control+z'); await settle(pg, 600)
+    await pg.evaluate("pushHist()"); await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 600)
 
     # サイズ変更を元に戻すと、プレビューも元の縦横比に戻る
     await pg.evaluate("pushHist()"); await pg.evaluate("setCanvasSize(1080, 1080, true)"); await settle(pg, 700)
-    await pg.evaluate("pushHist()"); await pg.keyboard.press('Control+z'); await settle(pg, 1500)
+    await pg.evaluate("pushHist()"); await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 1500)
     assert await pg.evaluate("[DOC.w, DOC.h]") == [1080, 1920], f'元に戻してもサイズが戻らない {await pg.evaluate("[DOC.w, DOC.h]")}'
     bgk = await pg.evaluate("(() => { const b = prevCache.get('__bg'); return b ? [b.c.width, b.c.height] : null; })()")
     tv = await pg.evaluate("(() => { const c = document.querySelector('#tv'); return [c.width, c.height]; })()")

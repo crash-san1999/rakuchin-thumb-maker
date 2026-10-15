@@ -13,6 +13,6 @@ async def run(p):
     assert await pg.evaluate("(() => { const L = DOC.layers.find(l => l.type === 'text'); return [S === L.style, L.style.fill1 === DEFAULT.fill1, L.style.text]; })()") == [True, True, 'のこす']
     await pg.wait_for_timeout(800)  # 取り消し履歴は操作が 0.45 秒以内に続くとまとめて記録されるので、記録を待つ
     n = await pg.evaluate("DOC.layers.length"); await pg.evaluate("addFx('lines')"); await settle(pg, 1200)
-    await pg.evaluate("restoreHist(hIdx - 1)"); await settle(pg, 1200)
+    await hist_settled(pg, strict=False); await pg.evaluate("restoreHist(hIdx - 1)"); await undo_settled(pg); await settle(pg, 1200)
     assert await pg.evaluate("[DOC.layers.length, [...prevCache.keys()].every(k => k === '__bg' || DOC.layers.some(l => l.id === k))]") == [n, True]
     await close(pg)

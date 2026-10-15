@@ -150,7 +150,7 @@ async def run(p):
     w = await pg.evaluate("selLayer().cells.slice(0, 7).map(c => c.w)")
     assert min(w) > 0.2 and abs(sum(w) - 7) < 0.01, f'マスが潰れた {w}'
     await pg.keyboard.press('Escape'); await settle(pg, 300)
-    await pg.keyboard.press('Control+z'); await settle(pg, 500)
+    await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 500)
     w2 = await pg.evaluate("selLayer().cells.slice(0, 7).map(c => c.w)")
     assert w2 != w and w2[2:3] == [1], f'取り消しで幅が戻らない {w} {w2}'
     await page(pg, 'lay-split'); await settle(pg, 200)

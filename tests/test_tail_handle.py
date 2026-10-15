@@ -31,7 +31,7 @@ async def drag(pg, frm, to, shift=False):
     for i in range(1, 7): await pg.mouse.move(a[0] + (b[0] - a[0]) * i / 6, a[1] + (b[1] - a[1]) * i / 6)
     await pg.mouse.up()
     if shift: await pg.keyboard.up('Shift')
-    await settle(pg, 800)   # 取り消しの履歴は 450ms 待ってから積まれる（history.js）。次の操作・取り消しの前に積み終わるまで待つ
+    await hist_settled(pg)   # 取り消しの履歴は 450ms 待ってから積まれる（history.js）。次の操作・取り消しの前に、実際に積み終わるまで待つ
 
 async def run(p):
     pg = await open_app(p)
@@ -57,6 +57,7 @@ async def run(p):
     assert await pg.evaluate("tailInfo()") is None, '複数選択のときにつまみが出る'
     # 3) ドラッグ：先がポインタに付いてくる（位置＝自由の角度、長さ）。吹き出しの中心（文字）は動かない。パネルにも反映
     await pg.evaluate(SETUP, [{}, {}, {'rot': 20}])
+    await hist_settled(pg)   # ドラッグ前の状態を取り消しの履歴に積んでおく（5) の「2 回取り消すとここに戻る」の基準。待たないと、手前の手順のどこまで戻るかが時間しだいになる）
     t0 = await pg.evaluate("tailInfo()")
     # 目標：今のしっぽの先を、中心のまわりに 120° 回して、少し遠くへ（左下 → 右上あたり）
     import math
@@ -77,10 +78,10 @@ async def run(p):
     assert r2['tpos'] == r['tpos'] and r2['tdir'] != 0, f'Shift＋ドラッグで先の向きだけ変わらない {r} {r2}'
     assert abs(r2['base'][0] - t1['base'][0]) < 3 and abs(r2['base'][1] - t1['base'][1]) < 3, '付け根が動いてしまう'
     # 5) 取り消しで、ドラッグ前のしっぽと位置に戻る（ドラッグ1回が取り消し1回）
-    await pg.keyboard.press('Control+z'); await settle(pg, 500)
+    await pg.keyboard.press('Control+z'); await undo_settled(pg)
     assert await pg.evaluate("selLayer().style.plate.tdir") == 0, '取り消しで先の向きが戻らない'
-    await pg.keyboard.press('Control+z'); await settle(pg, 500)
-    assert await pg.evaluate("[selLayer().style.plate.tail, selLayer().x, selLayer().y]") == ['left', 960, 540], '取り消しでしっぽと文字の位置が戻らない'
+    await pg.keyboard.press('Control+z'); await undo_settled(pg)
+    assert await pg.evaluate("[selLayer().style.plate.tail, selLayer().x, selLayer().y, selLayer().rot]") == ['left', 960, 540, 20], '取り消しでしっぽと文字の位置が戻らない'
     # 6) つまみの外をドラッグすると、ふつうの移動（しっぽは変わらない）
     await pg.evaluate(SETUP, [{}, {}, {}])
     c = await pg.evaluate("tailInfo().center")
