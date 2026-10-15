@@ -120,8 +120,7 @@ async function ensureSchedFonts(L){
   await ensureFont(Object.assign({}, schedTStyle(L), {text: ttx || 'あ'}));
 }
 // ドキュメント座標 (x, y) が予定表 L の何行目か（回転・拡大縮小を考慮）。外なら -1
-/** @param {SchedLayer} L */
-/** @param {number} x @param {number} y */ /** @param {SchedLayer} L */ function schedRowAt(L, x, y){
+/** @param {SchedLayer} L @param {number} x @param {number} y */ function schedRowAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
   return lx < 0 || ly < 0 || lx > w || ly > h ? -1 : clamp(Math.floor(ly / (h / 7)), 0, 6);

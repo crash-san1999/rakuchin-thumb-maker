@@ -14,8 +14,7 @@ exporting = false;
 // 戻り値：マスごとの頂点列の配列（マス番号の順。文字・画像の割り当て順と一致）。slant＝斜めの傾き（0〜）、main＝「大きく」系の大きいマスの幅の割合。
 // 縦に並べる(cols)を基本形にして、横並び・縦長はその x/y を入れ替えて作る（swap。向きを保つため頂点順も反転）
 // レイヤー L のマスの形（W×H のピクセル座標）。lay を渡すとその配置で（書き出しのアイコンなど）
-/** @param {CollageLayer} L */
-/** @param {number} W @param {number} H @param {string} [lay] */
+/** @param {CollageLayer} L @param {number} W @param {number} H @param {string} [lay] */
 function collageCellsOf(L, W, H, lay){ return collageCells(lay || L.layout, collageN(L), W, H, L.slant, L.main, L.cells.map(cellW)); }
 // ws＝マスごとの幅の比率（「縦に並べる」「横に並べる」だけで使う）。全部同じなら等分（従来と同じ計算）
 /** @param {string} lay @param {number} n @param {number} W @param {number} H @param {number} [slant] @param {number} [main] @param {number[]|null} [ws] */
@@ -206,8 +205,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 // 分割フレーム全体を W×H の1枚のキャンバスに描く（回転・位置・影・不透明度は drawCollage 側）。f＝ドキュメント座標→ピクセルの倍率、lay＝レイアウトの上書き
 // 描く順序：全体を角丸でクリップ → 各マスを自分の多角形でクリップして描く → 境界線（bstyle ごと）→ 外枠。
 // 境界の太さ lw・振幅 A は f 倍してピクセルにする。radius は s（キャンバス1pxあたりのドキュメント倍率）で換算
-/** @param {CollageLayer} L */
-/** @param {number} W @param {number} H @param {number} f @param {string} [lay] */ /** @param {CollageLayer} L */ function collageCanvas(L, W, H, f, lay){
+/** @param {CollageLayer} L @param {number} W @param {number} H @param {number} f @param {string} [lay] */ function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = ctx2d(c), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
   const cells = collageCellsOf(L, W, H, lay), A = Math.max(2, (L.amp || 20) * f);
   const {polys, lines} = collageShape(cells, W, H, L.edge || 'straight', A);

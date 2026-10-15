@@ -235,13 +235,10 @@ function frameCompensate(L, g0, base){
 // フレーム付きの画像を1枚のキャンバスに描いて返す（{sk, k, c}）。f＝倍率、live＝ドラッグ中などの操作中、cache＝レイヤー id → 結果の Map
 // 座標は「フレーム中心が原点」。フチの飾りがはみ出すぶん、周りに pad の余白を付けたキャンバスにする（style ごとの係数が必要な余白の目安）。
 // 描く順序：フチ・影などの下敷き → 形でクリップして画像 → ステッカーの光沢・CRT・本の綴じなど画像の上に重ねるもの → HUD・テープなど外側の飾り
-/** @param {Layer} L */
-// 枠のデザインごとの描き方（framedCanvas から呼ぶ）。キーは FRAME_STYLES の style。
-//   under … 画像の下に描くフチ（フチ幅 E > 0 のときだけ）。under が無いデザイン（solid・tape・未知の名前）は単色のフチ stroke(2 * E, o.c) を描く
-//   over  … 画像を描いたあとに重ねる飾り（光沢・走査線・四隅の線など）。tape だけはフチ幅 0 でも描く（E >= 0）
-// 引数は framedCanvas が用意する値：x＝描画先、c＝そのキャンバス、E＝フチの太さの基準、FW・FH＝フレームの大きさ、o＝L.outline、fr＝L.frame、
-// f＝プレビュー倍率、P()＝形のパスを作る、stroke(線幅, 色)＝形のフチを描く、tw＝テープの長さ、st＝デザイン名（hud と bracket は over を共用）
-/** デザインごとの描き方。under は画像の下（フチ）、over は画像の上（飾り） @type {Record<string, {under?: (a: FrameStyleArgs) => void, over?: (a: FrameStyleArgs) => void}>} */
+/**
+ * @param {Layer} L デザインごとの描き方。under は画像の下（フチ）、over は画像の上（飾り）
+ * @type {Record<string, {under?: (a: FrameStyleArgs) => void, over?: (a: FrameStyleArgs) => void}>}
+ */
 const FRAME_STYLE_DRAW = {
   double: {
     // 二重線：太い線を引いてから中を destination-out で抜き、細い線を重ねる（間が透明になる）
