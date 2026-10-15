@@ -3,8 +3,11 @@
 from helpers import *
 
 # メニューを出して表示アニメーションが終わるのを待ち、[上端, 下端, 左端, 右端, 画面の高さ, 画面の幅, 中身の高さ, 表示枠の高さ] を返す
-MENU = """(async ([id, x, y, up]) => { showMenu(id, x, y, up === null ? undefined : up); await new Promise(r => setTimeout(r, 400));
-  const m = document.querySelector('#ctxmenu'), b = m.getBoundingClientRect();
+# アニメーションの終わりは、決まった時間ではなく getAnimations() で実際に終わるのを待つ（重いときに途中の縮んだ大きさを測らないように）
+SETTLED = "(async () => { const m = document.querySelector('#ctxmenu'); await new Promise(r => setTimeout(r, 30)); await Promise.all(m.getAnimations({subtree:true}).map(a => a.finished.catch(() => {}))); })()"
+MENU = """(async ([id, x, y, up]) => { showMenu(id, x, y, up === null ? undefined : up); await new Promise(r => setTimeout(r, 30));
+  const m = document.querySelector('#ctxmenu'); await Promise.all(m.getAnimations({subtree:true}).map(a => a.finished.catch(() => {})));
+  const b = m.getBoundingClientRect();
   return [b.top, b.bottom, b.left, b.right, innerHeight, innerWidth, m.scrollHeight, m.clientHeight]; })"""
 
 def inside(r, label):
@@ -26,7 +29,7 @@ async def run(p):
     btns = await pg.query_selector_all('[data-la="menu"]')
     vis = [b for b in btns if await b.is_visible()]
     if vis:
-        await vis[-1].click(); await pg.wait_for_timeout(450)
+        await vis[-1].click(); await pg.wait_for_timeout(100); await pg.evaluate(SETTLED)
         inside(await pg.evaluate("(() => { const b = document.querySelector('#ctxmenu').getBoundingClientRect(); return [b.top, b.bottom, b.left, b.right, innerHeight, innerWidth]; })()"), '「…」ボタン')
         assert await pg.evaluate("document.querySelector('#ctxmenu').classList.contains('show')")
         await pg.mouse.click(5, 5)

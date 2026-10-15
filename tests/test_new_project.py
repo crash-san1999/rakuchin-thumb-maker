@@ -20,7 +20,7 @@ async def run(p):
     assert r[:3] == [1080, 1920, 1080] and r[3] == 'jpg', f'サイズ・形式が残らない {r}'
     assert r[4] != 'solid' and r[5] is False and r[6] == 'thumb' and r[7] is False, f'まっさらになっていない {r}'
     # 3) 取り消しで元に戻る
-    await pg.keyboard.press('Control+z'); await settle(pg, 800)
+    await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 800)
     assert await pg.evaluate("[DOC.bg.type, DOC.layers.some(l => l.type === 'fx')]") == ['solid', True], '取り消しで戻らない'
     # 4) 保存してから新規作成：ファイルがダウンロードされ、そのあとまっさらになる。サイズも初期に戻せる
     await pg.click('#newBtn'); await pg.uncheck('#newKeepSize')

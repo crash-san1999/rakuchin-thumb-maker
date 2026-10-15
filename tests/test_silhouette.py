@@ -40,7 +40,7 @@ async def run(p):
     h = await pg.evaluate(STAT)
     assert h['sil'] < r['sil'] * 0.05 and h['alpha'] == base['alpha'], f'濃さ 0.5 で元の絵が透けない {h}'
     # 取り消し：直前の変更（濃さ 0.5）を取り消すと、濃さ 1（完全に 1 色）に戻る
-    await pg.keyboard.press('Control+z'); await settle(pg, 700)
+    await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 700)
     assert await pg.evaluate("DOC.layers.find(l => l.id === 'Lsil').fx.sil.a") == 1, '取り消しで濃さが戻らない'
     u = await pg.evaluate(STAT)
     assert u['sil'] == r['sil'], f'取り消し後の見た目が戻らない {r} {u}'

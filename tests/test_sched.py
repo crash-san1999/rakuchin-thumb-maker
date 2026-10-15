@@ -72,7 +72,7 @@ async def run(p):
     await pg.click('[data-snext]'); await settle(pg, 700)
     r = await pg.evaluate("[document.querySelector('.schDay').textContent, selLayer().rows.every(r => !r.title && !r.time && !r.asset && !r.rest), selLayer().time]")
     assert r == ['10/19(月)', True, '21:00'], f'来週分を作るの結果が違う {r}'
-    await pg.keyboard.press('Control+z'); await settle(pg, 700)
+    await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 700)
     assert await pg.evaluate("(L => L && L.rows[0].title === 'マリカ' && L.start <= '2026-10-18')(DOC.layers.find(l => l.type === 'sched'))"), '来週分を作るを取り消しで戻せない'
     # 保存と読み込み（プロジェクトの JSON をそのまま normalizeDoc に通す）で、中身・設定が変わらない
     await pg.evaluate(f"selectLayer('{sid}'); Object.assign(selLayer(), {{band:'tape', bandColor:'one', bandC:'#123456', gap:0.3, img:false, fmt:'en', paren:'none'}}); docChanged(false)")

@@ -38,7 +38,7 @@ async def run(p):
     await pick(pg, 'yt-header')
     assert await pg.evaluate("[DOC.hdr, DOC.guides.safe]") == ['yt', True], '同じサイズからヘッダーに切り替えられない'
     # 8) 取り消しで戻る
-    await pg.keyboard.press('Escape'); await pg.keyboard.press('Control+z'); await settle(pg, 700)
+    await pg.keyboard.press('Escape'); await hist_settled(pg, strict=False); await pg.keyboard.press('Control+z'); await undo_settled(pg); await settle(pg, 700)
     assert await pg.evaluate("[DOC.hdr, DOC.guides.safe]") == ['', False], '取り消しで戻らない'
     await close(pg)
     return 'YouTube／Twitch のサイズ選択でセーフエリア自動オン・他のサイズでオフ・ボタンで切替・保存復元・取り消し'
