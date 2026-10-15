@@ -39,14 +39,14 @@ const LAYER_KINDS = {};
 // 既定の振る舞い（登録で省略した項目）
 const LAYER_KIND_DEFAULT = {
   keep: () => true, sanitize: () => {}, fonts: () => {}, assets: () => [], thumb: () => null, menu: () => [],
-  resize: (L, rx, ry, s) => { L.sc = Math.round(clamp(L.sc * s, 0.02, 20) * 1000) / 1000; },
+  resize: /** @param {Layer} L @param {number} rx @param {number} ry @param {number} s */ (L, rx, ry, s) => { L.sc = Math.round(clamp(L.sc * s, 0.02, 20) * 1000) / 1000; },
 };
 /** 種類を登録する。同じ名前を 2 回登録するのは間違いなので例外にする（後から読み込んだ方が黙って勝つのを防ぐ）。
  * spec の関数が受け取る L は、その種類のレイヤーの型（例：'collage' なら CollageLayer）になる
  * @template {Layer['type']} K @param {K} type @param {LayerKindSpec<Extract<Layer, {type: K}>>} spec */
 function defineLayerKind(type, spec){
   if(hasKey(LAYER_KINDS, type)) throw new Error(`レイヤーの種類「${type}」が二重に登録されています`);
-  for(const k of ['normalize', 'draw', 'name', 'sub']) if(typeof spec[k] !== 'function') throw new Error(`レイヤーの種類「${type}」に ${k} がありません`);
+  for(const k of /** @type {const} */ (['normalize', 'draw', 'name', 'sub'])) if(typeof spec[k] !== 'function') throw new Error(`レイヤーの種類「${type}」に ${k} がありません`);
   // 表には「どの種類でも受け取る」型で入れる。表を引くのは kindOf だけで、kindOf(L) は L の種類の登録を返すので、関数にはその種類のレイヤーだけが渡る
   // （未知の種類は画像の登録を返すが、読み込み時に画像として整えてあるので、画像の項目は揃っている）
   LAYER_KINDS[type] = /** @type {LayerKind<any>} */ (Object.assign({}, LAYER_KIND_DEFAULT, spec));

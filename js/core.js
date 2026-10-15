@@ -32,28 +32,28 @@ const inputOf = e => /** @type {HTMLInputElement} */ (e.target);
 const errName = e => (e && typeof e === 'object' && 'name' in e) ? String(e.name) : '';
 /** @param {unknown} e @returns {string} */
 const errMsg = e => (e && typeof e === 'object' && 'message' in e) ? String(e.message) : String(e);
-const clone = o => JSON.parse(JSON.stringify(o));
+/** @template T @param {T} o @returns {T} */ const clone = o => JSON.parse(JSON.stringify(o));
 // 辞書 o に、キー k が「自分の項目として」あるか。保存データの値で表を引く前の確認に使う
 // （o[k] だと 'toString'・'constructor' などの名前で、どのオブジェクトにもある関数を拾ってしまい、細工・破損したデータで描画が止まる）
-const hasKey = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+/** @param {object} o @param {PropertyKey} k */ const hasKey = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 // レイヤー・素材のid。時刻＋乱数なので、プロジェクトの読み込みや複製で衝突しにくい
 const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 // localStorage の薄いラッパー。値は JSON で保存し、読み出し失敗（プライベートモード・壊れたデータ）は既定値 d を返す。
 // 保存の失敗（容量オーバー・禁止設定）は握りつぶさず、利用者に知らせて false を返す。キーは ttm_ で始まる
 const LS = {
-  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ saveWarn('自動保存できませんでした。ブラウザの保存容量がいっぱいか、保存が禁止されています。作業を残すには、「プロジェクト」から書き出してください'); return false; } }
+  /** @param {string} k @param {any} [d] @returns {any} */ get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
+  /** @param {string} k @param {any} v */ set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ saveWarn('自動保存できませんでした。ブラウザの保存容量がいっぱいか、保存が禁止されています。作業を残すには、「プロジェクト」から書き出してください'); return false; } }
 };
 // 保存の失敗を知らせる（続けて何度も出ないよう、30秒に1回まで）
 let saveWarnAt = 0;
 /** @param {string} msg */ function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
 // 文字入力中かどうか。キーボードショートカットが入力操作を横取りしないための判定
-const isTyping = e => { const t = tgt(e); return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
+/** @param {Event} e */ const isTyping = e => { const t = tgt(e); return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
 // サムネのレイヤーに共通の初期値（キャンバスの中央）。座標はキャンバス（DOC.w×DOC.h）の px で、原点は左上・x,y はレイヤー中心。
 // DOC は後から宣言される let なので、起動前に呼ばれても落ちないよう typeof で守り、未確定なら 1920×1080 とみなす
 const LAYER_BASE = () => ({x:Math.round(((typeof DOC === 'object' && DOC) ? DOC.w : 1920) / 2), y:Math.round(((typeof DOC === 'object' && DOC) ? DOC.h : 1080) / 2), sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
 // 小数第3位までに丸める（保存データを読みやすく小さく保つ）
-const r3 = v => Math.round(v * 1000) / 1000;
+/** @param {number} v */ const r3 = v => Math.round(v * 1000) / 1000;
 // 日時入りのファイル名用（例：20260929-213000）
 const stamp = (d = new Date()) => { const p = /** @param {number} n */ n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
 // ファイルとしてダウンロードさせる。URL の解放は、ブラウザが保存を始める前に消えないよう少し遅らせる
@@ -72,6 +72,7 @@ const stamp = (d = new Date()) => { const p = /** @param {number} n */ n => Stri
 
 /* ============ アイコン ============ */
 // 24×24 の viewBox に収めた線画の中身（path など）だけを持つ。線の色・太さは CSS の .ic が決め、currentColor で文字色に追従する
+/** @type {Record<string, string>} */
 const ICONS = {
   grid:'<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h8.5"/>',
   calendar:'<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M7.5 13.5h2M11 13.5h2M14.5 13.5h2M7.5 17h2M11 17h2"/>',
@@ -147,13 +148,13 @@ const ICONS = {
   fxadd:'<path d="M11 3.5l1.6 4.3 4.3 1.6-4.3 1.6L11 15.3l-1.6-4.3-4.3-1.6 4.3-1.6z"/><path d="M18.5 14v6M15.5 17h6"/>',
   palette:'<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.4-1.3-1.7-1.3-3 0-.9.8-1.6 1.7-1.6h2.3a4 4 0 0 0 4-4c0-3.7-3.8-6.7-8.5-6.7z"/><circle cx="7.8" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.8" r="1.1" fill="currentColor" stroke="none"/>',
 };
-const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+/** @param {string} n */ const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 // HTML に書いた <i data-ic="名前"> をアイコンの SVG に置き換える
-const paintIcons = (root = document) => $$('[data-ic]', root).forEach(el => { el.outerHTML = ic(el.dataset.ic); });
+const paintIcons = (root = document) => $$('[data-ic]', root).forEach(el => { el.outerHTML = ic(el.dataset.ic ?? ''); });
 // スライダーの「つまみより左」を塗るため、CSS 変数 --p に進み具合（%）を渡す。値が変わるたびに呼ぶ必要がある（下の input リスナーと bind.js の sync）
-function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((el.value - mn) / (mx - mn)) * 100 + '%'); }
-function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
-document.addEventListener('input', e => { if(inputOf(e).type === 'range') paintRange(tgt(e)); });
+/** @param {HTMLInputElement} el */ function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((+el.value - mn) / (mx - mn)) * 100 + '%'); }
+/** @param {number} v */ function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
+document.addEventListener('input', e => { if(inputOf(e).type === 'range') paintRange(inputOf(e)); });
 // サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める。
 // 型としては「いつも中身がある」扱いにしている：起動後のすべての処理は DOC がある前提で動き、起動前に動きうる所
 // （LAYER_BASE・SCHED_BASE などの既定値）は自分で DOC があるかを確かめているため。起動前に読む処理を足すときは、同じように確かめること
@@ -198,7 +199,7 @@ const DEFAULT = {
 };
 // DEFAULT に p を重ねた新しいスタイルを返す（p も DEFAULT も書き換えない）。
 // オブジェクト値（shadow など）は 1 階層だけキーごとに上書きするので、p が一部のキーしか持たなくても残りは既定値になる。配列（strokes・pal）は丸ごと置き換え
-function merged(p){
+/** @param {Record<string, any>} p @returns {TextStyle} */ function merged(p){
   const o = clone(DEFAULT);
   for(const k in p){
     const v = clone(p[k]);
@@ -211,7 +212,7 @@ function merged(p){
 /** @type {TextStyle} */
 let S = merged(LS.get('ttm_state', {}));
 /* ============ 配色 ============ */
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+/** @param {number} v @param {number} a @param {number} b */ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /* ============ 描画エンジン ============ */
 const PI = Math.PI;
 // 作業用キャンバスを作る。幅・高さは四捨五入し、0 以下だと描画系が例外を出すので最低 1px にする
@@ -219,11 +220,11 @@ const PI = Math.PI;
 // このアプリは 2D しか使わないので null にならない（型の上でもそう扱う）
 /** @param {HTMLCanvasElement} c @param {CanvasRenderingContext2DSettings} [opt] @returns {CanvasRenderingContext2D} */
 const ctx2d = (c, opt) => /** @type {CanvasRenderingContext2D} */ (c.getContext('2d', opt));
-const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
-const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
+/** @param {number} w @param {number} h */ const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+/** @param {string} h @returns {number[]} */ const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
 // hex2rgb の逆：[r, g, b]（0-255。小数は四捨五入）→ "#rrggbb"
-const rgb2hex = rgb => '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
-const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
+/** @param {number[]} rgb */ const rgb2hex = rgb => '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+/** @param {string} h @param {number} a */ const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
 // 種つきの乱数（mulberry32 系）。同じ seed なら毎回同じ並びになる。
 // 「別パターンにする」で seed を変えるだけで見た目が変わり、再描画しても・保存して開き直しても形が動かないようにするため Math.random は使わない。
 // seed=0 でも状態が 0 にならないよう || 1 で避けている
@@ -235,7 +236,7 @@ const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${
 // innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " と ' も変換する（属性は "" で囲む決まりだが、' で囲んでも安全なように）
 // 色の文字列を、HTML 属性（style="…"）に入れても安全なものだけ通す（#rgb／#rrggbb(aa)／rgb()／hsl()）。細工されたプロジェクトファイルが属性を壊して
 // スクリプトを差し込むのを防ぐ。合わなければ既定色 d を返す
-const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;
+/** @param {unknown} c @param {string} [d] @returns {string} */ const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;
 // 読み込んだデータの id（レイヤー・画像）として使ってよい文字列か。HTML 属性や querySelector に入るので、英数字・_・- だけ許す
-const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // ASSETS[id] のようにオブジェクトのキーにもなるので、特別な名前も除く
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/** @param {unknown} s @returns {s is string} */ const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // ASSETS[id] のようにオブジェクトのキーにもなるので、特別な名前も除く
+/** @param {unknown} s */ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => /** @type {Record<string, string>} */ ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }

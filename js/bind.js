@@ -15,26 +15,26 @@
 var {makeBinder} = (() => {
 // 入力欄の値を型に直す。読めない値は undefined を返し、呼び出し側はそれを「変更なし」として無視する
 // （例：数値欄を空にした途中の状態や、#rrggbb でない途中の色文字列で、値を壊さないため）
-function readInput(el){
+/** @param {HTMLInputElement} el */ function readInput(el){
   if(el.type === 'checkbox') return el.checked;
   if(el.type === 'range' || el.type === 'number' || el.dataset.num){ const v = parseFloat(el.value); return isNaN(v) ? undefined : v; }
   if(el.classList.contains('hex')) return /^#[0-9a-f]{6}$/i.test(el.value) ? el.value.toLowerCase() : undefined;
   return el.value;
 }
 // 注意：document に直接リスナーを足すので、makeBinder を呼ぶたびにリスナーが増える（属性名が違えば互いに干渉しない）。同じ o を複数回作らないこと
-function makeBinder(o){
-  const sel = a => `[data-${a}]`;
+/** @param {BinderOptions} o */ function makeBinder(o){
+  /** @param {string} a */ const sel = a => `[data-${a}]`;
   document.addEventListener('input', e => {
-    const el = tgt(e), k = el.dataset && el.dataset[o.val]; if(!k) return;
+    const el = inputOf(e), k = el.dataset && el.dataset[o.val]; if(!k) return;
     const v = readInput(el); if(v !== undefined) o.onInput(k, v, el);
   });
   document.addEventListener('click', e => {
-    const rr = tgt(e).closest(sel(o.reroll)); if(rr){ o.onReroll(rr.dataset[o.reroll]); return; }
+    const rr = tgt(e).closest(sel(o.reroll)); if(rr){ o.onReroll(rr.dataset[o.reroll] ?? ''); return; }
     const b = tgt(e).closest(`${sel(o.seg)} button`); if(!b) return;
-    const g = b.parentElement; if(!g) return; o.onSeg(g.dataset[o.seg], g.dataset.num ? parseFloat(b.dataset.v ?? '') : b.dataset.v, b);
+    const g = b.parentElement; if(!g) return; o.onSeg(g.dataset[o.seg] ?? '', g.dataset.num ? parseFloat(b.dataset.v ?? '') : b.dataset.v ?? '', b);
   });
   // 表示条件：「キー=値1|値2」または「キー!=値1|値2」を & でつなぐ
-  const cond = c => { const neg = c.includes('!='), [k, vs] = c.split(neg ? '!=' : '='), hit = vs.split('|').includes(String(o.get(k))); return neg ? !hit : hit; };
+  /** @param {string} c */ const cond = c => { const neg = c.includes('!='), [k, vs] = c.split(neg ? '!=' : '='), hit = vs.split('|').includes(String(o.get(k))); return neg ? !hit : hit; };
   return {
     cond,
     // 値 → 画面。except は今まさに入力中の欄（値を書き戻すとカーソルや入力途中の文字が壊れるので飛ばす）。
@@ -42,20 +42,20 @@ function makeBinder(o){
     /** @param {HTMLElement} [except] */ sync(except){
       $$as(sel(o.val), HTMLInputElement).forEach(el => {
         if(el === except) return;
-        const v = o.get(el.dataset[o.val]);
+        const v = o.get(el.dataset[o.val] ?? '');
         if(el.type === 'checkbox') el.checked = !!v; else if(v !== undefined && v !== null) el.value = v;
         if(el.type === 'range') paintRange(el);
       });
-      $$(sel(o.seg)).forEach(g => { const v = String(o.get(g.dataset[o.seg])); $$('button', g).forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
+      $$(sel(o.seg)).forEach(g => { const v = String(o.get(g.dataset[o.seg] ?? '')); $$('button', g).forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
       $$(sel(o.show)).forEach(el => { el.style.display = (el.dataset[o.show] ?? '').split('&').every(cond) ? '' : 'none'; });
     },
     // 基本の行（ボタン選択・プルダウン・別パターン・色・チェック・スライダー）の HTML。
     // r のキーで種類が決まる：seg / sel / seed / c / chk、どれでもなければスライダー（r.r＝キー、min/max/step 必須）。
     // 色は <input type=color> と hex 文字欄を同じキーで2つ並べる。colorTools が真のとき、ランダム色とスポイト（対応ブラウザのみ）も付ける
-    row(r, colorTools){
+    /** @param {PanelRow} r @param {boolean} [colorTools] */ row(r, colorTools){
       const sa = r.show ? ` data-${o.show}="${r.show}"` : '', V = o.val;
-      if(r.seg) return `<div class="row"${sa}><label>${r.l || ''}</label><div class="seg" data-${o.seg}="${r.seg}">${r.opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join('')}</div></div>`;
-      if(r.sel) return `<div class="row"${sa}><label>${r.l}</label><select data-${V}="${r.sel}">${r.opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`;
+      if(r.seg) return `<div class="row"${sa}><label>${r.l || ''}</label><div class="seg" data-${o.seg}="${r.seg}">${(r.opts || []).map(([v, t]) => `<button data-v="${v}">${t}</button>`).join('')}</div></div>`;
+      if(r.sel) return `<div class="row"${sa}><label>${r.l}</label><select data-${V}="${r.sel}">${(r.opts || []).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></div>`;
       if(r.seed) return `<div class="row"${sa}><label>${r.l}</label><button class="btn sm reroll" data-${o.reroll}="${r.seed}">${ic('dice')}別パターンにする</button></div>`;
       if(r.c) return `<div class="row"${sa}><label>${r.l}</label><div class="cpick"><input type="color" data-${V}="${r.c}"><input type="text" class="hex" data-${V}="${r.c}" maxlength="7" spellcheck="false">` +
         (colorTools ? `<button class="mini" data-rnd="${r.c}" title="この色だけランダム（明るさはそのまま）">${ic('dice')}</button>${'EyeDropper' in window ? `<button class="mini" data-eye="${r.c}" title="スポイト：画面上の色を拾う">${ic('drop')}</button>` : ''}` : '') + `</div></div>`;

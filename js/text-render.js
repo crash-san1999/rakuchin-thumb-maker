@@ -27,6 +27,7 @@ const darken =(h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0}
 // フォールバックの並び：英数字フォント → 日本語フォント → Noto Sans JP → sans-serif。未読込のフォントで寸法が変わるのを避けるため、描画前に ensureFont() で待つこと
 const fontStr = () =>`${RS.weight} ${RS.size}px ${RS.fontLatin ? '"' + RS.fontLatin + '", ' : ''}"${RS.font}", "Noto Sans JP", sans-serif`;
 /* 金属の色（上→下）。0.5付近の暗い帯が「映り込みの地平線」 */
+/** @type {Record<string, Array<[number, string]>>} */
 const METALS = {
   gold:     [[0,'#fffbe0'],[.2,'#ffe07a'],[.44,'#c99212'],[.5,'#7a4d00'],[.56,'#d9a520'],[.8,'#fff1a6'],[1,'#b07a0c']],
   silver:   [[0,'#ffffff'],[.22,'#e3e7ec'],[.46,'#9aa3af'],[.5,'#4e5663'],[.56,'#bfc6cf'],[.82,'#f7f9fb'],[1,'#8d95a1']],
