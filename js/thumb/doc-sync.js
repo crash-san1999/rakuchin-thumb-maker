@@ -17,14 +17,14 @@
    戻り値は [起点オブジェクト, 残りのパス]。起点が無い（レイヤー未選択など）ときは b が null */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {docChanged, DB, syncDocSoon, syncDoc} = (() => {
-function dBase(k){
+/** @param {string} k @returns {[any, string]} */ function dBase(k){
   if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.type === 'collage' ? L.cells[L.ac || 0] : null, k.slice(6)]; }
   return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k];
 }
-function dGet(k){ const [b, p] = dBase(k); return b ? p.split('.').reduce((o, q) => o?.[q], b) : undefined; }
-function dSet(k, v){
+/** @param {string} k */ function dGet(k){ const [b, p] = dBase(k); return b ? p.split('.').reduce((o, q) => o?.[q], b) : undefined; }
+/** @param {string} k @param {any} v */ function dSet(k, v){
   const [b, p] = dBase(k); if(!b) return;
-  const ps = p.split('.'), last = ps.pop(), o = ps.reduce((o, q) => o?.[q], b);
+  const ps = p.split('.'), last = /** @type {string} */ (ps.pop()), o = ps.reduce((o, q) => o?.[q], b);
   if(o) o[last] = v;
   // 値の変更に連動して直す項目：分割数を変えたら、その数で使えない配置は 'cols' に戻す／効果の対象（全部⇔マスごと）の切り替えを分割フレーム側へ伝える
   if(k === '@n' && b.type === 'collage' && !collageLayoutOk(b.layout, collageN(b))) b.layout = 'cols';
@@ -42,7 +42,7 @@ function dSet(k, v){
   clearTimeout(docChanged.t); docChanged.t = setTimeout(renderLayers, 150);
 }
 // サムネ（DOC・選択中のレイヤー）用の入力欄のつなぎ込み。キーが @ で始まると選択中のレイヤー
-function setD(k, v){
+/** @param {string} k @param {any} v */ function setD(k, v){
   // 変更前のフレーム形状（g0）を控えて、変更後に frameCompensate でレイヤー位置をずらす。
   // 切り抜きフレームを変えても、画像そのものはキャンバス上で動かないように位置を補正する
   if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
@@ -52,14 +52,14 @@ const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:
   onInput(k, v, el){
     const S0 = /^@crop\./.test(k) ? selLayer() : null, cL = S0 && S0.type === 'image' ? S0 : null;   // トリミングの入力欄は画像レイヤーにだけ出る
     if(cL) applyCropChange(cL, () => setD(k, v)); else setD(k, v);
-    if(k === '@key.on' && v){ const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(A && L.key.c === KEY_BASE().c){ const c = cutAutoColor(cropSrc(L, A).img); if(c) L.key.c = c; } }   // 初めてオンにしたときは、四隅の色を背景色にする
+    if(k === '@key.on' && v){ const L = selLayer(), A = L && L.type === 'image' && L.asset && assetOf(L.asset); if(A && L.key.c === KEY_BASE().c){ const c = cutAutoColor(cropSrc(L, A).img); if(c) L.key.c = c; } }   // 初めてオンにしたときは、四隅の色を背景色にする
     if(k === '@p.reach'){ const L = selLayer(); if(L && L.type === 'fx' && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');
   },
   onSeg(k, v){
     setD(k, v); syncDoc(); docChanged(false);
-    if(k === 'bg.type' && v === 'image' && !ASSETS[DOC.bg.asset]) $('#bgimgfile').click();
+    if(k === 'bg.type' && v === 'image' && !(DOC.bg.asset && assetOf(DOC.bg.asset))) $('#bgimgfile').click();
   },
   onReroll(k){ dSet(k, Math.floor(Math.random() * 1e6)); docChanged(false); },
 });
@@ -68,7 +68,7 @@ let syncRaf = 0;
 function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syncRaf = 0; syncDoc(); }); }
 /** @param {HTMLElement} [except] */ function syncDoc(except){
   DB.sync(except);
-  $$('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
+  $$('[data-guide]').forEach(b => b.classList.toggle('on', !!/** @type {Record<string, boolean>} */ (DOC.guides)[b.dataset.guide ?? '']));
   const sc = $('#safeChip'); if(sc) sc.hidden = !DOC.hdr;   // セーフエリアのボタンはヘッダー画像のときだけ出す
   const L = selLayer(); $$('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L.type === 'image' && (b.dataset.flip === 'flipV' ? L.flipV : b.dataset.flip === 'flip' ? L.flip : false))));
   renderInspector();

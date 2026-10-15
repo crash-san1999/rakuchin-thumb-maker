@@ -108,7 +108,7 @@ defineLayerKind('collage', {
   fonts: L => ensureCollageFonts(L),
   assets: L => L.cells.map(c => c.asset),
   name: L => `分割フレーム（${collageN(L)}分割）`,
-  sub: L => `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚`,
+  sub: L => `${L.cells.slice(0, collageN(L)).filter(c => assetOf(c.asset)).length} / ${collageN(L)} 枚`,
   // 分割フレームは枠の横幅・高さ（bw/bh）そのものが DOC 座標なので、縦横別々に伸ばす（sc は変えない）
   resize: (L, rx, ry) => { L.bw = Math.max(100, Math.round(L.bw * rx)); L.bh = Math.max(100, Math.round(L.bh * ry)); },
 });

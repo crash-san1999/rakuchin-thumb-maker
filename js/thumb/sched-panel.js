@@ -50,7 +50,7 @@ function renderSched(){
     const today = (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date());
     setVal($('#schStart', box), L.start || today); setVal($('#schFirst', box), L.first); setVal($('#schTime', box), L.time);
     $$('.schRow', box).forEach(el => {
-      const i = +(el.dataset.srow ?? 0), r = L.rows[i], A = ASSETS[r.asset];
+      const i = +(el.dataset.srow ?? 0), r = L.rows[i], A = assetOf(r.asset);
       const day = schedDayLabel(L, days[i]); if($('.schDay', el).textContent !== day) $('.schDay', el).textContent = day;
       el.classList.toggle('rest', r.rest);
       $as('[data-sf="rest"]', HTMLInputElement, el).checked = r.rest;
@@ -116,7 +116,7 @@ document.addEventListener('click', e => {
   inp.onchange = async () => {
     const L = schedLayer(), files = [...(inp.files || [])].filter(f => /^image\//.test(f.type)); inp.value = ''; if(!L || !files.length || schedPickRow < 0) return;
     let i = schedPickRow; await schedSetImage(L, i, files.shift());
-    for(const f of files){ i++; while(i < 7 && (ASSETS[L.rows[i].asset] || L.rows[i].rest)) i++; if(i >= 7) break; await schedSetImage(L, i, f); }
+    for(const f of files){ i++; while(i < 7 && (assetOf(L.rows[i].asset) || L.rows[i].rest)) i++; if(i >= 7) break; await schedSetImage(L, i, f); }
     syncDoc(); docChanged(false);
   };
 }

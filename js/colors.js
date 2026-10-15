@@ -214,7 +214,7 @@ function paletteFromBg(){
 // 配色の元画像の選び方：thumb モードは選択中の背景アセット／文字素材モードは bgImg。
 // どちらも無ければ wantBgPalette を立ててファイル選択を開き、読み込み完了後に paletteFromBg が走る
 $('#fromBg').onclick = () => {
-  const th =DOC.mode === 'thumb', A = th && DOC.bg.type === 'image' && ASSETS[DOC.bg.asset];
+  const th =DOC.mode === 'thumb', A = th && DOC.bg.type === 'image' && assetOf(DOC.bg.asset);
   if(A){ bgImg = A.img; paletteFromBg(); return; }
   if(!th && bgImg && bgImg.complete){ paletteFromBg(); return; }
   wantBgPalette = true; toast('サムネに使う背景画像を選んでください'); (th ? $('#bgimgfile') : $('#bgfile')).click();

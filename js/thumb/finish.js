@@ -8,6 +8,7 @@ const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leak
 var {FIN_LOOKS, FIN_PRESETS, finOn, applyFinPreset, applyFinish, posterize, threshold, tiltShift, BG_PATTERNS, drawBgPattern} = (() => {   // paper＝紙の質感、dust＝傷・ほこり、target＝かける対象（'all' サムネ全体＝初期値／'bg' 背景だけ）
 // 色フィルター：f は CSS フィルター、o は [重ね方, 色, 濃さ] の色の重ね
 // 配列は [表示名, CSSフィルター, 色の重ね]。キー名は DOC.fin.look に保存されるので、名前を変えると古い保存データが「なし」扱いになる
+/** 仕上げの色フィルター：[表示名, CSS の filter, 重ねる色の組 [描画モード, 色, 濃さ]] @type {Record<string, [string, string?, Array<[GlobalCompositeOperation, string, number]>?]>} */
 const FIN_LOOKS = {
   none:   ['なし'],
   cinema: ['シネマ', 'contrast(1.12) saturate(.88)', [['soft-light', '#0b7a8a', 0.45], ['soft-light', '#ff9a50', 0.18]]],

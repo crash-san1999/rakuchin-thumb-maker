@@ -340,8 +340,9 @@ function renderPresets(){
 // スタイルを適用する。文字内容・サイズ・余白・書き出し倍率・英数字フォントは「内容」側の設定なので、プリセットで消さずに引き継ぐ。
 // S を丸ごと差し替える（Object.assign で新しいオブジェクトを作る）ため、S を保持している箇所があれば古いままになる点に注意
 /** @param {Record<string, any>} p */ function applyPreset(p){
+  /** @type {Partial<TextStyle>} */
   const keep = {text:S.text, size:S.size, pad:S.pad, scale:S.scale, fontLatin:S.fontLatin};
-  for(const k of ['vertical', 'vlat', 'vtcy']) if(!(k in p)) keep[k] = S[k];   // 縦書きの指定がないスタイルでは今の向きを保つ
+  for(const k of /** @type {const} */ (['vertical', 'vlat', 'vtcy'])) if(!(k in p)) Object.assign(keep, {[k]: S[k]});   // 縦書きの指定がないスタイルでは今の向きを保つ
   S = Object.assign(merged(p), keep); resetAdj();
   if(!findFont(S.font)) toast(`フォント「${S.font}」が一覧にないため代替表示になります`, true);
   refreshTextUI(); schedule();

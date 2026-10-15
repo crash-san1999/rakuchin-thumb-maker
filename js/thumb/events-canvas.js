@@ -51,7 +51,7 @@
       T = hitLayer(x, y);
       if(!T){
         if(DOC.sel || (DOC.msel || []).length) selectLayer(null);
-        if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
+        if(DOC.bg.type === 'image' && assetOf(DOC.bg.asset)){
           drag = {mode:'bg', x0:x, y0:y, ox:DOC.bg.ox, oy:DOC.bg.oy}; tv.style.cursor = 'grabbing';
           tv.setPointerCapture(e.pointerId); e.preventDefault();
         }
@@ -73,7 +73,7 @@
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
     if(!drag && editLayer() && edit){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
     if(!drag && tailHandleAt(x, y)){ tv.style.cursor = 'grab'; return; }
-    if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
+    if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && assetOf(DOC.bg.asset) ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;
     if(drag.mode === 'edit'){ editPointerMove(x, y); return; }
     if(drag.mode === 'tail'){ tailDragMove(drag.st, x, y, e); syncDocSoon(); livePaint(); return; }
@@ -134,7 +134,7 @@
       wheelGrp.t = now; wheelGrp.k = clamp(wheelGrp.k * k, 0.2, 5); xformApply(wheelGrp.s, 0, 0, wheelGrp.k, 0);
     }
     else if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
-    else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]){
+    else if(DOC.bg.type === 'image' && assetOf(DOC.bg.asset)){
       const b = DOC.bg, nz = clamp(b.zoom * k, 0.2, 4), r = nz / b.zoom;
       // カーソル位置を基準に拡大縮小
       const cx = DOC.w / 2 + b.ox * DOC.w / 2, cy = DOC.h / 2 + b.oy * DOC.h / 2;

@@ -16,3 +16,5 @@ interface Navigator { connection?: any; }
 declare class EyeDropper { open(): Promise<{ sRGBHex: string }>; }
 // PC に入っているフォントの一覧（Local Font Access API。Chrome 系だけ）。使う前に有無を確かめる（fonts.js）
 interface Window { queryLocalFonts?: () => Promise<Array<{family: string, fullName: string, postscriptName: string, style: string}>>; }
+// アプリとして追加するときの案内（Chrome 系だけ。標準の型に入っていない）
+interface BeforeInstallPromptEvent extends Event { prompt(): Promise<void>; userChoice: Promise<{outcome: string}>; }

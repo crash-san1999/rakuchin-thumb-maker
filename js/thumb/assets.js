@@ -18,9 +18,13 @@ const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, key:KEY_BASE(), strokes:/*
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
 /** @type {Promise<IDBDatabase>|null} */
 let idbP;
-var {ASSETS, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange} = (() => {
+var {ASSETS, assetOf, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange} = (() => {
 // ASSETS：アセットid → 読み込み済み画像。画面上の全画像の実体で、DOC.layers / bg から id で引く
+/** @type {Record<string, Asset>} */
 const ASSETS = {};
+// 画像の id（null・未設定のこともある）から、読み込み済みの画像を引く。無ければ undefined
+/** @param {string|null|undefined} id @returns {Asset|undefined} */
+const assetOf = id => id ? ASSETS[id] : undefined;
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 // DB は1回だけ開いて使い回す（Promise ごと保持）。upgrade は assets と lib のどちらのストアも無ければ作る
@@ -67,7 +71,7 @@ async function idbRestore(){
     const [keys, vals] = await Promise.all([idbReq(st.getAllKeys()), idbReq(st.getAll())]);
     const used = usedAssets();
     for(let i = 0; i < keys.length; i++){
-      if(used.has(keys[i])){ if(!ASSETS[keys[i]]) await addAsset(vals[i].src, vals[i].name, keys[i], true); }
+      if(used.has(keys[i])){ if(!assetOf(keys[i])) await addAsset(vals[i].src, vals[i].name, keys[i], true); }
       else db.transaction('assets', 'readwrite').objectStore('assets').delete(keys[i]);
     }
   }catch{}
@@ -75,7 +79,7 @@ async function idbRestore(){
 }
 // 画像レイヤーを1枚作る（まだ DOC.layers には入れない）。初期の大きさ sc は「高さの85%・幅の半分」に収まる倍率、位置は右寄り（左に文字を置く想定のサムネ構図）
 /** @param {string} id @param {string} name */ function newImageLayer(id, name){
-  const A = ASSETS[id], sc = Math.min(DOC.h * 0.85 / A.img.naturalHeight, DOC.w * 0.5 / A.img.naturalWidth);
+  const A = /** @type {Asset} */ (assetOf(id)), sc = Math.min(DOC.h * 0.85 / A.img.naturalHeight, DOC.w * 0.5 / A.img.naturalWidth);
   return Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:uid(), type:/** @type {'image'} */ ('image'), name, asset:id, x:Math.round(DOC.w * 0.74), y:Math.round(DOC.h * 0.56), sc});
 }
 // 画像ファイルをレイヤーとして追加。skipCollage でなければ、先に分割フレームのマスへ入れる処理（collageTakeFiles）に渡し、残りだけをレイヤーにする
@@ -84,7 +88,7 @@ async function addImageLayers(files, skipCollage){
   let last = null;
   for(const f of files){
     if(!/^image\//.test(f.type)) continue;
-    const id = await addAsset(await fileToSrc(f), f.name), A = ASSETS[id];
+    const id = await addAsset(await fileToSrc(f), f.name);
     const L = newImageLayer(id, f.name.replace(/\.[^.]+$/, ''));
     DOC.layers.push(L); last = L.id;
   }
@@ -95,7 +99,7 @@ async function setBgFromFile(f){
   const id = await addAsset(await fileToSrc(f), f.name);
   Object.assign(DOC.bg, {asset:id, type:'image', zoom:1, ox:0, oy:0});
   syncDoc(); docChanged(false);
-  if(wantBgPalette){ wantBgPalette = false; bgImg = ASSETS[id].img; paletteFromBg(); }
+  if(wantBgPalette){ wantBgPalette = false; bgImg = assetOf(id)?.img ?? null; paletteFromBg(); }
 }
 
 // 画像の表示範囲（上下左右のトリミング）。値は 0〜0.9、向かい合う辺の合計は 0.95 まで
@@ -131,7 +135,7 @@ function cropSrc(L, A){
 // 戻り値は {img, name}（ASSETS の要素と同じ形）。アセットが無い（読み込めない）ときは undefined
 /** @param {ImageLayer} L */
 function layerSrc(L){
-  const A = ASSETS[L.asset]; if(!A) return A;
+  const A = assetOf(L.asset); if(!A) return A;
   const S = cropSrc(L, A);
   if(!cutOn(L)){ cutCache.delete(L.id); return S; }
   return cutSrc(L, S, A);
@@ -139,7 +143,7 @@ function layerSrc(L){
 // トリミングを変える（change はトリミング値を書き換える関数）。見えている部分が動かないように、レイヤーの位置（フレームがあるときはフレームの中心）を補正する
 /** @param {ImageLayer} L */
 function applyCropChange(L, change){
-  const A = ASSETS[L.asset], iw = A ? A.img.naturalWidth : 1, ih = A ? A.img.naturalHeight : 1;
+  const A = assetOf(L.asset), iw = A ? A.img.naturalWidth : 1, ih = A ? A.img.naturalHeight : 1;
   const r0 = cropRect(L, iw, ih), fr = L.frame && L.frame.shape !== 'none' ? L.frame : null;
   const P = fr ? [r0.sx + (fr.cx ?? 0.5) * r0.sw, r0.sy + (fr.cy ?? 0.5) * r0.sh] : null;
   change(); L.crop = cropClamp(L.crop);
@@ -165,9 +169,9 @@ defineLayerKind('image', {
   draw: (ctx, L, f, live, cache) => drawLayer(ctx, L, f, live, cache),
   assets: L => [L.asset],
   name: L => L.name || '画像',
-  sub: L => ASSETS[L.asset] ? '画像' : '画像（読み込めません）',
-  thumb: L => ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : null,
+  sub: L => assetOf(L.asset) ? '画像' : '画像（読み込めません）',
+  thumb: L => { const A = assetOf(L.asset); return A ? `<img src="${A.thumb}" alt="">` : null; },
   menu: () => [menuItem('flip', 'fliph', '左右反転', 'H'), menuItem('flipV', 'flipv', '上下反転', 'V'), menuItem('toLib', 'star', '素材置き場に登録')],
 });
-return {ASSETS, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange};
+return {ASSETS, assetOf, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange};
 })();

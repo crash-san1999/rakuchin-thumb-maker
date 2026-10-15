@@ -197,7 +197,7 @@ async function libInit(){
     if(del){ const it = LIB.find(i => i.id === del.dataset.ldel); if(it && confirm(`「${it.name}」を素材置き場から削除しますか？（作成中のサムネの画像は消えません）`)) libDelete(it.id); return; }
     if(card){ const it = LIB.find(i => i.id === card.dataset.lid); if(it) it.kind === 'img' ? libUseImage(it) : libUseStyle(it); return; }
     if(t.closest('#libAddImg')) $('#libFile').click();
-    else if(t.closest('#libRegImg')){ const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(A) libAddImageSrc(A.src, L.name || A.name || '画像').then(ok => { if(ok) toast(`素材に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`); }); }
+    else if(t.closest('#libRegImg')){ const L = selLayer(), A = L && L.type === 'image' && assetOf(L.asset); if(A) libAddImageSrc(A.src, L.name || A.name || '画像').then(ok => { if(ok) toast(`素材に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`); }); }
     else if(t.closest('#libRegStyle')){ const T = textLayer(); libAddStyle($as('#libStyleName', HTMLInputElement).value || 'マイ設定', T ? T.style : S); }
     else if(t.closest('#libExport')) libExport();
     else if(t.closest('#libImportBtn')) $('#libImport').click();

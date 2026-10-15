@@ -11,13 +11,13 @@ function renderCells(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
   // key：一覧の見た目が変わる要素（選択マス・画像・背景色・文字の先頭3字）だけの印。同じなら innerHTML の作り直しを省く（再描画のたびに作り直すと、ドラッグ中のボタンが消えて操作が途切れるため）
-  const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => (ASSETS[c.asset] ? c.asset : '') + (c.bg.on ? c.bg.c : '') + (cellHasText(c) ? c.tx.text.slice(0, 3) : ''))].join('|');
+  const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => (assetOf(c.asset) ? c.asset : '') + (c.bg.on ? c.bg.c : '') + (cellHasText(c) ? c.tx.text.slice(0, 3) : ''))].join('|');
   $$('.cellBox').forEach(box => {
   if(box.dataset.key === key) return; box.dataset.key = key;
-  box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
+  box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = assetOf(L.cells[i].asset);
     const c = L.cells[i], bgs = c.bg.on ? ` style="background:${c.bg.grad ? `linear-gradient(${safeColor(c.bg.c)},${safeColor(c.bg.c2)})` : safeColor(c.bg.c)}"` : '';
     return `<button class="cellbtn${i === L.ac ? ' on' : ''}" data-cell="${i}" draggable="${A ? 'true' : 'false'}"${bgs} title="マス${i + 1}（ドラッグで別のマスと入れ替え）">${A ? `<img src="${A.thumb}" alt="" draggable="false">` : `<span>${cellHasText(c) ? escapeHtml(cellBtnLabel(c.tx.text)) : i + 1}</span>`}<em>${i + 1}</em></button>`; }).join('')}</div>
-    <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${ASSETS[L.cells[L.ac].asset] ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>${ASSETS[L.cells[L.ac].asset] ? `<div class="crow"><button class="btn sm ghost" data-cellact="flip">${ic('fliph')}左右反転</button><button class="btn sm ghost" data-cellact="flipV">${ic('flipv')}上下反転</button><button class="btn sm ghost" data-cellact="reset">${ic('reset')}位置・大きさを元に戻す</button></div>` : ''}`;
+    <div class="crow" style="margin-top:8px"><button class="btn sm" data-cellact="pick">${ic('image')}マス${L.ac + 1}に画像を入れる</button>${assetOf(L.cells[L.ac].asset) ? `<button class="btn sm ghost" data-cellact="clear">${ic('trash')}外す</button>` : ''}</div>${assetOf(L.cells[L.ac].asset) ? `<div class="crow"><button class="btn sm ghost" data-cellact="flip">${ic('fliph')}左右反転</button><button class="btn sm ghost" data-cellact="flipV">${ic('flipv')}上下反転</button><button class="btn sm ghost" data-cellact="reset">${ic('reset')}位置・大きさを元に戻す</button></div>` : ''}`;
   });
 }
 /* 「背景色・文字」タブ：文字の入力・文字スタイル・1週間の自動入力 */
@@ -117,7 +117,7 @@ document.addEventListener('dragend', () => { cellDragFrom = -1; $$('.cellbtn.dro
 document.addEventListener('click', e => {
   const cb = tgt(e).closest('[data-cell]'), ca = tgt(e).closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;
-  if(cb){ L.ac = +(cb.dataset.cell ?? 0); if(!ASSETS[L.cells[L.ac].asset] && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
+  if(cb){ L.ac = +(cb.dataset.cell ?? 0); if(!assetOf(L.cells[L.ac].asset) && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
   if(!ca) return;
   if(ca.dataset.cellact === 'pick') $('#cellfile').click();
   else if(ca.dataset.cellact === 'reset'){ resetCell(L, L.ac); syncDoc(); docChanged(false); }
@@ -130,7 +130,7 @@ document.addEventListener('click', e => {
     const L = selLayer(), files = [...(inp.files || [])]; inp.value = ''; if(!L || L.type !== 'collage' || !files.length) return;
     const n = collageN(L); let i = L.ac || 0;
     await collageSetCell(L, i, files.shift());
-    for(const f of files){ i++; while(i < n && ASSETS[L.cells[i].asset]) i++; if(i >= n) break; await collageSetCell(L, i, f); }
+    for(const f of files){ i++; while(i < n && assetOf(L.cells[i].asset)) i++; if(i >= n) break; await collageSetCell(L, i, f); }
     syncDoc(); docChanged(false);
   };
 }

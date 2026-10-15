@@ -120,7 +120,7 @@ function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? 
 // showEmpty：画像のないマスにプレースホルダー（番号と「画像をドロップ」）を描くか。書き出し時は false
 /** @param {CollageLayer} L */
 function collageCellPicture(x, L, i, poly, W, H, showEmpty){
-  const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = ASSETS[cell.asset];
+  const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = assetOf(cell.asset);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
   bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(W, bx1); by1 = Math.min(H, by1);
@@ -189,7 +189,7 @@ function drawCellText(x, L, cell, bx0, by0, cw, ch){
 // 背景の fillRect を上下左右 1px 広げるのは、クリップ境界の隙間（アンチエイリアスの透け）を防ぐため
 /** @param {CollageLayer} L */
 function collageCellImage(x, L, i, poly, W, H, showEmpty){
-  const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = ASSETS[cell.asset], bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
+  const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = assetOf(cell.asset), bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
   if(!hasBg && !hasTx){ collageCellPicture(x, L, i, poly, W, H, showEmpty); return; }
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
@@ -245,7 +245,7 @@ function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});
-  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), L.tstyle, L.tstyle && fontKey(Object.assign({}, L.tstyle, {text:collageAllText(L)})), L.ttx, exporting]);
+  const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!assetOf(c.asset)), L.tstyle, L.tstyle && fontKey(Object.assign({}, L.tstyle, {text:collageAllText(L)})), L.ttx, exporting]);
   // sk：見た目が変わる設定すべての印（使っているマスだけ・画像の有無・文字フォント・全部のマスの文字のまとめての調整 ttx も含む）。同じならキャッシュを再利用する。
   // 描画に効く項目をレイヤーに足したら、ここにも必ず足す（足し忘れると、設定を変えても画面が変わらない）
   // 操作中(live)はサイズが半分以上ずれない限り使い回す（拡大縮小ドラッグ中の再生成を避ける）。確定時はピクセルサイズが完全に一致するときだけ使う（cacheBySize）

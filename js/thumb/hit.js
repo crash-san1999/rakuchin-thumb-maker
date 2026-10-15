@@ -19,7 +19,7 @@ const MASK_K = 0.25, NEAR = 4;
 // 影・光彩は当たり判定に含めない（見えている本体だけを掴めるように）
 /** @param {Layer} L */
 const layerMask = L => {
-  const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + ('asset' in L && L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
+  const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + ('asset' in L && L.asset && assetOf(L.asset) ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
   let m = maskCache.get(L.id);
   if(m && m.key === key) return m;
   const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = ctx2d(c, {willReadFrequently:true});

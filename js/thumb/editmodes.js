@@ -43,7 +43,7 @@ const EDIT_MODES = {
   // 座標は frameLocal（回転を戻し、レイヤー倍率 sc で割った「画像ピクセル」）。フレーム中心の位置 cx,cy は 0〜1 の割合、fs はフレームの大きさ
   frame: {
     btn:'frameEditBtn', label:'キャンバスでフレームを調整',
-    ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape !== 'none' && !!ASSETS[L.asset],
+    ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape !== 'none' && !!assetOf(L.asset),
     hint: () => isMobile ? 'ドラッグでフレームの位置、ピンチで大きさを調整。外をタップで終了' : 'ドラッグでフレームの位置、角かホイールで大きさを調整。Esc か外をクリックで終了',
     banner: () => isMobile ? 'フレーム調整中：ドラッグで位置／ピンチで大きさ／外をタップで終了' : 'フレーム調整中：ドラッグで位置／角・ホイールで大きさ／Esc か外をクリックで終了',
     down(L, x, y){
@@ -91,11 +91,12 @@ const EDIT_MODES = {
   // （トリミング・拡大縮小を変えても跡がずれない／画像サイズに依存しない）。切り抜きフレームを使っている画像ではブラシは使えない（ok 参照。背景色の透明化だけ使える）
   cut: {
     btn:'cutBrushBtn', label:'キャンバスでブラシを使う',
-    ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape === 'none' && !!ASSETS[L.asset],
+    ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape === 'none' && !!assetOf(L.asset),
     hint: () => isMobile ? 'なぞって消す・戻す。外をタップで終了' : 'ドラッグで消す・戻す、ホイールで太さ。Esc か外をクリックで終了',
     banner: L => (L.btool === 'pick' ? '色を拾う：背景にしたい色の場所をクリック' : L.btool === 'restore' ? 'ブラシで戻す：なぞったところの元の絵が戻ります' : 'ブラシで消す：なぞったところが透明になります') + (isMobile ? '／外をタップで終了' : '／ホイールで太さ／Esc で終了'),
     down(L, x, y){
-      const A = ASSETS[L.asset], S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
+      const A = assetOf(L.asset); if(!A) return null;
+      const S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
       const su = L.flip ? -u : u, sv = L.flipV ? -v : v, m = L.btool === 'pick' ? 0 : L.bsz / 2 / L.sc;
       if(Math.abs(su) > cw / 2 + m || Math.abs(sv) > ch / 2 + m) return null;   // 画像の外をクリックしたら終わり（ブラシの半径ぶんは外側も有効）
       // px,py：クリック位置を「元の画像」のピクセル座標へ（トリミングされていれば、切り取った左上 rc.sx,sy を足す）
@@ -113,7 +114,8 @@ const EDIT_MODES = {
     move(L, x, y, d){
       cutCursor = [x, y];
       if(d.sub !== 'brush') return;
-      const A = ASSETS[L.asset], S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
+      const A = assetOf(L.asset); if(!A) return;
+      const S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
       const rc = cropOn(L) ? cropRect(L, d.iw0, d.ih0) : {sx:0, sy:0}, px = rc.sx + (L.flip ? -u : u) + cw / 2, py = rc.sy + (L.flipV ? -v : v) + ch / 2;
       // 前の点から半径の 2 割（最低 0.5px）動くまで点を足さない：点が増えすぎると保存データ・再描画が重くなるため
       if(Math.hypot(px - d.last[0], py - d.last[1]) < Math.max(0.5, d.rp * 0.2)) return;
@@ -125,7 +127,7 @@ const EDIT_MODES = {
     pinchStart: L => ({}),
     pinch(){},
     overlay(ctx, L, f, dpr){
-      const A = ASSETS[L.asset], S = cropSrc(L, A);
+      const A = assetOf(L.asset), S = cropSrc(L, A);
       // 消した部分も薄く見せる（戻すときの目安）
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f * (L.flip ? -1 : 1), L.sc * f * (L.flipV ? -1 : 1));
       ctx.globalAlpha = 0.28; ctx.drawImage(S.img, -S.img.naturalWidth / 2, -S.img.naturalHeight / 2); ctx.restore();
@@ -150,7 +152,7 @@ const EDIT_MODES = {
       const bj = collageBorderAt(L, x, y); if(bj > 0) return {border:bj};
       const i = collageCellAt(L, x, y); if(i < 0) return null;
       L.ac = i; const c = L.cells[i];
-      return {i, ox0:c.ox || 0, oy0:c.oy || 0, size:collageCellSize(L, i), swap:-1, has:!!ASSETS[c.asset]};
+      return {i, ox0:c.ox || 0, oy0:c.oy || 0, size:collageCellSize(L, i), swap:-1, has:!!assetOf(c.asset)};
     },
     move(L, x, y, d){
       if(d.border){ collageDragBorder(L, d.border, x, y); return; }

@@ -11,7 +11,7 @@
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
 /** @type {ServiceWorkerRegistration | null} */ let pwaReg;
 var {pwaRegister} = (() => {
-pwaReg = null; /** @type {Event | null} */ /** @type {Event | null} */ let pwaPrompt = null;
+pwaReg = null; /** @type {BeforeInstallPromptEvent | null} */ let pwaPrompt = null;
 function pwaRegister(){
   // file:// などでは Service Worker を登録できない（エラーになる）ので、http(s) のときだけ登録する
   if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;

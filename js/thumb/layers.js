@@ -226,7 +226,7 @@ function removeLayers(ids){
 function layerAction(id, act){
   const L = layerById(id); if(!L) return;
   const peers = peersOf(L), pi = peers.indexOf(L);
-  if(act === 'toLib'){ if(L.type === 'image' && ASSETS[L.asset]) libAddImageSrc(ASSETS[L.asset].src, L.name || '画像').then(ok => { if(ok) toast(`素材置き場に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`); }); else if(L.type === 'text') libAddStyle(layerName(L), L.style); return; }
+  if(act === 'toLib'){ const A = L.type === 'image' ? assetOf(L.asset) : undefined; if(L.type === 'image' && A) libAddImageSrc(A.src, L.name || '画像').then(ok => { if(ok) toast(`素材置き場に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`); }); else if(L.type === 'text') libAddStyle(layerName(L), L.style); return; }
   if(act === 'group'){ groupLayers(DOC.msel && DOC.msel.length >= 2 ? DOC.msel : [id]); return; }
   if(act === 'ungroup'){ ungroupLayers(L); return; }
   if(act === 'ungroupOne'){ ungroupOne(L); return; }
