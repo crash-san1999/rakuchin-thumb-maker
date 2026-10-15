@@ -243,13 +243,9 @@ function drawCollage(ctx, L, f, live, cache){
   const sk = JSON.stringify([L.bw, L.bh, n, lay, L.slant, L.main, L.edge, L.amp, L.bstyle, L.lw, L.lc, L.outer, L.radius, L.fxMode, L.fx, L.cells.slice(0, n), L.cells.slice(0, n).map(c => !!ASSETS[c.asset]), L.tstyle, L.tstyle && fontKey(Object.assign({}, L.tstyle, {text:collageAllText(L)})), L.ttx, exporting]);
   // sk：見た目が変わる設定すべての印（使っているマスだけ・画像の有無・文字フォント・全部のマスの文字のまとめての調整 ttx も含む）。同じならキャッシュを再利用する。
   // 描画に効く項目をレイヤーに足したら、ここにも必ず足す（足し忘れると、設定を変えても画面が変わらない）
-  // 操作中(live)はサイズが半分以上ずれない限り使い回す（拡大縮小ドラッグ中の再生成を避ける）。確定時はピクセルサイズが完全に一致するときだけ使う
-  let e = cache.get(L.id);
-  if(!(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H))){
-    e = {sk, k: W / w, c: collageCanvas(L, W, H, f, lay)}; cache.set(L.id, e);
-  }
-  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
-  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180);
+  // 操作中(live)はサイズが半分以上ずれない限り使い回す（拡大縮小ドラッグ中の再生成を避ける）。確定時はピクセルサイズが完全に一致するときだけ使う（cacheBySize）
+  const e = cacheBySize(cache, L.id, sk, W, H, live, () => collageCanvas(L, W, H, f, lay), W / w);
+  ctx.save(); poseLayer(ctx, L, f);
   const sh = L.shadow; if(sh && sh.on && sh.a > 0){ ctx.shadowColor = `rgba(0,0,0,${sh.a})`; ctx.shadowBlur = sh.blur * f; ctx.shadowOffsetY = sh.y * f; }
   ctx.drawImage(e.c, -w * f / 2, -h * f / 2, w * f, h * f);
   ctx.restore();

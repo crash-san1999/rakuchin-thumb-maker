@@ -391,8 +391,7 @@ function drawFx(ctx, L, f){
   const p = L.p, [bw, bh] = FX_BOX(L);
   // 選択枠・グループの範囲計算のため、描画のたびに大きさを登録する
   dims.set(L.id, {w:bw * L.sc, h:bh * L.sc});
-  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
-  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
+  ctx.save(); poseLayer(ctx, L, f); ctx.scale(L.sc * f, L.sc * f);
   // 乱数は種類ごとに seed 固定（R() を呼ぶ順番・回数は FX_DRAW の各関数の中で決まる）
   const R = rng(p.seed || 1);
   if(hasKey(FX_DRAW, L.kind)) FX_DRAW[L.kind](ctx, L, p, R, bw, bh, f);

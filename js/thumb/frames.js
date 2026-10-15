@@ -380,32 +380,31 @@ function framedCanvas(L, f, live, cache){
   const A = layerSrc(L), fr = L.frame, o = L.outline, need = L.sc * f;
   // sk：見た目が変わる要素すべての印。これが同じならキャッシュを使う。cutSig で背景透過・ブラシの変更も反映される
   const sk =JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, L.fx, cutSig(L)]);
-  let e = cache.get(L.id);
-  // 操作中(live)は拡大率が多少違っても作り直さず使い回す（ドラッグ中の負荷を抑える）。確定時は拡大率のずれが2%以上なら作り直す
-  if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
-  const G = frameGeom(L), iw = G.iw, ih = G.ih;
-  const FW = Math.max(2, G.fw * need), FH = Math.max(2, G.fh * need);
-  // E＝フチの太さの基準（ピクセル。片側の幅）。style 'none' は 0＝フチも飾りも描かない。多くのスタイルは線の太さに 2*E を使う（フチが形の線の内外に半分ずつ出るため、見える太さは E）
-  const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.05, o.w * f);
-  const tw = Math.min(FW, FH) * 0.36;   // マスキングテープの長さ
-  const pad =Math.ceil(E * (hasKey(FRAME_PAD, st) ? FRAME_PAD[st] : 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
-  const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
-  x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
-  const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed, fr); };
-  const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };
-  // 画像の下：デザインごとのフチ（FRAME_STYLE_DRAW の under。無ければ単色のフチ）。表に登録されている名前だけを引く
-  const SD = hasKey(FRAME_STYLE_DRAW, st) ? FRAME_STYLE_DRAW[st] : null;
-  const sa = {x, c, E, FW, FH, o, fr, f, P, stroke, tw, st};   // デザインごとの描き方（FRAME_STYLE_DRAW）に渡す値
-  if(E > 0){ if(SD && SD.under) SD.under(sa); else stroke(2 * E, o.c); }
-  // 画像本体：形でクリップして描く。反転はクリップの後に scale するので、形は反転せず画像だけが反転する。
-  // 画像の位置は切り抜き中心(cxp,cyp)が原点に来るようにずらす（need＝画像ピクセル→キャンバスピクセルの倍率）
-  x.save(); P(); x.clip();
-  if(L.flip || L.flipV) x.scale(L.flip ? -1 : 1, L.flipV ? -1 : 1);
-  imgPicture(x, A, L, f, -G.cxp * need, -G.cyp * need, iw * need, ih * need);
-  x.restore();
-  // 画像を描いたあとに重ねる飾り（FRAME_STYLE_DRAW の over）。tape はフチ幅 0 でも描く
-  if(SD && SD.over && (st === 'tape' ? E >= 0 : E > 0)) SD.over(sa);
-  // 返すのは作ったときの拡大率 k とキャンバス。呼び出し側は pad 分の余白を含む大きさとして描く
-  e = {sk, k:need, c}; cache.set(L.id, e);
-  return e;
+  // 操作中(live)は拡大率が多少違っても作り直さず使い回す（ドラッグ中の負荷を抑える）。確定時は拡大率のずれが2%以上なら作り直す（cacheByScale）
+  return cacheByScale(cache, L.id, sk, need, live, () => {
+    const G = frameGeom(L), iw = G.iw, ih = G.ih;
+    const FW = Math.max(2, G.fw * need), FH = Math.max(2, G.fh * need);
+    // E＝フチの太さの基準（ピクセル。片側の幅）。style 'none' は 0＝フチも飾りも描かない。多くのスタイルは線の太さに 2*E を使う（フチが形の線の内外に半分ずつ出るため、見える太さは E）
+    const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.05, o.w * f);
+    const tw = Math.min(FW, FH) * 0.36;   // マスキングテープの長さ
+    const pad =Math.ceil(E * (hasKey(FRAME_PAD, st) ? FRAME_PAD[st] : 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
+    const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
+    x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
+    const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed, fr); };
+    const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };
+    // 画像の下：デザインごとのフチ（FRAME_STYLE_DRAW の under。無ければ単色のフチ）。表に登録されている名前だけを引く
+    const SD = hasKey(FRAME_STYLE_DRAW, st) ? FRAME_STYLE_DRAW[st] : null;
+    const sa = {x, c, E, FW, FH, o, fr, f, P, stroke, tw, st};   // デザインごとの描き方（FRAME_STYLE_DRAW）に渡す値
+    if(E > 0){ if(SD && SD.under) SD.under(sa); else stroke(2 * E, o.c); }
+    // 画像本体：形でクリップして描く。反転はクリップの後に scale するので、形は反転せず画像だけが反転する。
+    // 画像の位置は切り抜き中心(cxp,cyp)が原点に来るようにずらす（need＝画像ピクセル→キャンバスピクセルの倍率）
+    x.save(); P(); x.clip();
+    if(L.flip || L.flipV) x.scale(L.flip ? -1 : 1, L.flipV ? -1 : 1);
+    imgPicture(x, A, L, f, -G.cxp * need, -G.cyp * need, iw * need, ih * need);
+    x.restore();
+    // 画像を描いたあとに重ねる飾り（FRAME_STYLE_DRAW の over）。tape はフチ幅 0 でも描く
+    if(SD && SD.over && (st === 'tape' ? E >= 0 : E > 0)) SD.over(sa);
+    // 返すのは作ったときの拡大率 k とキャンバス。呼び出し側は pad 分の余白を含む大きさとして描く
+    return c;
+  });
 }
