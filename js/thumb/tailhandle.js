@@ -25,7 +25,7 @@ const TAIL_HIT_PX = 14;          // つまみの当たり半径（画面上の p
 const TAIL_LONG_PRESS = 400;     // スマホで「向きを変える」に切り替わる長押しの時間（ms）
 
 // 文字レイヤー L のしっぽの情報（DOC 座標の先・付け根・吹き出しの中心と、変換に使う値）。出せないときは null
-/** @param {Layer} L */
+/** @param {TextLayer} L */
 function textTailInfo(L){
   const st = /** @type {any} */ (L.style || {}), p = st.plate;
   if(!p || !p.on || !BUBBLE_SHAPES.includes(p.shape) || (p.tail || 'left') === 'none') return null;
@@ -40,7 +40,7 @@ function textTailInfo(L){
   return {type:'text', tip:toDoc(P.tip), base:toDoc(P.base), center:toDoc(P.center), P, toLocal};
 }
 // 画像レイヤー L（切り抜きフレームが吹き出し）のしっぽの情報。出せないときは null
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 function frameTailInfo(L){
   if(!L.frame || L.frame.shape !== 'bubble' || !ASSETS[L.asset]) return null;
   const G = frameGeom(L); if(!G) return null;

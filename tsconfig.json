@@ -8,6 +8,7 @@
     "lib": ["es2023", "dom", "dom.iterable"],
     "strict": false,
     "useUnknownInCatchVariables": true,
+    "strictNullChecks": true,
     "skipLibCheck": true
   },
   "include": ["js/**/*.js", "types/**/*.js", "types/**/*.d.ts"]

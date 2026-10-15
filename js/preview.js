@@ -34,7 +34,7 @@ async function update(){
   const c = render(dpr), pv = $as('#pv', HTMLCanvasElement);
   // canvas の幅を変えると内容が消えるので、必ず width/height を設定してから描く。CSS 幅は dpr で割って見た目の大きさに戻す
   pv.width = c.width; pv.height = c.height;
-  const px = pv.getContext('2d'); px.clearRect(0, 0, c.width, c.height); px.drawImage(c, 0, 0);
+  const px = ctx2d(pv); px.clearRect(0, 0, c.width, c.height); px.drawImage(c, 0, 0);
   pv.style.width = (c.width / dpr) + 'px';
   updateVis(); updateTextTip();
   // 表示用は dpr 倍で描いているので、dpr で割って「1倍の大きさ」に戻し、書き出し倍率 S.scale を掛けて実際の書き出し px を出す
@@ -75,7 +75,7 @@ function setBg(bg){
   $$('#bgSeg button').forEach(x => x.classList.toggle('on', x.dataset.bg === bg));
 }
 $('#bgfile').onchange = e => {
-  const f = inputOf(e).files[0]; if(!f) return;
+  const f = (inputOf(e).files || [])[0]; if(!f) return;
   const url = URL.createObjectURL(f);   // 注意：この URL は revokeObjectURL していない（背景として表示し続けるので、選び直すたびに増える）
   $('#stage').style.backgroundImage = `url(${url})`; setBg('img');
   // 「背景画像から配色」を押して画像を選んだ場合（wantBgPalette）は、読み込み完了を待ってから配色を作る（colors.js）

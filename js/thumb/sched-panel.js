@@ -50,7 +50,7 @@ function renderSched(){
     const today = (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date());
     setVal($('#schStart', box), L.start || today); setVal($('#schFirst', box), L.first); setVal($('#schTime', box), L.time);
     $$('.schRow', box).forEach(el => {
-      const i = +el.dataset.srow, r = L.rows[i], A = ASSETS[r.asset];
+      const i = +(el.dataset.srow ?? 0), r = L.rows[i], A = ASSETS[r.asset];
       const day = schedDayLabel(L, days[i]); if($('.schDay', el).textContent !== day) $('.schDay', el).textContent = day;
       el.classList.toggle('rest', r.rest);
       $as('[data-sf="rest"]', HTMLInputElement, el).checked = r.rest;
@@ -81,25 +81,25 @@ const schedLayer = () => { const L = selLayer(); return isSched(L) ? L : null; }
 document.addEventListener('input', e => {
   const t = inputOf(e), L = schedLayer(); if(!L || !t.closest) return;
   const row = t.closest('.schRow');
-  if(row && (t.dataset.sf === 'time' || t.dataset.sf === 'title')){ L.rows[+row.dataset.srow][t.dataset.sf] = t.value; docChanged(false); return; }
+  if(row && (t.dataset.sf === 'time' || t.dataset.sf === 'title')){ L.rows[+(row.dataset.srow ?? 0)][t.dataset.sf] = t.value; docChanged(false); return; }
   if(t.id === 'schTime'){ L.time = t.value; syncDoc(); docChanged(false); }
 });
 document.addEventListener('change', e => {
   const t = inputOf(e), L = schedLayer(); if(!L || !t.closest) return;
   const row = t.closest('.schRow');
-  if(row && t.dataset.sf === 'rest'){ L.rows[+row.dataset.srow].rest = t.checked; syncDoc(); docChanged(false); return; }
+  if(row && t.dataset.sf === 'rest'){ L.rows[+(row.dataset.srow ?? 0)].rest = t.checked; syncDoc(); docChanged(false); return; }
   if(t.id === 'schStart'){ if(/^\d{4}-\d{2}-\d{2}$/.test(t.value)){ L.start = t.value; syncDoc(); docChanged(false); } return; }
   if(t.id === 'schFirst'){ L.first = t.value === 'sun' ? 'sun' : 'mon'; syncDoc(); docChanged(false); return; }
   const k = t.dataset.ssp || t.dataset.ssf || t.dataset.ssw; if(!k) return;
   const sk = k === 'd' ? 'dstyle' : 'tstyle', pk = k === 'd' ? 'dpre' : 'tpre';
   if(t.dataset.ssp){ L[pk] = t.value; L[sk] = null; }   // プリセットを選び直したら、フォント・太さの変更は捨ててプリセットどおりに
   else {
-    if(!L[sk]) L[sk] = schedPreset(L[pk]);
+    const st = L[sk] || (L[sk] = schedPreset(L[pk]));
     if(t.dataset.ssf){
-      const f = findFont(t.value), w0 = L[sk].weight, ws = weightsOf(f);
-      L[sk].font = t.value; L[sk].weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);
+      const f = findFont(t.value), w0 = st.weight, ws = weightsOf(f);
+      st.font = t.value; st.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);
       if(f && f.mb > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
-    } else L[sk].weight = +t.value;
+    } else st.weight = +t.value;
   }
   syncDoc(); docChanged(false);
 });
@@ -108,13 +108,13 @@ let schedPickRow = -1;
 document.addEventListener('click', e => {
   const b = tgt(e).closest && tgt(e).closest('[data-simg], [data-sclr]'), L = schedLayer(); if(!b || !L) return;
   if(b.dataset.sclr != null){ L.rows[+b.dataset.sclr].asset = null; syncDoc(); docChanged(false); return; }
-  schedPickRow = +b.dataset.simg; $('#schedfile').click();
+  schedPickRow = +(b.dataset.simg ?? -1); $('#schedfile').click();
 });
 {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'schedfile'; inp.hidden = true; inp.multiple = true; document.body.appendChild(inp);
   // 複数選んだときは、選んだ行から下へ、画像の無い（おやすみでない）行に順に入れる
   inp.onchange = async () => {
-    const L = schedLayer(), files = [...inp.files].filter(f => /^image\//.test(f.type)); inp.value = ''; if(!L || !files.length || schedPickRow < 0) return;
+    const L = schedLayer(), files = [...(inp.files || [])].filter(f => /^image\//.test(f.type)); inp.value = ''; if(!L || !files.length || schedPickRow < 0) return;
     let i = schedPickRow; await schedSetImage(L, i, files.shift());
     for(const f of files){ i++; while(i < 7 && (ASSETS[L.rows[i].asset] || L.rows[i].rest)) i++; if(i >= 7) break; await schedSetImage(L, i, f); }
     syncDoc(); docChanged(false);
@@ -124,7 +124,7 @@ document.addEventListener('click', e => {
 document.addEventListener('click', e => {
   const b = tgt(e).closest && tgt(e).closest('[data-sweek], [data-snext]'), L = schedLayer(); if(!b || !L) return;
   if(b.dataset.snext != null){ schedShiftWeek(L, 1, true); toast(`${schedDayLabel(L, schedDays(L)[0])} からの週にして、中身を空にしました（取り消しで戻せます）`); }
-  else { schedShiftWeek(L, +b.dataset.sweek, false); toast(`${schedDayLabel(L, schedDays(L)[0])} からの週にしました`); }
+  else { schedShiftWeek(L, +(b.dataset.sweek ?? 0), false); toast(`${schedDayLabel(L, schedDays(L)[0])} からの週にしました`); }
   syncDoc(); docChanged(false);
 });
 // テキストでまとめて入力

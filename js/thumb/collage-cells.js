@@ -6,7 +6,7 @@
 var {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell} = (() => {
 // x, y はドキュメント座標。レイヤーの回転を逆に戻してレイヤー内の割合(u,v)にし、1000 幅の仮想キャンバスで多角形の内外判定をする。
 // 戻り値はマス番号、どのマスでもなければ -1。境界の加工（ギザギザ等）は無視した、元の分割線で判定する
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageCellAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y;
   const w = L.bw * L.sc, h = L.bh * L.sc, u = (dx * Math.cos(a) - dy * Math.sin(a)) / w + 0.5, v = (dx * Math.sin(a) + dy * Math.cos(a)) / h + 0.5;
@@ -19,7 +19,7 @@ function collageCellAt(L, x, y){
 /* 境界線のドラッグでマスの幅を変える（「縦に並べる」「横に並べる」だけ。マスの調整モードから使う）
    座標はレイヤーの回転を戻したローカル座標。傾き（slant）があると境界線は斜めなので、押した高さ（横に並べるなら横位置）での線の位置で比べる */
 // ドキュメント座標 (x,y) → 並べる向きに沿った位置 u（0〜1）と、その向きの長さ len。並べる向き以外のレイアウトは null
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageAxisPos(L, x, y){
   if(!collageResizable(L.layout)) return null;
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
@@ -28,13 +28,13 @@ function collageAxisPos(L, x, y){
   const d = (L.slant || 0) * w * 0.5; return {u:(ly - d * (1 - 2 * lx / w)) / h, len:h, cross:lx / w};
 }
 // いまのマスの幅の比率と、境界の位置（0〜1。先頭は 0、最後は 1）
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageEdges(L){
   const n = collageN(L), ws = L.cells.slice(0, n).map(cellW), sum = ws.reduce((a, b) => a + b, 0), e = [0];
   ws.forEach(v => e.push(e[e.length - 1] + v / sum)); e[n] = 1; return {ws, sum, e};
 }
 // (x,y) の近くにある境界線の番号 j（マス j-1 と j の間。1〜n-1）。無ければ 0
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageBorderAt(L, x, y){
   const q = collageAxisPos(L, x, y); if(!q || q.cross < 0 || q.cross > 1) return 0;
   const {e} = collageEdges(L), tol = Math.max(10, q.len * 0.012) / q.len;
@@ -42,7 +42,7 @@ function collageBorderAt(L, x, y){
   return best;
 }
 // 境界線 j を (x,y) の位置まで動かす。両隣のマス（j-1 と j）の幅だけを変え、比率の合計は変えない（ほかのマスの幅は動かない）
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageDragBorder(L, j, x, y){
   const q = collageAxisPos(L, x, y); if(!q) return;
   const {sum, e} = collageEdges(L), min = Math.min(0.04, (e[j + 1] - e[j - 1]) / 3);
@@ -57,10 +57,10 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
 
 /* マスの文字：スタイル・使う文字・フォント読み込み */
 // フォント読み込みは、全マスの文字を連結した文字列で行う（使う字だけ読み込む方式のため。空なら 'あ' でフォント自体は読み込む）
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 const collageAllText = L => L.cells.map(c => c.tx && c.tx.text || '').join('') || 'あ';
 function collageDefaultStyle(){ const p = PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageSetStyle(L, name){
   const p = PRESETS.find(q => q[0] === name); if(!p) return;
   L.tpre = name; L.tstyle = merged(p[1]);
@@ -99,7 +99,7 @@ function isWeekText(s){
   const t = String(s || '').replace(/\s+/g, ''), wd = '(?:[日月火水木金土](?:曜日)?|SUN|MON|TUE|WED|THU|FRI|SAT)';
   return new RegExp(`^(?:\\d{1,2}/\\d{1,2}(?:[(（]?${wd}[)）]?)?|[(（]?${wd}[)）]?)$`).test(t);
 }
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageFillWeek(L){
   const wk = L.wk, days = weekDates(wk.start, wk.first), n = collageN(L);
   if(!L.tstyle) collageSetStyle(L, 'ポップ');
@@ -123,7 +123,7 @@ function addCollage(){
   toast('分割フレームを追加しました。マスに画像をドロップするか、左の「マスの画像」から選んでください');
 }
 // マスに画像を入れる。位置・大きさ・回転・反転は初期化し、背景・文字・効果は残す（古い保存データのマスに fx が無くても補う）
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 async function collageSetCell(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
   L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false});
@@ -136,7 +136,7 @@ async function collageTakeFiles(files, cx, cy){
     if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom){
       const x = (cx - r.left) / r.width * DOC.w, y = (cy - r.top) / r.height * DOC.h;
       // ドロップでマスに入れるのは、いま選んでいる分割フレームの上に落としたときだけ（それ以外は、ふつうに画像レイヤーとして追加）
-      const L = [selLayer()].find(l => l && l.type === 'collage' && !l.hidden && collageCellAt(l, x, y) >= 0);
+      const S0 = selLayer(), L = S0 && S0.type === 'collage' && !S0.hidden && collageCellAt(S0, x, y) >= 0 ? S0 : null;
       if(L){
         let i = collageCellAt(L, x, y); const n = collageN(L);
         while(rest.length && i < n){ await collageSetCell(L, i, rest.shift()); L.ac = i; i++; while(i < n && ASSETS[L.cells[i].asset]) i++; }
@@ -162,14 +162,14 @@ function cellImg(x, img, cx, cy, dw, dh, cell){
 // マスの画像を入れ替える（画像・位置・大きさ・回転・反転。効果はマスに残す）
 // 入れ替えるのは画像に付随する項目だけ（背景色・文字・効果は「マスの場所」に属するので動かさない）
 const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function swapCells(L, i, j){
   if(i === j || i < 0 || j < 0) return;
   const a = L.cells[i], b = L.cells[j];
   for(const k of CELL_IMG_KEYS){ const t = a[k]; a[k] = b[k]; b[k] = t; }
   L.ac = j;
 }
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
 return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell};
 })();

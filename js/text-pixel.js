@@ -10,7 +10,7 @@
 // bbox：alpha が 2 を超える画素の外接矩形（l,t,r,b は端のピクセル含む）。何も無ければ null。getImageData で全画素を読むので重い。
 // 呼び出し側は null を必ず考慮する（空文字・全透明のとき）。willReadFrequently は読み出し中心のキャンバスだと示してソフトウェア描画に寄せるヒント
 function bbox(c){
-  const w = c.width, h = c.height, d = c.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, w, h).data;
+  const w = c.width, h = c.height, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, w, h).data;
   let t = h, l = w, r = -1, b = -1;
   for(let y = 0; y < h; y++){
     const row = y * w * 4;
@@ -25,7 +25,7 @@ let trimShift = [0, 0];
 function trim(c, pad){
   const bb = bbox(c); if(!bb) return mk(1, 1);
   const cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, o = mk(cw + pad * 2, ch + pad * 2);
-  o.getContext('2d').drawImage(c, bb.l, bb.t, cw, ch, pad, pad, cw, ch);
+  ctx2d(o).drawImage(c, bb.l, bb.t, cw, ch, pad, pad, cw, ch);
   trimShift = [pad - bb.l, pad - bb.t];   // 切り取りで絵がずれた量（しっぽのつまみの位置合わせ用。renderStyle が読む）
   return o;
 }
@@ -53,7 +53,7 @@ function bevel(c, sizePx, b){
   const bb = bbox(c); if(!bb) return;
   const W = c.width, H = c.height, r = Math.max(1, Math.round(sizePx / 2));
   const l = Math.max(0, bb.l - 2), t = Math.max(0, bb.t - 2), w = Math.min(W, bb.r + 3) - l, h = Math.min(H, bb.b + 3) - t;
-  const ctx = c.getContext('2d', {willReadFrequently:true});
+  const ctx = ctx2d(c, {willReadFrequently:true});
   const img = ctx.getImageData(l, t, w, h), d = img.data, n = w * h;
   const a = new Float32Array(n); for(let i = 0; i < n; i++) a[i] = d[i * 4 + 3] / 255;
   const hm = boxBlur(boxBlur(a, w, h, r), w, h, r);
@@ -78,7 +78,7 @@ function drawPattern(c, scale){
   const p = RS.pattern, sz = Math.max(2, Math.round(p.size * scale));
   let tile, tr = new DOMMatrix().rotateSelf(p.angle);
   if(p.type === 'glitter'){
-    tile = mk(96, 96); const x = tile.getContext('2d'), R = rng(11), [r, g, bl] = hex2rgb(p.c);
+    tile = mk(96, 96); const x = ctx2d(tile), R = rng(11), [r, g, bl] = hex2rgb(p.c);
     for(let i = 0; i < 700; i++){
       const lv = R(), s2 = 1 + R() * 2.5;
       x.fillStyle = lv > 0.85 ? '#ffffff' : `rgba(${Math.min(255, r * (0.4 + lv)) | 0},${Math.min(255, g * (0.4 + lv)) | 0},${Math.min(255, bl * (0.4 + lv)) | 0},${0.5 + R() * 0.5})`;
@@ -86,17 +86,17 @@ function drawPattern(c, scale){
     }
     tr = tr.scaleSelf(Math.max(0.3, sz / 16));
   }else if(p.type === 'noise'){
-    tile = mk(128, 128); const x = tile.getContext('2d'), id = x.createImageData(128, 128), R = rng(7), [r, g, bl] = hex2rgb(p.c);
+    tile = mk(128, 128); const x = ctx2d(tile), id = x.createImageData(128, 128), R = rng(7), [r, g, bl] = hex2rgb(p.c);
     for(let i = 0; i < 128 * 128; i++){ id.data[i*4] = r; id.data[i*4+1] = g; id.data[i*4+2] = bl; id.data[i*4+3] = R() * 255; }
     x.putImageData(id, 0, 0); tr = tr.scaleSelf(Math.max(0.25, sz / 16));
   }else{
-    tile = mk(sz, sz); const x = tile.getContext('2d'); x.fillStyle = p.c;
+    tile = mk(sz, sz); const x = ctx2d(tile); x.fillStyle = p.c;
     if(p.type === 'stripe') x.fillRect(0, 0, sz / 2, sz);
     else if(p.type === 'dot'){ x.beginPath(); x.arc(sz / 2, sz / 2, sz * 0.28, 0, 7); x.fill(); }
     else if(p.type === 'check'){ x.fillRect(0, 0, sz / 2, sz / 2); x.fillRect(sz / 2, sz / 2, sz / 2, sz / 2); }
     else if(p.type === 'grid'){ const lw = Math.max(1, sz * 0.1); x.fillRect(0, 0, sz, lw); x.fillRect(0, 0, lw, sz); }
   }
-  const cx = c.getContext('2d'), pat = cx.createPattern(tile, 'repeat');
+  const cx = ctx2d(c), pat = cx.createPattern(tile, 'repeat'); if(!pat) return;   // 柄の絵の大きさが 0 のときは null（そのまま塗ると前の塗り色で全体を塗ってしまう）
   if(pat.setTransform) pat.setTransform(tr);
   cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-atop'; cx.globalAlpha = p.a;
   cx.fillStyle = pat; cx.fillRect(0, 0, c.width, c.height); cx.restore();
@@ -148,7 +148,7 @@ function drawMarker(ctx, L){
 function applyGrunge(c, scale){
   const g = RS.grunge, bb = bbox(c); if(!bb) return;
   const R = rng(g.seed), sz = g.size * scale, bw = bb.r - bb.l, bh = bb.b - bb.t;
-  const x = c.getContext('2d'); x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; x.strokeStyle = '#000';
+  const x = ctx2d(c); x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; x.strokeStyle = '#000';
   const n = Math.min(40000, Math.round(g.amt * bw * bh / (sz * sz) * 0.06));
   for(let i = 0; i < n; i++){
     const px = bb.l + R() * bw, py = bb.t + R() * bh, rr = sz * (0.25 + Math.pow(R(), 3) * 2.2);
@@ -172,7 +172,7 @@ function warp(src){
   const bb = bbox(src); if(!bb) return src;
   const W = src.width, H = src.height, cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, cx = bb.l + cw / 2, cy = bb.t + ch / 2, A = w.amt;
   if(w.type === 'trap'){
-    const o = mk(W, H), x = o.getContext('2d');
+    const o = mk(W, H), x = ctx2d(o);
     for(let y = 0; y < H; y++){
       const v = Math.min(1, Math.max(0, (y - bb.t) / ch));
       const s = A >= 0 ? 1 - A * 0.9 * (1 - v) : 1 + A * 0.9 * v;
@@ -192,7 +192,7 @@ function warp(src){
   const fn = WARPS[w.type];
   let minY = 0, maxY = H;
   for(let px = 0; px < W; px += 2){ const [dy, s] = fn(U(px)); minY = Math.min(minY, cy - cy * s + dy); maxY = Math.max(maxY, cy + (H - cy) * s + dy); }
-  const off = -Math.floor(minY), o = mk(W, Math.ceil(maxY - minY) + 2), x = o.getContext('2d');
+  const off = -Math.floor(minY), o = mk(W, Math.ceil(maxY - minY) + 2), x = ctx2d(o);
   for(let px = 0; px < W; px++){ const [dy, s] = fn(U(px + 0.5)); x.drawImage(src, px, 0, 1, H, px, off + cy - cy * s + dy, 1, H * s); }
   return o;
 }
@@ -200,7 +200,7 @@ function warp(src){
 // 本体を画面外（左へ OFF だけずらした位置）に描き、shadowOffsetX に同じ OFF を足して影だけをキャンバス内に落とすトリックを使っている。
 // ox,oy,blur は論理 px（scale を掛けて実ピクセルにする）。呼び出し時の変換には依存しない（setTransform 前提なし）
 function effectOnly(src, ox, oy, blur, color, scale){
-  const c = mk(src.width, src.height), x = c.getContext('2d'), OFF = src.width + 200;
+  const c = mk(src.width, src.height), x = ctx2d(c), OFF = src.width + 200;
   x.shadowColor = color; x.shadowBlur = blur * scale; x.shadowOffsetX = ox * scale + OFF; x.shadowOffsetY = oy * scale;
   x.drawImage(src, -OFF, 0);
   return c;
@@ -210,9 +210,9 @@ function effectOnly(src, ox, oy, blur, color, scale){
 // 帯は out を毎回コピーしてから切り出す（ずらした結果を次の帯が拾って二重にならないように）。帯の位置・幅・量は固定シード
 function glitch(B, scale){
   const g = RS.glitch, W = B.width, H = B.height, d = g.rgb * scale;
-  const out = mk(W, H), o = out.getContext('2d');
+  const out = mk(W, H), o = ctx2d(out);
   if(d > 0){
-    const tint = col => { const c = mk(W, H), x = c.getContext('2d'); x.drawImage(B, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, W, H); return c; };
+    const tint = col => { const c = mk(W, H), x = ctx2d(c); x.drawImage(B, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, W, H); return c; };
     o.globalAlpha = 0.9; o.drawImage(tint('#00e5ff'), -d, 0);
     o.globalCompositeOperation = 'lighter'; o.drawImage(tint('#ff0040'), d, 0);
     o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1;
@@ -221,7 +221,7 @@ function glitch(B, scale){
   if(g.slices > 0 && g.shift > 0){
     const bb = bbox(out) || {t:0, b:H}, R = rng(g.seed), span = bb.b - bb.t;
     for(let i = 0; i < g.slices; i++){
-      const copy = mk(W, H); copy.getContext('2d').drawImage(out, 0, 0);
+      const copy = mk(W, H); ctx2d(copy).drawImage(out, 0, 0);
       const y = bb.t + R() * span, h = Math.max(2, (0.02 + R() * 0.09) * span), dx = (R() * 2 - 1) * g.shift * scale;
       o.clearRect(0, y, W, h); o.drawImage(copy, 0, y, W, h, dx, y, W, h);
     }
@@ -231,5 +231,5 @@ function glitch(B, scale){
 
 // 合成の小道具。どちらも dst の変換を一時的に単位行列にして、src を実ピクセルで重ねる（A/K/F はすべて同寸法のキャンバスなので位置は一致する）。
 // blit=上に重ねる / cut=src の形で dst を抜く（destination-out）
-const blit = (dst, src) => { const c = dst.getContext('2d'); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0); c.restore(); };
-const cut = (dst, src) => { const c = dst.getContext('2d'); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.drawImage(src, 0, 0); c.restore(); };
+const blit = (dst, src) => { const c = ctx2d(dst); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0); c.restore(); };
+const cut = (dst, src) => { const c = ctx2d(dst); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.drawImage(src, 0, 0); c.restore(); };

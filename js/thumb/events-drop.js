@@ -16,7 +16,7 @@
   window.addEventListener('dragenter', e => { if(!hasFiles(e)) return; e.preventDefault(); depth++; show(true); });
   window.addEventListener('dragleave', e => { if(!hasFiles(e)) return; depth = Math.max(0, depth - 1); if(!depth) show(false); });
   window.addEventListener('dragover', e => {
-    if(!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    if(!hasFiles(e)) return; e.preventDefault(); if(e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     const z = tgt(e).closest && tgt(e).closest('[data-dz]');
     const hot = z || $('[data-dz=layer]', ov);
     $$('[data-dz]', ov).forEach(x => x.classList.toggle('hot', x === hot));
@@ -26,12 +26,13 @@
     e.preventDefault(); depth = 0;
     const z = tgt(e).closest && tgt(e).closest('[data-dz]'), zone = z ? z.dataset.dz : 'layer';
     show(false);
-    let files = [...(e.dataTransfer.files || [])];
+    const dt = e.dataTransfer;
+    let files = [...(dt && dt.files || [])];
     // ほかのタブからドラッグした画像（ファイルが付いていない場合）はURLから取得を試す。サイト側の制限（CORS）で取れないことがあるので、その場合は案内を出す
     if(!files.length){
-      const url = (e.dataTransfer.getData('text/uri-list') || '').split('\n').find(u => /^https?:/.test(u.trim()));
+      const url = (dt && dt.getData('text/uri-list') || '').split('\n').find(u => /^https?:/.test(u.trim()));
       if(url){
-        try{ const r = await fetch(url.trim()); const b = await r.blob(); if(!/^image\//.test(b.type)) throw 0; files = [new File([b], url.split('/').pop().split('?')[0] || 'image', {type:b.type})]; }
+        try{ const r = await fetch(url.trim()); const b = await r.blob(); if(!/^image\//.test(b.type)) throw 0; files = [new File([b], (url.split('/').pop() ?? '').split('?')[0] || 'image', {type:b.type})]; }
         catch{ toast('この画像はサイトの制限で直接追加できません。一度PCに保存してからドラッグしてください', true); return; }
       }
     }

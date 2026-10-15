@@ -52,11 +52,12 @@ const DOC_BASE = () => ({
   layers:[], sel:null, textSel:null, msel:[],
 });
 var {mkTextLayer, layerById, selLayer, textLayer, usedAssets, layerName, normalizeLayer, normalizeDoc, loadSavedDoc, saveDoc} = (() => {
-const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:'text', x, y, sc, style});
+const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:/** @type {'text'} */ ('text'), x, y, sc, style});
 // id からレイヤーを探す（無ければ null）。選択中・文字入力中のレイヤーもこれで引く
 const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
 const selLayer = () => layerById(DOC && DOC.sel);
-const textLayer = () => layerById(DOC && DOC.textSel);
+/** 文字パネルとつながっている文字レイヤー（無い・文字レイヤーでないときは null） @returns {TextLayer|null} */
+const textLayer = () => { const L = layerById(DOC && DOC.textSel); return L && L.type === 'text' ? L : null; };
 // いま DOC が参照している画像アセットid の集合。IndexedDB の掃除（assets.js idbRestore）とプロジェクト保存で「使っているものだけ」を残すのに使う
 function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => kindOf(l).assets(l))].filter(Boolean)); }
 /** @param {Layer} L */
@@ -116,7 +117,9 @@ function migrateOldLines(o, d){
   const oldLines = (d.bg || {}).lines; delete o.bg.lines;
   if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * o.w, y:(o.bg.fcy ?? 0.5) * o.h})); }
 }
+/** @returns {Doc} */
 function normalizeDoc(d){
+  /** @type {Doc} */
   const b = DOC_BASE();
   if(!d || !Array.isArray(d.layers)){
     const L = mkTextLayer(S, b.w / 2, b.h / 2, 1.5);

@@ -60,14 +60,14 @@ const FX_LAYER_DEF ={lines:{op:0.55}, light:{blend:'screen'}, burst:{sc:0.8}, ra
   flare:{blend:'screen'}, aura:{blend:'screen'}, smoke:{op:0.85}, glitch:{op:0.8}, shine:{blend:'screen', op:0.8}, gloom:{op:0.9}, shock:{op:0.9}};
 // 種類ごとの「描画の基準サイズ [幅, 高さ]」（sc=1 のときのドキュメント座標）。選択枠(dims)と、粒を散らす範囲の両方の基準になる
 // 全面系は DOC のサイズ、局所系（キラキラ・爆発・稲妻など）は固定サイズ。集中線は中心の空き(inner)と届く範囲(reach)から決まる
-/** @param {Layer} L */
+/** @param {FxLayer} L */
 const FX_BOX = L => { const p = L.p, W = DOC.w, H = DOC.h, M = Math.max(W, H); return {lines:p.full === false ? [W * p.inner * p.reach, H * p.inner * p.reach] : [W * p.inner, H * p.inner], light:[M * p.r * 1.1, M * p.r * 1.1], sparkle:[640, 400], burst:[780, 500], rays:[M * p.r * 1.2, M * p.r * 1.2], speed:[W, H], gaan:[W, H], confetti:[W, H], snow:[W, H], bolt:[420, 860], bokeh:[W, H], scatter:[1100, 640],
   uni:[W, H], anger:[260, 260], sweat:[320, 320], gloom:[800, 500], mark:[300, 380], flare:[W, H], cross:[640, 400], aura:[700, 900],
   fire:[W, 560], smoke:[900, 700], crack:[1000, 700], glitch:[W, H], petals:[W, H], bubbles:p.type === 'splash' ? [900, 600] : [W, H], shock:[900, 560], hit:[520, 520], shine:[800, 450]}[L.kind] || [400, 400]; };
 // 引数：kind＝種類、p＝パラメータの上書き、ex＝レイヤー側の上書き（位置など）
 // 初期位置：ライト・レンズフレアは右上寄り、炎は下の端（画面の下から燃え上がる）。それ以外は LAYER_BASE の中央
 const FX_START = kind => kind === 'light' || kind === 'flare' ? {x:Math.round(DOC.w * 0.72), y:Math.round(DOC.h * 0.3)} : kind === 'fire' ? {x:Math.round(DOC.w / 2), y:Math.round(DOC.h - 280)} : {};
-const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:'fx', kind}, FX_LAYER_DEF[kind] || {}, FX_START(kind), ex, {p:Object.assign(FX_DEF[kind](), p)});
+const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:/** @type {'fx'} */ ('fx'), kind}, FX_LAYER_DEF[kind] || {}, FX_START(kind), ex, {p:Object.assign(FX_DEF[kind](), p)});
 // ワンクリック背景エフェクトの定義：bg＝DOC.bg に当てる差分、fx＝一緒に入れる動的エフェクト [種類, パラメータ, レイヤー上書き]
 // bg の値がオブジェクトのものは DOC.bg の既存オブジェクトにマージ、それ以外は代入（applyBgFx）
 const BG_FX = {

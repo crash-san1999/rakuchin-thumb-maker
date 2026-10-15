@@ -75,8 +75,8 @@ $('#viewBtn').onclick = () => { LS.set('ttm_view', isMobile ? 'pc' : 'mobile'); 
 $$('.sheet-grip').forEach(g => {
   let y0 = null;
   g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(tgt(e).closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
-  g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0); g.parentElement.style.transform = `translateY(${dy}px)`; g.parentElement.style.transition = 'none'; });
-  const up = e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
+  g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0), el = g.parentElement; if(!el) return; el.style.transform = `translateY(${dy}px)`; el.style.transition = 'none'; });
+  const up = e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; if(!el) return; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
   g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
 });
 // 画面の回転・ウィンドウ変更で判定し直す（連続イベントは 150ms にまとめる）。固定設定のときは detectMobile が同じ結果を返すので何も変わらない

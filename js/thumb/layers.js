@@ -71,7 +71,7 @@ function renderLayers(){
 // レイヤーのサムネを prevCache から描く。背景は cover（全面に敷く）、レイヤーは contain（0.94 倍で余白を残す）
 function refreshThumbs(){
   $$as('#layerList canvas[data-th]', HTMLCanvasElement).forEach(cv => {
-    const id = cv.dataset.th, e = prevCache.get(id), src = e && e.c, x = cv.getContext('2d');
+    const id = cv.dataset.th, e = prevCache.get(id), src = e && e.c, x = ctx2d(cv);
     x.clearRect(0, 0, cv.width, cv.height); if(!src) return;
     const k = id === '__bg' ? Math.max(cv.width / src.width, cv.height / src.height) : Math.min(cv.width / src.width, cv.height / src.height) * 0.94;
     x.drawImage(src, (cv.width - src.width * k) / 2, (cv.height - src.height * k) / 2, src.width * k, src.height * k);
@@ -232,7 +232,7 @@ function layerAction(id, act){
   if(act === 'ungroupOne'){ ungroupOne(L); return; }
   if(act === 'multi'){ toggleMulti(id); return; }
   if(act === 'clearMulti'){ selectLayer(DOC.sel); return; }
-  if(act === 'fold'){ L.open = L.open === false; renderLayers(); saveDoc(); return; }
+  if(act === 'fold'){ if(isGroup(L)) L.open = L.open === false; renderLayers(); saveDoc(); return; }   // 開く／閉じるのボタンはグループにだけ出る
   if(act === 'up') placeLayer(L, peers[pi + 1], true);
   else if(act === 'down') placeLayer(L, peers[pi - 1], false);
   else if(act === 'front') placeLayer(L, peers[peers.length - 1], true);

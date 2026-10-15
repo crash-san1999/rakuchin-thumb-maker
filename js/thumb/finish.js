@@ -57,7 +57,7 @@ function applyFinPreset(name){ const t = DOC.fin.target; DOC.fin = Object.assign
 // 粒子の柄は 256px の1枚をキャッシュして繰り返す。乱数は固定シード(7)なので、書き出しのたびにノイズが変わらない（プレビューと出力が一致）
 let grainTile = null;
 function grainPattern(x){
-  if(!grainTile){ grainTile = mk(256, 256); const g = grainTile.getContext('2d'), im = g.createImageData(256, 256), d = im.data, R = rng(7);
+  if(!grainTile){ grainTile = mk(256, 256); const g = ctx2d(grainTile), im = g.createImageData(256, 256), d = im.data, R = rng(7);
     for(let i = 0; i < d.length; i += 4){ const v = 128 + (R() - 0.5) * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } g.putImageData(im, 0, 0); }
   return x.createPattern(grainTile, 'repeat');
 }
@@ -65,12 +65,12 @@ function grainPattern(x){
 // f：キャンバスの倍率（ドキュメント座標→ピクセル）。ぼかし・ずれ・粒などのピクセル量は f を掛けて、プレビューと書き出しで見た目を揃える
 // 順序依存：ルック→網点→ブルーム→光漏れ→RGBずれ→走査線→粒子→紙の質感→傷・ほこり→ビネット。最後に元の透明部分で切り抜く（mask は処理前のコピー）
 function applyFinish(c, F, f){
-  const W = c.width, H = c.height, x = c.getContext('2d'), mask = mk(W, H); mask.getContext('2d').drawImage(c, 0, 0);
-  const copy = (filter) => { const t = mk(W, H), tx = t.getContext('2d'); if(filter) tx.filter = filter; tx.drawImage(c, 0, 0); tx.filter = 'none'; return t; };
+  const W = c.width, H = c.height, x = ctx2d(c), mask = mk(W, H); ctx2d(mask).drawImage(c, 0, 0);
+  const copy = (filter) => { const t = mk(W, H), tx = ctx2d(t); if(filter) tx.filter = filter; tx.drawImage(c, 0, 0); tx.filter = 'none'; return t; };
   x.save();
   const L = FIN_LOOKS[F.look];
   if(L && L[1] !== undefined && F.amt > 0){
-    const t = copy(L[1]), tx = t.getContext('2d');
+    const t = copy(L[1]), tx = ctx2d(t);
     for(const [m, col, a] of L[2] || []){ tx.globalCompositeOperation = m; tx.globalAlpha = a; tx.fillStyle = col; tx.fillRect(0, 0, W, H); }
     x.globalAlpha = clamp(F.amt, 0, 1); x.drawImage(t, 0, 0); x.globalAlpha = 1;
   }
@@ -93,15 +93,15 @@ function applyFinish(c, F, f){
   }
   if(F.rgb > 0){
     // RGBずれ：R・G・B の各チャンネルだけを残した3枚を左右にずらして加算合成する。黒で塗り直すのは加算の土台のため（透明は最後に mask で戻る）
-    const d = F.rgb * f, ch = col => { const t = copy(), tx = t.getContext('2d'); tx.globalCompositeOperation = 'multiply'; tx.fillStyle = col; tx.fillRect(0, 0, W, H); return t; };
+    const d = F.rgb * f, ch = col => { const t = copy(), tx = ctx2d(t); tx.globalCompositeOperation = 'multiply'; tx.fillStyle = col; tx.fillRect(0, 0, W, H); return t; };
     const r = ch('#ff0000'), g = ch('#00ff00'), b = ch('#0000ff');
     x.clearRect(0, 0, W, H); x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.globalCompositeOperation = 'lighter';
     x.drawImage(r, -d, 0); x.drawImage(g, 0, 0); x.drawImage(b, d, 0); x.globalCompositeOperation = 'source-over';
   }
   if(F.scan > 0){
     // 走査線：高さ per px（最低2）の1列タイルの上半分を黒にして縦に繰り返す
-    const per = Math.max(2, Math.round(4 * f * 2)), t = mk(1, per), tx = t.getContext('2d'); tx.fillStyle = '#000'; tx.fillRect(0, 0, 1, Math.max(1, per / 2));
-    x.globalAlpha = clamp(F.scan, 0, 1) * 0.55; x.fillStyle = x.createPattern(t, 'repeat'); x.fillRect(0, 0, W, H); x.globalAlpha = 1;
+    const per = Math.max(2, Math.round(4 * f * 2)), t = mk(1, per), tx = ctx2d(t); tx.fillStyle = '#000'; tx.fillRect(0, 0, 1, Math.max(1, per / 2));
+    x.globalAlpha = clamp(F.scan, 0, 1) * 0.55; const pt = x.createPattern(t, 'repeat'); if(pt){ x.fillStyle = pt; x.fillRect(0, 0, W, H); } x.globalAlpha = 1;
   }
   if(F.grain > 0){
     x.globalCompositeOperation = 'overlay'; x.globalAlpha = clamp(F.grain, 0, 1) * 0.6;
@@ -121,7 +121,7 @@ function applyFinish(c, F, f){
 // 紙の質感：生成りの色を乗算でうっすら重ね、むらの柄（低い周波数のノイズ＋細かい繊維）をオーバーレイで重ねる。柄は 512px を1枚作って繰り返す（固定シード）
 let paperTile = null;
 function paperOver(x, W, H, a, f){
-  if(!paperTile){ paperTile = mk(512, 512); const g = paperTile.getContext('2d'), R = rng(29);
+  if(!paperTile){ paperTile = mk(512, 512); const g = ctx2d(paperTile), R = rng(29);
     g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
     // むら：ぼんやりした明暗の丸。端をまたぐ丸は反対側にも描いて、つなぎ目のない柄にする
     for(let i = 0; i < 70; i++){ const px = R() * 512, py = R() * 512, r = 40 + R() * 110, light = R() < 0.5, al = 0.05 + R() * 0.07;
@@ -146,8 +146,8 @@ function dustOver(x, W, H, a, f){
 // 縮小して読み取った1ピクセル＝1マスの色を使う（全画素を読むより速い）。奇数行は半マスずらして千鳥配置。半径 0.4px 未満の点は打たない
 function halftoneOver(c, x, F, f){
   const W = c.width, H = c.height, s = Math.max(3, F.halfSize * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
-  const sm = mk(gw, gh), sx = sm.getContext('2d', {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
-  const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = t.getContext('2d');
+  const sm = mk(gw, gh), sx = ctx2d(sm, {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
+  const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = ctx2d(t);
   tx.filter = 'brightness(1.3) saturate(.7)'; tx.drawImage(c, 0, 0); tx.filter = 'none';
   for(let j = 0; j < gh; j++) for(let i = 0; i < gw; i++){
     const k = (j * gw + i) * 4, l = (0.299 * d[k] + 0.587 * d[k + 1] + 0.114 * d[k + 2]) / 255, r = s * 0.62 * Math.sqrt(Math.max(0, 1 - l * 0.92));
@@ -162,22 +162,22 @@ function halftoneOver(c, x, F, f){
 // 以下は背景だけの画像 c をその場で書き換える（背景を描いたあと、他のレイヤーを重ねる前に呼ばれる想定）
 // n 階調に減らす（最低2）
 function posterize(c, n){
-  const x = c.getContext('2d', {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data, k = Math.max(2, Math.round(n)) - 1;
+  const x = ctx2d(c, {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data, k = Math.max(2, Math.round(n)) - 1;
   for(let i = 0; i < d.length; i += 4){ d[i] = Math.round(d[i] / 255 * k) / k * 255; d[i + 1] = Math.round(d[i + 1] / 255 * k) / k * 255; d[i + 2] = Math.round(d[i + 2] / 255 * k) / k * 255; }
   x.putImageData(im, 0, 0);
 }
 // 2値化：明るさ（輝度）が t.lvl（0〜1）を超えたら c2、以下なら c1 の単色にする。アルファは触らない
 function threshold(c, t){
-  const x = c.getContext('2d', {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data, A = hex2rgb(t.c1), B = hex2rgb(t.c2), lv = t.lvl * 255;
+  const x = ctx2d(c, {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data, A = hex2rgb(t.c1), B = hex2rgb(t.c2), lv = t.lvl * 255;
   for(let i = 0; i < d.length; i += 4){ const C = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) > lv ? B : A; d[i] = C[0]; d[i + 1] = C[1]; d[i + 2] = C[2]; }
   x.putImageData(im, 0, 0);
 }
 // ミニチュア風：上下をぼかして色を濃く
 // t.pos：ピントを合わせる帯の中心（高さの割合）、t.w：帯の幅（割合）。ぼかした絵の帯の部分を透明に抜いて、くっきりした元絵の上に重ねる
 function tiltShift(c, t, f){
-  const W = c.width, H = c.height, x = c.getContext('2d');
-  const base = mk(W, H), bx0 = base.getContext('2d'); bx0.filter = `saturate(${1 + t.sat}) contrast(1.06)`; bx0.drawImage(c, 0, 0);
-  const B = mk(W, H), bx = B.getContext('2d'); bx.filter = `blur(${Math.max(1, t.blur * f)}px)`; bx.drawImage(base, 0, 0); bx.filter = 'none';
+  const W = c.width, H = c.height, x = ctx2d(c);
+  const base = mk(W, H), bx0 = ctx2d(base); bx0.filter = `saturate(${1 + t.sat}) contrast(1.06)`; bx0.drawImage(c, 0, 0);
+  const B = mk(W, H), bx = ctx2d(B); bx.filter = `blur(${Math.max(1, t.blur * f)}px)`; bx.drawImage(base, 0, 0); bx.filter = 'none';
   const p = clamp(t.pos, 0, 1), w = clamp(t.w, 0.02, 1) / 2, g = bx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#000'); g.addColorStop(clamp(p - w, 0, 1), 'rgba(0,0,0,0)'); g.addColorStop(clamp(p + w, 0, 1), 'rgba(0,0,0,0)'); g.addColorStop(1, '#000');
   bx.globalCompositeOperation = 'destination-in'; bx.fillStyle = g; bx.fillRect(0, 0, W, H);
@@ -187,7 +187,7 @@ const BG_PATTERNS = [['dot', 'ドット'], ['stripe', 'ストライプ'], ['chec
 // 柄を1枚のキャンバスに単色で描いてから、不透明度・合成モードを付けて重ねる（柄の重なりで濃さがムラにならないように）。
 // cx, cy は放射ラインの中心（ピクセル座標）。他の柄では使わない。size は柄の大きさ（放射ラインだけは本数）
 function drawBgPattern(ctx, W, H, f, p, cx, cy){
-  const s = Math.max(3, p.size * f), t = mk(W, H), x = t.getContext('2d'); x.fillStyle = x.strokeStyle = p.c;
+  const s = Math.max(3, p.size * f), t = mk(W, H), x = ctx2d(t); x.fillStyle = x.strokeStyle = p.c;
   if(p.type === 'dot'){ for(let j = 0, y = s / 2; y < H + s; y += s, j++) for(let X = (j % 2) * s / 2; X < W + s; X += s){ x.beginPath(); x.arc(X, y, s * 0.28, 0, 7); x.fill(); } }
   else if(p.type === 'stripe'){ x.lineWidth = s * 0.45; x.beginPath(); for(let X = -H; X < W + H; X += s){ x.moveTo(X, 0); x.lineTo(X + H, H); } x.stroke(); }
   else if(p.type === 'check'){ for(let j = 0; j * s < H; j++) for(let i = j % 2; i * s < W; i += 2) x.fillRect(i * s, j * s, s, s); }

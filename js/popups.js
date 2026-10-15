@@ -44,7 +44,8 @@ document.addEventListener('keydown', e => {
 // PC は anchor（ボタン）の下に、画面からはみ出さないよう clamp して置く（座標は position:fixed 前提のビューポート基準）。
 // スマホはメニューを CSS で下に固定表示するので、前回の PC 用の位置指定だけ消す
 function togglePop(id, anchor){
-  const el = document.getElementById(id), open = !el.classList.contains('show');
+  const el = document.getElementById(id); if(!el) return;
+  const open = !el.classList.contains('show');
   $$('.pop.show').forEach(p => p.classList.remove('show'));
   if(!open) return;
   el.classList.add('show');

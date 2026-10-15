@@ -18,7 +18,7 @@
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {docChanged, DB, syncDocSoon, syncDoc} = (() => {
 function dBase(k){
-  if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.cells ? L.cells[L.ac || 0] : null, k.slice(6)]; }
+  if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.type === 'collage' ? L.cells[L.ac || 0] : null, k.slice(6)]; }
   return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k];
 }
 function dGet(k){ const [b, p] = dBase(k); return b ? p.split('.').reduce((o, q) => o?.[q], b) : undefined; }
@@ -50,10 +50,10 @@ function setD(k, v){
 }
 const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:dGet,
   onInput(k, v, el){
-    const cL = /^@crop\./.test(k) ? selLayer() : null;
+    const S0 = /^@crop\./.test(k) ? selLayer() : null, cL = S0 && S0.type === 'image' ? S0 : null;   // トリミングの入力欄は画像レイヤーにだけ出る
     if(cL) applyCropChange(cL, () => setD(k, v)); else setD(k, v);
-    if(k === '@key.on' && v){ const L = selLayer(), A = L && ASSETS[L.asset]; if(A && L.key.c === KEY_BASE().c){ const c = cutAutoColor(cropSrc(L, A).img); if(c) L.key.c = c; } }   // 初めてオンにしたときは、四隅の色を背景色にする
-    if(k === '@p.reach'){ const L = selLayer(); if(L && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
+    if(k === '@key.on' && v){ const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(A && L.key.c === KEY_BASE().c){ const c = cutAutoColor(cropSrc(L, A).img); if(c) L.key.c = c; } }   // 初めてオンにしたときは、四隅の色を背景色にする
+    if(k === '@p.reach'){ const L = selLayer(); if(L && L.type === 'fx' && L.p && L.p.full !== false) L.p.full = false; }   // 最大サイズを動かしたら、画面の端までをやめて指定に切り替える
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');
   },
@@ -70,7 +70,7 @@ function syncDoc(except){
   DB.sync(except);
   $$('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const sc = $('#safeChip'); if(sc) sc.hidden = !DOC.hdr;   // セーフエリアのボタンはヘッダー画像のときだけ出す
-  const L = selLayer(); $$('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
+  const L = selLayer(); $$('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L.type === 'image' && (b.dataset.flip === 'flipV' ? L.flipV : b.dataset.flip === 'flip' ? L.flip : false))));
   renderInspector();
   renderCells(); renderCellText(); renderSched();
   refreshSizeUI();

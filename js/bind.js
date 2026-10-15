@@ -31,7 +31,7 @@ function makeBinder(o){
   document.addEventListener('click', e => {
     const rr = tgt(e).closest(sel(o.reroll)); if(rr){ o.onReroll(rr.dataset[o.reroll]); return; }
     const b = tgt(e).closest(`${sel(o.seg)} button`); if(!b) return;
-    const g = b.parentElement; o.onSeg(g.dataset[o.seg], g.dataset.num ? parseFloat(b.dataset.v) : b.dataset.v, b);
+    const g = b.parentElement; if(!g) return; o.onSeg(g.dataset[o.seg], g.dataset.num ? parseFloat(b.dataset.v ?? '') : b.dataset.v, b);
   });
   // 表示条件：「キー=値1|値2」または「キー!=値1|値2」を & でつなぐ
   const cond = c => { const neg = c.includes('!='), [k, vs] = c.split(neg ? '!=' : '='), hit = vs.split('|').includes(String(o.get(k))); return neg ? !hit : hit; };
@@ -47,7 +47,7 @@ function makeBinder(o){
         if(el.type === 'range') paintRange(el);
       });
       $$(sel(o.seg)).forEach(g => { const v = String(o.get(g.dataset[o.seg])); $$('button', g).forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
-      $$(sel(o.show)).forEach(el => { el.style.display = el.dataset[o.show].split('&').every(cond) ? '' : 'none'; });
+      $$(sel(o.show)).forEach(el => { el.style.display = (el.dataset[o.show] ?? '').split('&').every(cond) ? '' : 'none'; });
     },
     // 基本の行（ボタン選択・プルダウン・別パターン・色・チェック・スライダー）の HTML。
     // r のキーで種類が決まる：seg / sel / seed / c / chk、どれでもなければスライダー（r.r＝キー、min/max/step 必須）。

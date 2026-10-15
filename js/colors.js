@@ -166,11 +166,11 @@ function renderThemes(){
 }
 $('#themes').addEventListener('click', e => {
   const b = tgt(e).closest('[data-ti]'); if(!b) return;
-  applyPalette(toP((ttab === 'thumb' ? THUMB_PALETTES : THEME_PALETTES)[+b.dataset.ti][2]));
+  applyPalette(toP((ttab === 'thumb' ? THUMB_PALETTES : THEME_PALETTES)[+(b.dataset.ti ?? 0)][2]));
 });
 $('#ttabs').addEventListener('click', e => {
   const b = tgt(e).closest('[data-tt]'); if(!b) return;
-  ttab = b.dataset.tt; $$('#ttabs button').forEach(x => x.classList.toggle('on', x === b)); renderThemes();
+  ttab = b.dataset.tt || ttab; $$('#ttabs button').forEach(x => x.classList.toggle('on', x === b)); renderThemes();
 });
 
 /* 背景画像から配色：代表色をk-meansで抽出し、背景から浮く色を組み立てる */
@@ -180,7 +180,7 @@ bgImg = null; wantBgPalette = false;
 // 画像を 72x72 に縮小して k-means（k=6, 10回）で代表色を取る。戻り値は画素数の多い順の [{hex, n}]。
 // 縮小は速度優先（色の傾向だけ分かればよい）。rng(9) 固定シードなので同じ画像なら毎回同じ結果になる。透明に近い画素(alpha<=200)は除外。
 function extractColors(img, k = 6){
-  const c = mk(72, 72), x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(img, 0, 0, 72, 72);
+  const c = mk(72, 72), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, 0, 0, 72, 72);
   const d = x.getImageData(0, 0, 72, 72).data, px = [];
   for(let i = 0; i < d.length; i += 4) if(d[i + 3] > 200) px.push([d[i], d[i+1], d[i+2]]);
   if(!px.length) return [];

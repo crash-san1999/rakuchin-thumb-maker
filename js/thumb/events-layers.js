@@ -69,7 +69,7 @@
     // ドラッグ直後に発火する click で、並べ替えたのに選択処理が走るのを防ぐ（同じイベントターンの間だけ無視）
     suppressClick = true; setTimeout(() => suppressClick = false, 0);
     rows.forEach(r => { r.style.transform = ''; r.classList.remove('dragging'); });
-    if(to !== from){ movePeer(id, to); const L = layerById(id); toast(`「${layerName(L)}」を${to < from ? '前面' : '背面'}へ移動しました`); }
+    if(to !== from){ movePeer(id, to); const L = layerById(id); if(L) toast(`「${layerName(L)}」を${to < from ? '前面' : '背面'}へ移動しました`); }
     else renderLayers();
     if(DOC.sel !== id) selectLayer(id);
   };

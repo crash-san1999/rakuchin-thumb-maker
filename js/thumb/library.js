@@ -40,7 +40,7 @@ const blobToDataUrl = b => new Promise((res, rej) => { const r = new FileReader(
 const dataUrlToBlob = u => { const [h, d] = u.split(','), mime = (h.match(/:(.*?);/) || [])[1] || 'image/png', bin = atob(d), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type: mime}); };
 // 縦横比を保って n px 角の中央に収めたサムネ（dataURL）。一覧表示用で、本体を毎回デコードしないため
 function makeThumb(img, n = 96){
-  const c = mk(n, n), x = c.getContext('2d'), s = Math.min(n / img.naturalWidth, n / img.naturalHeight);
+  const c = mk(n, n), x = ctx2d(c), s = Math.min(n / img.naturalWidth, n / img.naturalHeight);
   x.drawImage(img, (n - img.naturalWidth * s) / 2, (n - img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s);
   return c.toDataURL('image/png');
 }
@@ -52,7 +52,7 @@ async function libCheck(bytes, kind){
   if(kind === 'img' && bytes > LIB_MAX_ITEM) return `1つの画像は ${fmtBytes(LIB_MAX_ITEM)} までです（この画像は ${fmtBytes(bytes)}）`;
   if(LIB.length >= LIB_MAX_COUNT) return `素材は ${LIB_MAX_COUNT} 個までです。不要なものを削除してください`;
   if(libUsed() + bytes > LIB_MAX_BYTES) return `素材置き場がいっぱいです（使用 ${fmtBytes(libUsed())} ／ 上限 ${fmtBytes(LIB_MAX_BYTES)}）。不要な素材を削除してください`;
-  try{ const e = await navigator.storage.estimate(); if(e && e.quota && e.quota - e.usage < bytes + 20 * 1048576) return 'ブラウザの保存できる空き容量が足りません。ほかのサイトのデータを整理してください'; }catch{}
+  try{ const e = await navigator.storage.estimate(); if(e && e.quota && e.quota - (e.usage || 0) < bytes + 20 * 1048576) return 'ブラウザの保存できる空き容量が足りません。ほかのサイトのデータを整理してください'; }catch{}
   return '';
 }
 function libFail(msg){ toast(msg, true); libFlash(msg); }
@@ -201,8 +201,8 @@ async function libInit(){
     else if(t.closest('#libExport')) libExport();
     else if(t.closest('#libImportBtn')) $('#libImport').click();
   });
-  $('#libFile').onchange = e => { const fs = [...inputOf(e).files]; inputOf(e).value = ''; if(fs.length) libAddFiles(fs); };
-  $('#libImport').onchange = e => { const f = inputOf(e).files[0]; inputOf(e).value = ''; if(f) libImport(f); };
+  $('#libFile').onchange = e => { const fs = [...(inputOf(e).files || [])]; inputOf(e).value = ''; if(fs.length) libAddFiles(fs); };
+  $('#libImport').onchange = e => { const f = (inputOf(e).files || [])[0]; inputOf(e).value = ''; if(f) libImport(f); };
 }
 return {LIB_MAX_BYTES, LIB_MAX_ITEM, fmtBytes, libUsed, libItems, myStyles, libCheck, libDelete, libAddImageSrc, libAddFiles, libAddStyle, libExport, libImport, renderLib, libInit};
 })();

@@ -205,7 +205,7 @@ function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${
 /* フレームの形の位置（画像のピクセル座標）：fs=大きさ、cx/cy=画像のどこを中心に切り抜くか */
 // 単位は layerSrc(L) の絵（トリミング・背景透過後）のピクセル。fw0＝fs=1 のとき画像に収まる最大幅、fw/fh＝実際の切り抜き幅・高さ、
 // cxp/cyp＝切り抜き中心（枠が画像からはみ出さないよう clamp 済み）。画像が無ければ null
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 function frameGeom(L){
   const A = layerSrc(L); if(!A) return null;
   const fr = L.frame, iw = A.img.naturalWidth, ih = A.img.naturalHeight;
@@ -217,7 +217,7 @@ function frameGeom(L){
 /* フレームを動かしても、画像がキャンバス上で動かないようにレイヤーの位置を補正 */
 // g0：動かす前の frameGeom（切り抜き中心の差から補正量を出す）。base：ドラッグ開始時の {x,y}（渡すと累積せず毎回そこからの差で計算）
 // 反転・拡大・回転を考慮してドキュメント座標へ直す（反転時は中心の動きが逆向きになる）
-/** @param {Layer} L */
+/** @param {ImageLayer} L @param {FrameGeom} g0 @param {{x: number, y: number}} [base] */
 function frameCompensate(L, g0, base){
   const g1 = frameGeom(L); if(!g0 || !g1) return;
   const dx = (g1.cxp - g0.cxp) * (L.flip ? -1 : 1) * L.sc, dy = (g1.cyp - g0.cyp) * (L.flipV ? -1 : 1) * L.sc, a = (L.rot || 0) * PI / 180;
@@ -269,7 +269,7 @@ const FRAME_STYLE_DRAW = {
     // 以降は画像を描いたあとに重ねる飾り（画像の上に出る光沢・走査線・綴じ・外側の枠など）
     over({x, c, E}){
     // グリッチ：描き終えた全体（フチ＋画像）の横帯を4本、左右にずらす。固定シード(3)なので毎回同じ崩れ方
-    const R = rng(3), tmp = mk(c.width, c.height); tmp.getContext('2d').drawImage(c, 0, 0);
+    const R = rng(3), tmp = mk(c.width, c.height); ctx2d(tmp).drawImage(c, 0, 0);
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
     for(let i = 0; i < 4; i++){ const hy = R() * c.height, hh = Math.max(2, c.height * (0.02 + R() * 0.05)), sh = (R() - 0.5) * E * 4;
       x.clearRect(0, hy, c.width, hh); x.drawImage(tmp, 0, hy, c.width, hh, sh, hy, c.width, hh); }
@@ -353,7 +353,7 @@ const FRAME_STYLE_DRAW = {
   },
   pixel: {
     // ドット絵：縮小したキャンバス(1/pz)にフチを描いて、補間なしで拡大してドット絵風にする（影は pz*1.5 ずらし）
-    under({x, c, E, FW, FH, o, fr}){ const pz = Math.max(2, Math.round(E * 0.6)), tmp = mk(c.width / pz, c.height / pz), t = tmp.getContext('2d');
+    under({x, c, E, FW, FH, o, fr}){ const pz = Math.max(2, Math.round(E * 0.6)), tmp = mk(c.width / pz, c.height / pz), t = ctx2d(tmp);
       t.translate(tmp.width / 2, tmp.height / 2); t.scale(1 / pz, 1 / pz); t.lineJoin = 'miter';
       const TP = () => { t.beginPath(); framePath(t, fr.shape, FW, FH, fr.r, fr.seed, fr); };
       t.save(); t.translate(pz * 1.5, pz * 1.5); TP(); t.lineWidth = 2 * E; t.strokeStyle = fr.c2; t.stroke(); t.restore(); TP(); t.lineWidth = 2 * E; t.strokeStyle = o.c; t.stroke();
@@ -385,13 +385,13 @@ function framedCanvas(L, f, live, cache){
   const sk =JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, L.fx, cutSig(L)]);
   // 操作中(live)は拡大率が多少違っても作り直さず使い回す（ドラッグ中の負荷を抑える）。確定時は拡大率のずれが2%以上なら作り直す（cacheByScale）
   return cacheByScale(cache, L.id, sk, need, live, () => {
-    const G = frameGeom(L), iw = G.iw, ih = G.ih;
+    const G = /** @type {FrameGeom} */ (frameGeom(L)), iw = G.iw, ih = G.ih;   // 呼び出し元の imageCanvas が画像の読み込みを確かめているので null にならない
     const FW = Math.max(2, G.fw * need), FH = Math.max(2, G.fh * need);
     // E＝フチの太さの基準（ピクセル。片側の幅）。style 'none' は 0＝フチも飾りも描かない。多くのスタイルは線の太さに 2*E を使う（フチが形の線の内外に半分ずつ出るため、見える太さは E）
     const st = fr.style || 'solid', E = st === 'none' ? 0 : Math.max(0.05, o.w * f);
     const tw = Math.min(FW, FH) * 0.36;   // マスキングテープの長さ
     const pad =Math.ceil(E * (hasKey(FRAME_PAD, st) ? FRAME_PAD[st] : 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
-    const c = mk(FW + pad * 2, FH + pad * 2), x = c.getContext('2d');
+    const c = mk(FW + pad * 2, FH + pad * 2), x = ctx2d(c);
     x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
     const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed, fr); };
     const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };

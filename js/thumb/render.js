@@ -19,7 +19,9 @@
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
 let tvCss;
+/** @type {{x: number|null, y: number|null}} */
 let snapLines;
+/** @type {any} */
 let drag;
 var {prevCache, dims, pruneLayerCaches, fontKey, textCanvas, imgFxOn, tintAtop, imgPicture, drawLayer, duotone, mosaic, toneFilter, postFx, compose, paintPreview, livePaint, drawThumb} = (() => {
 // prevCache：プレビュー用の描画キャッシュ（'__bg' に背景も入る）。dims：レイヤーid → 描画した絵の大きさ（DOC 座標。フチ込み・回転前）。
@@ -43,7 +45,7 @@ function fontKey(st){
 }
 // 文字レイヤーの絵（{sk, k, c}）。実際の描画は text-render.js の render(倍率, スタイル)。
 // pad:2 は、描いた文字を外接矩形に切り詰めたあとに残す余白（px）。レイヤーの絵が文字ぴったりになるので、dims（選択枠）もそのサイズになる
-/** @param {Layer} L */
+/** @param {TextLayer} L */
 function textCanvas(L, need, live, cache){
   const sk = JSON.stringify(L.style) + fontKey(L.style);
   return cacheByScale(cache, L.id, sk, need, live, () => render(need, Object.assign({}, L.style, {pad: 2})));
@@ -52,38 +54,38 @@ function textCanvas(L, need, live, cache){
 function tinted(A, color){
   // フチ色ごとに作ると色を動かすたびにメモリが増えるので、最後の1色だけ持つ
   if(A.tintColor === color && A.tintCanvas) return A.tintCanvas;
-  const c = mk(A.img.naturalWidth, A.img.naturalHeight), x = c.getContext('2d');
+  const c = mk(A.img.naturalWidth, A.img.naturalHeight), x = ctx2d(c);
   x.drawImage(A.img, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
   A.tintColor = color; return A.tintCanvas = c;
 }
 // 画像の明度・彩度（0 で元のまま）。フチ・影にはかけず、絵だけにかける
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 const imgFilter = L => { const f = []; if(L.bright) f.push(`brightness(${Math.max(0, 1 + L.bright)})`); if(L.sat) f.push(`saturate(${Math.max(0, 1 + L.sat)})`); return f.join(' ') || 'none'; };
 // 画像レイヤーの「効果」（コントラスト・色相・ぼかし・トーン・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット。分割フレームのマスと同じ L.fx）。
 // 明度・彩度だけは従来どおり L.bright / L.sat に持つ（imgFilter）ので、ここでは数えない
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x)); };
 // 「色を重ねる」：重ね方（乗算・オーバーレイなど）で色を重ねた結果を、絵のある部分にだけ置く。
 // 重ね方の指定（globalCompositeOperation）と「絵のある部分だけ」（source-atop）は同時に使えないので、別のキャンバスで重ねてから
 // source-atop で戻す。こうしないと、切り抜き画像の周りやグループの外など透明な部分まで色が付く。不透明な部分の結果は直接塗るのと同じ
 function tintAtop(o, t){
-  const T = mk(o.width, o.height), tx = T.getContext('2d');
+  const T = mk(o.width, o.height), tx = ctx2d(T);
   tx.drawImage(o, 0, 0); tx.globalCompositeOperation = t.mode; tx.globalAlpha = t.a; tx.fillStyle = t.c; tx.fillRect(0, 0, o.width, o.height);
-  const ox = o.getContext('2d'); ox.save(); ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = 1; ox.drawImage(T, 0, 0); ox.restore();
+  const ox = ctx2d(o); ox.save(); ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = 1; ox.drawImage(T, 0, 0); ox.restore();
 }
 /* 画像の絵を ctx の (dx,dy,dw,dh) に描く。効果が無ければ従来どおり明度・彩度のフィルターだけで直接描く。
    効果があるときは、絵だけを別キャンバス（ぼかし・ブラーのぶん余白付き）に描いて効果をかけてから置く（フチ・影にはかけない）。
    f＝DOC 座標→描画先ピクセルの倍率（効果の量は DOC 座標で持っているため）。暗く・色かぶり・周辺減光は source-atop で、絵のある部分にだけかける。
    作る canvas が大きすぎる（極端に拡大した画像）ときは、効果を省いて直接描く */
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 function imgPicture(x, A, L, f, dx, dy, dw, dh){
   if(!imgFxOn(L)){ x.filter = imgFilter(L); x.drawImage(A.img, dx, dy, dw, dh); x.filter = 'none'; return; }
   const fx = Object.assign({}, L.fx, {bright: L.bright || 0, sat: L.sat || 0});
   const m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0)), tw = Math.ceil(dw) + m * 2, th = Math.ceil(dh) + m * 2;
   if(tw * th > 3e7){ x.filter = imgFilter(L); x.drawImage(A.img, dx, dy, dw, dh); x.filter = 'none'; return; }
-  const t = mk(tw, th), tx = t.getContext('2d');
+  const t = mk(tw, th), tx = ctx2d(t);
   tx.filter = toneFilter(fx, f); tx.drawImage(A.img, m, m, dw, dh); tx.filter = 'none';
-  const o = postFx(t, fx, f, m + dw / 2, m + dh / 2), ox = o.getContext('2d');
+  const o = postFx(t, fx, f, m + dw / 2, m + dh / 2), ox = ctx2d(o);
   ox.save(); ox.globalCompositeOperation = 'source-atop';
   if(fx.dim > 0){ ox.fillStyle = `rgba(0,0,0,${fx.dim})`; ox.fillRect(0, 0, o.width, o.height); }
   if(fx.tint.on && fx.tint.a > 0) tintAtop(o, fx.tint);
@@ -101,7 +103,7 @@ function imgPicture(x, A, L, f, dx, dy, dw, dh){
    フレーム形状があるときは framedCanvas（frames.js）に任せる。
    sk の中身が、この絵の見た目に効く値の全部（トリミング・フチ・反転・明度彩度・背景透過/ブラシ）。ここに無い値を変えても再描画されない。
    明度・彩度（imgFilter）は絵だけにかけて、フチ・影にはかけない。 */
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
@@ -112,12 +114,12 @@ function imageCanvas(L, f, live, cache){
     const r2 = st === 'double' ? (ow + Math.max(0, o.w2 || 0)) * f : r, ob = r > 0 ? Math.max(0, o.blur || 0) * f : 0;
     const pad = Math.ceil(Math.max(r, r2) + ob * 1.6) + 2;
     const cw = Math.max(1, Math.round(iw * need)), ch = Math.max(1, Math.round(ih * need));
-    const c = mk(cw + pad * 2, ch + pad * 2), x = c.getContext('2d');
+    const c = mk(cw + pad * 2, ch + pad * 2), x = ctx2d(c);
     const flipTo = y => { if(L.flip){ y.translate(c.width, 0); y.scale(-1, 1); } if(L.flipV){ y.translate(0, c.height); y.scale(1, -1); } };
     if(r > 0){
       // フチ：canvas にはパスの太らせ（stroke 的な処理）が無いので、フチ色に塗った絵を円周上に少しずつずらして貼る方法で太らせる。
       // 半径 rad と rad*0.55 の2周にして、細い隙間ができにくくする。貼る数 n は半径に比例（16〜56）
-      const O = mk(c.width, c.height), y = O.getContext('2d'); flipTo(y);
+      const O = mk(c.width, c.height), y = ctx2d(O); flipTo(y);
       const stamp = (t, rad) => { const n = Math.max(16, Math.min(56, Math.round(rad * 1.5)));
         for(const rr of [rad, rad * 0.55]) for(let i = 0; i < n; i++){ const a = i / n * 2 * PI; y.drawImage(t, pad + Math.cos(a) * rr, pad + Math.sin(a) * rr, cw, ch); } };
       if(st === 'double') stamp(tinted(A, o.c2), r2);
@@ -140,21 +142,21 @@ function haloCanvas(e, q, col, blur, spread, str){
   const key = [q.toFixed(3), col, blur, spread, str].join('|'); e.halo = e.halo || new Map();
   if(e.halo.has(key)) return e.halo.get(key);
   const sp = Math.max(0, spread) * q, bl = Math.max(0, blur) * q, pad = Math.min(700, Math.ceil(sp + bl * 1.6) + 2);
-  const W = e.c.width + pad * 2, H = e.c.height + pad * 2, S = mk(W, H), sx = S.getContext('2d');
+  const W = e.c.width + pad * 2, H = e.c.height + pad * 2, S = mk(W, H), sx = ctx2d(S);
   if(sp > 0.5){ const n = Math.max(16, Math.min(60, Math.round(sp * 1.5)));
     for(const rr of [sp, sp * 0.55]) for(let i = 0; i < n; i++){ const a = i / n * 2 * PI; sx.drawImage(e.c, pad + Math.cos(a) * rr, pad + Math.sin(a) * rr); } }
   sx.drawImage(e.c, pad, pad);
   sx.globalCompositeOperation = 'source-in'; sx.fillStyle = col; sx.fillRect(0, 0, W, H);
   let out = S;
-  if(bl > 0.3){ out = mk(W, H); const ox = out.getContext('2d'); ox.filter = `blur(${bl / 2}px)`; ox.drawImage(S, 0, 0); ox.filter = 'none'; }
-  if(str > 1){ const o2 = mk(W, H), x2 = o2.getContext('2d'); for(let i = 0; i < Math.min(4, Math.round(str)); i++) x2.drawImage(out, 0, 0); out = o2; }
+  if(bl > 0.3){ out = mk(W, H); const ox = ctx2d(out); ox.filter = `blur(${bl / 2}px)`; ox.drawImage(S, 0, 0); ox.filter = 'none'; }
+  if(str > 1){ const o2 = mk(W, H), x2 = ctx2d(o2); for(let i = 0; i < Math.min(4, Math.round(str)); i++) x2.drawImage(out, 0, 0); out = o2; }
   if(e.halo.size > 6) e.halo.clear();
   e.halo.set(key, out); return out;
 }
 // 文字・画像レイヤー1枚を描く（グループの中身からも呼ばれる）。
 // need = 今の描画先で必要な倍率、e.k = キャッシュ絵を描いたときの倍率。差があれば s = need / e.k で拡大縮小して貼る（live 中のごまかし）。
 // dims には「回転前・DOC 座標」の大きさを記録する（e.c の寸法 ÷ e.k = 倍率1のときの寸法、× L.sc = DOC 座標）
-/** @param {Layer} L */
+/** 文字・画像レイヤー（と、画像として扱う未知の種類）を描く @param {TextLayer|ImageLayer} L */
 function drawLayer(ctx, L, f, live, cache){
   const need = L.sc * f;
   const e = L.type === 'text' ? textCanvas(L, need, live, cache) : imageCanvas(L, f, live, cache);
@@ -177,7 +179,7 @@ function drawLayer(ctx, L, f, live, cache){
 /* ここから下の duotone・mosaic・zoomBlur・motionBlur は、背景画像（と分割フレームのマス）の効果。c を直接書き換えるものと、新しい canvas を返すものがある。
    duotone：輝度（0.299/0.587/0.114 の標準的な加重）を 0〜1 にして、暗い色 c1 → 明るい色 c2 の間を補間する */
 function duotone(c, c1, c2){
-  const x = c.getContext('2d', {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data;
+  const x = ctx2d(c, {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data;
   const A = hex2rgb(c1), B = hex2rgb(c2);
   for(let i = 0; i < d.length; i += 4){
     const l = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
@@ -188,12 +190,12 @@ function duotone(c, c1, c2){
 // モザイク：いったん縮小して、補間なし（imageSmoothingEnabled=false）で拡大し直す。c を直接書き換える
 function mosaic(c, size){
   const W = c.width, H = c.height, sw = Math.max(1, Math.round(W / Math.max(2, size))), sh = Math.max(1, Math.round(H / Math.max(2, size)));
-  const t = mk(sw, sh); t.getContext('2d').drawImage(c, 0, 0, sw, sh);
-  const x = c.getContext('2d'); x.save(); x.imageSmoothingEnabled = false; x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0, W, H); x.restore();
+  const t = mk(sw, sh); ctx2d(t).drawImage(c, 0, 0, sw, sh);
+  const x = ctx2d(c); x.save(); x.imageSmoothingEnabled = false; x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0, W, H); x.restore();
 }
 // ズームブラー：中心 (cx,cy) を基準に少しずつ拡大した絵を、alpha 1/(i+1) で重ねる（＝全枚数の平均になる）。枚数 n は強さに応じて 10〜32 で負荷を抑える。新しい canvas を返す
 function zoomBlur(src, amt, cx, cy){
-  const W = src.width, H = src.height, o = mk(W, H), x = o.getContext('2d'), n = Math.max(10, Math.min(32, Math.round(amt * 70)));
+  const W = src.width, H = src.height, o = mk(W, H), x = ctx2d(o), n = Math.max(10, Math.min(32, Math.round(amt * 70)));
   for(let i = 0; i < n; i++){
     const s = 1 + amt * i / (n - 1);
     x.globalAlpha = 1 / (i + 1); x.setTransform(s, 0, 0, s, cx - cx * s, cy - cy * s); x.drawImage(src, 0, 0);
@@ -203,7 +205,7 @@ function zoomBlur(src, amt, cx, cy){
 }
 // モーションブラー：角度方向に ±dist/2 の範囲でずらして重ねる。新しい canvas を返す
 function motionBlur(src, dist, angle){
-  const W = src.width, H = src.height, o = mk(W, H), x = o.getContext('2d'), n = Math.max(8, Math.min(32, Math.round(dist / 4)));
+  const W = src.width, H = src.height, o = mk(W, H), x = ctx2d(o), n = Math.max(8, Math.min(32, Math.round(dist / 4)));
   const a = angle * PI / 180, dx = Math.cos(a), dy = Math.sin(a);
   x.drawImage(src, 0, 0);
   for(let i = 0; i < n; i++){
@@ -246,7 +248,7 @@ function postFx(c, b, f, cx, cy){
 // ぼかし画像を m=80px ぶん大きく描くのは、ぼかしで端が透けて黒い縁が出るのを防ぐため。
 // 画像が未読み込み（ASSETS に無い）ときは暗い単色を返す（読み込み完了後に compose のキャッシュキーが変わって描き直される）
 function bgImageLayer(W, H, f){
-  const b = DOC.bg, A = ASSETS[b.asset], c = mk(W, H), x = c.getContext('2d');
+  const b = DOC.bg, A = ASSETS[b.asset], c = mk(W, H), x = ctx2d(c);
   x.fillStyle = '#101014'; x.fillRect(0, 0, W, H);
   if(!A) return c;
   const iw = A.img.naturalWidth, ih = A.img.naturalHeight, cover = Math.max(W / iw, H / ih);
@@ -298,12 +300,12 @@ function drawBackground(ctx, W, H, f){
 function compose(ctx, W, H, live, cache){
   const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
   let b = cache.get('__bg');
-  if(!b || b.key !== key){ const c = mk(W, H); drawBackground(c.getContext('2d'), W, H, f); b = {key, c}; cache.set('__bg', b); }
+  if(!b || b.key !== key){ const c = mk(W, H); drawBackground(ctx2d(c), W, H, f); b = {key, c}; cache.set('__bg', b); }
   // 仕上げの「かける対象」が背景だけ（target='bg'）なら、背景の絵にだけ仕上げをかけて（キャッシュ '__bgfin'）、レイヤーはそのまま重ねる
-  const on = finOn(DOC.fin), bgOnly = on && DOC.fin.target === 'bg', fo = on && !bgOnly, T = fo ? mk(W, H) : null, x = fo ? T.getContext('2d') : ctx;
+  const on = finOn(DOC.fin), bgOnly = on && DOC.fin.target === 'bg', fo = on && !bgOnly, T = fo ? mk(W, H) : null, x = T ? ctx2d(T) : ctx;
   let bc = b.c;
   if(bgOnly){ const k2 = key + '|' + JSON.stringify(DOC.fin); let bf = cache.get('__bgfin');
-    if(!bf || bf.key !== k2){ const c = mk(W, H); c.getContext('2d').drawImage(b.c, 0, 0); applyFinish(c, DOC.fin, f); bf = {key:k2, c}; cache.set('__bgfin', bf); }
+    if(!bf || bf.key !== k2){ const c = mk(W, H); ctx2d(c).drawImage(b.c, 0, 0); applyFinish(c, DOC.fin, f); bf = {key:k2, c}; cache.set('__bgfin', bf); }
     bc = bf.c; }
   if(!DOC.bg.hidden){ x.save(); x.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); x.drawImage(bc, 0, 0); x.restore(); }
   for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(x, L, f, live, cache);
@@ -324,7 +326,7 @@ function paintPreview(live){
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(w * dpr), H = Math.round(W * DOC.h / DOC.w);
   if(tv.width !== W || tv.height !== H){ tv.width = W; tv.height = H; }
   tv.style.width = w + 'px'; tv.style.height = (w * DOC.h / DOC.w) + 'px';
-  const ctx = tv.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
+  const ctx = ctx2d(tv); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
   // 背景が透明・半透明のときは、CSS 側で市松模様を下に見せる（書き出しには入らない）
   tv.classList.toggle('clearbg', !!DOC.bg.hidden || (DOC.bg.op ?? 1) < 1);
   compose(ctx, W, H, live, prevCache);
@@ -345,7 +347,7 @@ async function drawThumb(){
 // 分割フレームを選んでいるとき、キャンバスに「マスの画像を動かす」ボタンを出す
 function updateCellFab(){
   const b = $('#cellFab'); if(!b) return; const L = selLayer(), show = !!(L && L.type === 'collage' && !L.hidden && !L.locked), on = !!(edit && edit.kind === 'cells');
-  b.hidden = !show; b.classList.toggle('on', on); const t = on ? 'マスの調整を終える' : 'マスの画像を動かす'; if(b.lastChild.textContent !== t) b.lastChild.textContent = t;
+  b.hidden = !show; b.classList.toggle('on', on); const t = on ? 'マスの調整を終える' : 'マスの画像を動かす'; if(b.lastChild && b.lastChild.textContent !== t) b.lastChild.textContent = t;
 }
 
 /* ---------- 文字レイヤーの種類の登録（layer-kinds.js） ---------- */

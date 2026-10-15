@@ -19,7 +19,7 @@
 let RS;
 var {mctx, darken, fontStr, METALS, parse, lsx, layout, baseY, lineTop, glyphs, drawGlyphs, render} = (() => {
 // mctx：文字幅の計測専用の小さな canvas。描画用 ctx とは別にして、font / letterSpacing を計測のたびに設定し直して使う
-const mctx = mk(4, 4).getContext('2d');
+const mctx = ctx2d(mk(4, 4));
 // 押し出しの奥行き用に色を暗くする（t=0 で元の色、1 で黒）
 const darken =(h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
 // フォールバックの並び：英数字フォント → 日本語フォント → Noto Sans JP → sans-serif。未読込のフォントで寸法が変わるのを避けるため、描画前に ensureFont() で待つこと
@@ -335,7 +335,7 @@ function styleStrokeFx(sv, A, K){
   const {scale, layers, W, H} = sv;
   // フチのぼかし・フチの光彩（フチがあるときだけ）。ぼかしは K を作り直す（CSS blur の値は sblur×scale÷2）。光彩は str 回（最大4）重ねて濃くする。
   // 光彩は A（背面）へ先に重ねるので、フチ・文字がその上に乗る
-  if(layers.length && RS.sblur > 0){ const B = mk(W, H), bx = B.getContext('2d'); bx.filter = `blur(${RS.sblur * scale / 2}px)`; bx.drawImage(K, 0, 0); K = B; }
+  if(layers.length && RS.sblur > 0){ const B = mk(W, H), bx = ctx2d(B); bx.filter = `blur(${RS.sblur * scale / 2}px)`; bx.drawImage(K, 0, 0); K = B; }
   if(layers.length && RS.sglow.on && RS.sglow.a > 0){ const g = effectOnly(K, 0, 0, RS.sglow.blur, rgba(RS.sglow.c, RS.sglow.a), scale); for(let i = 0; i < Math.min(4, Math.max(1, Math.round(RS.sglow.str))); i++) blit(A, g); }
   return K;
 }
@@ -357,7 +357,7 @@ function styleComposite(sv, A, K, F){
 function styleGlowShadow(sv, body){
   const {scale} = sv;
   // B は最終合成用。炎 → 光彩 → 影 → 本体の順に重ねる（本体が最前面）。光彩・影は本体の形から作る（effectOnly）。以降、ワープ・残像後の body とは別に B を育てていく
-  let B = mk(body.width, body.height); const bx = B.getContext('2d');
+  let B = mk(body.width, body.height); const bx = ctx2d(B);
   if(RS.fire.on) bx.drawImage(makeFire(body, scale), 0, 0);
   if(RS.glow.on && RS.glow.blur > 0){
     if(RS.glow.dual){   // 2色ネオン：広い外側の光(c2)の上に、狭い内側の光(c)を str 回重ねる
@@ -378,7 +378,7 @@ function styleGlowShadow(sv, body){
 function styleRotate(B){
   const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
   const R = mk(Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a))));
-  const rx = R.getContext('2d'); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
+  const rx = ctx2d(R); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
   return R;
 }
 function renderStyle(scale){
@@ -400,7 +400,7 @@ function renderStyle(scale){
   // せん断 -t は下の行ほど x が左へずれる（t>0）ので、その分 t×L.h を左オフセットに足して切れないようにする（t<0 は右へはみ出すだけで W 側の |t|×L.h が吸収）。
   // font 等は canvas ごとに設定が必要（描画先を替えるたびに prep を通す）
   const prep = c => {
-    const x = c.getContext('2d');
+    const x = ctx2d(c);
     x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
     x.font = fontStr(); x.letterSpacing = lsx() + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
     return x;

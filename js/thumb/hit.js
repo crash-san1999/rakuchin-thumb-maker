@@ -19,12 +19,12 @@ const MASK_K = 0.25, NEAR = 4;
 // 影・光彩は当たり判定に含めない（見えている本体だけを掴めるように）
 /** @param {Layer} L */
 const layerMask = L => {
-  const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + (L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
+  const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + ('asset' in L && L.asset && ASSETS[L.asset] ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
   let m = maskCache.get(L.id);
   if(m && m.key === key) return m;
-  const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = c.getContext('2d', {willReadFrequently:true});
+  const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = ctx2d(c, {willReadFrequently:true});
   const keep = new Map(dims);   // 小さく描くと選択枠の大きさ（dims）も書き換わるので、終わったら戻す
-  try{ drawOne(x, /** @type {Layer} */ ({...L, op:1, blend:'source-over', shadow:{...(L.shadow || {}), on:false}, glow:{...(L.glow || {}), on:false}}), MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
+  try{ drawOne(x, /** @type {Layer} */ ({...L, op:1, blend:'source-over', shadow:{...('shadow' in L && L.shadow || {}), on:false}, glow:{...('glow' in L && L.glow || {}), on:false}}), MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }
   finally{ dims.clear(); keep.forEach((v, k) => dims.set(k, v)); }
   m = {key, W, H, a: x.getImageData(0, 0, W, H).data};
   maskCache.set(L.id, m);
@@ -73,7 +73,7 @@ const hitLayer = (x, y) => {
 // ホイールの拡大縮小は、選択中のレイヤーの絵の上（または近く）なら、手前に別のレイヤーがあっても選択中のほうを優先
 const hitForWheel = (x, y) => {
   const {hs, r} = hitRanked(x, y), cur = hs.find(l => l.id === DOC.sel);
-  return cur && r.get(cur.id) > 0 ? cur : hitLayer(x, y);
+  return cur && (r.get(cur.id) || 0) > 0 ? cur : hitLayer(x, y);
 };
 // メニュー（PC の右クリック・スマホの長押し）を出すレイヤー：ロック中も含め、枠の中のいちばん手前。無ければ null
 const hitMenuLayer = (x, y) => hitLayers(x, y, true)[0] || null;

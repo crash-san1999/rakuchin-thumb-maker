@@ -8,6 +8,7 @@ interface Element {
   closest<E extends HTMLElement = HTMLElement>(selectors: string): E | null;
 }
 
+
 // デバウンス用のタイマー番号を関数に持たせる書き方（saveDoc.t・toast.t・docChanged.t など）。キー名を限定して許可している
 interface Function { t?: any; r?: any; f?: any; lt?: any; }
 // ブラウザ API のうち TypeScript の標準型に入っていないもの

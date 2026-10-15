@@ -42,7 +42,7 @@ function rgbOf(c){
   return /^[0-9a-f]{6}/i.test(h) ? [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)) : [0, 0, 0];
 }
 const fxLum = (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-const fxImgData = c => c.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, c.width, c.height);
+const fxImgData = c => ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, c.width, c.height);
 
 // グラデーションマップ：明るさで c1→c2→c3 の色に置き換え、a の割合で元の色と混ぜる（アルファはそのまま）
 function gradMap(c, g){
@@ -51,7 +51,7 @@ function gradMap(c, g){
     const l = fxLum(d, i) / 255, P = l < 0.5 ? A : B, Q = l < 0.5 ? B : C, t = l < 0.5 ? l * 2 : l * 2 - 1;
     for(let k = 0; k < 3; k++) d[i + k] = d[i + k] * (1 - a) + (P[k] + (Q[k] - P[k]) * t) * a;
   }
-  c.getContext('2d').putImageData(im, 0, 0);
+  ctx2d(c).putImageData(im, 0, 0);
 }
 // 色の置き換え：色相が from に近い（tol の範囲。端はなめらかに弱める）画素の色相を、to の色相へ回す。鮮やかさ・明るさは元のまま
 function hueOf(r, g, b){ const mx = Math.max(r, g, b), mn = Math.min(r, g, b), dd = mx - mn; if(!dd) return 0;
@@ -71,7 +71,7 @@ function colorReplace(c, r){
                0.213 - cs * 0.213 - sn * 0.787, 0.715 - cs * 0.715 + sn * 0.715, 0.072 + cs * 0.928 + sn * 0.072];
     d[i] = m[0] * R + m[1] * G + m[2] * B; d[i + 1] = m[3] * R + m[4] * G + m[5] * B; d[i + 2] = m[6] * R + m[7] * G + m[8] * B;
   }
-  c.getContext('2d').putImageData(im, 0, 0);
+  ctx2d(c).putImageData(im, 0, 0);
 }
 // シャープ（アンシャープマスク）：まわり 3×3 の平均との差を amt 倍して足す（平均は自前で計算する。1px 未満の canvas の blur は効かないことがあるため）
 function sharpen(c, amt){
@@ -81,19 +81,19 @@ function sharpen(c, amt){
     for(let j = 0; j < 3; j++){ const q = i + j, avg = (s[q + y0 + x0] + s[q + y0] + s[q + y0 + x1] + s[q + x0] + s[q] + s[q + x1] + s[q + y1 + x0] + s[q + y1] + s[q + y1 + x1]) / 9;
       d[q] = s[q] + (s[q] - avg) * k; }
   }
-  c.getContext('2d').putImageData(im, 0, 0);
+  ctx2d(c).putImageData(im, 0, 0);
 }
 // ノイズ：白黒のざらつきを足す（固定シードなので、描き直しても同じ模様）
 function addNoise(c, amt){
   const im = fxImgData(c), d = im.data, R = rng(11), a = clamp(amt, 0, 1) * 90;
   for(let i = 0; i < d.length; i += 4){ const v = (R() - 0.5) * 2 * a; d[i] += v; d[i + 1] += v; d[i + 2] += v; }
-  c.getContext('2d').putImageData(im, 0, 0);
+  ctx2d(c).putImageData(im, 0, 0);
 }
 // 網点：縮小して読んだ1マスの明るさで点の大きさを決め、紙（白と元の絵を mix で混ぜたもの）に c の点を打つ。透明な部分は透明のまま
 function halftoneImg(c, h, f){
   const W = c.width, H = c.height, s = Math.max(3, clamp(+h.size || 10, 2, 80) * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
-  const sm = mk(gw, gh), sx = sm.getContext('2d', {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
-  const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = t.getContext('2d');
+  const sm = mk(gw, gh), sx = ctx2d(sm, {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
+  const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = ctx2d(t);
   // 紙：白と元の絵を mix の割合で混ぜたもの（mix が大きいほど元の色が残る）。その上に点を打つ
   const mx = clamp(+h.mix || 0, 0, 1); tx.fillStyle = '#ffffff'; tx.fillRect(0, 0, W, H); if(mx > 0){ tx.globalAlpha = mx; tx.drawImage(c, 0, 0); tx.globalAlpha = 1; } tx.fillStyle = h.c;
   tx.beginPath();
@@ -104,11 +104,11 @@ function halftoneImg(c, h, f){
   }
   tx.fill();
   tx.globalCompositeOperation = 'destination-in'; tx.drawImage(c, 0, 0);
-  const x = c.getContext('2d'); x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0);
+  const x = ctx2d(c); x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0);
 }
 // 線画：明るさの勾配（ソーベル）が強い所を線にする。少しぼかしてから見るのは、細かいざらつきを線にしないため
 function edgeLines(c, e, f){
-  const W = c.width, H = c.height, b = mk(W, H), bx = b.getContext('2d', {willReadFrequently:true});
+  const W = c.width, H = c.height, b = mk(W, H), bx = ctx2d(b, {willReadFrequently:true});
   bx.filter = `blur(${Math.max(0.5, 0.8 * f)}px)`; bx.drawImage(c, 0, 0); bx.filter = 'none';
   const s = bx.getImageData(0, 0, W, H).data, L = new Float32Array(W * H);
   for(let i = 0, p = 0; p < L.length; i += 4, p++) L[p] = fxLum(s, i);
@@ -121,14 +121,14 @@ function edgeLines(c, e, f){
     const R = keep ? d[i] : 255, G = keep ? d[i + 1] : 255, B = keep ? d[i + 2] : 255;
     d[i] = R + (C[0] - R) * a; d[i + 1] = G + (C[1] - G) * a; d[i + 2] = B + (C[2] - B) * a;
   }
-  c.getContext('2d').putImageData(im, 0, 0);
+  ctx2d(c).putImageData(im, 0, 0);
 }
 // 油絵風（Kuwahara フィルター）：各画素のまわり4つの四角のうち、色のばらつきが一番小さい四角の平均色にする（筆で塗ったような平らな面になる）。
 // 四角の合計は積分画像（累積和）で O(1) に求める。大きい画像は 2.1MP 以下に縮めて処理してから戻す（メモリと時間を抑えるため）
 function paintify(c, p, f){
   const W0 = c.width, H0 = c.height, sc = Math.min(1, Math.sqrt(2.1e6 / (W0 * H0)));
   const W = Math.max(1, Math.round(W0 * sc)), H = Math.max(1, Math.round(H0 * sc)), r = clamp(Math.round(clamp(+p.r || 4, 1, 16) * f * sc), 1, 24);
-  const t = mk(W, H), tx = t.getContext('2d', {willReadFrequently:true}); tx.drawImage(c, 0, 0, W, H);
+  const t = mk(W, H), tx = ctx2d(t, {willReadFrequently:true}); tx.drawImage(c, 0, 0, W, H);
   const im = tx.getImageData(0, 0, W, H), d = im.data, W1 = W + 1, S = [0, 1, 2].map(() => new Float64Array(W1 * (H + 1))), Q = new Float64Array(W1 * (H + 1));
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     const i = (y * W + x) * 4, a = (y + 1) * W1 + x + 1, b = y * W1 + x + 1, cc = (y + 1) * W1 + x, dd = y * W1 + x;
@@ -149,12 +149,12 @@ function paintify(c, p, f){
     const i = (y * W + x) * 4; out[i] = m0; out[i + 1] = m1; out[i + 2] = m2;
   }
   im.data.set(out); tx.putImageData(im, 0, 0);
-  const x = c.getContext('2d'), mask = mk(W0, H0), mx = mask.getContext('2d'); mx.drawImage(c, 0, 0);
+  const x = ctx2d(c), mask = mk(W0, H0), mx = ctx2d(mask); mx.drawImage(c, 0, 0);
   x.save(); x.clearRect(0, 0, W0, H0); x.drawImage(t, 0, 0, W0, H0); x.globalCompositeOperation = 'destination-in'; x.drawImage(mask, 0, 0); x.restore();
 }
 // ゆがみ：出来上がりの各画素が、元の絵のどこから来るかを計算して拾う（逆写像・双線形補間）。中心 (cx,cy) は渦巻き・魚眼・すぼめるの中心
 function warpImg(c, w, cx, cy){
-  const W = c.width, H = c.height, src = fxImgData(c).data, x = c.getContext('2d'), im = x.createImageData(W, H), d = im.data;
+  const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const amt = clamp(+w.amt || 0, 0, 1), R = Math.min(W, H) / 2, n = clamp(+w.n || 6, 1, 40), A = amt * Math.min(W, H) * 0.05, lam = Math.min(W, H) / n * 2;
   const sample = (sx, sy, o) => {
     sx = clamp(sx, 0, W - 1); sy = clamp(sy, 0, H - 1);   // 外側は端の色で埋める（透明の隙間が出ないように）
@@ -179,7 +179,7 @@ function warpImg(c, w, cx, cy){
 }
 // 色収差：赤を +d、青を −d ずらす（緑はそのまま）。アルファは3色のずらした位置の最大値
 function rgbShift(c, s, f){
-  const W = c.width, H = c.height, src = fxImgData(c).data, x = c.getContext('2d'), im = x.createImageData(W, H), d = im.data;
+  const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const a = (+s.angle || 0) * PI / 180, dist = clamp(+s.d || 0, 0, 80) * f, ox = Math.round(Math.cos(a) * dist), oy = Math.round(Math.sin(a) * dist);
   const at = (X, Y) => (X < 0 || Y < 0 || X >= W || Y >= H) ? -1 : (Y * W + X) * 4;
   for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
@@ -211,15 +211,15 @@ function extraFxShape(c, b, f, cx, cy){
 }
 // 走査線：size px ごとに、上半分を暗くする縞を、絵のある部分にだけ重ねる（透明な部分は透明のまま）
 function scanLines(c, s, f){
-  const per = Math.max(2, Math.round(clamp(+s.size || 4, 1, 40) * f * 2)), t = mk(1, per), tx = t.getContext('2d');
+  const per = Math.max(2, Math.round(clamp(+s.size || 4, 1, 40) * f * 2)), t = mk(1, per), tx = ctx2d(t);
   tx.fillStyle = '#000'; tx.fillRect(0, 0, 1, Math.max(1, Math.round(per / 2)));
-  const x = c.getContext('2d'); x.save(); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = clamp(+s.a || 0, 0, 1) * 0.7;
-  x.fillStyle = x.createPattern(t, 'repeat'); x.fillRect(0, 0, c.width, c.height); x.restore();
+  const x = ctx2d(c); x.save(); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = clamp(+s.a || 0, 0, 1) * 0.7;
+  const pt = x.createPattern(t, 'repeat'); if(pt){ x.fillStyle = pt; x.fillRect(0, 0, c.width, c.height); } x.restore();
 }
 // ブラウン管：①画面のふくらみ（中心から外ほど引き伸ばす樽型のゆがみ。はみ出した四隅は黒くなり、丸い角の画面になる）
 // ②RGB の細かい縦じま（3px ごとに赤・緑・青だけを残す光り方。mask で濃さ）。透明な部分は透明のまま
 function crtImg(c, cr, f){
-  const W = c.width, H = c.height, src = fxImgData(c).data, x = c.getContext('2d'), im = x.createImageData(W, H), d = im.data;
+  const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const k = clamp(+cr.curve || 0, 0, 1) * 0.5, m = clamp(+cr.mask || 0, 0, 1) * 0.55, step = Math.max(3, Math.round(3 * f)) / 3;
   for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
     const o = (y * W + X) * 4, nx = X / W * 2 - 1, ny = y / H * 2 - 1, g = (1 + k * (nx * nx + ny * ny)) / (1 + k);
