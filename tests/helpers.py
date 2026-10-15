@@ -1,5 +1,5 @@
 """テストの共通処理：アプリを開く・待つ・画像の場所など"""
-import asyncio, glob, os
+import asyncio, glob, os, time
 from pathlib import Path
 from fixtures.make_fixtures import ensure
 
@@ -48,8 +48,11 @@ async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500, viewport
             return await r.fulfill(path=gh_font, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'font/ttf'})
         await r.abort()
     await pg.route('**/*', route)
-    await pg.goto(app_url(root), wait_until='commit')
-    await app_ready(pg); await pg.wait_for_timeout(wait)
+    t0 = time.monotonic(); await pg.goto(app_url(root), wait_until='commit')
+    # 起動が終わってから、開いたときから数えて wait ミリ秒になるまで待つ（起動が速ければ、これまでと同じ待ち時間）。
+    # 起動が遅かったときも、起動のあとのフォント・画像の読み込みのために最低 1.5 秒は待つ
+    await app_ready(pg)
+    await pg.wait_for_timeout(max(1500, wait - (time.monotonic() - t0) * 1000))
     await pg.evaluate("document.querySelector('#help').classList.remove('show')")
     pg.browser_ = b
     return pg
