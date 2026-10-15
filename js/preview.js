@@ -58,7 +58,7 @@ $('#dlBtn').onclick = async () => {
 // クリップボードには PNG だけ書ける（ClipboardItem）。権限なし・非対応ブラウザでは例外になるので toast で知らせる
 $('#copyBtn').onclick = async () => {
   try{ const th = DOC.mode === 'thumb', b = th ? await thumbBlob('png') : await exportBlob(); await navigator.clipboard.write([new ClipboardItem({'image/png': b})]); toast(th ? 'サムネをクリップボードにコピーしました' : 'クリップボードにコピーしました（透過のまま貼れるソフトに貼り付けてください）'); }
-  catch(e){ toast('コピーできませんでした: ' + e.message, true); }
+  catch(e){ toast('コピーできませんでした: ' + errMsg(e), true); }
 };
 // Ctrl/⌘+S はブラウザの「ページを保存」を止めて、保存ボタンと同じ処理にする
 document.addEventListener('keydown', e => { if((e.ctrlKey || e.metaKey) && e.key === 's'){ e.preventDefault(); $('#dlBtn').click(); } });

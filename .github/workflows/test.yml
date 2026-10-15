@@ -5,16 +5,17 @@ on:
   pull_request:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # ubuntu-latest は 2026-10-19 から Ubuntu 26 に切り替わる。Playwright の依存パッケージ・日本語フォントの入れ方が変わりうるので、版を固定しておき、上げるときは確かめてから
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
       - name: TypeScript を入れる（型チェック用。版は tests/test_typecheck.py の TS_VERSION と合わせる）
         run: npm install -g typescript@6.0.3
       - name: Playwright を入れる
