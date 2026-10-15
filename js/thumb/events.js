@@ -120,7 +120,7 @@ async function openProjectFile(f){
     // セキュリティ：画像は「data:image/…」だけ受け付ける（外部URLだと、開いただけで第三者のサーバーに接続してしまう）。id も安全な文字だけ
     for(const [id, src] of Object.entries(j.assets || {})){ if(okId(id) && typeof src === 'string' && /^data:image\//i.test(src)) await addAsset(src, id, id); }
     loadDocObj(j.doc); toast('プロジェクトを開きました');
-  }catch(err){ toast('開けませんでした: ' + err.message, true); }
+  }catch(err){ toast('開けませんでした: ' + errMsg(err), true); }
 }
 return {openProjectFile};
 })();

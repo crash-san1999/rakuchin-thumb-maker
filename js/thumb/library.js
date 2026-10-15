@@ -60,7 +60,7 @@ function libFail(msg){ toast(msg, true); libFlash(msg); }
 async function libSave(item){
   const why = await libCheck(item.bytes, item.kind); if(why){ libFail(why); return false; }
   try{ await libTx('readwrite', st => st.put(item)); }
-  catch(e){ libFail(e && e.name === 'QuotaExceededError' ? 'ブラウザの保存容量がいっぱいで保存できませんでした' : '保存できませんでした'); return false; }
+  catch(e){ libFail(errName(e) === 'QuotaExceededError' ? 'ブラウザの保存容量がいっぱいで保存できませんでした' : '保存できませんでした'); return false; }
   LIB.push(item); renderLib();
   // 一度でも保存できたら永続化を依頼する。許可されなくても動作には影響しない
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch{}   // ブラウザに勝手に消されにくくする（許可されれば）

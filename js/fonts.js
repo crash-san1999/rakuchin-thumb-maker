@@ -451,7 +451,7 @@ $('#loadLocal').onclick = async () => {
       const data = await window.queryLocalFonts();
       names = [...new Set(data.map(d => d.family))].sort((a, b) => a.localeCompare(b, 'ja'));
       if(!names.length) why = '許可されなかったため';
-    }catch(e){ why = e && e.name === 'NotAllowedError' ? '許可されなかったため' : 'この開き方では一覧を取得できないため'; }
+    }catch(e){ why = errName(e) === 'NotAllowedError' ? '許可されなかったため' : 'この開き方では一覧を取得できないため'; }
   }else why = 'このブラウザでは一覧を取得できないため';
   let n;
   if(names.length){

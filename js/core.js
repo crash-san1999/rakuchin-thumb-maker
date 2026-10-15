@@ -27,6 +27,11 @@ const $$as = (s, type, root = document) => /** @type {any} */ (root.querySelecto
 const tgt = e => /** @type {HTMLElement} */ (e.target);
 /** @param {Event} e @returns {HTMLInputElement} */
 const inputOf = e => /** @type {HTMLInputElement} */ (e.target);
+// catch で受けた値の名前・説明。投げられるのは Error とは限らない（文字列・数値・DOMException など）ので、直接 .name / .message を読まない
+/** @param {unknown} e @returns {string} */
+const errName = e => (e && typeof e === 'object' && 'name' in e) ? String(e.name) : '';
+/** @param {unknown} e @returns {string} */
+const errMsg = e => (e && typeof e === 'object' && 'message' in e) ? String(e.message) : String(e);
 const clone = o => JSON.parse(JSON.stringify(o));
 // 辞書 o に、キー k が「自分の項目として」あるか。保存データの値で表を引く前の確認に使う
 // （o[k] だと 'toString'・'constructor' などの名前で、どのオブジェクトにもある関数を拾ってしまい、細工・破損したデータで描画が止まる）

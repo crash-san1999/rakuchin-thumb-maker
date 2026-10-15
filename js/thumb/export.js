@@ -50,5 +50,5 @@ async function shareFile(blob, name){
   const file = new File([blob], name, {type: blob.type});
   if(!navigator.canShare({files:[file]})) return false;
   try{ await navigator.share({files:[file], title:'サムネイル'}); toast('共有メニューから「画像を保存」で写真に保存できます'); return true; }
-  catch(e){ if(e && e.name === 'AbortError') return true; return false; }
+  catch(e){ if(errName(e) === 'AbortError') return true; return false; }
 }
