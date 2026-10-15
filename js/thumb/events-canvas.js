@@ -71,7 +71,7 @@
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
-    if(!drag && editLayer()){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
+    if(!drag && editLayer() && edit){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
     if(!drag && tailHandleAt(x, y)){ tv.style.cursor = 'grab'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && ASSETS[DOC.bg.asset] ? 'grab' : 'default'); return; }
     const L = drag.L, px = DOC.w / tvCss;

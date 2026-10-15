@@ -26,7 +26,7 @@ const SCHED_RAINBOW = ['#f490bd', '#f5b93a', '#e8453c', '#3d9be0', '#2fb457', '#
 const SCHED_WK3 = {wd:'#f5c33b', sat:'#3d7be0', sun:'#f06b8f'};
 const isSched = /** @param {Layer|null|undefined} L @returns {L is SchedLayer} */ L => !!L && L.type === 'sched';
 // プリセット名 → 文字スタイル（見つからなければ「ポップ」）
-function schedPreset(name){ const p = PRESETS.find(q => q[0] === name) || PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
+/** @param {string} name */ function schedPreset(name){ const p = PRESETS.find(q => q[0] === name) || PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
 const schedDStyle = L => L.dstyle || schedPreset(L.dpre);
 const schedTStyle = L => L.tstyle || schedPreset(L.tpre);
 // 7日ぶんの Date（L.start を含む週）と、その日の見出し（例：10/12(月)）
@@ -53,7 +53,7 @@ function schedLayout(L, W, H){
   });
 }
 // 帯の形を描くパス。brush は乱数（L.seed と行番号）で上下の辺と両端をがたつかせた筆の跡、tape は両端を斜めに切った帯
-function schedBandPath(x, kind, bx, by, bw, bh, seed){
+/** @param {CanvasRenderingContext2D} x @param {string} kind @param {number} bx @param {number} by @param {number} bw @param {number} bh @param {number} seed */ function schedBandPath(x, kind, bx, by, bw, bh, seed){
   x.beginPath();
   if(kind === 'round'){ x.roundRect(bx, by, bw, bh, bh / 2); return; }
   if(kind === 'flat'){ x.rect(bx, by, bw, bh); return; }
@@ -84,7 +84,7 @@ function schedImage(x, A, ix, iw, by, bh){
   x.lineWidth = Math.max(1, bh * 0.045); x.strokeStyle = '#ffffff'; x.beginPath(); x.roundRect(ix, iy, iw, ih, r); x.stroke();
 }
 // 予定表全体を W×H の1枚のキャンバスに描く。描く順序：行ごとに 帯 → 日付 → 時刻・タイトル（おやすみなら おやすみの文字）→ 画像
-function schedCanvas(L, W, H){
+/** @param {SchedLayer} L @param {number} W @param {number} H */ function schedCanvas(L, W, H){
   const c = mk(W, H), x = ctx2d(c), days = schedDays(L), lay = schedLayout(L, W, H), ds = schedDStyle(L), ts = schedTStyle(L);
   lay.forEach((g, i) => {
     const r = L.rows[i] || SCHED_ROW(), d = days[i];
@@ -121,7 +121,7 @@ async function ensureSchedFonts(L){
 }
 // ドキュメント座標 (x, y) が予定表 L の何行目か（回転・拡大縮小を考慮）。外なら -1
 /** @param {SchedLayer} L */
-function schedRowAt(L, x, y){
+/** @param {number} x @param {number} y */ function schedRowAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
   return lx < 0 || ly < 0 || lx > w || ly > h ? -1 : clamp(Math.floor(ly / (h / 7)), 0, 6);

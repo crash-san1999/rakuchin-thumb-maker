@@ -62,7 +62,7 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
 ];
 // 加工エフェクト（imgfx.js）の行。背景（P='bg.'）とマス・グループ・画像レイヤー（CFX_ROWS）で共通。
 // withOld：ポスタライズ・2値化・ミニチュアの行も作るか（背景には前からあるので false で呼ぶ）
-function EXTRA_ROWS(P, S, pg, withOld){
+/** @param {string} P @param {string} S @param {string} pg @param {boolean} withOld */ function EXTRA_ROWS(P, S, pg, withOld){
   const on = k => S + '&' + P + k + '=true';
   return [
     {pg, sub:'加工', show:S},

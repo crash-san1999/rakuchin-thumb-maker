@@ -55,6 +55,12 @@
  *   layers: Layer[], sel: string|null, textSel: string|null, msel: string[]}} Doc */
 
 /** @typedef {{x: number, y: number, w: number, h: number}} Rect */
+/** フォント一覧の 1 件（fonts.js の fonts）。src は配布元：google・fontsource・ea・url・gh（GitHub）・npm・local（PC 内）・self（同梱）。
+ * id・slug・file・css・files・mb は配布元ごとに使うもの、more は「もっと見る」側の欧文、usage は用途の説明
+ * @typedef {{family: string, cat: string, src: string, usage?: string, weights?: number[], id?: string, slug?: string, file?: string, css?: string,
+ *   files?: Record<string, string>, mb?: number, more?: boolean}} FontEntry */
+/** 素材置き場の 1 件（library.js の LIB。形は library.js の先頭の説明のとおり）。画像は blob・thumb・size・w・h、文字スタイルは s を持つ
+ * @typedef {{id: string, kind: string, name: string, bytes: number, created: number, blob?: any, thumb?: string, size?: number, w?: number, h?: number, s?: any}} LibItem */
 /** 背景透過のブラシの跡 1 本（m:'e' 消す／'r' 戻す、r：半径、p：点の列。座標・半径は元の画像に対する 0〜1 の割合） @typedef {{id: string, m: string, r: number, p: number[][]}} Stroke */
 /** 切り抜きフレームの形の計算結果（frames.js の frameGeom。画像が読み込めていないときは null を返すので、使う前に確かめる） @typedef {NonNullable<ReturnType<typeof frameGeom>>} FrameGeom */
 

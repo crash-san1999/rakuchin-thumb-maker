@@ -13,6 +13,7 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {boolean} */
 let lpSliding;
 var {layerSubText, renderLayers, refreshThumbs, movePeer, startRename, menuItem, showMenu, isSelected, openLayerMenu, hideMenu, guardMenuUntilRelease, selectLayer, toggleMulti, removeLayers, layerAction} = (() => {
 // lpSliding：パネル内の不透明度スライダーをつかんでいる間 true。再描画でスライダー自体が作り直されて、ドラッグが途切れるのを防ぐ（renderLayers が先送りする）
@@ -82,13 +83,13 @@ const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スク�
 // 同じ階層のレイヤーの中で重なり順を入れ替える。ref の手前（after=true＝配列で後ろ）または奥に置く。
 // L を先に取り除いてから ref の位置を引く（取り除くと添字がずれるため、順序を入れ替えないこと）
 /** @param {Layer} L */
-function placeLayer(L, ref, after){
+/** @param {Layer} ref @param {boolean} after */ function placeLayer(L, ref, after){
   if(!ref || ref === L) return;
   DOC.layers.splice(DOC.layers.indexOf(L), 1);
   DOC.layers.splice(DOC.layers.indexOf(ref) + (after ? 1 : 0), 0, L);
 }
 // パネルの上から to 番目（同じ階層のなかで）へ移す。disp は表示順（手前が先）の peers。
-function movePeer(id, to){
+/** @param {string} id @param {number} to */ function movePeer(id, to){
   const L = layerById(id); if(!L) return;
   const peers = peersOf(L), disp = peers.slice().reverse(), ref = disp[clamp(to, 0, disp.length - 1)];
   if(!ref || ref === L) return;
@@ -98,7 +99,7 @@ function movePeer(id, to){
 }
 // 名前の変更。label が空なら自動の名前（文字なら本文）に戻る。入力が自動名と同じときも空にして、あとで本文を変えたとき名前が追従するようにする。
 // Enter／blur で確定、Esc で取り消し。キー・ポインタ操作はキャンバスのショートカットに渡さない（stopPropagation）
-function startRename(id){
+/** @param {string} [id] */ function startRename(id){
   const row = $(`#layerList [data-lid="${id}"]`), L = layerById(id); if(!row || !L) return;
   const nm = $('.nm', row), inp = document.createElement('input');
   inp.type = 'text'; inp.value = layerName(L); nm.replaceWith(inp); inp.focus(); inp.select(); setTimeout(() => { inp.focus(); inp.select(); }, 30);
@@ -139,7 +140,7 @@ function layerMenuHtml(L){
 // 開いたメニューを画面内に置く。(cx, cy) から右下に出し、下に入りきらないときは upY（右クリック位置・メニューボタンの上端）より上に出す。
 // それでも入らなければ画面内に収め、高すぎる分は CSS の max-height でスクロール。
 // 大きさは offsetWidth/offsetHeight で測る（getBoundingClientRect は表示アニメーションの縮小中の大きさを返し、下が見切れていた）
-function placeMenu(m, cx, cy, upY){
+/** @param {HTMLElement} m @param {number} cx @param {number} cy @param {number} upY */ function placeMenu(m, cx, cy, upY){
   const w = m.offsetWidth, h = m.offsetHeight, M = 8;
   const y = cy + h <= innerHeight - M ? cy : upY - h >= M ? upY - h : innerHeight - M - h;
   m.style.left = Math.max(M, Math.min(cx, innerWidth - w - M)) + 'px'; m.style.top = Math.max(M, y) + 'px';
@@ -207,7 +208,7 @@ function toggleMulti(id){
 // 描画キャッシュ・大きさの記録も、ここで消す（残ると選択枠や当たり判定に古い値が出る）
 function removeLayers(ids){
   const gone = new Set();
-  ids.forEach(id => { const L = layerById(id); if(!L) return; gone.add(id); if(isGroup(L)) groupKids(L).forEach(k => gone.add(k.id)); });
+  ids.forEach(/** @param {string} id */ id => { const L = layerById(id); if(!L) return; gone.add(id); if(isGroup(L)) groupKids(L).forEach(k => gone.add(k.id)); });
   DOC.layers = DOC.layers.filter(l => !gone.has(l.id));
   gone.forEach(id => { prevCache.delete(id); dims.delete(id); });
   // 中身がなくなったグループも消す（グループだけ残ると、描画・選択ができない空の行になる）

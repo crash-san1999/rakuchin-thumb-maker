@@ -97,7 +97,7 @@ function saveProject(){
 }
 $('#saveProj').onclick = () => { saveProject(); toast('プロジェクトを保存しました'); };
 // 新規作成：まっさらな状態にする（キャンバスのサイズ・書き出し設定は残すこともできる）。取り消しで戻せる
-function newProject(keepSize){
+/** @param {boolean} keepSize */ function newProject(keepSize){
   const keep = keepSize ? {w:DOC.w, h:DOC.h, exportW:DOC.exportW, fmt:DOC.fmt, limit2mb:DOC.limit2mb} : {};
   loadDocObj(Object.assign(normalizeDoc(null), keep, {mode:'thumb'}));
   toast('新規作成しました。元に戻すには Ctrl+Z（上の ↶）');
@@ -113,7 +113,7 @@ $('#projfile').onchange = e => { const f = (inputOf(e).files || [])[0]; inputOf(
 // ファイルを読んで、素材置き場のバックアップなら libImport へ、プロジェクトなら画像を先に登録してから DOC を差し替える
 // （DOC を先に差し替えると、画像が未登録のまま描画されて「読み込めません」になるため）。
 // 画像の名前は元のファイル名を保存していないので、id を名前に使っている
-async function openProjectFile(f){
+/** @param {File} f */ async function openProjectFile(f){
   try{
     const j = JSON.parse(await f.text()); if(j.type === 'library'){ libImport(f); return; }   // 素材置き場のバックアップ
     if(!j.doc) throw new Error('プロジェクトファイルではありません');

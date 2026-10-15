@@ -55,8 +55,8 @@ const finOn = F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0)
 function applyFinPreset(name){ const t = DOC.fin.target; DOC.fin = Object.assign(FIN_BASE(), (FIN_PRESETS[name] || FIN_PRESETS.reset)[1], {target: t === 'bg' ? 'bg' : 'all'}); syncDoc(); docChanged(false); }
 
 // 粒子の柄は 256px の1枚をキャッシュして繰り返す。乱数は固定シード(7)なので、書き出しのたびにノイズが変わらない（プレビューと出力が一致）
-let grainTile = null;
-function grainPattern(x){
+/** @type {HTMLCanvasElement | null} */ let grainTile = null;
+/** @param {CanvasRenderingContext2D} x */ function grainPattern(x){
   if(!grainTile){ grainTile = mk(256, 256); const g = ctx2d(grainTile), im = g.createImageData(256, 256), d = im.data, R = rng(7);
     for(let i = 0; i < d.length; i += 4){ const v = 128 + (R() - 0.5) * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } g.putImageData(im, 0, 0); }
   return x.createPattern(grainTile, 'repeat');
@@ -93,7 +93,7 @@ function applyFinish(c, F, f){
   }
   if(F.rgb > 0){
     // RGBずれ：R・G・B の各チャンネルだけを残した3枚を左右にずらして加算合成する。黒で塗り直すのは加算の土台のため（透明は最後に mask で戻る）
-    const d = F.rgb * f, ch = col => { const t = copy(), tx = ctx2d(t); tx.globalCompositeOperation = 'multiply'; tx.fillStyle = col; tx.fillRect(0, 0, W, H); return t; };
+    const d = F.rgb * f, ch = /** @param {string} col */ col => { const t = copy(), tx = ctx2d(t); tx.globalCompositeOperation = 'multiply'; tx.fillStyle = col; tx.fillRect(0, 0, W, H); return t; };
     const r = ch('#ff0000'), g = ch('#00ff00'), b = ch('#0000ff');
     x.clearRect(0, 0, W, H); x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.globalCompositeOperation = 'lighter';
     x.drawImage(r, -d, 0); x.drawImage(g, 0, 0); x.drawImage(b, d, 0); x.globalCompositeOperation = 'source-over';
@@ -106,7 +106,7 @@ function applyFinish(c, F, f){
   if(F.grain > 0){
     x.globalCompositeOperation = 'overlay'; x.globalAlpha = clamp(F.grain, 0, 1) * 0.6;
     // 柄タイルは固定サイズなので、キャンバスを拡大してから塗って倍率 f に合わせる（塗る範囲は逆数で広げる）
-    const p = grainPattern(x), s = Math.max(0.5, f * 1.2); x.save(); x.scale(s, s); x.fillStyle = p; x.fillRect(0, 0, W / s, H / s); x.restore();
+    const p = grainPattern(x), s = Math.max(0.5, f * 1.2); if(p){ x.save(); x.scale(s, s); x.fillStyle = p; x.fillRect(0, 0, W / s, H / s); x.restore(); }
     x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
   }
   if(F.paper > 0) paperOver(x, W, H, clamp(F.paper, 0, 1), f);
@@ -119,7 +119,7 @@ function applyFinish(c, F, f){
   x.restore();
 }
 // 紙の質感：生成りの色を乗算でうっすら重ね、むらの柄（低い周波数のノイズ＋細かい繊維）をオーバーレイで重ねる。柄は 512px を1枚作って繰り返す（固定シード）
-let paperTile = null;
+/** @type {HTMLCanvasElement | null} */ let paperTile = null;
 function paperOver(x, W, H, a, f){
   if(!paperTile){ paperTile = mk(512, 512); const g = ctx2d(paperTile), R = rng(29);
     g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
@@ -133,7 +133,7 @@ function paperOver(x, W, H, a, f){
   x.globalCompositeOperation = 'overlay'; x.globalAlpha = a * 0.7; const s = Math.max(0.5, f * 1.5); x.scale(s, s); x.fillStyle = x.createPattern(paperTile, 'repeat'); x.fillRect(0, 0, W / s, H / s); x.restore();
 }
 // 傷・ほこり：細い縦の傷と、小さな点（白と黒）を散らす（固定シードなので、書き出すたびに位置は変わらない）。大きさは f で画面に合わせる
-function dustOver(x, W, H, a, f){
+/** @param {CanvasRenderingContext2D} x @param {number} W @param {number} H @param {number} a @param {number} f */ function dustOver(x, W, H, a, f){
   const R = rng(31), k = Math.max(0.5, f);
   x.save(); x.lineCap = 'round';
   for(let i = 0; i < Math.round(14 * a) + 2; i++){ const px = R() * W, y0 = R() * H * 0.6, len = H * (0.2 + R() * 0.8); x.strokeStyle = R() < 0.6 ? `rgba(255,255,255,${0.15 + a * 0.35})` : `rgba(0,0,0,${0.1 + a * 0.3})`;
@@ -161,7 +161,7 @@ function halftoneOver(c, x, F, f){
 /* ---------- 背景の追加エフェクト ---------- */
 // 以下は背景だけの画像 c をその場で書き換える（背景を描いたあと、他のレイヤーを重ねる前に呼ばれる想定）
 // n 階調に減らす（最低2）
-function posterize(c, n){
+/** @param {HTMLCanvasElement} c @param {number} n */ function posterize(c, n){
   const x = ctx2d(c, {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data, k = Math.max(2, Math.round(n)) - 1;
   for(let i = 0; i < d.length; i += 4){ d[i] = Math.round(d[i] / 255 * k) / k * 255; d[i + 1] = Math.round(d[i + 1] / 255 * k) / k * 255; d[i + 2] = Math.round(d[i + 2] / 255 * k) / k * 255; }
   x.putImageData(im, 0, 0);

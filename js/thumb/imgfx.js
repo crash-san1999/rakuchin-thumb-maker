@@ -74,7 +74,7 @@ function colorReplace(c, r){
   ctx2d(c).putImageData(im, 0, 0);
 }
 // シャープ（アンシャープマスク）：まわり 3×3 の平均との差を amt 倍して足す（平均は自前で計算する。1px 未満の canvas の blur は効かないことがあるため）
-function sharpen(c, amt){
+/** @param {HTMLCanvasElement} c @param {number} amt */ function sharpen(c, amt){
   const W = c.width, H = c.height, im = fxImgData(c), d = im.data, s = new Uint8ClampedArray(d), k = clamp(amt, 0, 3) * 1.6;
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     const i = (y * W + x) * 4, x0 = x > 0 ? -4 : 0, x1 = x < W - 1 ? 4 : 0, y0 = y > 0 ? -W * 4 : 0, y1 = y < H - 1 ? W * 4 : 0;
@@ -84,7 +84,7 @@ function sharpen(c, amt){
   ctx2d(c).putImageData(im, 0, 0);
 }
 // ノイズ：白黒のざらつきを足す（固定シードなので、描き直しても同じ模様）
-function addNoise(c, amt){
+/** @param {HTMLCanvasElement} c @param {number} amt */ function addNoise(c, amt){
   const im = fxImgData(c), d = im.data, R = rng(11), a = clamp(amt, 0, 1) * 90;
   for(let i = 0; i < d.length; i += 4){ const v = (R() - 0.5) * 2 * a; d[i] += v; d[i + 1] += v; d[i + 2] += v; }
   ctx2d(c).putImageData(im, 0, 0);

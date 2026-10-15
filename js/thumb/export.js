@@ -8,7 +8,7 @@
 */
 /* ---------- 書き出し ---------- */
 // fmt: 'png'（透過保持）または jpeg 系。戻り値は Blob（失敗時は null になりうる）
-async function thumbBlob(fmt){
+/** @param {string} fmt */ async function thumbBlob(fmt){
   // 描画の前に使うフォントを全部読み込む。未読み込みのまま描くと代替フォントで書き出されてしまう
   await ensureLayerFonts();   // 週間予定表のフォントも待つ（以前は書き出しだけ待っておらず、未読み込みだと代替フォントで出ることがあった）
   const W = DOC.exportW, H = Math.round(W * DOC.h / DOC.w), c = mk(W, H);

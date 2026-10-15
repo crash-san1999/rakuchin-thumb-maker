@@ -16,7 +16,9 @@
 /* ============ フォント管理 ============ */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {FontEntry[]} */
 let fonts;
+/** @type {Set<string>} */
 let favs;
 var {WEB_SRC, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop} = (() => {
 // 一覧のデータ（FEATURED_JP・USAGE_JP・EA_FONTS・FS_FONTS・GH_FONTS・NPM_FONTS・SELF_FONTS など）は data/font-sources.js
@@ -93,7 +95,7 @@ const httpsUrl = s => { try{ const u = new URL(s); return u.protocol === 'https:
 const FONT_CATS = ['ゴシック', '明朝', 'デザイン', '手書き', '等幅', '欧文'];
 function cleanFontEntry(f){
   if(!f || typeof f !== 'object' || !FAMILY_OK(f.family) || !['google', 'fontsource', 'ea', 'url'].includes(f.src)) return null;
-  const ws = (Array.isArray(f.weights) ? f.weights : []).map(Number).filter(n => Number.isInteger(n) && n >= 100 && n <= 900 && n % 100 === 0);
+  const ws = (Array.isArray(f.weights) ? f.weights : []).map(Number).filter(/** @param {number} n */ n => Number.isInteger(n) && n >= 100 && n <= 900 && n % 100 === 0);
   const e = {family: f.family, cat: FONT_CATS.includes(f.cat) ? f.cat : 'デザイン', usage: typeof f.usage === 'string' ? f.usage.slice(0, 200) : '',
     weights: ws.length ? [...new Set(ws)].sort((a, b) => a - b) : [400], src: f.src};
   if(f.src === 'fontsource'){ if(!FS_ID_OK(f.id)) return null; e.id = f.id; }
@@ -110,14 +112,14 @@ function cleanFontEntry(f){
 // 一覧での「選ぶと読込」表示の判定（cssState に無い＝まだ）に使う
 const cssState = new Map();
 // <link rel=stylesheet> を足して、読めたら true・失敗なら false で解決する（失敗しても例外にしない）
-const addCss = href => new Promise(res => {
+const addCss = /** @param {string} href */ href => new Promise(res => {
   const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = href;
   link.onload = () => res(true); link.onerror = () => res(false); document.head.appendChild(link);
 });
 // f のフォントを使える状態にする Promise を返す（既に始まっていればそれを返す）。f が無い・PC内・ファイルのように読み込み不要なら即解決。
 // 戻りを待たなくても例外は出ない。実際に描けるかは、呼び出し側が document.fonts.load で確認する（ensureFont）。
 // 太さ w は gh・npm だけが使う（太さごとに別ファイル）。そのほかは全太さをまとめて読む
-function ensureCss(f, w){
+/** @param {FontEntry} [f] @param {number} [w] */ function ensureCss(f, w){
   if(f && f.src === 'gh'){ const p = ensureGh(f, w); if(!cssState.has(f.family)) cssState.set(f.family, p); return p; }
   if(f && f.src === 'npm'){ const p = ensureNpm(f, w); if(!cssState.has(f.family)) cssState.set(f.family, p); return p; }
   if(!f || !['google', 'ea', 'fontsource', 'url'].includes(f.src)) return Promise.resolve();
@@ -157,7 +159,7 @@ async function ensureFont(st = S){
   const f = findFont(st.font), txt = st.text.replace(/[{}]/g, '');
   const t = setTimeout(() => $('#loading').classList.add('show'), 250);
   const limit = ms => new Promise(r => setTimeout(r, ms));
-  const key = st.font + '|' + st.weight, wait = fontSeen.has(key) ? 800 : (f && f.mb > 1 ? 60000 : 5000);
+  const key = st.font + '|' + st.weight, wait = fontSeen.has(key) ? 800 : (f && (f.mb || 0) > 1 ? 60000 : 5000);
   try{
     await Promise.race([ensureCss(f, st.weight), limit(wait)]);
     await Promise.race([document.fonts.load(`${st.weight} 100px "${st.font}"`, txt || 'あ'), limit(wait)]);
@@ -207,7 +209,7 @@ const LAZY_SRC = ['google', ...WEB_SRC];
 // 一覧の1行。smp＝和文の見本、lsmp＝欧文の見本。重い書体（mb>1）は見本を自動で読み込まず「選ぶと読込」と出す（一覧を見ただけで数十MB取得しないため）。
 // 戻り値の watch＝見本を画面に近づいたら読み込む行か
 function fontRow(f, smp, lsmp){
-  const d = document.createElement('div'), u = usageOf(f), lazy = f.mb > 1 && !cssState.has(f.family);
+  const d = document.createElement('div'), u = usageOf(f), lazy = (f.mb || 0) > 1 && !cssState.has(f.family);
   d.className = 'fi' + (f.family === S.font ? ' on' : ''); d.dataset.family = f.family;
   const latBtn = f.cat === '欧文' ? `<button class="lat${S.fontLatin === f.family ? ' on' : ''}" title="英字・数字だけこのフォントにする">英数字</button>` : '';
   const name = `${escapeHtml(f.family)}<b>${escapeHtml(fontBadge(f))}</b>${u ? `<span class="tag">${escapeHtml(u)}</span>` : ''}${lazy ? `<span class="tag">選ぶと読込（約${f.mb}MB）</span>` : ''}`;
@@ -229,25 +231,25 @@ function renderFontList(){
 // 行の中のボタンで動作が分かれる：英数字ボタン＝英字だけ別フォント／★＝お気に入り／それ以外＝そのフォントを選ぶ
 $('#flist').addEventListener('click', e => {
   const it = tgt(e).closest('.fi'); if(!it) return;
-  const fam = it.dataset.family;
+  const fam = it.dataset.family ?? '';
   if(tgt(e).closest('.lat')){
-    S.fontLatin = S.fontLatin === fam ? '' : fam ?? ''; buildLatin(); renderFontList(); schedule(); return;
+    S.fontLatin = S.fontLatin === fam ? '' : fam; buildLatin(); renderFontList(); schedule(); return;
   }
   const fb = tgt(e).closest('.fav');
   if(fb){
     favs.has(fam) ? favs.delete(fam) : favs.add(fam); LS.set('ttm_favs', [...favs]);
     fb.classList.toggle('on');
-    const ff = favs.has(fam) && findFont(fam); if(ff && WEB_SRC.includes(ff.src) && !cssState.has(fam)){ if(ff.mb > 1) toast(`「${fam}」を先に読み込んでおきます（約${ff.mb}MB）`); ensureCss(ff, 400); }
+    const ff = favs.has(fam) && findFont(fam); if(ff && WEB_SRC.includes(ff.src) && !cssState.has(fam)){ if((ff.mb || 0) > 1) toast(`「${fam}」を先に読み込んでおきます（約${ff.mb}MB）`); ensureCss(ff, 400); }
     return;
   }
   S.font = fam ?? S.font; fixWeight(); buildWeight();
   const ff = findFont(fam);
-  if(ff && ff.mb > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = $$('.tag', it); t.length > 1 && t[t.length - 1].remove(); }); }
+  if(ff && (ff.mb || 0) > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = $$('.tag', it); t.length > 1 && t[t.length - 1].remove(); }); }
   $$('.fi.on').forEach(x => x.classList.remove('on')); it.classList.add('on');
   $('#curFont').textContent = `使用中: ${S.font}`; schedule();
 });
 // 検索欄は入力のたびに再描画すると重いので 120ms 待つ
-let fqT; $as('#fq', HTMLInputElement).addEventListener('input', () => { clearTimeout(fqT); fqT = setTimeout(renderFontList, 120); });
+/** @type {number | undefined} */ let fqT; $as('#fq', HTMLInputElement).addEventListener('input', () => { clearTimeout(fqT); fqT = setTimeout(renderFontList, 120); });
 $as('#fcat', HTMLSelectElement).addEventListener('change', renderFontList);
 $as('#fuse', HTMLSelectElement).addEventListener('change', renderFontList);
 // 欧文フォントの見本文字：本文の英数字部分を優先し、無ければ呼び出し側が既定文に差し替える（空文字を返す）
@@ -270,7 +272,7 @@ function updateTextTip(){
 }
 
 // そのフォントで選べる太さ。PC内・ファイルは実際の太さが分からないので全段階を出す。フォントが見つからなければ最低限の3種
-function weightsOf(f){ return f ? (f.weights && f.weights.length && f.src !== 'local' && f.src !== 'file' ? f.weights : W9.split(',').map(Number)) : [400,700,900]; }
+/** @param {FontEntry} [f] */ function weightsOf(f){ return f ? (f.weights && f.weights.length && f.src !== 'local' && f.src !== 'file' ? f.weights : W9.split(',').map(Number)) : [400,700,900]; }
 // 文字パネル全体（太さの選択肢・入力欄・フォント一覧）を、今の S に合わせて表示し直す
 function refreshTextUI(){ fixWeight(); buildWeight(); syncUI(); renderFontList(); }
 // フォントを替えたとき、今の太さがそのフォントに無ければ、いちばん近い太さへ寄せる（S.weight を書き換える）。buildWeight の前に呼ぶ
@@ -289,7 +291,7 @@ function buildWeight(){
 /* 最新のフォント一覧（Fontsource API・キー不要）。新しく増えた日本語フォントを追加 */
 // 新しく見つかった分（fresh）は ttm_fsupd に保存し、次回起動時に buildBaseFonts が取り込む。
 // 追加位置は「最初の欧文」の直前＝日本語の並びの末尾。manual=false（自動確認）は失敗しても黙って終わる（通信できない環境で毎回エラーを出さない）
-async function updateFontList(manual){
+/** @param {boolean} manual */ async function updateFontList(manual){
   const btn = $as('#fetchG', HTMLButtonElement); if(manual){ btn.disabled = true; }
   try{
     const r = await fetch('https://api.fontsource.org/v1/fonts?subsets=japanese');
@@ -316,7 +318,7 @@ $as('#fetchG', HTMLButtonElement).onclick = () => updateFontList(true);
    3MB 超の重い書体は先読みしない。残りも 1.5 秒ずつずらして読む（一度に通信を集中させない） */
 function preloadFavFonts(){
   const c = navigator.connection; if(c && (c.saveData || c.type === 'cellular')) return;
-  setTimeout(() => { [...favs].map(findFont).filter(f => f && WEB_SRC.includes(f.src) && !(f.mb > 3) && !cssState.has(f.family)).forEach((f, i) => setTimeout(() => ensureCss(f, 400), i * 1500)); }, 3000);
+  setTimeout(() => { [...favs].map(findFont).filter(f => f && WEB_SRC.includes(f.src) && !((f.mb || 0) > 3) && !cssState.has(f.family)).forEach((f, i) => setTimeout(() => ensureCss(f, 400), i * 1500)); }, 3000);
 }
 function registerFontCache(){ pwaRegister(); }   // Service Worker（フォントとアプリ本体の保存）の登録は pwa.js
 // 起動して少したってから、週に1回だけフォント一覧の更新を確認する（4秒待つのは、起動直後の描画・読み込みと競合させないため）
@@ -340,7 +342,7 @@ function addWebEntry(raw){
 // 貼られた URL の種類を見分けて追加する：Google Fonts のページ／CSS（family=…）／Fontsource／フォントファイル直リンク／その他の CSS。
 // 判定は上から順で、先に当てはまった方法で処理する。フォントファイルは追加前に実際に読み込んで確かめる
 // （配布元が外部サイトからの読み込みを許可していないと失敗するため）。失敗は toast で知らせて何も追加しない
-async function addWebFontUrl(raw){
+/** @param {string} raw */ async function addWebFontUrl(raw){
   let url; try{ url = new URL(raw.trim()); }catch{ toast('URLの形式が正しくありません', true); return; }
   if(url.protocol !== 'https:'){ toast('https:// で始まるURLを貼ってください', true); return; }
   const h = url.hostname, added = [];
@@ -372,7 +374,7 @@ async function addWebFontUrl(raw){
   }else{
     added.push(await addCssFamilies(url.href));
   }
-  const ok = added.filter(Boolean);
+  const ok = added.filter(/** @returns {x is FontEntry} */ x => !!x);
   if(!ok.length){ toast('フォントが見つかりませんでした。@font-face を含むCSSか、フォントファイルのURLか確認してください', true); return; }
   $('#fsrcinfo').textContent = fontInfoText(); $as('#webUrl', HTMLInputElement).value = '';
   $as('#fcat', HTMLSelectElement).value = ''; $as('#fq', HTMLInputElement).value = ok[0].family; renderFontList();
@@ -380,11 +382,11 @@ async function addWebFontUrl(raw){
 }
 // 任意の CSS を読み込み、その前後で document.fonts に増えた family を新しいフォントとして登録する
 // （CSS の中身を自分で解析せず、ブラウザが認識した @font-face の差分から取る）。最初の1件を返し、読み込み失敗や増えなかった場合は null/undefined
-async function addCssFamilies(href){
+/** @param {string} href */ async function addCssFamilies(href){
   const before = new Set([...document.fonts].map(f => f.family.replace(/["']/g, '')));
   const ok = await addCss(href); if(!ok) return null;
   const fams = [...new Set([...document.fonts].map(f => f.family.replace(/["']/g, '')).filter(f => !before.has(f)))];
-  let first = null;
+  /** @type {FontEntry | null | undefined} */ let first = null;
   fams.forEach(fam => { const e = findFont(fam) || addWebEntry({family: fam, cat:'デザイン', usage:'', weights:[400,700], src:'url', css: href}); cssState.set(fam, Promise.resolve()); first = first || e; });
   return first;
 }
@@ -425,7 +427,7 @@ const fontProbe = ctx2d(document.createElement('canvas'));
 // そのフォントが端末に入っているかの判定。ブラウザは未インストールの名前を黙って代替フォントにするので、
 // 汎用3種（monospace/serif/sans-serif）を代替先にして描画幅を比べ、どれか1つでも幅が変われば入っていると判断する
 // （代替先と偶然同じ幅になる誤判定を避けるため3種で確かめる）。見本は、かな・漢字・英数字・記号が混ざった文字列
-function fontInstalled(name){
+/** @param {string} name */ function fontInstalled(name){
   const t = 'あいうアイウ永愛Ag1@';
   return ['monospace', 'serif', 'sans-serif'].some(b => {
     fontProbe.font = `72px ${b}`; const w0 = fontProbe.measureText(t).width;
@@ -435,7 +437,7 @@ function fontInstalled(name){
 // 名前の一覧を PC内フォントとして追加する。戻り値は新しく増えた件数。保存（ttm_localfonts）は既存の分に足していく
 function addLocalFonts(names){
   const have = new Set(fonts.map(f => f.family)); let n = 0;
-  names.forEach(fam => { if(fam && !have.has(fam)){ fonts.push({family: fam, cat:'PC内', src:'local'}); have.add(fam); n++; } });
+  names.forEach(/** @param {string} fam */ fam => { if(fam && !have.has(fam)){ fonts.push({family: fam, cat:'PC内', src:'local'}); have.add(fam); n++; } });
   const saved = new Set(LS.get('ttm_localfonts', [])); names.forEach(x => saved.add(x)); LS.set('ttm_localfonts', [...saved]);
   return n;
 }

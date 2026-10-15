@@ -25,8 +25,11 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {{kind: string, id: string}|null} */
 let edit;
+/** @type {number[]|null} */
 let cutCursor;
+/** @type {{id: string, j: number}|null} */
 let swapTarget;
 var {r4, EDIT_MODES, editModeUp, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay} = (() => {
 // edit：今の編集モード。モードの種類は EDIT_MODES のキー
@@ -191,10 +194,10 @@ const EDIT_MODES = {
 };
 // レイヤーの回転を打ち消した向きでの移動量（ドキュメント座標）。回転したレイヤー上でも、ドラッグの向きがレイヤー自身の縦横に沿うようにする
 /** @param {Layer} L */
-function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)]; }
+/** @param {number} dx @param {number} dy */ function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)]; }
 // 画像上の点（ドキュメント座標）→ フレーム基準のローカル座標（画像ピクセル）
 /** @param {Layer} L */
-function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
+/** @param {number} x @param {number} y */ function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
 
 swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
 // 編集モードの定義を名前（edit.kind など）で引く。モードごとに扱うレイヤーの種類（画像・分割フレーム）が違うので、名前で引いたものは
@@ -224,31 +227,33 @@ function setEdit(kind, L, x, y){
 function toggleEdit(kind){ const L = selLayer(); if(edit && edit.kind === kind) setEdit(null); else if(L && modeOf(kind).ok(L)) setEdit(kind, L); }
 // ダブルクリック・ダブルタップで、そのレイヤーの編集モードに入る
 /** @param {Layer} L */
-function enterEditAt(L, x, y){ const kind = editModeFor(L); if(!kind || edit) return false; selectLayer(L.id); setEdit(kind, L, x, y); return true; }
+/** @param {number} [x] @param {number} [y] */ function enterEditAt(L, x, y){ const kind = editModeFor(L); if(!kind || edit) return false; selectLayer(L.id); setEdit(kind, L, x, y); return true; }
 
 /* 入力の振り分け（キャンバスの操作から呼ばれる） */
 // 戻り値 true＝編集モードが処理した（呼び出し側は通常のレイヤー選択をしない）。false＝通常操作へ。
 // 押した位置が枠外なら、ここでモードを終えて false を返す（外をクリックで終了）。drag は render.js の共有変数で、mode:'edit' で区別する
 function editPointerDown(e, x, y, tv){
   const L = editLayer(); if(!L) return false;
+  if(!edit) return false;
   const d = modeOf(edit.kind).down(L, x, y);
   if(!d){ setEdit(null); return false; }  // 外をクリックしたら終わり、ふだんの操作へ
   drag = Object.assign({mode:'edit', L, x0:x, y0:y}, d);
   tv.setPointerCapture(e.pointerId); e.preventDefault(); syncDoc(); return true;
 }
 // ドラッグ中。syncDocSoon は入力欄の同期を 1 フレーム 1 回に間引く（毎回の同期は重いため）
-function editPointerMove(x, y){ cutCursor = edit.kind === 'cut' ? [x, y] : null; modeOf(edit.kind).move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
+/** @param {number} x @param {number} y */ function editPointerMove(x, y){ if(!edit) return; cutCursor = edit.kind === 'cut' ? [x, y] : null; modeOf(edit.kind).move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
 // ホイール。モードが「使わない」(false) と答えたら通常のホイール処理（レイヤーの拡大縮小）に任せる
 function editWheel(e, x, y, k){
   const L = editLayer(); if(!L) return false;
-  if(modeOf(edit.kind).zoom(L, k, x, y, e) === false) return false;
+  if(!edit || modeOf(edit.kind).zoom(L, k, x, y, e) === false) return false;
   e.preventDefault(); syncDoc(); docChanged(true); return true;
 }
 // スマホのピンチ（mobile.js から）。開始時の値を st に控え、editPinch で倍率 k を掛ける
-function editPinchStart(I){ const L = editLayer(); return L ? {kind:'edit', L, i:I, st:modeOf(edit.kind).pinchStart(L)} : null; }
-function editPinch(p, k){ modeOf(edit.kind).pinch(p.L, p.st, k); }
-function drawEditOverlay(ctx, W, H, dpr){
+function editPinchStart(I){ const L = editLayer(); return L && edit ? {kind:'edit', L, i:I, st:modeOf(edit.kind).pinchStart(L)} : null; }
+function editPinch(p, k){ if(edit) modeOf(edit.kind).pinch(p.L, p.st, k); }
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} dpr */ function drawEditOverlay(ctx, W, H, dpr){
   const L = editLayer(); if(!L) return false;
+  if(!edit) return false;
   const M = modeOf(edit.kind); M.overlay(ctx, L, W / DOC.w, dpr); drawBanner(ctx, W, dpr, M.banner(L));
   return true;
 }

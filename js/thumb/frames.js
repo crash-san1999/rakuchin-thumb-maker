@@ -379,7 +379,7 @@ const FRAME_STYLE_DRAW = {
 };
 // デザインごとの外側の余白（フチの太さ E に対する倍率）。光・影・テープなどがキャンバスの端で切れないように広げる。無いデザインは 1.4
 const FRAME_PAD = {photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4, rgb:3.2, halftone:5.4, brush:2.8, film:4, stitch:1.4, sticker:2, crt:1.8, pixel:1.8, aura:8, triple:2.4};
-function framedCanvas(L, f, live, cache){
+/** @param {ImageLayer} L @param {number} f @param {boolean} live @param {Map<string, any>} cache */ function framedCanvas(L, f, live, cache){
   const A = layerSrc(L), fr = L.frame, o = L.outline, need = L.sc * f;
   // sk：見た目が変わる要素すべての印。これが同じならキャッシュを使う。cutSig で背景透過・ブラシの変更も反映される
   const sk =JSON.stringify([L.asset, cropOf(L), fr, o.w, o.c, L.flip, L.flipV, L.bright, L.sat, L.fx, cutSig(L)]);

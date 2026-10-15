@@ -18,6 +18,7 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {LibItem[]} */
 let LIB;
 var {LIB_MAX_BYTES, LIB_MAX_ITEM, fmtBytes, libUsed, libItems, myStyles, libCheck, libDelete, libAddImageSrc, libAddFiles, libAddStyle, libExport, libImport, renderLib, libInit} = (() => {
 // 上限：全体 200MB・画像1枚 12MB・500 個。ブラウザの保存領域を使い切って他の保存（作業データ）まで失敗しないよう、こちらで先に止める。
@@ -27,7 +28,7 @@ const LIB_MAX_BYTES = 200 * 1048576, LIB_MAX_ITEM = 12 * 1048576, LIB_MAX_COUNT 
 LIB = []; let libTab = LS.get('ttm_libtab', 'img'); let libOk = true;
 const fmtBytes = b => b >= 1048576 ? (b / 1048576).toFixed(b >= 10 * 1048576 ? 0 : 1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';
 const libUsed = () => LIB.reduce((a, i) => a + (i.bytes || 0), 0);
-const libItems = kind => LIB.filter(i => i.kind === kind);
+const libItems = /** @param {string} kind */ kind => LIB.filter(i => i.kind === kind);
 // 保存済みの文字スタイル（「プリセット」の「マイ」に出るもの）
 const myStyles = () => libItems('style');
 
@@ -47,7 +48,7 @@ function makeThumb(img, n = 96){
 
 // 保存してよいか調べる。だめなときは理由（ユーザーに見せる文）を返し、よいときは空文字。
 // 最後のブラウザ空き容量チェックは、estimate が使えない環境では黙って通す。20MB は「今回の保存 + 作業データ用」の余裕
-async function libCheck(bytes, kind){
+/** @param {number} bytes @param {string} kind */ async function libCheck(bytes, kind){
   if(!libOk) return 'このブラウザでは、素材置き場の保存領域が使えません（プライベートモードなど）';
   if(kind === 'img' && bytes > LIB_MAX_ITEM) return `1つの画像は ${fmtBytes(LIB_MAX_ITEM)} までです（この画像は ${fmtBytes(bytes)}）`;
   if(LIB.length >= LIB_MAX_COUNT) return `素材は ${LIB_MAX_COUNT} 個までです。不要なものを削除してください`;
@@ -55,7 +56,7 @@ async function libCheck(bytes, kind){
   try{ const e = await navigator.storage.estimate(); if(e && e.quota && e.quota - (e.usage || 0) < bytes + 20 * 1048576) return 'ブラウザの保存できる空き容量が足りません。ほかのサイトのデータを整理してください'; }catch{}
   return '';
 }
-function libFail(msg){ toast(msg, true); libFlash(msg); }
+/** @param {string | null} msg */ function libFail(msg){ toast(msg, true); libFlash(msg); }
 // 保存の順序：検査 → IndexedDB へ書き込み → 成功したら LIB（メモリ）に追加。先に LIB に入れると、保存失敗なのに画面に残ってしまう
 async function libSave(item){
   const why = await libCheck(item.bytes, item.kind); if(why){ libFail(why); return false; }
@@ -66,7 +67,7 @@ async function libSave(item){
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch{}   // ブラウザに勝手に消されにくくする（許可されれば）
   return true;
 }
-async function libDelete(id){
+/** @param {string} id */ async function libDelete(id){
   try{ await libTx('readwrite', st => st.delete(id)); }catch{ libFail('削除できませんでした'); return; }
   LIB = LIB.filter(i => i.id !== id); renderLib(); if(typeof renderPresets === 'function') renderPresets();
 }
@@ -80,7 +81,7 @@ async function libAddImageSrc(src, name){
   const item = {id:'M' + uid(), kind:'img', name:libName(name), blob, thumb, size:blob.size, w:img.naturalWidth, h:img.naturalHeight, bytes:blob.size + thumb.length, created:Date.now()};
   return libSave(item);
 }
-async function libAddFiles(files){
+/** @param {File[]} files */ async function libAddFiles(files){
   let ok = 0;
   for(const f of files){
     if(!/^image\//.test(f.type)) continue;
@@ -116,7 +117,7 @@ async function libExport(){
   LS.set('ttm_libbackup', Date.now()); renderLib(); toast(`${items.length}個の素材をバックアップしました`);
 }
 // 取り込み：id が同じものは登録済みとして飛ばす（二重取り込みの防止）。1件ずつ容量検査し、入らなかったものは数えて最後にまとめて知らせる（途中で止めない）
-async function libImport(file){
+/** @param {File} file */ async function libImport(file){
   let j; try{ j = JSON.parse(await file.text()); }catch{ toast('読み込めませんでした（素材置き場のバックアップではありません）', true); return; }
   if(!j || j.type !== 'library' || !Array.isArray(j.items)){ toast('素材置き場のバックアップではありません', true); return; }
   let ok = 0, dup = 0, skip = 0, reason = '';
@@ -144,7 +145,7 @@ async function libImport(file){
 /* ---------- 画面 ---------- */
 // 失敗理由を一覧の上の帯に 6 秒だけ出す（トーストは流れてしまうので、容量の理由は画面にも残す）。時間が来たら renderLib が通常表示へ戻す
 let libFlashT = 0;
-function libFlash(msg){ const el = $('#libFull'); if(!el) return; el.textContent = msg; el.hidden = false; clearTimeout(libFlashT); libFlashT = setTimeout(renderLib, 6000); }
+/** @param {string | null} msg */ function libFlash(msg){ const el = $('#libFull'); if(!el) return; el.textContent = msg; el.hidden = false; clearTimeout(libFlashT); libFlashT = setTimeout(renderLib, 6000); }
 // 一覧と容量表示を作り直す。使用率 80%（LIB_WARN）で警告、上限・個数満杯で「いっぱい」にして、追加系ボタンを無効にする
 function renderLib(){
   const el = $('#libGrid'); if(!el) return;

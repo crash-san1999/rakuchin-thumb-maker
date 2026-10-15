@@ -16,6 +16,7 @@
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）
 const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, key:KEY_BASE(), strokes:/** @type {Stroke[]} */ ([]), btool:'erase', bsz:60, flip:false, flipV:false, bright:0, sat:0, fx:CELL_FX_BASE(), outline:{on:false, w:10, c:'#ffffff', style:'solid', c2:'#ffd400', w2:6, blur:0}, glow:{on:false, c:'#00e5ff', blur:24, a:0.9, str:1}, frame:FRAME_BASE(), shadow:{on:false, blur:30, y:14, a:0.45, x:0, c:'#000000', sp:0}});
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {Promise<IDBDatabase>|null} */
 let idbP;
 var {ASSETS, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange} = (() => {
 // ASSETS：アセットid → 読み込み済み画像。画面上の全画像の実体で、DOC.layers / bg から id で引く
@@ -73,7 +74,7 @@ async function idbRestore(){
   renderLayers(); paintPreview(false);
 }
 // 画像レイヤーを1枚作る（まだ DOC.layers には入れない）。初期の大きさ sc は「高さの85%・幅の半分」に収まる倍率、位置は右寄り（左に文字を置く想定のサムネ構図）
-function newImageLayer(id, name){
+/** @param {string} id @param {string} name */ function newImageLayer(id, name){
   const A = ASSETS[id], sc = Math.min(DOC.h * 0.85 / A.img.naturalHeight, DOC.w * 0.5 / A.img.naturalWidth);
   return Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:uid(), type:/** @type {'image'} */ ('image'), name, asset:id, x:Math.round(DOC.w * 0.74), y:Math.round(DOC.h * 0.56), sc});
 }
@@ -109,7 +110,7 @@ const cropOf = L => cropClamp(L.crop);
 const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 || c.r > 0; };
 // 元の画像のどこを使うか（ピクセル）。sw・sh を最低 8px にするのは、極端なトリミングで 0 幅の canvas ができるのを避けるため
 /** @param {ImageLayer} L */
-function cropRect(L, iw, ih){
+/** @param {number} iw @param {number} ih */ function cropRect(L, iw, ih){
   const c = cropOf(L), sx = Math.round(c.l * iw), sy = Math.round(c.t * ih);
   return {sx, sy, sw: Math.max(8, Math.round(iw * (1 - c.l - c.r))), sh: Math.max(8, Math.round(ih * (1 - c.t - c.b)))};
 }

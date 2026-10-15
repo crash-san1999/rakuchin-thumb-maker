@@ -31,7 +31,7 @@ let fxEditing = false, fxEditT = null;
 // 中心のスライダーを動かしている間だけ、背景効果の中心 ◎ を表示する
 function showFxCenterBriefly(){ fxEditing = true; clearTimeout(fxEditT); fxEditT = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
 // ヘッダー画像のセーフエリア：どの端末でも見える中央の枠の外を暗くし、端末ごとの見える範囲を枠で示す（プレビューだけ。書き出しには入らない）
-function drawSafeArea(ctx, W, H, dpr, f){
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} dpr @param {number} f */ function drawSafeArea(ctx, W, H, dpr, f){
   const sp = HEADER_SPECS[DOC.hdr]; if(!sp) return;
   const box = a => [(W - a.w * f) / 2, (H - a.h * f) / 2, a.w * f, a.h * f];
   const main = sp.areas.find(a => a.main), [mx, my, mw, mh] = box(main);
@@ -50,7 +50,7 @@ function drawSafeArea(ctx, W, H, dpr, f){
 }
 // 描く順：三分割線 → 再生時間バッジ → 背景効果の中心 → スナップ線 → 編集モードの表示 or 選択枠。
 // 編集モード中（フレーム調整・ブラシ・マス調整）はそちらの表示だけにして、通常の選択枠は出さない
-function drawOverlay(ctx, W, H, dpr){
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} dpr */ function drawOverlay(ctx, W, H, dpr){
   const f = W / DOC.w;
   ctx.save();
   if(DOC.guides.thirds){

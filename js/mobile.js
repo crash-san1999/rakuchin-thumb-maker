@@ -10,7 +10,9 @@
 /* ============ PC／スマホの自動判定 ============ */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {boolean} */
 let isMobile;
+/** @type {string|null} */
 let sheet;
 var {applyView, sheetTitle, openSheet} = (() => {
 // isMobile：今スマホ表示か。sheet：開いているシート名（'layers' | 'ins' | null）
@@ -29,7 +31,7 @@ function detectMobile(){
 }
 // 判定結果を画面に反映する。first=true は「結果が同じでも反映し直す」（起動時・設定ボタンの操作時）。
 // リサイズでは first=false で呼ばれ、スマホ⇔PC が実際に変わったときだけ動く（変わらないのに毎回やり直さない）
-function applyView(first){
+/** @param {boolean} first */ function applyView(first){
   const m = detectMobile();
   if(m === isMobile && !first) return;
   isMobile = m;
@@ -42,7 +44,7 @@ function applyView(first){
   if(!first) setTimeout(() => paintPreview(false), 60);   // レイアウトが変わるとキャンバスの表示サイズも変わるので、CSS が落ち着いてから描き直す
 }
 // シートの見出し。'layers' 以外は、今選んでいるもの（insCtx）に合わせたインスペクターの名前
-function sheetTitle(n){ return n === 'layers' ? 'レイヤー' : (INS_INFO[insCtx()] || [])[1] || '設定'; }
+/** @param {string} n */ function sheetTitle(n){ return n === 'layers' ? 'レイヤー' : (INS_INFO[insCtx()] || [])[1] || '設定'; }
 // name = 'layers'（レイヤー）| 'ins'（インスペクター）| null（閉じる）。
 // 開いているシートと同じ名前を渡すと閉じる（下バーのボタンが開閉トグルになる）。force=true はトグルせず必ず開く（背景選択からの呼び出し用）。
 // PC では常に閉じる扱い（シートは存在しない）
@@ -73,7 +75,7 @@ $('#viewBtn').onclick = () => { LS.set('ttm_view', isMobile ? 'pc' : 'mobile'); 
    70px 以上下げたら閉じる。ほぼ動かさず離した（4px 未満）ときはタップ扱いで閉じる。それ以外は元の位置へ戻る。
    pointer capture で、指がつまみの外に出てもイベントを受け続ける */
 $$('.sheet-grip').forEach(g => {
-  let y0 = null;
+  /** @type {number | null} */ let y0 = null;
   g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(tgt(e).closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
   g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0), el = g.parentElement; if(!el) return; el.style.transform = `translateY(${dy}px)`; el.style.transition = 'none'; });
   const up = e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; if(!el) return; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
@@ -91,7 +93,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
   const tv = $('#tv'), pts = new Map();
   let pinch = null, lp = null, lastTap = {t:0, x:0, y:0};
   // 画面座標 → ドキュメント座標（DOC.w×DOC.h の px）。表示サイズは CSS で縮んでいるため、表示幅に対する比で換算する
-  const toDoc = (cx, cy) => { const r = tv.getBoundingClientRect(); return [(cx - r.left) / r.width * DOC.w, (cy - r.top) / r.height * DOC.h]; };
+  const toDoc = /** @param {number} cx @param {number} cy */ (cx, cy) => { const r = tv.getBoundingClientRect(); return [(cx - r.left) / r.width * DOC.w, (cy - r.top) / r.height * DOC.h]; };
   // 2本指の距離 d・角度 a（ラジアン）・中心 cx,cy。pts の先頭2本だけを見る（3本目以降は無視）
   const pairInfo = () => { const [a, b] = [...pts.values()]; return {d:Math.hypot(b.x - a.x, b.y - a.y), a:Math.atan2(b.y - a.y, b.x - a.x), cx:(a.x + b.x) / 2, cy:(a.y + b.y) / 2}; };
   tv.addEventListener('pointerdown', e => {

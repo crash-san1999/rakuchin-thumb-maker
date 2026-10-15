@@ -21,7 +21,7 @@ const isGroup = /** @param {Layer|null|undefined} L @returns {L is GroupLayer} *
 function drawOne(ctx, L, f, live, cache){ kindOf(L).draw(ctx, L, f, live, cache); }
 // 中のレイヤーをすべて含む四角（ドキュメント座標）。回転しているレイヤーはその角で数える
 // dims（各レイヤーの描画後の大きさ）が未登録のレイヤーは数えない＝先に描画してから呼ぶ前提。1枚も数えられなければ null
-function groupBox(kids){
+/** @param {Layer[]} kids */ function groupBox(kids){
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for(const k of kids){
     const d = dims.get(k.id); if(!d) continue;

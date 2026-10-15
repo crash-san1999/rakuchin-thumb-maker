@@ -87,7 +87,7 @@ function keyCanvas(img, k){
   else{
     // 画像の四辺から塗りつぶし（再帰を使わず自前のスタックで。大きい画像でも呼び出しの深さで落ちない）。seen で同じ画素を2度積まない
     const seen = new Uint8Array(n), stack = new Int32Array(n); let sp = 0;
-    const seed = i => { if(!seen[i] && dist[i] <= TS){ seen[i] = 1; stack[sp++] = i; } };
+    const seed = /** @param {number} i */ i => { if(!seen[i] && dist[i] <= TS){ seen[i] = 1; stack[sp++] = i; } };
     for(let X = 0; X < w; X++){ seed(X); seed((h - 1) * w + X); }
     for(let Y = 0; Y < h; Y++){ seed(Y * w); seed(Y * w + w - 1); }
     while(sp){

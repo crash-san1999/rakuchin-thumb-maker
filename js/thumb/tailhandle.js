@@ -56,7 +56,7 @@ function tailInfo(){
   try{ return L.type === 'text' ? textTailInfo(L) : L.type === 'image' ? frameTailInfo(L) : null; }catch{ return null; }
 }
 // (x,y)（DOC 座標）がつまみの上なら、そのしっぽの情報を返す
-function tailHandleAt(x, y){
+/** @param {number} x @param {number} y */ function tailHandleAt(x, y){
   const t = tailInfo(); if(!t) return null;
   return Math.hypot(x - t.tip[0], y - t.tip[1]) < TAIL_HIT_PX * DOC.w / tvCss ? t : null;
 }
@@ -114,7 +114,7 @@ function moveFrameTail(st, x, y){
   fr.tt = r2(clamp(along - fr.tp, -0.6, 0.6));
 }
 // つまみを描く（overlay.js から。f はプレビュー倍率）。付け根から先へ細い線、先に丸いつまみ
-function drawTailHandle(ctx, f, dpr){
+/** @param {CanvasRenderingContext2D} ctx @param {number} f @param {number} dpr */ function drawTailHandle(ctx, f, dpr){
   const t = tailInfo(); if(!t) return;
   ctx.save(); ctx.setLineDash([3 * dpr, 3 * dpr]); ctx.strokeStyle = 'rgba(31,27,45,.65)'; ctx.lineWidth = 1.5 * dpr;
   ctx.beginPath(); ctx.moveTo(t.base[0] * f, t.base[1] * f); ctx.lineTo(t.tip[0] * f, t.tip[1] * f); ctx.stroke(); ctx.setLineDash([]);

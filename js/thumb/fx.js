@@ -66,7 +66,7 @@ const FX_BOX = L => { const p = L.p, W = DOC.w, H = DOC.h, M = Math.max(W, H); r
   fire:[W, 560], smoke:[900, 700], crack:[1000, 700], glitch:[W, H], petals:[W, H], bubbles:p.type === 'splash' ? [900, 600] : [W, H], shock:[900, 560], hit:[520, 520], shine:[800, 450]}[L.kind] || [400, 400]; };
 // 引数：kind＝種類、p＝パラメータの上書き、ex＝レイヤー側の上書き（位置など）
 // 初期位置：ライト・レンズフレアは右上寄り、炎は下の端（画面の下から燃え上がる）。それ以外は LAYER_BASE の中央
-const FX_START = kind => kind === 'light' || kind === 'flare' ? {x:Math.round(DOC.w * 0.72), y:Math.round(DOC.h * 0.3)} : kind === 'fire' ? {x:Math.round(DOC.w / 2), y:Math.round(DOC.h - 280)} : {};
+const FX_START = /** @param {string} kind */ kind => kind === 'light' || kind === 'flare' ? {x:Math.round(DOC.w * 0.72), y:Math.round(DOC.h * 0.3)} : kind === 'fire' ? {x:Math.round(DOC.w / 2), y:Math.round(DOC.h - 280)} : {};
 const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:/** @type {'fx'} */ ('fx'), kind}, FX_LAYER_DEF[kind] || {}, FX_START(kind), ex, {p:Object.assign(FX_DEF[kind](), p)});
 // ワンクリック背景エフェクトの定義：bg＝DOC.bg に当てる差分、fx＝一緒に入れる動的エフェクト [種類, パラメータ, レイヤー上書き]
 // bg の値がオブジェクトのものは DOC.bg の既存オブジェクトにマージ、それ以外は代入（applyBgFx）
