@@ -67,7 +67,9 @@ manifest.webmanifest       アプリ情報（PWA）
 icons/                     アプリのアイコン
 js/fonts.js                フォント管理（Google Fonts・Webフリー・PC内・URL追加）
 js/controls.js             文字の操作パネル（テキスト・装飾）の生成と同期
-js/text-render.js          文字の描画エンジン・装飾
+js/text-render.js          文字の描画エンジン ① 本体（文字の並べ方・縦書き・塗り・描画の手順 render）
+js/text-pixel.js           文字の描画エンジン ② ピクセル処理（ぼかし・ベベル・模様・テカリ・かすれ・ワープ・グリッチ）
+js/text-deco.js            文字の描画エンジン ③ 装飾（一文字囲み・押し出し・反射・炎・しずく・電球・キラキラ・残像など）
 js/text-plate.js           文字の背景シェイプ（角丸・楕円・ギザギザ・吹き出し）と吹き出しのしっぽ
 js/preview.js              文字素材モードのプレビュー・書き出し・視認性
 js/colors.js               配色（パレット・色調整・背景画像からの配色）
@@ -100,7 +102,8 @@ js/thumb/editmodes.js      キャンバス上の編集モード（フレーム�
 js/thumb/layers.js         レイヤーパネル・レイヤーの選択と操作
 js/changelog.js            アップデート履歴の元データ（機能を足したら先頭に追記。CHANGELOG.md は tools/gen-changelog.js が生成）
 js/thumb/export.js         サムネの書き出し・共有・プロジェクト読み込み
-js/thumb/inspector.js      選んだものに合わせた設定パネル（行の定義・ページ切り替え）
+js/thumb/inspector-rows.js 設定パネルの行の表（SEL_ROWS・BG_ROWS。行の書き方の説明もここ）
+js/thumb/inspector.js      選んだものに合わせた設定パネル（行の表 → HTML・ページ切り替え）
 js/thumb/hit.js            キャンバス上の当たり判定（どのレイヤーを掴むか。透明な部分は掴まない）
 js/thumb/events.js         ボタンの操作・プロジェクトの保存／読み込み／新規作成
 js/thumb/events-layers.js  レイヤーパネルの操作（並べ替えのドラッグ・選択・名前の変更・メニュー）
