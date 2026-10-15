@@ -60,7 +60,7 @@ async function addAsset(src, name, id, skipPut){
 // File → dataURL。長辺 3840px（4K）を超える画像は縮小する：キャンバス上限（5000px）に対して十分で、IndexedDB・メモリの節約になるため。JPEG は JPEG のまま再圧縮、それ以外は PNG（透過を守る）
 /** @param {Blob} file @returns {Promise<string>} */
 async function fileToSrc(file){
-  const src = await new Promise(/** @param {(v: string) => void} res @param {(e: any) => void} rej */ (res, rej) => { const r = new FileReader(); r.onload = () => res(/** @type {string} */ (r.result)); r.onerror = rej; r.readAsDataURL(file); });
+  const src = await blobToDataUrl(file);
   const img = await loadImg(src), mx = Math.max(img.naturalWidth, img.naturalHeight), LIM = 3840;
   if(mx <= LIM) return src;
   const k = LIM / mx, c = mk(img.naturalWidth * k, img.naturalHeight * k);

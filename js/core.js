@@ -38,6 +38,11 @@ const errMsg = e => (e && typeof e === 'object' && 'message' in e) ? String(e.me
 /** @param {object} o @param {PropertyKey} k */ const hasKey = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 // レイヤー・素材のid。時刻＋乱数なので、プロジェクトの読み込みや複製で衝突しにくい
 const uid = () => 'L' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+// 日付 → 'YYYY-MM-DD'（その端末の時刻で。分割フレーム・週間予定表の「週の始まりの日」の入力欄と保存の形）
+/** @param {Date} d */ const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// ファイル・Blob → dataURL（画像の読み込み・素材置き場から使うときに）
+/** @param {Blob} b @returns {Promise<string>} */
+const blobToDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(/** @type {string} */ (r.result)); r.onerror = rej; r.readAsDataURL(b); });
 // localStorage の薄いラッパー。値は JSON で保存し、読み出し失敗（プライベートモード・壊れたデータ）は既定値 d を返す。
 // 保存の失敗（容量オーバー・禁止設定）は握りつぶさず、利用者に知らせて false を返す。キーは ttm_ で始まる
 const LS = {
