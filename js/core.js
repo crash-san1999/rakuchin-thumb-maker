@@ -154,9 +154,11 @@ const paintIcons = (root = document) => $$('[data-ic]', root).forEach(el => { el
 function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((el.value - mn) / (mx - mn)) * 100 + '%'); }
 function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
 document.addEventListener('input', e => { if(inputOf(e).type === 'range') paintRange(tgt(e)); });
-// サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める
-/** @type {Doc | null} */
-let DOC = null;
+// サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める。
+// 型としては「いつも中身がある」扱いにしている：起動後のすべての処理は DOC がある前提で動き、起動前に動きうる所
+// （LAYER_BASE・SCHED_BASE などの既定値）は自分で DOC があるかを確かめているため。起動前に読む処理を足すときは、同じように確かめること
+/** @type {Doc} */
+let DOC = /** @type {any} */ (null);
 
 // 文字スタイルの完全な初期値。保存データ・プリセットはここからの差分だけを持ち、merged() で補う。
 // 各キーの意味は text-render.js の描画処理を参照。新しい効果を足すときは、ここに on:false の既定値を置くのが約束
@@ -213,6 +215,10 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /* ============ 描画エンジン ============ */
 const PI = Math.PI;
 // 作業用キャンバスを作る。幅・高さは四捨五入し、0 以下だと描画系が例外を出すので最低 1px にする
+// canvas の 2D の描き先。getContext('2d') が null を返すのは、同じ canvas で先に別の描き方（WebGL など）を使ったときだけで、
+// このアプリは 2D しか使わないので null にならない（型の上でもそう扱う）
+/** @param {HTMLCanvasElement} c @param {CanvasRenderingContext2DSettings} [opt] @returns {CanvasRenderingContext2D} */
+const ctx2d = (c, opt) => /** @type {CanvasRenderingContext2D} */ (c.getContext('2d', opt));
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
 const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
 // hex2rgb の逆：[r, g, b]（0-255。小数は四捨五入）→ "#rrggbb"

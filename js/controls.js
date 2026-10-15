@@ -218,18 +218,18 @@ function buildTextControls(){
 // except：入力中の欄を上書きしないための除外（onInput から渡される）
 function syncUI(except){
   KB.sync(except);
-  $$('[data-pi]').forEach(el => { el.style.opacity = +el.dataset.pi < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
+  $$('[data-pi]').forEach(el => { el.style.opacity = +(el.dataset.pi ?? 0) < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
   $$('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
 }
 // 見出しクリックで折りたたみ。見出し内のスイッチ（.sw）は ON/OFF 用なので除く
 document.addEventListener('click', e => {
   const h =tgt(e).closest('section > h3');
-  if(h && !tgt(e).closest('.sw')) h.parentElement.classList.toggle('collapsed');
+  if(h && h.parentElement && !tgt(e).closest('.sw')) h.parentElement.classList.toggle('collapsed');
 });
 // スイッチを ON にしたら自動で開く（開いて設定を触れるように）。値の反映自体は KB の input ハンドラ側
 document.addEventListener('change', e => {
   const sw = tgt(e).closest('.sw');
-  if(sw && inputOf(e).checked) sw.closest('section').classList.remove('collapsed');
+  const sec = sw && sw.closest('section'); if(sec && inputOf(e).checked) sec.classList.remove('collapsed');
 });
 // 太さ・英数字フォントの select は index.html に固定で置かれた欄（パネル生成の対象外）。change 時の追加処理：
 // 太さは数値化して S.weight に入れ直し、英数字フォントを変えたらフォント一覧の表示（renderFontList）を更新する

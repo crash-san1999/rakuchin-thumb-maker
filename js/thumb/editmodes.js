@@ -28,24 +28,24 @@
 let edit;
 let cutCursor;
 let swapTarget;
-var {r4, EDIT_MODES, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay} = (() => {
+var {r4, EDIT_MODES, editModeUp, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay} = (() => {
 // edit：今の編集モード。モードの種類は EDIT_MODES のキー
 edit = null; // {kind, id}
 cutCursor = null;   // ブラシの丸を出す位置（ドキュメント座標）
 // ブラシの跡の座標・半径を小数4桁に丸める（跡は DOC に保存されるので、JSON を小さくするため）
 const r4 = v => Math.round(v * 10000) / 10000;
-/** @type {Record<string, EditMode>} */
+/** @type {{frame: EditMode<ImageLayer>, cut: EditMode<ImageLayer>, cells: EditMode<CollageLayer>}} */
 const EDIT_MODES = {
   // 画像の切り抜きフレーム：画像はそのままで、切り抜く範囲を動かす・大きさを変える。
   // 座標は frameLocal（回転を戻し、レイヤー倍率 sc で割った「画像ピクセル」）。フレーム中心の位置 cx,cy は 0〜1 の割合、fs はフレームの大きさ
   frame: {
     btn:'frameEditBtn', label:'キャンバスでフレームを調整',
-    ok: L => L.type === 'image' && L.frame && L.frame.shape !== 'none' && !!ASSETS[L.asset],
+    ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape !== 'none' && !!ASSETS[L.asset],
     hint: () => isMobile ? 'ドラッグでフレームの位置、ピンチで大きさを調整。外をタップで終了' : 'ドラッグでフレームの位置、角かホイールで大きさを調整。Esc か外をクリックで終了',
     banner: () => isMobile ? 'フレーム調整中：ドラッグで位置／ピンチで大きさ／外をタップで終了' : 'フレーム調整中：ドラッグで位置／角・ホイールで大きさ／Esc か外をクリックで終了',
     down(L, x, y){
       // px：画面上の 1px が画像ピクセルで何個ぶんか。角ハンドルの当たり半径 14px を、画面の見た目の大きさで判定するため
-      const G = frameGeom(L), [u, v] = frameLocal(L, x, y), px = DOC.w / tvCss / L.sc;
+      const G = /** @type {FrameGeom} */ (frameGeom(L)), [u, v] = frameLocal(L, x, y), px = DOC.w / tvCss / L.sc;
       const corner = [[-1, -1], [1, -1], [1, 1], [-1, 1]].some(([sx, sy]) => Math.hypot(u - sx * G.fw / 2, v - sy * G.fh / 2) < 14 * px);
       const inImg = Math.abs((L.flip ? -u : u) + G.cxp - G.iw / 2) <= G.iw / 2 && Math.abs((L.flipV ? -v : v) + G.cyp - G.ih / 2) <= G.ih / 2;
       // 角（拡大縮小）でも画像の上（移動）でもなければ「外をクリック」。反転しているときは u,v の向きを戻して画像内かを調べる
@@ -66,11 +66,11 @@ const EDIT_MODES = {
       }
       frameCompensate(L, G, d.base);
     },
-    zoom(L, k){ const g0 = frameGeom(L); L.frame.fs = r3(clamp((L.frame.fs ?? 1) * k, 0.1, 1)); frameCompensate(L, g0); },
+    zoom(L, k){ const g0 = /** @type {FrameGeom} */ (frameGeom(L)); L.frame.fs = r3(clamp((L.frame.fs ?? 1) * k, 0.1, 1)); frameCompensate(L, g0); },
     pinchStart: L => ({fs: L.frame.fs ?? 1}),
-    pinch(L, st, k){ const g0 = frameGeom(L); L.frame.fs = r3(clamp(st.fs * k, 0.1, 1)); frameCompensate(L, g0); },
+    pinch(L, st, k){ const g0 = /** @type {FrameGeom} */ (frameGeom(L)); L.frame.fs = r3(clamp(st.fs * k, 0.1, 1)); frameCompensate(L, g0); },
     overlay(ctx, L, f, dpr){
-      const G = frameGeom(L);
+      const G = /** @type {FrameGeom} */ (frameGeom(L));
       // 以降は「画像ピクセル座標」で描く（レイヤーの位置・回転・倍率を ctx に掛ける）。線幅などは画面で一定に見えるよう k=1/(sc*f) を掛ける。
       // 画像全体を薄く（0.38）描くのは、フレームの外側＝切り取られる部分も見せて、動かす目安にするため
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f, L.sc * f);
@@ -88,7 +88,7 @@ const EDIT_MODES = {
   // （トリミング・拡大縮小を変えても跡がずれない／画像サイズに依存しない）。切り抜きフレームを使っている画像ではブラシは使えない（ok 参照。背景色の透明化だけ使える）
   cut: {
     btn:'cutBrushBtn', label:'キャンバスでブラシを使う',
-    ok: L => L.type === 'image' && L.frame && L.frame.shape === 'none' && !!ASSETS[L.asset],
+    ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape === 'none' && !!ASSETS[L.asset],
     hint: () => isMobile ? 'なぞって消す・戻す。外をタップで終了' : 'ドラッグで消す・戻す、ホイールで太さ。Esc か外をクリックで終了',
     banner: L => (L.btool === 'pick' ? '色を拾う：背景にしたい色の場所をクリック' : L.btool === 'restore' ? 'ブラシで戻す：なぞったところの元の絵が戻ります' : 'ブラシで消す：なぞったところが透明になります') + (isMobile ? '／外をタップで終了' : '／ホイールで太さ／Esc で終了'),
     down(L, x, y){
@@ -138,7 +138,7 @@ const EDIT_MODES = {
   // マスの設定 L.cells[i] の ox・oy はマスの大きさに対する割合（collageCellSize で割る）、zoom は倍率、rot は度（-180〜180）。L.ac は選択中のマス
   cells: {
     btn:'collageEditBtn', label:'キャンバスでマスの画像を調整',
-    ok: L => L.type === 'collage',
+    ok: /** @param {Layer} L @returns {L is CollageLayer} */ L => L.type === 'collage',
     hint: () => isMobile ? 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ピンチで拡大縮小。外をタップで終了' : 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ホイールで拡大縮小（Shift+ホイールで回転）。Esc か外をクリックで終了',
     banner: L => (isMobile ? `マス${L.ac + 1}：ドラッグで移動／別のマスへで入れ替え／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}：ドラッグで移動／別のマスへ持っていくと入れ替え／ホイールで拡大縮小・Shift+ホイールで回転／Esc で終了`) + (collageResizable(L.layout) ? '／境界線をドラッグで幅' : ''),
     enter(L, x, y){ if(x != null){ const i = collageCellAt(L, x, y); if(i >= 0) L.ac = i; } },
@@ -197,25 +197,31 @@ function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * M
 function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
 
 swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
+// 編集モードの定義を名前（edit.kind など）で引く。モードごとに扱うレイヤーの種類（画像・分割フレーム）が違うので、名前で引いたものは
+// 「どの種類でも受け取る」型として扱う。モードの関数に渡すのは、そのモードの ok() を通ったレイヤー（editLayer・editModeFor）だけ
+/** @param {string} k @returns {EditMode<any>} */
+const modeOf = k => /** @type {any} */ (EDIT_MODES)[k];
+// ドラッグを離したときの処理（無いモードもある）。events-canvas.js から
+const editModeUp = k => modeOf(k).up;
 // ダブルクリックで入るモードを決める：EDIT_MODES の並び順（frame → cut → cells）で最初に ok になったもの。frame と cut は形が「なし」かどうかで排他
 /** @param {Layer} L */
-const editModeFor = L => L && Object.keys(EDIT_MODES).find(k => EDIT_MODES[k].ok(L)) || null;
+const editModeFor = L => L && Object.keys(EDIT_MODES).find(k => modeOf(k).ok(L)) || null;
 // 編集中のレイヤー。レイヤーが消えた・隠した・条件を外れたときは null（＝実質、編集モードが終わっている）
 function editLayer(){
   if(!edit) return null;
   const L = layerById(edit.id);
-  return L && !L.hidden && EDIT_MODES[edit.kind].ok(L) ? L : null;
+  return L && !L.hidden && modeOf(edit.kind).ok(L) ? L : null;
 }
 // モードに入る（kind と L を渡す）／終える（引数なし）。ボタンの文言の切り替え、トースト、入力欄・プレビューの更新まで行う
 /** kind が null なら編集モードを終える。x,y はダブルクリック位置（enter に渡す）
  * @param {string|null} kind @param {Layer} [L] @param {number} [x] @param {number} [y] */
 function setEdit(kind, L, x, y){
   edit = kind && L ? {kind, id:L.id} : null; if(!edit) cutCursor = null;
-  for(const [k, M] of Object.entries(EDIT_MODES)){ const b = document.getElementById(M.btn); if(b) b.lastChild.textContent = edit && edit.kind === k ? '調整を終える' : M.label; }
-  if(edit){ const M = EDIT_MODES[kind]; if(M.enter) M.enter(L, x, y); toast(M.hint()); }
+  for(const [k, M] of Object.entries(EDIT_MODES)){ const b = document.getElementById(M.btn); if(b && b.lastChild) b.lastChild.textContent = edit && edit.kind === k ? '調整を終える' : M.label; }
+  if(edit){ const M = modeOf(edit.kind); if(M.enter) M.enter(L, x, y); toast(M.hint()); }
   syncDoc(); paintPreview(false);
 }
-function toggleEdit(kind){ const L = selLayer(); if(edit && edit.kind === kind) setEdit(null); else if(L && EDIT_MODES[kind].ok(L)) setEdit(kind, L); }
+function toggleEdit(kind){ const L = selLayer(); if(edit && edit.kind === kind) setEdit(null); else if(L && modeOf(kind).ok(L)) setEdit(kind, L); }
 // ダブルクリック・ダブルタップで、そのレイヤーの編集モードに入る
 /** @param {Layer} L */
 function enterEditAt(L, x, y){ const kind = editModeFor(L); if(!kind || edit) return false; selectLayer(L.id); setEdit(kind, L, x, y); return true; }
@@ -225,26 +231,26 @@ function enterEditAt(L, x, y){ const kind = editModeFor(L); if(!kind || edit) re
 // 押した位置が枠外なら、ここでモードを終えて false を返す（外をクリックで終了）。drag は render.js の共有変数で、mode:'edit' で区別する
 function editPointerDown(e, x, y, tv){
   const L = editLayer(); if(!L) return false;
-  const d = EDIT_MODES[edit.kind].down(L, x, y);
+  const d = modeOf(edit.kind).down(L, x, y);
   if(!d){ setEdit(null); return false; }  // 外をクリックしたら終わり、ふだんの操作へ
   drag = Object.assign({mode:'edit', L, x0:x, y0:y}, d);
   tv.setPointerCapture(e.pointerId); e.preventDefault(); syncDoc(); return true;
 }
 // ドラッグ中。syncDocSoon は入力欄の同期を 1 フレーム 1 回に間引く（毎回の同期は重いため）
-function editPointerMove(x, y){ cutCursor = edit.kind === 'cut' ? [x, y] : null; EDIT_MODES[edit.kind].move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
+function editPointerMove(x, y){ cutCursor = edit.kind === 'cut' ? [x, y] : null; modeOf(edit.kind).move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
 // ホイール。モードが「使わない」(false) と答えたら通常のホイール処理（レイヤーの拡大縮小）に任せる
 function editWheel(e, x, y, k){
   const L = editLayer(); if(!L) return false;
-  if(EDIT_MODES[edit.kind].zoom(L, k, x, y, e) === false) return false;
+  if(modeOf(edit.kind).zoom(L, k, x, y, e) === false) return false;
   e.preventDefault(); syncDoc(); docChanged(true); return true;
 }
 // スマホのピンチ（mobile.js から）。開始時の値を st に控え、editPinch で倍率 k を掛ける
-function editPinchStart(I){ const L = editLayer(); return L ? {kind:'edit', L, i:I, st:EDIT_MODES[edit.kind].pinchStart(L)} : null; }
-function editPinch(p, k){ EDIT_MODES[edit.kind].pinch(p.L, p.st, k); }
+function editPinchStart(I){ const L = editLayer(); return L ? {kind:'edit', L, i:I, st:modeOf(edit.kind).pinchStart(L)} : null; }
+function editPinch(p, k){ modeOf(edit.kind).pinch(p.L, p.st, k); }
 function drawEditOverlay(ctx, W, H, dpr){
   const L = editLayer(); if(!L) return false;
-  const M = EDIT_MODES[edit.kind]; M.overlay(ctx, L, W / DOC.w, dpr); drawBanner(ctx, W, dpr, M.banner(L));
+  const M = modeOf(edit.kind); M.overlay(ctx, L, W / DOC.w, dpr); drawBanner(ctx, W, dpr, M.banner(L));
   return true;
 }
-return {r4, EDIT_MODES, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay};
+return {r4, EDIT_MODES, editModeUp, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay};
 })();

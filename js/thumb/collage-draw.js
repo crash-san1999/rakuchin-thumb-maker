@@ -13,9 +13,11 @@ exporting = false;
 // 戻り値：マスごとの頂点列の配列（マス番号の順。文字・画像の割り当て順と一致）。slant＝斜めの傾き（0〜）、main＝「大きく」系の大きいマスの幅の割合。
 // 縦に並べる(cols)を基本形にして、横並び・縦長はその x/y を入れ替えて作る（swap。向きを保つため頂点順も反転）
 // レイヤー L のマスの形（W×H のピクセル座標）。lay を渡すとその配置で（書き出しのアイコンなど）
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
+/** @param {number} W @param {number} H @param {string} [lay] */
 function collageCellsOf(L, W, H, lay){ return collageCells(lay || L.layout, collageN(L), W, H, L.slant, L.main, L.cells.map(cellW)); }
 // ws＝マスごとの幅の比率（「縦に並べる」「横に並べる」だけで使う）。全部同じなら等分（従来と同じ計算）
+/** @param {string} lay @param {number} n @param {number} W @param {number} H @param {number} [slant] @param {number} [main] @param {number[]|null} [ws] */
 function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   if(!collageLayoutOk(lay, n)) lay = 'cols';
   const wk = ws && ws.slice(0, n).some(v => v !== ws[0]) ? ws.slice(0, n) : null, wsum = wk ? wk.reduce((a, b) => a + b, 0) : 0;
@@ -116,7 +118,7 @@ function collageShape(cells, W, H, edge, A){
 function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); }
 // マスの画像（背景・文字・効果は別）を描く。poly の外接矩形をマスの範囲とし、画面外にはみ出す分は切る。
 // showEmpty：画像のないマスにプレースホルダー（番号と「画像をドロップ」）を描くか。書き出し時は false
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageCellPicture(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = ASSETS[cell.asset];
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
@@ -145,9 +147,9 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
   // f＝ドキュメント座標→このキャンバスのピクセルの倍率（効果の量はドキュメント座標で持つため、描画先の大きさに合わせて換算する）。m＝余白(px)
   // 暗さ・色かぶり・ビネットは source-atop で、画像のある部分にだけかける（余白の透明部分を染めない）
   const f = W / (L.bw * L.sc), m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0));
-  const t = mk(Math.ceil(cw) + m * 2, Math.ceil(ch) + m * 2), tx = t.getContext('2d'), ox = m - bx0, oy = m - by0;
+  const t = mk(Math.ceil(cw) + m * 2, Math.ceil(ch) + m * 2), tx = ctx2d(t), ox = m - bx0, oy = m - by0;
   tx.filter = toneFilter(fx, f); cellImg(tx, A.img, cx + ox, cy + oy, dw, dh, cell); tx.filter = 'none';
-  const o = postFx(t, fx, f, bx0 + cw / 2 + ox, by0 + ch / 2 + oy), ox2 = o.getContext('2d');
+  const o = postFx(t, fx, f, bx0 + cw / 2 + ox, by0 + ch / 2 + oy), ox2 = ctx2d(o);
   ox2.save(); ox2.globalCompositeOperation = 'source-atop';
   if(fx.dim > 0){ ox2.fillStyle = `rgba(0,0,0,${fx.dim})`; ox2.fillRect(0, 0, o.width, o.height); }
   if(fx.tint.on && fx.tint.a > 0) tintAtop(o, fx.tint);
@@ -163,7 +165,7 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
 // 文字の描画：マスに収まる大きさに合わせて、文字スタイルでレンダリング（text-render.js の render）
 // 文字スタイルは分割フレーム全体で1つ（L.tstyle。null なら既定の「ポップ」）。文字だけはマスごと
 const cellHasText = c => !!(c && c.tx && c.tx.on && String(c.tx.text || '').trim());
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 // マスの文字のスタイル：分割フレーム共通の文字スタイルに、マスごとの色の上書き（t＝cell.tx）を重ねる。
 // 文字の色は単色の塗りに、フチの色は全部のフチをその色にする（共通のスタイルは書き換えない）
 function cellTextStyle(L, text, t){
@@ -172,7 +174,7 @@ function cellTextStyle(L, text, t){
   if(t && t.ecOn) st.strokes = st.strokes.map(s => Object.assign({}, s, {c:t.ec}));
   return st;
 }
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function drawCellText(x, L, cell, bx0, by0, cw, ch){
   const t = cell.tx, st = cellTextStyle(L, String(t.text), t), band = t.pos === 'c' ? 0.86 : 0.3, tt = L.ttx && L.ttx.on ? L.ttx : {sc:1, ox:0, oy:0};
   // まず 0.25 倍で試し描きして文字の大きさを測り、マスに収まる倍率 k を出してから本描画する（band＝文字が使える高さの割合。中央は大きく、上下寄せは帯状）。
@@ -185,7 +187,7 @@ function drawCellText(x, L, cell, bx0, by0, cw, ch){
 }
 // マス1つ分（背景色 → 画像 → 文字 の順）を描く。背景も文字も無ければ画像だけの軽い経路に任せる。
 // 背景の fillRect を上下左右 1px 広げるのは、クリップ境界の隙間（アンチエイリアスの透け）を防ぐため
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageCellImage(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = ASSETS[cell.asset], bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
   if(!hasBg && !hasTx){ collageCellPicture(x, L, i, poly, W, H, showEmpty); return; }
@@ -203,9 +205,9 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 // 分割フレーム全体を W×H の1枚のキャンバスに描く（回転・位置・影・不透明度は drawCollage 側）。f＝ドキュメント座標→ピクセルの倍率、lay＝レイアウトの上書き
 // 描く順序：全体を角丸でクリップ → 各マスを自分の多角形でクリップして描く → 境界線（bstyle ごと）→ 外枠。
 // 境界の太さ lw・振幅 A は f 倍してピクセルにする。radius は s（キャンバス1pxあたりのドキュメント倍率）で換算
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageCanvas(L, W, H, f, lay){
-  const n = collageN(L), c = mk(W, H), x = c.getContext('2d'), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
+  const n = collageN(L), c = mk(W, H), x = ctx2d(c), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
   const cells = collageCellsOf(L, W, H, lay), A = Math.max(2, (L.amp || 20) * f);
   const {polys, lines} = collageShape(cells, W, H, L.edge || 'straight', A);
   const lw = Math.max(0, (L.lw ?? 10) * f), st = L.bstyle || 'line', showEmpty = !exporting;
@@ -219,7 +221,7 @@ function collageCanvas(L, W, H, f, lay){
   if(st === 'blur' && lw > 0){
     const ext = p => p.map(([px, py]) => [px < 0.6 ? -lw * 4 : px > W - 0.6 ? W + lw * 4 : px, py < 0.6 ? -lw * 4 : py > H - 0.6 ? H + lw * 4 : py]);
     polys.forEach((p, i) => {
-      const t = mk(W, H), tx = t.getContext('2d'); collageCellImage(tx, L, i, p, W, H, showEmpty);
+      const t = mk(W, H), tx = ctx2d(t); collageCellImage(tx, L, i, p, W, H, showEmpty);
       tx.globalCompositeOperation = 'destination-in'; tx.filter = `blur(${lw * 0.8}px)`; collagePath(tx, ext(p)); tx.fillStyle = '#000'; tx.fill(); tx.filter = 'none';
       x.drawImage(t, 0, 0);
     });
@@ -227,7 +229,7 @@ function collageCanvas(L, W, H, f, lay){
     // 影で重ねる：2番目以降のマスを、影付きで上から重ねて描き直す（マス0は下地のまま。番号が大きいほど手前）
     polys.forEach((p, i) => {
       if(!i) return;
-      const t = mk(W, H), tx = t.getContext('2d'); collagePath(tx, p); tx.clip(); collageCellImage(tx, L, i, p, W, H, showEmpty);
+      const t = mk(W, H), tx = ctx2d(t); collagePath(tx, p); tx.clip(); collageCellImage(tx, L, i, p, W, H, showEmpty);
       x.save(); x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = lw * 1.2; x.shadowOffsetX = lw * 0.25; x.shadowOffsetY = lw * 0.25; x.drawImage(t, 0, 0); x.restore();
     });
   }else if(st === 'gap' && lw > 0){ x.globalCompositeOperation = 'destination-out'; strokeLines(lw, '#000'); x.globalCompositeOperation = 'source-over'; }
@@ -239,7 +241,7 @@ function collageCanvas(L, W, H, f, lay){
 }
 // ctx に分割フレームを描く。実際の絵は collageCanvas で作ってレイヤーごとにキャッシュし、ここでは位置・回転・影・不透明度を付けて貼るだけ。
 // dims（選択枠・グループ範囲用）は描画のたびに更新。f＝倍率、live＝操作中、cache＝レイヤー id → {sk, k, c}
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));

@@ -44,7 +44,7 @@ function drow(r){
 const shapeIconCache = {};
 function shapeIcon(k){
   if(shapeIconCache[k]) return shapeIconCache[k];
-  const c = mk(44, 44), x = c.getContext('2d'); x.translate(22, 22); x.beginPath(); framePath(x, k, 32, 32, 0.2); x.fillStyle = '#1f1b2d'; x.fill();
+  const c = mk(44, 44), x = ctx2d(c); x.translate(22, 22); x.beginPath(); framePath(x, k, 32, 32, 0.2); x.fillStyle = '#1f1b2d'; x.fill();
   return shapeIconCache[k] = c.toDataURL();
 }
 /* ---------- モード・タブ ---------- */
@@ -79,7 +79,7 @@ function setPage(page){
   ts.classList.toggle('secoff', page !== 'txt-text'); fs.classList.toggle('secoff', page !== 'txt-font');
   $('#layerSec').classList.toggle('secoff', !page.startsWith('lay-')); $('#bgSec').classList.toggle('secoff', !page.startsWith('bg-'));
   const pg = page.split('-')[1];
-  $$('#selBox [data-pg], #bgRows [data-pg]').forEach(el => el.classList.toggle('pgoff', !el.dataset.pg.split('|').includes(pg)));
+  $$('#selBox [data-pg], #bgRows [data-pg]').forEach(el => el.classList.toggle('pgoff', !(el.dataset.pg ?? '').split('|').includes(pg)));
   $$('#tabs [data-page]').forEach(b => b.classList.toggle('on', b.dataset.page === page));
   const pn = $('.pane.on'); if(pn) pn.scrollTop = 0;
 }
@@ -89,7 +89,7 @@ function setPage(page){
 function renderInspector(force){
   if(!DOC || !$('#insHead')) return;
   const ctx = insCtx(), L = selLayer(), key = ctx + '|' + (L ? L.id : ''), [icn, typ] = INS_INFO[ctx];
-  const name = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : layerName(L);
+  const name = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : L ? layerName(L) : '';
   if($('#insName').textContent !== name) $('#insName').textContent = name;
   if(key === insKey && !force) return;
   $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ; $('#insDesel').style.display = ctx !== 'bg' && ctx !== 'textmode' ? '' : 'none';

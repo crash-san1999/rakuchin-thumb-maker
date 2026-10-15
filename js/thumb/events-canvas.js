@@ -35,12 +35,12 @@
     if(editPointerDown(e, x, y, tv)) return;
     // 吹き出しのしっぽのつまみ（tailhandle.js）：ハンドルより優先（つまみは枠の外や四隅の近くに出ることがあるため）
     const tail = tailHandleAt(x, y);
-    if(tail){ const T0 = selLayer(); drag = {mode:'tail', L:T0, st:tailDragStart(T0, tail, e)}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return; }
+    const T0 = tail && selLayer(); if(tail && T0){ drag = {mode:'tail', L:T0, st:tailDragStart(T0, tail, e)}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return; }
     let mode = handleAt(x, y), T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
       // 絵が実際にある（rank>0）ものだけを巡回対象にする。無ければ枠の中のもの全部
-      const {hs: all, r} = hitRanked(x, y), vis = all.filter(l => r.get(l.id) > 0), hs = vis.length ? vis : all;
+      const {hs: all, r} = hitRanked(x, y), vis = all.filter(l => (r.get(l.id) || 0) > 0), hs = vis.length ? vis : all;
       if(hs.length){ const k = hs.findIndex(l => l.id === DOC.sel); const nx = hs[(k + 1) % hs.length]; selectLayer(nx.id); T = nx; mode = 'move'; }
     }
     if(!mode && (e.shiftKey || e.ctrlKey || e.metaKey)){
@@ -61,8 +61,9 @@
     }
     // グループ・複数選択は、中身のレイヤーをまとめて動かす（xformSnap が開始時の状態を控える）。
     // drag には開始時の位置・倍率・角度（lx, ly, sc, rot）と、中心からの距離 d0・角度 a0 を持たせ、move では常にそこからの差で計算する（誤差を積まない）
+    if(!T) return;   // ここまでで、つかむレイヤーが決まっている（ハンドル＝選択中のレイヤー、または当たったレイヤー）
     const multi = (DOC.msel || []).length >= 2 && DOC.msel.includes(T.id);
-    const snap = multi ? xformSnap(DOC.msel.map(layerById).filter(l => l && !l.locked), T.x, T.y) : isGroup(T) ? xformSnap([T], T.x, T.y) : null;
+    const snap = multi ? xformSnap(DOC.msel.map(layerById).filter(/** @returns {l is Layer} */ l => !!l && !l.locked), T.x, T.y) : isGroup(T) ? xformSnap([T], T.x, T.y) : null;
     drag = {mode, L:T, snap, x0:x, y0:y, lx:T.x, ly:T.y, sc:T.sc, rot:T.rot || 0, d0:Math.hypot(x - T.x, y - T.y), a0:Math.atan2(y - T.y, x - T.x)};
     tv.setPointerCapture(e.pointerId); e.preventDefault();
   });
@@ -116,7 +117,7 @@
     syncDocSoon(); livePaint();
   });
   // ドラッグの終了（pointerup / cancel）。編集モードは up フックを呼び、最後に必ず docChanged で保存・履歴を確定する
-  const end = () => { if(!drag) return; const d = drag; drag = null; snapLines = {x:null, y:null}; if(d.mode === 'edit' && edit && EDIT_MODES[edit.kind].up) EDIT_MODES[edit.kind].up(d.L, d); docChanged(false); };
+  const end = () => { if(!drag) return; const d = drag; drag = null; snapLines = {x:null, y:null}; if(d.mode === 'edit' && edit){ const up = editModeUp(edit.kind); if(up) up(d.L, d); } docChanged(false); };
   tv.addEventListener('pointerleave', () => { if(cutCursor && !drag){ cutCursor = null; livePaint(); } });
   tv.addEventListener('pointerup', end); tv.addEventListener('pointercancel', end);
   // wheelGrp：グループをホイールで拡大縮小している間の基準（開始時の状態 s と累積倍率 k）。
@@ -168,7 +169,7 @@
     else if(e.key.startsWith('Arrow')){
       e.preventDefault(); if(L.locked) return;
       const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0;
-      const ms = (DOC.msel || []).length >= 2 ? DOC.msel.map(layerById).filter(Boolean) : [L];
+      const ms = (DOC.msel || []).length >= 2 ? DOC.msel.map(layerById).filter(/** @returns {l is Layer} */ l => !!l) : [L];
       xformSnap(ms, L.x, L.y).kids.forEach(o => { o.L.x += dx; o.L.y += dy; });
       docChanged(true);
     }else if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g'){

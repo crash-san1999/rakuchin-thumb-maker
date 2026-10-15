@@ -21,7 +21,7 @@ const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, fli
 // bw/bh は作った時点のドキュメントの大きさ（以後 DOC のサイズ変更とは独立。表示の大きさは bw/bh × sc）。DOC が未初期化のときは 1920×1080
 // cells は常に8個ぶん確保（n を増減しても画像を失わない）。ac は操作パネルで選択中のマス
 function COLLAGE_BASE(){
-  return Object.assign(LAYER_BASE(), {type:'collage',
+  return Object.assign(LAYER_BASE(), {type:/** @type {'collage'} */ ('collage'),
     bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
     outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
     tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true, memo:8},
@@ -40,7 +40,7 @@ function mergeCellFx(o){
 // 何か1つでも効果が有効か。無効なら別キャンバスを作らず直接描ける（描画の軽量化に使う）
 const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x));
 // マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
 const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
   ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'],
@@ -63,14 +63,14 @@ const collageResizable = lay => lay === 'cols' || lay === 'rows';
 // マスの幅の比率。保存データの不正な値（文字・負の数・極端な値）は 0.05〜20 に収める
 const cellW = c => clamp(+(c && c.w) || 1, 0.05, 20);
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
 function applyCellFx(name){
   const L = selLayer(); if(!L || (L.type !== 'collage' && L.type !== 'group' && L.type !== 'image')) return;
   const fx = mergeCellFx(JSON.parse(JSON.stringify(CELL_FX_PRESETS[name] || {})));
   // 画像レイヤーの明度・彩度は L.bright / L.sat に持つので、プリセットの値はそちらへ移す
   if(L.type === 'image'){ L.bright = fx.bright; L.sat = fx.sat; fx.bright = 0; fx.sat = 0; L.fx = fx; syncDoc(); docChanged(false); return; }
-  if(L.fxMode === 'cell') L.cells[L.ac || 0].fx = fx; else L.fx = fx;
+  if(L.type === 'collage' && L.fxMode === 'cell') L.cells[L.ac || 0].fx = fx; else L.fx = fx;   // マスごとの効果は分割フレームだけ（グループはいつも全体）
   syncDoc(); docChanged(false);
 }
 // レイアウト：[キー, 表示名, 使える分割数の条件]。キーは L.layout に保存される。条件外の組み合わせは collageLayoutOk で 'cols' に戻して描く
@@ -86,7 +86,7 @@ const COLLAGE_LAYOUTS = [
 const COLLAGE_ROWS2 = {wk43:[4, 3], wk34:[3, 4], wk52:[5, 2], wk25:[2, 5], wk53:[5, 3], wk35:[3, 5]};
 const COLLAGE_EDGES = [['straight', 'まっすぐ'], ['zigzag', 'ギザギザ'], ['wave', '波'], ['rough', 'ラフ']];
 const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], ['gap', 'すき間（背景が見える）'], ['glow', '光る線'], ['blur', 'ぼかしてつなげる'], ['shadow', '影で重ねる']];
-/** @param {Layer} L */
+/** @param {CollageLayer} L */
 // n は数値だが、古い・手で書き換えた保存データでは文字列のこともあるので parseInt で受ける
 const collageN = L => clamp(parseInt(/** @type {any} */ (L.n)) || 2, 2, 8);
 const collageLayoutOk = (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };

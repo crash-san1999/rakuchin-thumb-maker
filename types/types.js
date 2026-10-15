@@ -40,7 +40,7 @@
  * このアプリは `L.cells ? … : …`・`l.type === 'image' ? l.asset : …` のように、種類ごとの項目を存在確認で使い分けている。
  * そこで「どの種類かの既知の項目」はすべて任意項目（?）として許可し、未知の名前（タイプミス）だけを検出する。
  * type は文字列（'text' | 'image' | 'collage' | 'group' | 'fx' | 'sched'）。厳密に絞りたい所は TextLayer などを使う。
- * @typedef {LayerBase & {type: string} & Partial<TextExtra> & Partial<ImageExtra> & Partial<CollageExtra> & Partial<GroupExtra> & Partial<FxExtra> & Partial<SchedExtra>} Layer */
+ * @typedef {TextLayer | ImageLayer | CollageLayer | GroupLayer | FxLayer | SchedLayer} Layer */
 
 /** 背景・仕上げ・色効果 */
 /** @typedef {ReturnType<typeof DOC_BASE>['bg']} DocBg */
@@ -55,17 +55,21 @@
  *   layers: Layer[], sel: string|null, textSel: string|null, msel: string[]}} Doc */
 
 /** @typedef {{x: number, y: number, w: number, h: number}} Rect */
+/** 背景透過のブラシの跡 1 本（m:'e' 消す／'r' 戻す、r：半径、p：点の列。座標・半径は元の画像に対する 0〜1 の割合） @typedef {{id: string, m: string, r: number, p: number[][]}} Stroke */
+/** 切り抜きフレームの形の計算結果（frames.js の frameGeom。画像が読み込めていないときは null を返すので、使う前に確かめる） @typedef {NonNullable<ReturnType<typeof frameGeom>>} FrameGeom */
 
 /** 編集モード（フレーム調整・背景透過のブラシ・マスの調整）の定義。editmodes.js の EDIT_MODES の各値。
+ * T はそのモードが扱うレイヤーの種類（ok が true を返したレイヤーは T。ほかの関数には ok を通ったレイヤーだけが渡る）。
  * x,y は DOC 座標、d は down が返したドラッグ中の状態、st は pinchStart が返した開始時の値、k は拡大率
+ * @template {Layer} [T=Layer]
  * @typedef {{
- *   btn: string, label: string, hint: () => string, banner: (L: Layer) => string,
- *   ok: (L: Layer) => boolean,
- *   enter?: (L: Layer, x: number, y: number) => void,
- *   down: (L: Layer, x: number, y: number) => any,
- *   move?: (L: Layer, x: number, y: number, d: any) => void,
- *   up?: (L: Layer, d: any) => void,
- *   zoom?: (L: Layer, k: number, x: number, y: number, e: any) => any,
- *   pinchStart?: (L: Layer) => any,
- *   pinch?: (L: Layer, st: any, k: number) => void,
- *   overlay?: (ctx: CanvasRenderingContext2D, L: Layer, f: number, dpr: number) => void}} EditMode */
+ *   btn: string, label: string, hint: () => string, banner: (L: T) => string,
+ *   ok: (L: Layer) => L is T,
+ *   enter?: (L: T, x?: number, y?: number) => void,   // x,y はダブルクリックで入ったときだけ（ボタンで入ったときは無い）
+ *   down: (L: T, x: number, y: number) => any,
+ *   move: (L: T, x: number, y: number, d: any) => void,
+ *   up?: (L: T, d: any) => void,
+ *   zoom: (L: T, k: number, x: number, y: number, e: any) => any,
+ *   pinchStart: (L: T) => any,
+ *   pinch: (L: T, st: any, k: number) => void,
+ *   overlay: (ctx: CanvasRenderingContext2D, L: T, f: number, dpr: number) => void}} EditMode */

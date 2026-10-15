@@ -13,10 +13,10 @@ async function thumbBlob(fmt){
   await ensureLayerFonts();   // 週間予定表のフォントも待つ（以前は書き出しだけ待っておらず、未読み込みだと代替フォントで出ることがあった）
   const W = DOC.exportW, H = Math.round(W * DOC.h / DOC.w), c = mk(W, H);
   // JPEG は透明を持てない（黒くなる）ので、先に白で塗っておく。PNG は背景非表示のとき透明のまま
-  if(fmt !== 'png'){ const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }
+  if(fmt !== 'png'){ const x = ctx2d(c); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }
   // 書き出し用の描画：live=false（高品質）、キャッシュは使い捨ての new Map()（プレビュー用 prevCache と倍率が違うので混ぜない）。
   // exporting は書き出し中だけ true にする目印（collage-draw.js が、画像の無い空きマスの目印表示を書き出しには出さないために見る）。例外でも必ず戻す
-  exporting = true; try{ compose(c.getContext('2d'), W, H, false, new Map()); } finally { exporting = false; }
+  exporting = true; try{ compose(ctx2d(c), W, H, false, new Map()); } finally { exporting = false; }
   const toB = (t, q) => new Promise(r => c.toBlob(r, t, q));
   if(fmt === 'png') return toB('image/png');
   // YouTube のサムネ上限は 2MB。limit2mb のときは、品質を 0.08 ずつ下げて収まるまで再圧縮する（下限 0.45。それ以下は画質劣化が目立つので諦める）

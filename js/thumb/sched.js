@@ -11,7 +11,7 @@ const SCHED_ROW = () => ({time:'', title:'', asset:null, rest:false});
 // dstyle＝日付・時刻の文字スタイル、tstyle＝タイトル・おやすみの文字スタイル（null なら dpre/tpre の名前のプリセット）
 function SCHED_BASE(){
   const W = typeof DOC === 'object' && DOC ? DOC.w : 1920, H = typeof DOC === 'object' && DOC ? DOC.h : 1080;
-  return Object.assign(LAYER_BASE(), {type:'sched', bw:Math.round(W * 0.66), bh:Math.round(H * 0.8), x:Math.round(W * 0.64), y:Math.round(H * 0.56),
+  return Object.assign(LAYER_BASE(), {type:/** @type {'sched'} */ ('sched'), bw:Math.round(W * 0.66), bh:Math.round(H * 0.8), x:Math.round(W * 0.64), y:Math.round(H * 0.56),
     start:'', first:'mon', fmt:'ja1', paren:'half', time:'20:00',
     band:'brush', bandColor:'rainbow', bandC:'#f5c33b', restText:'おやすみ', restC:'#e8453c', gap:0.16, img:true, seed:7,
     dpre:'白フチ', dstyle:null, tpre:'白フチ', tstyle:null,
@@ -24,7 +24,7 @@ const SCHED_COLORS = [['rainbow', '曜日ごと'], ['week', '平日・土・日'
 // 曜日ごとの帯の色（getDay() の順：日〜土）。平日・土・日の3色は WK3
 const SCHED_RAINBOW = ['#f490bd', '#f5b93a', '#e8453c', '#3d9be0', '#2fb457', '#f2cf37', '#2f5bd3'];
 const SCHED_WK3 = {wd:'#f5c33b', sat:'#3d7be0', sun:'#f06b8f'};
-const isSched = L => !!L && L.type === 'sched';
+const isSched = /** @param {Layer|null|undefined} L @returns {L is SchedLayer} */ L => !!L && L.type === 'sched';
 // プリセット名 → 文字スタイル（見つからなければ「ポップ」）
 function schedPreset(name){ const p = PRESETS.find(q => q[0] === name) || PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
 const schedDStyle = L => L.dstyle || schedPreset(L.dpre);
@@ -85,7 +85,7 @@ function schedImage(x, A, ix, iw, by, bh){
 }
 // 予定表全体を W×H の1枚のキャンバスに描く。描く順序：行ごとに 帯 → 日付 → 時刻・タイトル（おやすみなら おやすみの文字）→ 画像
 function schedCanvas(L, W, H){
-  const c = mk(W, H), x = c.getContext('2d'), days = schedDays(L), lay = schedLayout(L, W, H), ds = schedDStyle(L), ts = schedTStyle(L);
+  const c = mk(W, H), x = ctx2d(c), days = schedDays(L), lay = schedLayout(L, W, H), ds = schedDStyle(L), ts = schedTStyle(L);
   lay.forEach((g, i) => {
     const r = L.rows[i] || SCHED_ROW(), d = days[i];
     if(L.band !== 'none'){ x.fillStyle = schedBandColor(L, d, r); schedBandPath(x, L.band, g.band[0], g.y, g.band[1], g.h, (L.seed | 0) * 31 + i * 7 + 1); x.fill(); }
@@ -99,7 +99,7 @@ function schedCanvas(L, W, H){
 }
 // ctx に予定表を描く。絵は schedCanvas で作ってレイヤーごとにキャッシュし、ここでは位置・回転・影・不透明度を付けて貼るだけ（drawCollage と同じ手順）。
 // sk：見た目が変わる設定すべての印。描画に効く項目を足したら、ここにも必ず足す（日付は今日によって変わるので、計算した見出しも入れる）
-/** @param {Layer} L */
+/** @param {SchedLayer} L */
 function drawSched(ctx, L, f, live, cache){
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});
@@ -120,7 +120,7 @@ async function ensureSchedFonts(L){
   await ensureFont(Object.assign({}, schedTStyle(L), {text: ttx || 'あ'}));
 }
 // ドキュメント座標 (x, y) が予定表 L の何行目か（回転・拡大縮小を考慮）。外なら -1
-/** @param {Layer} L */
+/** @param {SchedLayer} L */
 function schedRowAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
@@ -153,7 +153,7 @@ function addSched(){
   toast('週間予定表を追加しました。設定の「予定」タブで時刻・タイトルを入れ、行に画像をドロップできます');
 }
 // 行 i に画像を入れる
-/** @param {Layer} L */
+/** @param {SchedLayer} L */
 async function schedSetImage(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
   L.rows[i].asset = id; if(!L.img) L.img = true;
@@ -190,7 +190,7 @@ function schedParseLine(L, line, days){
   const title = s.replace(new RegExp(`^[${SCHED_SEP}]+|[${SCHED_SEP}]+$`, 'g'), '').trim();
   return {day, outside, time, rest: SCHED_REST_RE.test(title), title: SCHED_REST_RE.test(title) ? '' : title.slice(0, 60)};
 }
-/** @param {Layer} L @param {string} text */
+/** @param {SchedLayer} L @param {string} text */
 function schedApplyText(L, text){
   const days = schedDays(L), done = [];
   let next = 0, skipped = 0;
@@ -207,7 +207,7 @@ function schedApplyText(L, text){
 }
 
 /* 週を動かす：dw 週ぶん日付を進める（-1 で前の週）。clear なら中身（時刻・タイトル・画像・おやすみ）を空にする＝「来週分を作る」 */
-/** @param {Layer} L */
+/** @param {SchedLayer} L */
 function schedShiftWeek(L, dw, clear){
   const d0 = schedDays(L)[0], d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 7 * dw);
   L.start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

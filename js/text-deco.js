@@ -98,8 +98,8 @@ function drawExtrude(prep, W, H, items, outer, scale){
     if(dx){ const g = Math.round(255 * d / ex); pass(dx, `rgb(${g},${g},${g})`, d); }
   }
   if(D){
-    const ec = E.getContext('2d', {willReadFrequently:true}), ei = ec.getImageData(0, 0, W, H), ed = ei.data;
-    const dd = D.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, W, H).data;
+    const ec = ctx2d(E, {willReadFrequently:true}), ei = ec.getImageData(0, 0, W, H), ed = ei.data;
+    const dd = ctx2d(D, {willReadFrequently:true}).getImageData(0, 0, W, H).data;
     for(let i = 3; i < ed.length; i += 4) if(ed[i]) ed[i] *= 1 - e.fade * (dd[i - 3] / 255);
     ec.putImageData(ei, 0, 0);
   }
@@ -120,10 +120,10 @@ function drawOffsetLayer(prep, W, H, items, outer){
 // F（塗りのキャンバス）を直接書き換える。「文字の外側（反転）」に影を落とし、それを source-atop で文字の内側にだけ重ねる、という反転トリック。
 // 実ピクセルで処理（setTransform を単位行列にして貼る）
 function innerShadow(F, scale){
-  const s = RS.inner, W = F.width, H = F.height, inv = mk(W, H), ix = inv.getContext('2d');
+  const s = RS.inner, W = F.width, H = F.height, inv = mk(W, H), ix = ctx2d(inv);
   ix.fillStyle = '#000'; ix.fillRect(0, 0, W, H); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(F, 0, 0);
   const sh = effectOnly(inv, s.x, s.y, s.blur, rgba(s.c, s.a), scale);
-  const fx = F.getContext('2d'); fx.save(); fx.setTransform(1, 0, 0, 1, 0, 0); fx.globalCompositeOperation = 'source-atop'; fx.drawImage(sh, 0, 0); fx.restore();
+  const fx = ctx2d(F); fx.save(); fx.setTransform(1, 0, 0, 1, 0, 0); fx.globalCompositeOperation = 'source-atop'; fx.drawImage(sh, 0, 0); fx.restore();
 }
 /* 鏡面反射（下に反転して映す） */
 // B（光彩・影込みの合成結果）の下に body の下端を上下反転して貼り足し、新しいキャンバスを返す（高さが伸びる）。
@@ -131,12 +131,12 @@ function innerShadow(F, scale){
 function addReflection(B, body, scale){
   const r = RS.reflect, bb = bbox(body); if(!bb) return B;
   const ch = bb.b - bb.t + 1, len = Math.max(1, Math.round(ch * r.len)), gap = Math.round(r.gap * scale), W = B.width;
-  const R = mk(W, len), rx = R.getContext('2d');
+  const R = mk(W, len), rx = ctx2d(R);
   rx.save(); rx.scale(1, -1); rx.drawImage(body, 0, bb.b - len + 1, W, len, 0, -len, W, len); rx.restore();
   rx.globalCompositeOperation = 'destination-in';
   const g = rx.createLinearGradient(0, 0, 0, len); g.addColorStop(0, `rgba(0,0,0,${r.a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
   rx.fillStyle = g; rx.fillRect(0, 0, W, len);
-  const O = mk(W, Math.max(B.height, bb.b + 1 + gap + len + 2)), ox = O.getContext('2d');
+  const O = mk(W, Math.max(B.height, bb.b + 1 + gap + len + 2)), ox = ctx2d(O);
   ox.drawImage(R, 0, bb.b + 1 + gap); ox.drawImage(B, 0, 0);
   return O;
 }
@@ -164,7 +164,7 @@ function displace(c, amp, sc, seed, stretchY){
   const bb = bbox(c); if(!bb || amp <= 0) return;
   const W = c.width, H = c.height, pad = Math.ceil(amp) + 2;
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), r = Math.min(W - 1, bb.r + pad), b = Math.min(H - 1, bb.b + pad);
-  const w = r - l + 1, h = b - t + 1, ctx = c.getContext('2d', {willReadFrequently:true});
+  const w = r - l + 1, h = b - t + 1, ctx = ctx2d(c, {willReadFrequently:true});
   const src = ctx.getImageData(l, t, w, h).data, out = ctx.createImageData(w, h), od = out.data, nz = makeNoise(seed);
   const sy = sc * (stretchY || 1);
   for(let y = 0; y < h; y++){
@@ -185,7 +185,7 @@ function displace(c, amp, sc, seed, stretchY){
 function makeFire(body, scale){
   const f = RS.fire, W = body.width, H = body.height, bb = bbox(body), out = mk(W, H);
   if(!bb) return out;
-  const d = body.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, W, H).data;
+  const d = ctx2d(body, {willReadFrequently:true}).getImageData(0, 0, W, H).data;
   const R = rng(f.seed), sp = Math.max(3, RS.size * 0.09 * scale), tops = [];
   for(let x = bb.l; x <= bb.r; x += sp){
     const xi = Math.round(x + (R() - 0.5) * sp * 0.6);
@@ -194,12 +194,12 @@ function makeFire(body, scale){
       if(d[k] > 128 && d[k - W * 4] <= 128){ tops.push([xi, y]); y += Math.round(RS.size * 0.25 * scale); }
     }
   }
-  const o = out.getContext('2d');
+  const o = ctx2d(out);
   // 土台の赤い照り返し
-  const sil = mk(W, H), sx = sil.getContext('2d');
+  const sil = mk(W, H), sx = ctx2d(sil);
   sx.drawImage(body, 0, 0); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = f.c3; sx.fillRect(0, 0, W, H);
   o.filter = `blur(${Math.max(2, RS.size * 0.08 * scale)}px)`; o.globalAlpha = 0.9; o.drawImage(sil, 0, -RS.size * 0.05 * scale); o.filter = 'none'; o.globalAlpha = 1;
-  const T = mk(W, H), t = T.getContext('2d');
+  const T = mk(W, H), t = ctx2d(T);
   const tongue = (x, y, h, w, sway, c0, c1, c2, a) => {
     const o = t, g = o.createLinearGradient(0, y, 0, y - h);
     g.addColorStop(0, rgba(c0, a)); g.addColorStop(0.45, rgba(c1, a * 0.9)); g.addColorStop(1, rgba(c2, 0));
@@ -228,7 +228,7 @@ function makeFire(body, scale){
 // 実ピクセル処理のため setTransform を単位行列に戻している。outerPx は呼び出し側で scale 掛け済みの最外フチ幅
 function drawDrips(F, K, outerPx, strokeColor, scale){
   const dr = RS.drip, bb = bbox(F); if(!bb) return;
-  const W = F.width, R = rng(dr.seed), fctx = F.getContext('2d', {willReadFrequently:true});
+  const W = F.width, R = rng(dr.seed), fctx = ctx2d(F, {willReadFrequently:true});
   const d = fctx.getImageData(0, 0, W, F.height).data;
   const wPx = Math.max(3, dr.w * RS.size * scale), step = Math.max(2, Math.round(wPx * 1.4)), gapPx = RS.size * 0.22 * scale;
   const list = [];
@@ -252,7 +252,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
     c.lineTo(x + w2 * 0.8, y + q.len * 0.5); c.quadraticCurveTo(x + w2 * 0.8, y, x + w2 * 1.6, y - 2); c.closePath();
   };
   if(outerPx > 0 && strokeColor){
-    const k = K.getContext('2d'); k.save(); k.setTransform(1, 0, 0, 1, 0, 0);
+    const k = ctx2d(K); k.save(); k.setTransform(1, 0, 0, 1, 0, 0);
     k.strokeStyle = k.fillStyle = strokeColor; k.lineWidth = outerPx * 2; k.lineJoin = 'round';
     list.forEach(q => { path(k, q); k.stroke(); k.fill(); }); k.restore();
   }
@@ -264,7 +264,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
 // 半径 0.4px 未満は打たない。source-atop で文字の中にだけ描く。パターン種別 'halftone' のとき drawPattern の代わりに呼ばれる
 function drawHalftone(F, scale){
   const p = RS.pattern, bb = bbox(F); if(!bb) return;
-  const sz = Math.max(3, p.size * scale), x = F.getContext('2d');
+  const sz = Math.max(3, p.size * scale), x = ctx2d(F);
   x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = p.a; x.fillStyle = p.c;
   const a = p.angle * PI / 180, ca = Math.cos(a), sa = Math.sin(a), cx = (bb.l + bb.r) / 2, cy = (bb.t + bb.b) / 2;
   const Rr = Math.hypot(bb.r - bb.l, bb.b - bb.t) / 2 + sz, hh = Math.max(1, bb.b - bb.t);
@@ -309,7 +309,7 @@ function drawCutLines(ctx, L){
 // alpha>128 で、上下左右のどれかが透明な画素＝輪郭の画素を全部返す（実ピクセル座標の [x,y] 配列）。キラキラの置き場所の候補用。画像が大きいと配列も大きくなる
 function edgePoints(c){
   const bb = bbox(c); if(!bb) return [];
-  const W = c.width, d = c.getContext('2d', {willReadFrequently:true}).getImageData(0, 0, W, c.height).data, pts = [];
+  const W = c.width, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, W, c.height).data, pts = [];
   for(let y = Math.max(1, bb.t); y <= Math.min(c.height - 2, bb.b); y++) for(let x = Math.max(1, bb.l); x <= Math.min(W - 2, bb.r); x++){
     const i = (y * W + x) * 4 + 3;
     if(d[i] > 128 && (d[i - 4] <= 128 || d[i + 4] <= 128 || d[i - W * 4] <= 128 || d[i + W * 4] <= 128)) pts.push([x, y]);
@@ -324,7 +324,7 @@ function drawBulbs(F, scale){
   const b = RS.bulbs, r = Math.max(1.5, b.size * RS.size * scale), gap = Math.max(r * 2.4, b.gap * RS.size * scale), bb = bbox(F); if(!bb) return;
   const W = F.width, H = F.height, pad = Math.ceil(r * 2) + 2;
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), w = Math.min(W, bb.r + pad) - l, h = Math.min(H, bb.b + pad) - t;
-  const ctx = F.getContext('2d', {willReadFrequently:true}), d = ctx.getImageData(l, t, w, h).data;
+  const ctx = ctx2d(F, {willReadFrequently:true}), d = ctx.getImageData(l, t, w, h).data;
   const a = new Float32Array(w * h); for(let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] / 255;
   const rr = Math.max(1, Math.round(r * 0.6)), hm = boxBlur(boxBlur(a, w, h, rr), w, h, rr), T = 0.62, pts = [];
   for(let y = 1; y < h - 1; y++) for(let x = 1; x < w - 1; x++){
@@ -356,7 +356,7 @@ function drawBulbs(F, scale){
 function drawSparkles(B, body, scale){
   const s = RS.sparkle; if(s.count <= 0) return;
   const pts = edgePoints(body), bb = bbox(body); if(!pts.length || !bb) return;
-  const R = rng(s.seed), x = B.getContext('2d'), base = s.size * RS.size * scale;
+  const R = rng(s.seed), x = ctx2d(B), base = s.size * RS.size * scale;
   x.save(); x.fillStyle = s.c;
   if(s.glow){ x.shadowColor = s.c; x.shadowBlur = base * 0.6; }
   for(let i = 0; i < s.count; i++){
@@ -377,8 +377,8 @@ function drawSparkles(B, body, scale){
 function addTrail(body, scale){
   const t = RS.trail, W = body.width, H = body.height, a = t.angle * PI / 180, Lp = t.len * RS.size * scale;
   let src = body;
-  if(t.tint){ src = mk(W, H); const x = src.getContext('2d'); x.drawImage(body, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = t.c; x.fillRect(0, 0, W, H); }
-  const out = mk(W, H), o = out.getContext('2d');
+  if(t.tint){ src = mk(W, H); const x = ctx2d(src); x.drawImage(body, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = t.c; x.fillRect(0, 0, W, H); }
+  const out = mk(W, H), o = ctx2d(out);
   for(let i = t.count; i >= 1; i--){ const k = i / t.count; o.globalAlpha = t.a * (1 - k * 0.85); o.drawImage(src, Math.cos(a) * Lp * k, Math.sin(a) * Lp * k); }
   o.globalAlpha = 1; o.drawImage(body, 0, 0);
   return out;

@@ -13,9 +13,9 @@
 // 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 const KEY_BASE = () => ({on:false, c:'#00b140', tol:25, soft:10, shrink:0, smooth:1, mode:'edge', fringe:true});
 var {cutOn, cutCache, keyNormalize, strokesNormalize, cutSig, cutAutoColor, cutPixelColor, cutSrc} = (() => {
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 const cutKeyOn = L => !!(L.key && L.key.on);
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 const cutOn = L => cutKeyOn(L) || !!(L.strokes && L.strokes.length);
 const cutCache = new Map();
 
@@ -39,7 +39,7 @@ function strokesNormalize(a){
 }
 // 絵が変わったかを見分ける印（キャッシュのキーに使う）
 // ブラシは跡の本数と点の総数だけで見る（点の中身までは比べない）。描画中は点が増えるだけなので、これで変化を検知できる
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 function cutSig(L){
   if(!cutOn(L)) return '';
   let n = 0, m = 0; for(const s of L.strokes || []){ n++; m += s.p.length; }
@@ -49,8 +49,8 @@ function cutSig(L){
 /* ---------- 背景色を透明にする ---------- */
 // 画像の四隅から背景色を推定する（中央値）
 function cutAutoColor(img){
-  const w = img.naturalWidth, h = img.naturalHeight, c = mk(w, h), x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(img, 0, 0);
-  const s = Math.max(1, Math.min(6, Math.floor(Math.min(w, h) / 20))), ch = [[], [], []];
+  const w = img.naturalWidth, h = img.naturalHeight, c = mk(w, h), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, 0, 0);
+  const s = Math.max(1, Math.min(6, Math.floor(Math.min(w, h) / 20))), ch = /** @type {number[][]} */ ([[], [], []]);
   for(const [px, py] of [[0, 0], [w - s, 0], [0, h - s], [w - s, h - s]]){
     const d = x.getImageData(px, py, s, s).data;
     for(let i = 0; i < d.length; i += 4){ if(d[i + 3] < 128) continue; ch[0].push(d[i]); ch[1].push(d[i + 1]); ch[2].push(d[i + 2]); }
@@ -62,13 +62,13 @@ function cutAutoColor(img){
 // 画像上の1点の色（元の絵のまま）
 function cutPixelColor(img, px, py){
   const w = img.naturalWidth, h = img.naturalHeight, X = clamp(Math.round(px), 0, w - 1), Y = clamp(Math.round(py), 0, h - 1);
-  const c = mk(1, 1), x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(img, X, Y, 1, 1, 0, 0, 1, 1);
+  const c = mk(1, 1), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, X, Y, 1, 1, 0, 0, 1, 1);
   const d = x.getImageData(0, 0, 1, 1).data; return d[3] < 8 ? null : rgb2hex([d[0], d[1], d[2]]);
 }
 // 色指定の透過だけをかけた絵（キャンバス）を作る。img は元の絵を変えず、読み出し専用で使う
 // 処理の順：色の近さ → 透明にする範囲 → 縁を削る → ぼかす → にじみ除去 → アルファ反映。1 画素ずつの処理なので大きい画像では重い（結果は cutSrc でキャッシュ）
 function keyCanvas(img, k){
-  const w = img.naturalWidth, h = img.naturalHeight, n = w * h, c = mk(w, h), x = c.getContext('2d', {willReadFrequently:true});
+  const w = img.naturalWidth, h = img.naturalHeight, n = w * h, c = mk(w, h), x = ctx2d(c, {willReadFrequently:true});
   x.drawImage(img, 0, 0);
   const im = x.getImageData(0, 0, w, h), d = im.data, [kr, kg, kb] = hex2rgb(k.c);
   // 距離は RGB 空間の最大距離（255*√3 ≒ 441.673）で 0〜1 に正規化。tol は 0〜100 を 0〜0.5、soft は 0〜0.25 に割り当てる（これ以上は大きすぎて絵が消えるため）
@@ -134,14 +134,14 @@ function strokeApply(F, src, st, from, geo){
     if(P.length === 1) c.arc(P[0][0], P[0][1], r, 0, 7); else { c.moveTo(P[0][0], P[0][1]); for(let i = 1; i < P.length; i++) c.lineTo(P[i][0], P[i][1]); }
   };
   const paint = c => { path(c); if(P.length === 1) c.fill(); else c.stroke(); };
-  const x = F.getContext('2d');
+  const x = ctx2d(F);
   if(st.m === 'e'){ x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = x.strokeStyle = '#000'; paint(x); x.restore(); return; }
   // 戻す：跡の範囲だけ、元の絵を取り出して重ねる
   // 範囲(bx,by,bw,bh)は半径＋2px の余白付きで、画像の外にはみ出さないよう切り詰める。いったん跡を消してから重ねるので、半透明の縁が二重に濃くならない
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for(const [px, py] of P){ x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py); }
   const bx = Math.max(0, Math.floor(x0 - r - 2)), by = Math.max(0, Math.floor(y0 - r - 2)), bw = Math.min(F.width, Math.ceil(x1 + r + 2)) - bx, bh = Math.min(F.height, Math.ceil(y1 + r + 2)) - by;
   if(bw < 1 || bh < 1) return;
-  const T = mk(bw, bh), t = T.getContext('2d'); t.translate(-bx, -by); t.fillStyle = t.strokeStyle = '#fff'; paint(t);
+  const T = mk(bw, bh), t = ctx2d(T); t.translate(-bx, -by); t.fillStyle = t.strokeStyle = '#fff'; paint(t);
   t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-in'; t.drawImage(src, bx, by, bw, bh, 0, 0, bw, bh);
   x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = x.strokeStyle = '#000'; paint(x); x.restore();
   x.drawImage(T, bx, by);
@@ -149,7 +149,7 @@ function strokeApply(F, src, st, from, geo){
 
 /* ---------- 切り取り・背景透過・ブラシをかけた絵 ---------- */
 // S：トリミング済みの絵（{img}）、A：元の画像。トリミングの位置は元の画像の座標に直して使う
-/** @param {Layer} L */
+/** @param {ImageLayer} L */
 function cutSrc(L, S, A){
   const iw = S.img.naturalWidth, ih = S.img.naturalHeight, iw0 = A.img.naturalWidth, ih0 = A.img.naturalHeight;
   const rc = cropOn(L) ? cropRect(L, iw0, ih0) : {sx:0, sy:0}, geo = {sx:rc.sx, sy:rc.sy, iw0, ih0};
@@ -163,7 +163,7 @@ function cutSrc(L, S, A){
   if(strokes.length){
     // これまでの続きから描き足せるか（先頭から同じ跡で、点が増えただけなら描き足す）
     const ok = e.fin && e.applied.length <= strokes.length && e.applied.every((q, i) => strokes[i].id === q.id && strokes[i].p.length >= q.n);
-    if(!ok){ const c = mk(iw, ih); c.getContext('2d').drawImage(e.base || S.img, 0, 0); e.fin = c; e.applied = []; }
+    if(!ok){ const c = mk(iw, ih); ctx2d(c).drawImage(e.base || S.img, 0, 0); e.fin = c; e.applied = []; }
     strokes.forEach((st, i) => {
       const done = e.applied[i] ? e.applied[i].n : 0;
       if(done < st.p.length){ strokeApply(e.fin, S.img, st, done, geo); e.applied[i] = {id:st.id, n:st.p.length}; }

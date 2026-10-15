@@ -6,7 +6,7 @@
    グループの x/y/sc/rot は保存値ではなく、描画のたびに中身から計算し直す値（drawGroup 参照）。 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
-const GROUP_BASE = () => ({type:'group', label:'', open:true, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5}});
+const GROUP_BASE = () => ({type:/** @type {'group'} */ ('group'), label:'', open:true, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5}});
 var {groupKids, peersOf, isGroup, drawOne, xformSnap, xformApply, groupLayers, ungroupLayers, ungroupOne} = (() => {
 /** @param {Layer} G */
 const groupKids = G => DOC.layers.filter(l => l.gid === G.id);
@@ -14,7 +14,7 @@ const groupKids = G => DOC.layers.filter(l => l.gid === G.id);
 /** @param {Layer} L */
 const peersOf = L => DOC.layers.filter(l => (l.gid || '') === (L.gid || ''));
 /** @param {Layer} L */
-const isGroup = L => !!L && L.type === 'group';
+const isGroup = /** @param {Layer|null|undefined} L @returns {L is GroupLayer} */ L => !!L && L.type === 'group';
 
 // 1枚のレイヤーを種別で振り分けて描く。グループの中身の描画と、通常の描画ループの両方から使う（グループは入れ子の描画もここを通る）
 /** @param {Layer} L */
@@ -34,13 +34,13 @@ function groupBox(kids){
   return x0 > x1 ? null : {x0, y0, x1, y1};
 }
 // 不透明度・合成モード・効果・影があるときだけ、中を別キャンバスに描いてから1枚として重ねる（何もなければ直接描いて軽くする）
-/** @param {Layer} G */
+/** @param {GroupLayer} G */
 const groupNeedsCanvas = G => (G.op ?? 1) < 1 || (G.blend && G.blend !== 'source-over') || cellFxOn(G.fx) || (G.shadow && G.shadow.on && G.shadow.a > 0);
-/** @param {Layer} G */
+/** @param {GroupLayer} G */
 function drawGroup(ctx, G, f, live, cache){
   const kids = groupKids(G).filter(k => !k.hidden);
   const W = Math.round(DOC.w * f), H = Math.round(DOC.h * f);
-  const t = groupNeedsCanvas(G) ? mk(W, H) : null, tx = t ? t.getContext('2d') : ctx;
+  const t = groupNeedsCanvas(G) ? mk(W, H) : null, tx = t ? ctx2d(t) : ctx;
   kids.forEach(k => drawOne(tx, k, f, live, cache));
   // 中身を描いた後でないと dims が揃わないので、四角の計算は描画のあと。選択枠などがグループを1枚として扱えるよう、位置と大きさを毎回上書きする
   const b = groupBox(kids);
@@ -53,9 +53,9 @@ function drawGroup(ctx, G, f, live, cache){
     // 効果：ぼかしなどではみ出すぶん少し広い別のキャンバスで作ってから重ねる（分割フレームのマスと同じ手順）
     // m は余白（ぼかしの広がり＋モーションブラーの半分）。余白ぶんずらして描くので、最後に off=-m で元の位置へ戻して重ねる
     // 暗さ・色かぶり・ビネットは source-atop で、すでに絵がある（透明でない）部分にだけかける
-    const m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0)), u = mk(W + m * 2, H + m * 2), ux = u.getContext('2d');
+    const m = Math.ceil(fx.blur * f * 3 + (fx.mb.on ? fx.mb.dist * f / 2 : 0)), u = mk(W + m * 2, H + m * 2), ux = ctx2d(u);
     ux.filter = toneFilter(fx, f); ux.drawImage(t, m, m); ux.filter = 'none';
-    const cx = G.x * f + m, cy = G.y * f + m, o = postFx(u, fx, f, cx, cy), ox = o.getContext('2d');
+    const cx = G.x * f + m, cy = G.y * f + m, o = postFx(u, fx, f, cx, cy), ox = ctx2d(o);
     ox.save(); ox.globalCompositeOperation = 'source-atop';
     if(fx.dim > 0){ ox.fillStyle = `rgba(0,0,0,${fx.dim})`; ox.fillRect(0, 0, o.width, o.height); }
     if(fx.tint.on && fx.tint.a > 0) tintAtop(o, fx.tint);

@@ -77,19 +77,19 @@ document.addEventListener('change', e => {
   const t = inputOf(e), L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
   if(t.id === 'ctPre'){ if(t.value) collageSetStyle(L, t.value); else { L.tpre = ''; L.tstyle = null; } syncDoc(); docChanged(false); }
   else if(t.id === 'ctFont' || t.id === 'ctWeight'){
-    if(!L.tstyle) L.tstyle = collageDefaultStyle();
+    const ts = L.tstyle || (L.tstyle = collageDefaultStyle());
     if(t.id === 'ctFont'){
-      L.tstyle.font = t.value; const f = findFont(t.value), ws = weightsOf(f), w0 = L.tstyle.weight;
-      L.tstyle.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);   // 選んだフォントにある、いちばん近い太さに
+      ts.font = t.value; const f = findFont(t.value), ws = weightsOf(f), w0 = ts.weight;
+      ts.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);   // 選んだフォントにある、いちばん近い太さに
       if(f && f.mb > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
-    } else L.tstyle.weight = +t.value;
+    } else ts.weight = +t.value;
     syncDoc(); docChanged(false);
   }
   else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.dataset.wk === 'memo' ? +t.value : t.value; }
 });
 document.addEventListener('click', e => {
   const b = tgt(e).closest && tgt(e).closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
-  const st = $as('#wkStart', HTMLInputElement, b.closest('.wkBox')); if(st && st.value) L.wk.start = st.value;
+  const wb = b.closest('.wkBox'), st = wb && $as('#wkStart', HTMLInputElement, wb); if(st && st.value) L.wk.start = st.value;
   collageFillWeek(L); syncDoc(); docChanged(false); toast('1週間を入れました。マスをクリックして、文字や色を直せます');
 });
 document.addEventListener('click', e => { const b = tgt(e).closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
@@ -104,19 +104,20 @@ document.addEventListener('click', e => {
 // 一覧のマスをドラッグして、別のマスに落とすと入れ替え
 // dragover／drop はキャプチャ段階で受けて stopPropagation する（ファイルのドロップで画像を追加する側の処理に渡さないため）。cellDragFrom<0 のときは何もしない
 cellDragFrom = -1;
-document.addEventListener('dragstart', e => { const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(!b) return; cellDragFrom = +b.dataset.cell; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'cell'); });
+document.addEventListener('dragstart', e => { const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(!b) return; cellDragFrom = +(b.dataset.cell ?? -1); if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'cell'); } });
 document.addEventListener('dragover', e => { if(cellDragFrom < 0) return; const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(b){ e.preventDefault(); e.stopPropagation(); $$('.cellbtn.dropto').forEach(x => x.classList.toggle('dropto', x === b)); b.classList.add('dropto'); } }, true);
 document.addEventListener('drop', e => {
   if(cellDragFrom < 0) return; const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'), L = selLayer(), from = cellDragFrom; cellDragFrom = -1;
   $$('.cellbtn.dropto').forEach(x => x.classList.remove('dropto'));
   e.preventDefault(); e.stopPropagation();
-  if(b && L && L.type === 'collage' && +b.dataset.cell !== from){ swapCells(L, from, +b.dataset.cell); syncDoc(); docChanged(false); toast(`マス${from + 1}とマス${+b.dataset.cell + 1}の画像を入れ替えました`); }
+  if(b && L && L.type === 'collage' && +(b.dataset.cell ?? -1) !== from){ swapCells(L, from, +(b.dataset.cell ?? -1)); syncDoc(); docChanged(false); toast(`マス${from + 1}とマス${+(b.dataset.cell ?? -1) + 1}の画像を入れ替えました`); }
 }, true);
 document.addEventListener('dragend', () => { cellDragFrom = -1; $$('.cellbtn.dropto').forEach(x => x.classList.remove('dropto')); });
 document.addEventListener('click', e => {
   const cb = tgt(e).closest('[data-cell]'), ca = tgt(e).closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;
-  if(cb){ L.ac = +cb.dataset.cell; if(!ASSETS[L.cells[L.ac].asset] && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
+  if(cb){ L.ac = +(cb.dataset.cell ?? 0); if(!ASSETS[L.cells[L.ac].asset] && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
+  if(!ca) return;
   if(ca.dataset.cellact === 'pick') $('#cellfile').click();
   else if(ca.dataset.cellact === 'reset'){ resetCell(L, L.ac); syncDoc(); docChanged(false); }
   else if(ca.dataset.cellact === 'flip' || ca.dataset.cellact === 'flipV'){ const c = L.cells[L.ac]; c[ca.dataset.cellact] = !c[ca.dataset.cellact]; syncDoc(); docChanged(false); }
@@ -125,7 +126,7 @@ document.addEventListener('click', e => {
 {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'cellfile'; inp.hidden = true; inp.multiple = true; document.body.appendChild(inp);
   inp.onchange = async () => {
-    const L = selLayer(), files = [...inp.files]; inp.value = ''; if(!L || L.type !== 'collage' || !files.length) return;
+    const L = selLayer(), files = [...(inp.files || [])]; inp.value = ''; if(!L || L.type !== 'collage' || !files.length) return;
     const n = collageN(L); let i = L.ac || 0;
     await collageSetCell(L, i, files.shift());
     for(const f of files){ i++; while(i < n && ASSETS[L.cells[i].asset]) i++; if(i >= n) break; await collageSetCell(L, i, f); }
@@ -137,7 +138,7 @@ document.addEventListener('click', e => {
 const collageIconCache = {};
 function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];
-  const c = mk(48, 28), x = c.getContext('2d'), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c', '#2bb5a0', '#e0e04a'];
+  const c = mk(48, 28), x = ctx2d(c), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c', '#2bb5a0', '#e0e04a'];
   collageCells(lay, n, 48, 28, 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 8]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });
   return collageIconCache[k] = c.toDataURL();
 }
