@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：グループ（複数のレイヤーを1つにまとめて、移動・拡大縮小・回転・効果をまとめて行う）
    しくみ：グループも DOC.layers の中の1枚のレイヤー（type:'group'）。中のレイヤーには gid（グループの id）が付き、
    グループが自分の重なり順の位置で、中のレイヤーをまとめて描く。効果は、中を1枚の絵に描いてからかける（分割フレームの効果と共通）
-   主な公開関数：drawOne（レイヤー種別ごとの描画の振り分け）／drawGroup／groupLayers・ungroupLayers・ungroupOne（作成・解除）／xformSnap・xformApply（まとめて移動・拡大縮小・回転）
+   主な公開関数：drawOne（種類の登録 kindOf(L).draw で描く）／drawGroup／groupLayers・ungroupLayers・ungroupOne（作成・解除）／xformSnap・xformApply（まとめて移動・拡大縮小・回転）
    依存：DOC・dims・prevCache・mk・postFx・toneFilter・cellFxOn・CELL_FX_BASE（fx.js／frames.js 側）、drawLayer・drawFx・drawCollage（各レイヤー描画）。
    グループの x/y/sc/rot は保存値ではなく、描画のたびに中身から計算し直す値（drawGroup 参照）。 */
 const GROUP_BASE = () => ({type:'group', label:'', open:true, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5}});
@@ -15,13 +15,7 @@ const isGroup = L => !!L && L.type === 'group';
 
 // 1枚のレイヤーを種別で振り分けて描く。グループの中身の描画と、通常の描画ループの両方から使う（グループは入れ子の描画もここを通る）
 /** @param {Layer} L */
-function drawOne(ctx, L, f, live, cache){
-  if(L.type === 'fx') drawFx(ctx, L, f);
-  else if(L.type === 'collage') drawCollage(ctx, L, f, live, cache);
-  else if(L.type === 'sched') drawSched(ctx, L, f, live, cache);
-  else if(L.type === 'group') drawGroup(ctx, L, f, live, cache);
-  else drawLayer(ctx, L, f, live, cache);
-}
+function drawOne(ctx, L, f, live, cache){ kindOf(L).draw(ctx, L, f, live, cache); }
 // 中のレイヤーをすべて含む四角（ドキュメント座標）。回転しているレイヤーはその角で数える
 // dims（各レイヤーの描画後の大きさ）が未登録のレイヤーは数えない＝先に描画してから呼ぶ前提。1枚も数えられなければ null
 function groupBox(kids){
@@ -138,3 +132,12 @@ function ungroupOne(L){
   if(G){ const j = DOC.layers.indexOf(L); DOC.layers.splice(j, 1); DOC.layers.splice(Math.max(0, DOC.layers.indexOf(G)), 0, L); if(!groupKids(G).length) DOC.layers.splice(DOC.layers.indexOf(G), 1); }
   renderLayers(); syncDoc(); docChanged(false);
 }
+
+/* ---------- グループの種類の登録（layer-kinds.js） ---------- */
+defineLayerKind('group', {
+  normalize: L => (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE())),
+  draw: (ctx, L, f, live, cache) => drawGroup(ctx, L, f, live, cache),
+  name: L => `グループ（${groupKids(L).length}個）`,
+  sub: L => `${groupKids(L).length}個のレイヤー${cellFxOn(L.fx) ? ' ・ 効果あり' : ''}`,
+  thumb: () => `<span class="fxth grpth">${ic('group')}</span>`,
+});

@@ -10,7 +10,7 @@
 // fmt: 'png'（透過保持）または jpeg 系。戻り値は Blob（失敗時は null になりうる）
 async function thumbBlob(fmt){
   // 描画の前に使うフォントを全部読み込む。未読み込みのまま描くと代替フォントで書き出されてしまう
-  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style); else if(L.type === 'collage') await ensureCollageFonts(L);
+  await ensureLayerFonts();   // 週間予定表のフォントも待つ（以前は書き出しだけ待っておらず、未読み込みだと代替フォントで出ることがあった）
   const W = DOC.exportW, H = Math.round(W * DOC.h / DOC.w), c = mk(W, H);
   // JPEG は透明を持てない（黒くなる）ので、先に白で塗っておく。PNG は背景非表示のとき透明のまま
   if(fmt !== 'png'){ const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H); }

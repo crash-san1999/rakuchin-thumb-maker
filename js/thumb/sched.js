@@ -124,7 +124,7 @@ function schedRowAt(L, x, y){
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
   return lx < 0 || ly < 0 || lx > w || ly > h ? -1 : clamp(Math.floor(ly / (h / 7)), 0, 6);
 }
-// 保存データを既定値と混ぜ、外から来た値（プロジェクトファイル）を安全な範囲にそろえる。doc.js の LAYER_NORMALIZE から呼ぶ
+// 保存データを既定値と混ぜ、外から来た値（プロジェクトファイル）を安全な範囲にそろえる。種類の登録（下の defineLayerKind の normalize）から呼ぶ
 function normalizeSched(L){
   const b = SCHED_BASE(), o = Object.assign(b, L);
   const pick = (v, list, d) => list.some(q => q[0] === v) ? v : d, str = (v, n, d = '') => typeof v === 'string' ? v.slice(0, n) : d;
@@ -211,3 +211,13 @@ function schedShiftWeek(L, dw, clear){
   L.start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   if(clear) L.rows = L.rows.map(() => SCHED_ROW());
 }
+
+/* ---------- 週間予定表の種類の登録（layer-kinds.js） ---------- */
+defineLayerKind('sched', {
+  normalize: L => normalizeSched(L),
+  draw: (ctx, L, f, live, cache) => drawSched(ctx, L, f, live, cache),
+  fonts: L => ensureSchedFonts(L),
+  assets: L => L.rows.map(r => r.asset),
+  name: () => '週間予定表',
+  sub: L => `${schedDays(L).map(d => `${d.getMonth() + 1}/${d.getDate()}`).filter((_, i) => i === 0 || i === 6).join('〜')}`,
+});

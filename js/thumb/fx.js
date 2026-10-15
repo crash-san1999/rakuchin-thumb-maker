@@ -136,3 +136,16 @@ function addFx(kind){
   toast(`「${FX_NAMES[kind]}」を追加しました。ドラッグで移動、角で拡大縮小、上の○で回転。レイヤーパネルで前後も入れ替えられます`);
 }
 // 描画（drawFx・FX_DRAW・形のパス）は fx-draw.js
+
+/* ---------- 動的エフェクトの種類の登録（layer-kinds.js） ---------- */
+defineLayerKind('fx', {
+  normalize: L => Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})}),
+  keep: L => hasKey(FX_DEF, L.kind),   // 未対応の種類（新しい版の保存データ）は読み込まない
+  sanitize: l => { if(l.p){ l.p.c = safeColor(l.p.c, '#ffffff'); if(l.p.c2 != null) l.p.c2 = safeColor(l.p.c2, '#1f1b2d'); } },
+  draw: (ctx, L, f) => drawFx(ctx, L, f),
+  name: L => FX_NAMES[L.kind] || 'エフェクト',
+  sub: L => '動的エフェクト' + (L.auto ? '（ワンクリック）' : ''),
+  thumb: L => `<span class="fxth" style="--fxc:${safeColor(L.p.c)}">${ic(FX_ICONS[L.kind])}</span>`,
+  // 集中線・光は、もともとキャンバスに対する大きさなので、キャンバスの大きさを変えても sc はそのまま
+  resize: (L, rx, ry, s) => { if(L.kind !== 'lines' && L.kind !== 'light') LAYER_KIND_DEFAULT.resize(L, rx, ry, s); },
+});

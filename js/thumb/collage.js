@@ -87,3 +87,25 @@ const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], 
 // n は数値だが、古い・手で書き換えた保存データでは文字列のこともあるので parseInt で受ける
 const collageN = L => clamp(parseInt(/** @type {any} */ (L.n)) || 2, 2, 8);
 const collageLayoutOk = (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };
+
+// 全部のマスの文字のまとめての調整：on（オン／オフ）が無い古いデータは、値を動かしていればオンとみなす（最初の版では書き出しに効いていたので、見た目を保つ）
+function collageTtx(base, t){
+  if(!t || typeof t !== 'object') return base;
+  const o = Object.assign(base, t);
+  if(t.on === undefined) o.on = (t.sc !== undefined && +t.sc !== 1) || !!+t.ox || !!+t.oy;
+  return o;
+}
+/* ---------- 分割フレームの種類の登録（layer-kinds.js） ---------- */
+defineLayerKind('collage', {
+  normalize: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), ttx: collageTtx(b.ttx, L.ttx), tstyle: L.tstyle ? merged(L.tstyle) : null,
+        cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE()),
+  // マスの色は sanitizeDocRefs が cells を持つレイヤーすべてで直す。ここは全部のマスの文字のまとめての調整（ttx）と、予定表向けの曜日のメモ数
+  sanitize: l => { const t = l.ttx; t.on = !!t.on; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); },
+  draw: (ctx, L, f, live, cache) => drawCollage(ctx, L, f, live, cache),
+  fonts: L => ensureCollageFonts(L),
+  assets: L => L.cells.map(c => c.asset),
+  name: L => `分割フレーム（${collageN(L)}分割）`,
+  sub: L => `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚`,
+  // 分割フレームは枠の横幅・高さ（bw/bh）そのものが DOC 座標なので、縦横別々に伸ばす（sc は変えない）
+  resize: (L, rx, ry) => { L.bw = Math.max(100, Math.round(L.bw * rx)); L.bh = Math.max(100, Math.round(L.bh * ry)); },
+});

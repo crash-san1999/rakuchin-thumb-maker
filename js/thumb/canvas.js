@@ -41,9 +41,8 @@ function setCanvasSize(w, h, fit = true, hdr = ''){
   const ow = DOC.w, oh = DOC.h, rx = w / ow, ry = h / oh, s = Math.min(rx, ry), k = DOC.exportW / ow;
   if(fit) DOC.layers.forEach(L => {
     L.x = Math.round(L.x * rx); L.y = Math.round(L.y * ry);
-    // 分割フレームは枠の横幅・高さ（bw/bh）そのものが DOC 座標なので縦横別々に伸ばす。それ以外は sc（倍率）を s で縮尺
-    if(L.type === 'collage'){ L.bw = Math.max(100, Math.round(L.bw * rx)); L.bh = Math.max(100, Math.round(L.bh * ry)); }
-    else if(!(L.type === 'fx' && (L.kind === 'lines' || L.kind === 'light'))) L.sc = Math.round(clamp(L.sc * s, 0.02, 20) * 1000) / 1000;   // 集中線・光は、もともとキャンバスに対する大きさ
+    // 大きさの合わせ方は種類ごと（layer-kinds.js の resize。既定は sc を s で縮尺、分割フレームは bw/bh を縦横別々に、集中線・光はそのまま）
+    kindOf(L).resize(L, rx, ry, s);
   });
   DOC.w = w; DOC.h = h; setHdr();
   // 書き出しの大きさは、これまでと同じ倍率で。大きすぎるときは小さくする
