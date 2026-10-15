@@ -24,10 +24,12 @@ var {makeBinder} = (() => {
 // 注意：document に直接リスナーを足すので、makeBinder を呼ぶたびにリスナーが増える（属性名が違えば互いに干渉しない）。同じ o を複数回作らないこと
 /** @param {BinderOptions} o */ function makeBinder(o){
   /** @param {string} a */ const sel = a => `[data-${a}]`;
+  // 入力欄が変わった：キー（data-<val>）を読み、値を型に直して onInput へ（読めない値は無視）
   document.addEventListener('input', e => {
     const el = inputOf(e), k = el.dataset && el.dataset[o.val]; if(!k) return;
     const v = readInput(el); if(v !== undefined) o.onInput(k, v, el);
   });
+  // クリック：「別パターンにする」ボタンなら onReroll。ボタン選択の欄のボタンなら、欄のキーとボタンの値（data-num なら数値）で onSeg
   document.addEventListener('click', e => {
     const rr = tgt(e).closest(sel(o.reroll)); if(rr){ o.onReroll(rr.dataset[o.reroll] ?? ''); return; }
     const b = tgt(e).closest(`${sel(o.seg)} button`); if(!b) return;
@@ -40,12 +42,14 @@ var {makeBinder} = (() => {
     // 値 → 画面。except は今まさに入力中の欄（値を書き戻すとカーソルや入力途中の文字が壊れるので飛ばす）。
     // get が undefined/null を返すキーは触らない（その欄は別の仕組みで管理されている）
     /** @param {HTMLElement} [except] */ sync(except){
+      // 入力欄：チェックは checked、それ以外は value に値を入れる（スライダーは色付きの部分も塗り直す）
       $$as(sel(o.val), HTMLInputElement).forEach(el => {
         if(el === except) return;
         const v = o.get(el.dataset[o.val] ?? '');
         if(el.type === 'checkbox') el.checked = !!v; else if(v !== undefined && v !== null) el.value = v;
         if(el.type === 'range') paintRange(el);
       });
+      // ボタン選択：今の値のボタンに「選択中」。表示条件：& でつないだ条件がすべて合う欄だけ見せる
       $$(sel(o.seg)).forEach(g => { const v = String(o.get(g.dataset[o.seg] ?? '')); $$('button', g).forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
       $$(sel(o.show)).forEach(el => { el.style.display = (el.dataset[o.show] ?? '').split('&').every(cond) ? '' : 'none'; });
     },
@@ -60,6 +64,7 @@ var {makeBinder} = (() => {
       if(r.c) return `<div class="row"${sa}><label>${r.l}</label><div class="cpick"><input type="color" data-${V}="${r.c}"><input type="text" class="hex" data-${V}="${r.c}" maxlength="7" spellcheck="false">` +
         (colorTools ? `<button class="mini" data-rnd="${r.c}" title="この色だけランダム（明るさはそのまま）">${ic('dice')}</button>${'EyeDropper' in window ? `<button class="mini" data-eye="${r.c}" title="スポイト：画面上の色を拾う">${ic('drop')}</button>` : ''}` : '') + `</div></div>`;
       if(r.chk) return `<div class="row"${sa}><label></label><label class="chk"><input type="checkbox" data-${V}="${r.chk}"> ${r.l}</label></div>`;
+      // スライダー：つまみと、同じキーの数値欄を並べる
       const a = `min="${r.min}" max="${r.max}" step="${r.step}"`;
       return `<div class="row"${sa}><label>${r.l}</label><input type="range" data-${V}="${r.r}" ${a}><input type="number" class="num" data-${V}="${r.r}" ${a}></div>`;
     },

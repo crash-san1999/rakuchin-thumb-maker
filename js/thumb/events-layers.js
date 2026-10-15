@@ -55,6 +55,7 @@
   list.addEventListener('pointermove', e => {
     if(!ld) return;
     ld.y = e.clientY;
+    // まだ並べ替えを始めていない：5px 以上動いたら始める（長押しのタイマーを止め、行の位置を控え、行をつかんで、端での自動スクロールを始める）
     if(!ld.started){
       if(Math.abs(e.clientY - ld.y0) < 5) return;
       clearTimeout(lpT); ld.started = true;
@@ -62,8 +63,10 @@
       ld.s0 = list.scrollTop; ld.rects = ld.rows.map(r => r.getBoundingClientRect()); ld.row.classList.add('dragging'); ld.row.setPointerCapture(ld.pid);
       ld.raf = requestAnimationFrame(dragScroll);
     }
+    // 動かした行と、押しのけられた行の見た目の位置を合わせる
     dragUpdate();
   });
+  // 指・マウスを離したとき：動かしていなければ何もしない（ふつうのクリックとして選択に任せる）。動かしていれば、見た目を戻して DOC の並びを入れ替える
   const endDrag = () => {
     if(!ld) return;
     clearTimeout(lpT); cancelAnimationFrame(ld.raf ?? 0);
@@ -86,6 +89,7 @@
   list.addEventListener('click', e => {
     if(lpFired){ lpFired = false; return; }   // 長押しで複数選択に入った直後の click は無視する
     if(suppressClick) return;
+    // 押した場所で見分ける：複数選択の帯のボタン → 背景の表示ボタン → 不透明度のスライダー（何もしない）→ 背景の行 → 行のボタン（メニュー・表示・ロックなど）→ 行そのもの（選ぶ）
     const mb = tgt(e).closest('[data-multi]');
     if(mb){ if(mb.dataset.multi === 'group') groupLayers(DOC.msel); else selectLayer(DOC.sel); return; }
     const bga = tgt(e).closest('[data-bga]');
@@ -103,6 +107,7 @@
     if(e.ctrlKey || e.metaKey || e.shiftKey || (isMobile && DOC.msel && DOC.msel.length)){ toggleMulti(row.dataset.lid ?? ''); return; }
     selectLayer(row.dataset.lid ?? null);
   });
+  // 行のダブルクリック：名前の変更（ボタンの上は除く）
   list.addEventListener('dblclick', e => {
     const row = tgt(e).closest('[data-lid]'); if(!row || tgt(e).closest('[data-la]')) return;
     startRename(row.dataset.lid);

@@ -178,10 +178,12 @@ const SECTIONS = [
 // getK/setK：'strokes.0.c' のようにドット区切りで配列の添字も辿れる。S は差し替わることがある（レイヤー切替・履歴復元）ので、
 // 値を保持せず呼ぶたびに今の S を参照する。getK は途中が無ければ undefined、setK は途中が無いと例外になる（パネル定義のキーが S に無い場合）。
 /** @param {string} k @returns {any} */ const getK = k => k.split('.').reduce((/** @type {any} */ o, p) => o?.[p], S);
+// 文字スタイル S の 'a.b.c' の位置に値 v を書く
 /** @param {string} k @param {any} v */ function setK(k, v){ const ps = k.split('.'); const last = /** @type {string} */ (ps.pop()); ps.reduce((/** @type {any} */ o, p) => o[p], S)[last] = v; }
 // 文字が変わったときのフォント一覧の見本の更新を、まとめて 1 回にするためのタイマー
 let sampleT = 0;
 const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:getK,
+  // 入力欄の値が変わったとき（文字スタイル用。サムネ用は doc-sync.js の DB）
   onInput(k, v, el){
     // resetAdj：手動で色を変えたら一括調整の基準が古くなるので捨てる（colors.js）。
     // syncUI(el)：操作中の入力欄自身は上書きしない（入力途中の文字やカーソル位置が飛ぶため）。同じキーの他の欄（スライダー⇔数値）は更新される

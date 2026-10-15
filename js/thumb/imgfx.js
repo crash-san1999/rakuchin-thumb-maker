@@ -29,6 +29,7 @@ const extraFxOn = /** @param {any} x */ x => !!x && !!(x.posterize?.on || x.thre
 // 効果の中の色を、使える色の文字列にそろえる（細工された保存データ対策。不正な色は描画を止めたり HTML 属性を壊したりする）。x をその場で書き換えて返す
 /** @template T @param {T & Record<string, any>} x @returns {T} */
 function fxColorsSafe(x){
+  // o[k] を使える色にそろえる（o が無い古いデータでも落ちない）
   const fix = /** @param {any} o @param {string} k @param {string} d */ (o, k, d) => { if(o && typeof o === 'object') o[k] = safeColor(o[k], d); };
   fix(x, 'duo1', '#1b1464'); fix(x, 'duo2', '#ff9d5c'); fix(x.tint, 'c', '#ff7a50');
   fix(x.thresh, 'c1', '#111111'); fix(x.thresh, 'c2', '#ffffff');
@@ -61,6 +62,7 @@ function gradMap(c, g){
 /** @param {number} r @param {number} g @param {number} b */
 function hueOf(r, g, b){ const mx = Math.max(r, g, b), mn = Math.min(r, g, b), dd = mx - mn; if(!dd) return 0;
   const h = mx === r ? (g - b) / dd % 6 : mx === g ? (b - r) / dd + 2 : (r - g) / dd + 4; return (h * 60 + 360) % 360; }
+// 色の置き換え：色相が from に近い画素（tol 以内。近いほど強く）の色相を、to の色相へ回す。明るさ・鮮やかさはそのまま
 /** @param {HTMLCanvasElement} c @param {ExtraFx['rep']} r */
 function colorReplace(c, r){
   const im = fxImgData(c), d = im.data, F = rgbOf(r.from), T = rgbOf(r.to), hf = hueOf(...F), ht = hueOf(...T), tol = clamp(+r.tol || 0, 0.01, 0.5) * 360;
@@ -98,29 +100,34 @@ function colorReplace(c, r){
 // 網点：縮小して読んだ1マスの明るさで点の大きさを決め、紙（白と元の絵を mix で混ぜたもの）に c の点を打つ。透明な部分は透明のまま
 /** @param {HTMLCanvasElement} c @param {ExtraFx['half']} h @param {number} f */
 function halftoneImg(c, h, f){
+  // s＝点の間隔（マスの大きさ）。絵をマスの数（gw×gh）まで縮めて読むと、1 画素＝1 マスの平均の色になる
   const W = c.width, H = c.height, s = Math.max(3, clamp(+h.size || 10, 2, 80) * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
   const sm = mk(gw, gh), sx = ctx2d(sm, {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
   const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = ctx2d(t);
   // 紙：白と元の絵を mix の割合で混ぜたもの（mix が大きいほど元の色が残る）。その上に点を打つ
   const mx = clamp(+h.mix || 0, 0, 1); tx.fillStyle = '#ffffff'; tx.fillRect(0, 0, W, H); if(mx > 0){ tx.globalAlpha = mx; tx.drawImage(c, 0, 0); tx.globalAlpha = 1; } tx.fillStyle = h.c;
   tx.beginPath();
+  // マスごとに、暗いほど大きな点（半径は暗さの平方根に比例）。奇数行は半マス右へずらして互い違いに並べる
   for(let j = 0; j < gh; j++) for(let i = 0; i < gw; i++){
     const k = (j * gw + i) * 4, l = fxLum(d, k) / 255, r = s * 0.55 * Math.sqrt(Math.max(0, 1 - l));
     if(r < 0.4) continue;
     const x = i * s + s / 2 + (j % 2 ? s / 2 : 0), y = j * s + s / 2; tx.moveTo(x + r, y); tx.arc(x, y, r, 0, 2 * PI);
   }
   tx.fill();
+  // 元の絵の形で切り抜いて（透明な部分は透明のまま）、c を置き換える
   tx.globalCompositeOperation = 'destination-in'; tx.drawImage(c, 0, 0);
   const x = ctx2d(c); x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0);
 }
 // 線画：明るさの勾配（ソーベル）が強い所を線にする。少しぼかしてから見るのは、細かいざらつきを線にしないため
 /** @param {HTMLCanvasElement} c @param {ExtraFx['edge']} e @param {number} f */
 function edgeLines(c, e, f){
+  // 少しぼかした絵の明るさを L に読む
   const W = c.width, H = c.height, b = mk(W, H), bx = ctx2d(b, {willReadFrequently:true});
   bx.filter = `blur(${Math.max(0.5, 0.8 * f)}px)`; bx.drawImage(c, 0, 0); bx.filter = 'none';
   const s = bx.getImageData(0, 0, W, H).data, L = new Float32Array(W * H);
   for(let i = 0, p = 0; p < L.length; i += 4, p++) L[p] = fxLum(s, i);
   const im = fxImgData(c), d = im.data, C = rgbOf(e.c), k = clamp(+e.amt || 1, 0.1, 4) / 255 * 1.6, keep = e.keep !== false;
+  // 画素ごとに、まわり 3×3 の明るさから横・縦の勾配（ソーベル）を出し、強いほど線の色 C に寄せる（keep なら元の色、でなければ白の上に線）
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     const p = y * W + x, i = p * 4, xl = x > 0 ? p - 1 : p, xr = x < W - 1 ? p + 1 : p, yu = y > 0 ? p - W : p, yd = y < H - 1 ? p + W : p;
     const gx = L[yu - p + xr] - L[yu - p + xl] + 2 * (L[xr] - L[xl]) + L[yd - p + xr] - L[yd - p + xl];
@@ -135,17 +142,21 @@ function edgeLines(c, e, f){
 // 四角の合計は積分画像（累積和）で O(1) に求める。大きい画像は 2.1MP 以下に縮めて処理してから戻す（メモリと時間を抑えるため）
 /** @param {HTMLCanvasElement} c @param {ExtraFx['paint']} p @param {number} f */
 function paintify(c, p, f){
+  // W×H＝処理する大きさ（縮めた後）、r＝四角の大きさ
   const W0 = c.width, H0 = c.height, sc = Math.min(1, Math.sqrt(2.1e6 / (W0 * H0)));
   const W = Math.max(1, Math.round(W0 * sc)), H = Math.max(1, Math.round(H0 * sc)), r = clamp(Math.round(clamp(+p.r || 4, 1, 16) * f * sc), 1, 24);
   const t = mk(W, H), tx = ctx2d(t, {willReadFrequently:true}); tx.drawImage(c, 0, 0, W, H);
+  // S[0..2]＝赤・緑・青の累積和、Q＝色の 2 乗の累積和（どちらも 1 行 1 列ぶん大きい）
   const im = tx.getImageData(0, 0, W, H), d = im.data, W1 = W + 1, S = [0, 1, 2].map(() => new Float64Array(W1 * (H + 1))), Q = new Float64Array(W1 * (H + 1));
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     const i = (y * W + x) * 4, a = (y + 1) * W1 + x + 1, b = y * W1 + x + 1, cc = (y + 1) * W1 + x, dd = y * W1 + x;
     for(let k = 0; k < 3; k++) S[k][a] = d[i + k] + S[k][b] + S[k][cc] - S[k][dd];
     Q[a] = d[i] * d[i] + d[i + 1] * d[i + 1] + d[i + 2] * d[i + 2] + Q[b] + Q[cc] - Q[dd];
   }
+  // 累積和 A から、四角 [x0, x1) × [y0, y1) の合計を出す
   const box = /** @param {Float64Array} A @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 */ (A, x0, y0, x1, y1) => A[y1 * W1 + x1] - A[y0 * W1 + x1] - A[y1 * W1 + x0] + A[y0 * W1 + x0];
   const out = new Uint8ClampedArray(d);
+  // 画素ごとに、左上・右上・左下・右下の 4 つの四角で、ばらつき（2 乗の平均 − 平均の 2 乗）がいちばん小さい四角の平均色を採る
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     let best = Infinity, m0 = 0, m1 = 0, m2 = 0;
     for(const [ax, ay] of [[x - r, y - r], [x, y - r], [x - r, y], [x, y]]){
@@ -158,6 +169,7 @@ function paintify(c, p, f){
     const i = (y * W + x) * 4; out[i] = m0; out[i + 1] = m1; out[i + 2] = m2;
   }
   im.data.set(out); tx.putImageData(im, 0, 0);
+  // 元の大きさに戻して c を置き換え、元の絵の形で切り抜く（透明な部分は透明のまま）
   const x = ctx2d(c), mask = mk(W0, H0), mx = ctx2d(mask); mx.drawImage(c, 0, 0);
   x.save(); x.clearRect(0, 0, W0, H0); x.drawImage(t, 0, 0, W0, H0); x.globalCompositeOperation = 'destination-in'; x.drawImage(mask, 0, 0); x.restore();
 }
@@ -166,12 +178,14 @@ function paintify(c, p, f){
 function warpImg(c, w, cx, cy){
   const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const amt = clamp(+w.amt || 0, 0, 1), R = Math.min(W, H) / 2, n = clamp(+w.n || 6, 1, 40), A = amt * Math.min(W, H) * 0.05, lam = Math.min(W, H) / n * 2;
+  // 元の絵の (sx, sy)（小数）の色を、まわり 4 画素から双線形補間で取って、出力の o 番目に書く
   const sample = /** @param {number} sx @param {number} sy @param {number} o */ (sx, sy, o) => {
     sx = clamp(sx, 0, W - 1); sy = clamp(sy, 0, H - 1);   // 外側は端の色で埋める（透明の隙間が出ないように）
     const x0 = sx | 0, y0 = sy | 0, x1 = Math.min(W - 1, x0 + 1), y1 = Math.min(H - 1, y0 + 1), fx = sx - x0, fy = sy - y0;
     const a = (y0 * W + x0) * 4, b = (y0 * W + x1) * 4, cc = (y1 * W + x0) * 4, dd = (y1 * W + x1) * 4;
     for(let k = 0; k < 4; k++) d[o + k] = (src[a + k] * (1 - fx) + src[b + k] * fx) * (1 - fy) + (src[cc + k] * (1 - fx) + src[dd + k] * fx) * fy;
   };
+  // 出力の画素 (X, y) ごとに、元の絵のどこ (sx, sy) から拾うか：波＝縦横に正弦波でずらす／渦巻き＝中心に近いほど大きく回す／魚眼・すぼめる＝中心からの距離を累乗で縮める・伸ばす（半径 R の外はそのまま）
   for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
     let sx = X, sy = y;
     if(w.type === 'wave'){ sx = X + A * Math.sin(2 * PI * y / lam); sy = y + A * Math.sin(2 * PI * X / lam); }
@@ -193,6 +207,7 @@ function rgbShift(c, s, f){
   const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const a = (+s.angle || 0) * PI / 180, dist = clamp(+s.d || 0, 0, 80) * f, ox = Math.round(Math.cos(a) * dist), oy = Math.round(Math.sin(a) * dist);
   const at = /** @param {number} X @param {number} Y */ (X, Y) => (X < 0 || Y < 0 || X >= W || Y >= H) ? -1 : (Y * W + X) * 4;
+  // 画素ごとに、赤は (−ox, −oy) ずれた位置、青は (+ox, +oy) ずれた位置から拾う（絵の外は透明扱い）
   for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
     const o = (y * W + X) * 4, r = at(X - ox, y - oy), b = at(X + ox, y + oy);
     const ar = r < 0 ? 0 : src[r + 3], ab = b < 0 ? 0 : src[b + 3], ag = src[o + 3], al = Math.max(ar, ag, ab);
@@ -225,6 +240,7 @@ function extraFxShape(c, b, f, cx, cy){
 // 走査線：size px ごとに、上半分を暗くする縞を、絵のある部分にだけ重ねる（透明な部分は透明のまま）
 /** @param {HTMLCanvasElement} c @param {ExtraFx['scan']} s @param {number} f */
 function scanLines(c, s, f){
+  // per＝縞の周期（px）。上半分だけ黒い 1×per の画像を作り、それを繰り返すパターンで全体を塗る
   const per = Math.max(2, Math.round(clamp(+s.size || 4, 1, 40) * f * 2)), t = mk(1, per), tx = ctx2d(t);
   tx.fillStyle = '#000'; tx.fillRect(0, 0, 1, Math.max(1, Math.round(per / 2)));
   const x = ctx2d(c); x.save(); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = clamp(+s.a || 0, 0, 1) * 0.7;
@@ -236,6 +252,7 @@ function scanLines(c, s, f){
 function crtImg(c, cr, f){
   const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const k = clamp(+cr.curve || 0, 0, 1) * 0.5, m = clamp(+cr.mask || 0, 0, 1) * 0.55, step = Math.max(3, Math.round(3 * f)) / 3;
+  // 画素ごとに、-1〜1 の座標 (nx, ny) で中心からの距離の 2 乗に応じて外へ引き伸ばした位置から拾う。ch＝この列で光らせる色（0 赤・1 緑・2 青）
   for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
     const o = (y * W + X) * 4, nx = X / W * 2 - 1, ny = y / H * 2 - 1, g = (1 + k * (nx * nx + ny * ny)) / (1 + k);
     const sx = (nx * g + 1) / 2 * W, sy = (ny * g + 1) / 2 * H;

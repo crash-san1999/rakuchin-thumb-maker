@@ -65,10 +65,13 @@ let sizeUiKey = '';
 function refreshSizeUI(force){
   if(!DOC) return;
   const key = `${DOC.w}x${DOC.h}|${DOC.exportW}|${DOC.hdr}`; if(key === sizeUiKey && !force) return; sizeUiKey = key;
+  // 書き出しサイズの選択肢（等倍・4K の印つき）を、すべての欄に入れ直す
   const opts = exportSizes().map(W => { const H = Math.round(W * DOC.h / DOC.w); return `<option value="${W}">${W}×${H}${W === DOC.w ? '（等倍）' : W === 3840 || H === 3840 ? '（4K）' : ''}</option>`; }).join('');
   $$as('select[data-d="exportW"]', HTMLSelectElement).forEach(sel => { sel.innerHTML = opts; sel.value = String(DOC.exportW); });
+  // キャンバスの大きさのプリセット：今の大きさ（ヘッダーなら種類）に合うものを選び、無ければ「自由に指定…」
   const cur = `${DOC.w}x${DOC.h}`, ps = $as('#canvasPreset', HTMLSelectElement);
   if(ps){ ps.innerHTML = CANVAS_PRESETS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('') + '<option value="custom">自由に指定…</option>'; const hv = DOC.hdr ? DOC.hdr + '-header' : cur; ps.value = CANVAS_PRESETS.some(p => p[0] === hv) ? hv : 'custom'; }
+  // 幅・高さの欄と、今の大きさの表示
   if($as('#cvW', HTMLInputElement) && document.activeElement !== $as('#cvW', HTMLInputElement)) $as('#cvW', HTMLInputElement).value = String(DOC.w);
   if($as('#cvH', HTMLInputElement) && document.activeElement !== $as('#cvH', HTMLInputElement)) $as('#cvH', HTMLInputElement).value = String(DOC.h);
   $('#cvNow') && ($('#cvNow').textContent = `${DOC.w}×${DOC.h}（${(DOC.w / DOC.h).toFixed(2)}:1）`);

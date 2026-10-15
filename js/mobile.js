@@ -53,6 +53,7 @@ function openSheet(name, force){
   if(!isMobile) name = null;
   if(!force && name && sheet === name) name = null;
   sheet = name;
+  // 開いているシートの印を付け替え、見出し・下バーのボタンの「選択中」を合わせる
   document.body.classList.toggle('sheet-open', !!name);
   $('#lpanel').classList.toggle('sheet-on', name === 'layers');
   $('#side').classList.toggle('sheet-on', name === 'ins');
@@ -79,6 +80,7 @@ $$('.sheet-grip').forEach(g => {
   /** @type {number | null} */ let y0 = null;
   g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(tgt(e).closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
   g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0), el = g.parentElement; if(!el) return; el.style.transform = `translateY(${dy}px)`; el.style.transition = 'none'; });
+  // 指を離したら、引いた位置を戻す。下へ 70px より多く引いた、またはほぼ動かさずに離した（つまみのタップ）ならシートを閉じる
   const up = /** @param {PointerEvent} e */ e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; if(!el) return; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
   g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
 });
@@ -168,6 +170,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
     // 動かしている間は軽い描画（livePaint）だけ。値の確定・履歴への記録は、指を離したとき（下の up の docChanged）にまとめて行う
     syncDocSoon(); livePaint();
   }, true);
+  // 指を離した・キャンセルしたとき：その指を数から外し、ピンチ中に 2 本未満になったらピンチを終えて確定（保存・履歴）する
   const up = /** @param {PointerEvent} e */ e => {
     if(!pts.has(e.pointerId)) return;
     pts.delete(e.pointerId); clearTimeout(lp);

@@ -15,8 +15,10 @@ var {layerGeom, fxHandleOn, showFxCenterBriefly, drawOverlay} = (() => {
 /** @param {Layer} L */
 function layerGeom(L){
   const d = dims.get(L.id); if(!d) return null;
+  // 回転前の大きさの四隅を、中心のまわりに回して DOC 座標に直す
   const a = (L.rot || 0) * PI / 180, c = Math.cos(a), s = Math.sin(a);
   const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => { const lx = u * d.w / 2, ly = v * d.h / 2; return [L.x + lx * c - ly * s, L.y + lx * s + ly * c]; });
+  // 回転ハンドル：レイヤーの上の辺から、画面上で 30px 外側（回転に合わせた向き）
   const px = DOC.w / tvCss, off = d.h / 2 + 30 * px, m = 14 * px;
   let rot = [L.x + off * s, L.y - off * c];
   // 回転ハンドルは通常レイヤーの「上側」だが、キャンバスの端からはみ出して掴めなくなるときは反対側へ、それも無理なら端に寄せる

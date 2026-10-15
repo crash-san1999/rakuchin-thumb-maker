@@ -55,12 +55,14 @@ function cutSig(L){
 /** @param {NatImage} img */
 function cutAutoColor(img){
   const w = img.naturalWidth, h = img.naturalHeight, c = mk(w, h), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, 0, 0);
+  // 四隅の s×s 画素（s は画像の大きさに応じて 1〜6）から、ほぼ不透明な画素の色を赤・緑・青ごとに集める
   const s = Math.max(1, Math.min(6, Math.floor(Math.min(w, h) / 20))), ch = /** @type {number[][]} */ ([[], [], []]);
   for(const [px, py] of [[0, 0], [w - s, 0], [0, h - s], [w - s, h - s]]){
     const d = x.getImageData(px, py, s, s).data;
     for(let i = 0; i < d.length; i += 4){ if(d[i + 3] < 128) continue; ch[0].push(d[i]); ch[1].push(d[i + 1]); ch[2].push(d[i + 2]); }
   }
   if(!ch[0].length) return null;
+  // 中央値（はみ出した色に引っ張られにくいよう、平均ではなく中央値を使う）
   const med = /** @param {number[]} a */ a => { a.sort((p, q) => p - q); return a[a.length >> 1]; };
   return rgb2hex(ch.map(med));
 }
@@ -94,6 +96,7 @@ function keyCanvas(img, k){
   else{
     // 画像の四辺から塗りつぶし（再帰を使わず自前のスタックで。大きい画像でも呼び出しの深さで落ちない）。seen で同じ画素を2度積まない
     const seen = new Uint8Array(n), stack = new Int32Array(n); let sp = 0;
+    // 画素 i を、背景色に近ければ（dist ≦ TS）塗りつぶしの候補に積む
     const seed = /** @param {number} i */ i => { if(!seen[i] && dist[i] <= TS){ seen[i] = 1; stack[sp++] = i; } };
     for(let X = 0; X < w; X++){ seed(X); seed((h - 1) * w + X); }
     for(let Y = 0; Y < h; Y++){ seed(Y * w); seed(Y * w + w - 1); }
@@ -137,10 +140,12 @@ function strokeApply(F, src, st, from, geo){
   // from-1 から始めるのは、前回の最後の点と線をつなぐため（続きの線が途切れない）
   const pts = from > 0 ? st.p.slice(from - 1) : st.p; if(!pts.length) return;
   const r = Math.max(0.5, st.r * geo.iw0), P = pts.map(q => [q[0] * geo.iw0 - geo.sx, q[1] * geo.ih0 - geo.sy]);
+  // 跡のパス：点が 1 つなら丸、2 つ以上なら太さ 2r の折れ線（端と角は丸く）
   const path = /** @param {CanvasRenderingContext2D} c */ c => {
     c.lineCap = c.lineJoin = 'round'; c.lineWidth = r * 2; c.beginPath();
     if(P.length === 1) c.arc(P[0][0], P[0][1], r, 0, 7); else { c.moveTo(P[0][0], P[0][1]); for(let i = 1; i < P.length; i++) c.lineTo(P[i][0], P[i][1]); }
   };
+  // 跡を描く（丸は塗る・折れ線は線を引く）
   const paint = /** @param {CanvasRenderingContext2D} c */ c => { path(c); if(P.length === 1) c.fill(); else c.stroke(); };
   const x = ctx2d(F);
   if(st.m === 'e'){ x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = x.strokeStyle = '#000'; paint(x); x.restore(); return; }

@@ -13,6 +13,7 @@
 var {pwaRegister} = (() => {
 pwaReg = null;
 /** @type {BeforeInstallPromptEvent | null} */ let pwaPrompt = null;
+// Service Worker を登録し、新しい版が入ったら「更新があります」の帯を出す（起動の後回し処理から 1 回だけ呼ぶ）
 function pwaRegister(){
   // file:// などでは Service Worker を登録できない（エラーになる）ので、http(s) のときだけ登録する
   if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
@@ -32,6 +33,7 @@ function pwaRegister(){
   navigator.serviceWorker.addEventListener('controllerchange', () => { if(reloading || !pwaUpdating) return; reloading = true; location.reload(); });
 }
 let pwaUpdating = false;
+// 新しい版があることを知らせる帯を出す（帯のボタンを押したときの処理は、下の click の受け取り）
 function pwaShowUpdate(){
   const bar = $('#updBar'); if(!bar) return;
   bar.classList.add('show');

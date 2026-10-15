@@ -8,13 +8,11 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {drawFx, FX_MARKS} = (() => {
-// ctx に fx レイヤー L を描く。f＝倍率（ドキュメント座標→ピクセル）。L.x/y はドキュメント座標の中心、rot は度
-// 以降の座標は「L の中心が原点・sc=1 の局所座標」。translate→rotate→scale の順は変えない（回転・拡大の中心が中心点になる）
-/**
- * @param {Layer} L
- * @type {Record<string, (ctx: CanvasRenderingContext2D, L: Layer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} 動的エフェクトの種類ごとの描き方。p は種類ごとの設定（種類によって項目が違う）、R は種類ごとに決まった乱数、bw・bh は枠の大きさ
- */
+/** 動的エフェクトの種類ごとの描き方。p は種類ごとの設定（種類によって項目が違う）、R は種類ごとに決まった乱数、bw・bh は枠の大きさ。キーは fx レイヤーの kind。
+ * 引数：ctx は L の中心が原点・sc=1 の局所座標に合わせ済み、p＝パラメータ（L.p）、R＝種で決まる乱数、bw・bh＝範囲（FX_BOX）、f＝倍率
+ * @type {Record<string, (ctx: CanvasRenderingContext2D, L: Layer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} */
 const FX_DRAW = {
+  // 集中線：中心の楕円（inner）の縁から外へ伸びる細い三角形を n 本。full なら画面の外まで、そうでなければ reach 倍まで伸ばして fade で消す
   lines(ctx, L, p, R, bw, bh, f){
     const rx = DOC.w / 2 * p.inner, ry = DOC.h / 2 * p.inner, step = 2 * PI / p.n, full = p.full !== false;
     // 楕円を円として扱う（縦方向を縮めて描く）
@@ -42,6 +40,7 @@ const FX_DRAW = {
     g.addColorStop(0, rgba(p.c, p.amt)); g.addColorStop(0.35, rgba(p.c, p.amt * 0.55)); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
   },
+  // キラキラ：4 方向に尖った星（2 次曲線でくびれた菱形）を範囲内にばらまく。glow なら光のぼかし付き
   sparkle(ctx, L, p, R, bw, bh, f){
     ctx.fillStyle = p.c;
     for(let i = 0; i < p.n; i++){
@@ -85,6 +84,7 @@ const FX_DRAW = {
   confetti(ctx, L, p, R, bw, bh, f){
     const pal = ['#ff4f6d', '#ffd400', '#2fc7ff', '#5be37a', '#b46bff', '#ff8a2a', '#ffffff'];
     for(let i = 0; i < p.n; i++){
+      // 1 枚ずつ：位置・大きさ・向きを乱数で決め、縦に縮めて「ひらっと傾いた紙」に見せる（3 割は丸、残りは四角）
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, w = (22 + R() * 30) * p.size, h = w * (0.4 + R() * 0.5), a = R() * PI;
       ctx.fillStyle = p.colorful ? pal[Math.floor(R() * pal.length)] : p.c;
       ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(1, 0.4 + Math.abs(Math.cos(a * 3)) * 0.6);
@@ -96,6 +96,7 @@ const FX_DRAW = {
   snow(ctx, L, p, R, bw, bh, f){
     ctx.fillStyle = ctx.strokeStyle = p.c;
     // 粒ごとに globalAlpha を変えるので、レイヤーの不透明度 L.op を掛け直している（上で設定した値を上書きするため）
+    // 雨：少し斜めに流れる細い線。雪：大きさに偏りのある丸（小さい粒が多い）を、ぼかした光付きで
     if(p.type === 'rain'){ ctx.lineCap = 'round';
       for(let i = 0; i < p.n; i++){ const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, l = (30 + R() * 50) * p.size; ctx.globalAlpha = (L.op ?? 1) * (0.35 + R() * 0.5); ctx.lineWidth = (1.5 + R() * 2) * p.size; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - l * 0.25, y + l); ctx.stroke(); } }
     else for(let i = 0; i < p.n; i++){ const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (2 + R() * R() * 9) * p.size;
@@ -110,6 +111,7 @@ const FX_DRAW = {
       const mx = (x0 + x1) / 2 + (R() - 0.5) * dev, my = (y0 + y1) / 2 + (R() - 0.5) * dev * 0.3;
       path(x0, y0, mx, my, dev / 2, depth - 1, out); path(mx, my, x1, y1, dev / 2, depth - 1, out);
     };
+    // 本線：上の端の中央付近から、下の端までを 6 段折る。枝：本線の 6 点おきに、branch の確率で斜め下へ短い枝（細め）
     const main = [[(R() - 0.5) * bw * 0.3, -bh / 2]]; path(main[0][0], main[0][1], (R() - 0.5) * bw * 0.4, bh / 2, bw * 0.7, 6, main);
     /** @type {Array<[number[][], number]>} */
     const lines = [[main, 1]];
@@ -141,12 +143,14 @@ const FX_DRAW = {
   burst(ctx, L, p, R, bw, bh, f){
     const rx = bw / 2 * 0.92, ry = bh / 2 * 0.92, n = Math.max(5, Math.round(p.spikes));
     ctx.beginPath();
+    // 角度を 2n 等分し、偶数番は外側（山、少しだけ乱数で出入り）、奇数番は内側（谷、depth ぶん凹ませる）に点を打つ
     for(let i = 0; i <= n * 2; i++){
       const a = i / (n * 2) * 2 * PI - PI / 2, k = i % 2 === 0 ? 1 + R() * 0.08 : 1 - p.depth * (0.65 + R() * 0.35);
       const x = Math.cos(a) * rx * k, y = Math.sin(a) * ry * k;
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     }
     ctx.closePath(); ctx.lineJoin = 'round';
+    // フチ（c2）は線の太さの半分が外へ出るので 2 倍で描き、その上に本体（c）を塗る
     if(p.sw > 0){ ctx.lineWidth = p.sw * 2; ctx.strokeStyle = p.c2; ctx.stroke(); }
     ctx.fillStyle = p.c; ctx.fill();
   },
@@ -165,6 +169,7 @@ const FX_DRAW = {
       }
       ctx.closePath(); ctx.fill('evenodd'); return;
     }
+    // 線 1 本：中心の輪（rs）から外（re）へ。根元から 35% の所がいちばん太い、細い菱形（紡錘形）
     for(let i = 0; i < n; i++){
       const a = (i + R() * 0.8) / n * 2 * PI, rs = r0 * (1 + R() * 0.25), re = rs + Lm * (0.35 + R() * 0.65), wd = (2 + R() * 4) * p.w, rm = rs + (re - rs) * 0.35;
       const cs = Math.cos(a), sn = Math.sin(a);
@@ -175,6 +180,7 @@ const FX_DRAW = {
   // 怒りマーク：角を中心に向けた L 字のカーブを4つ。フチ（c2）を太く描いてから本体（c）を重ねる
   anger(ctx, L, p, R, bw, bh, f){
     const r = Math.min(bw, bh) / 2 * 0.9, T = r * 0.22;
+    // 4 つの L 字のカーブ（90° ずつ回して並べる）のパスを作る
     const arms = () => { ctx.beginPath(); for(let q = 0; q < 4; q++){ const c = Math.cos(q * PI / 2), s = Math.sin(q * PI / 2), P = /** @param {number} x @param {number} y */ (x, y) => [x * c - y * s, x * s + y * c];
       const [ax, ay] = P(r * 0.2, r * 0.95), [bx, by] = P(r * 0.2, r * 0.2), [cx, cy] = P(r * 0.95, r * 0.2); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(bx, by, cx, cy); } };
     ctx.lineCap = ctx.lineJoin = 'round';
@@ -184,6 +190,7 @@ const FX_DRAW = {
   // 汗：しずくを中心のまわりに並べる。しずくの先は中心（顔）のほうを向く
   sweat(ctx, L, p, R, bw, bh, f){
     const n = clamp(Math.round(p.n), 1, 8), rr = Math.min(bw, bh) * 0.3;
+    // しずくを、中心の左上〜右上の弧（上側 0.7π の範囲）に等間隔で並べ、先を中心へ向けて回す。白い楕円はハイライト
     for(let i = 0; i < n; i++){
       const a = -PI * 0.85 + (n === 1 ? 0.35 : i / (n - 1) * 0.7) * PI + (R() - 0.5) * 0.2, px = Math.cos(a) * rr, py = Math.sin(a) * rr, s = (52 + R() * 30) * p.size;
       ctx.save(); ctx.translate(px, py); ctx.rotate(Math.atan2(-py, -px) + PI / 2 + PI);
@@ -214,11 +221,13 @@ const FX_DRAW = {
   // レンズフレア：光源（中心）のにじみと横の光の筋、angle の向きへ並ぶゴースト（色の付いた丸・六角形・輪）
   flare(ctx, L, p, R, bw, bh, f){
     const M = Math.max(bw, bh), a = clamp(p.amt, 0, 2), r0 = M * 0.13;
+    // 光源：中心が白、外へ c → 透明の丸いにじみ
     let g = ctx.createRadialGradient(0, 0, 0, 0, 0, r0); g.addColorStop(0, `rgba(255,255,255,${Math.min(1, a)})`); g.addColorStop(0.25, rgba(p.c, 0.8 * Math.min(1, a))); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.fillRect(-r0, -r0, r0 * 2, r0 * 2);
     // 横の光の筋（アナモルフィック）
     ctx.save(); ctx.scale(1, 0.025); g = ctx.createRadialGradient(0, 0, 0, 0, 0, M * 0.45); g.addColorStop(0, `rgba(255,255,255,${0.9 * Math.min(1, a)})`); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, M * 0.45, 0, 2 * PI); ctx.fill(); ctx.restore();
+    // ゴースト：angle の向きの線上（中心から 0.25〜1.55 の距離）に、丸（4 割）・六角形（3.5 割）・輪（残り）を色を変えて置く
     const ang = (p.angle || 0) * PI / 180, dx = Math.cos(ang), dy = Math.sin(ang), pal = [p.c, '#7fd6ff', '#b4ff9a', '#ff9ad5', '#ffffff'];
     for(let i = 0; i < clamp(Math.round(p.n), 0, 16); i++){
       const t = 0.25 + R() * 1.3, x = dx * t * M * 0.6, y = dy * t * M * 0.6, r = M * (0.015 + R() * 0.06), col = pal[Math.floor(R() * pal.length)], al = (0.18 + R() * 0.3) * Math.min(1, a), kind = R();
@@ -232,6 +241,7 @@ const FX_DRAW = {
   // 十字の光：細く尖った光のトゲ（4・6・8本。8本のときは斜めを短く）と、中心の光
   cross(ctx, L, p, R, bw, bh, f){
     const k = [4, 6, 8].includes(+p.spikes) ? +p.spikes : 4;
+    // 光 1 つ：ランダムな位置に、細長い三角形のトゲを k 本（ぼかした光付き）→ 中心に白い丸い光
     for(let i = 0; i < clamp(Math.round(p.n), 1, 40); i++){
       const x = (R() - 0.5) * bw * 0.9, y = (R() - 0.5) * bh * 0.9, Lr = (30 + R() * 70) * p.size, rot = (R() - 0.5) * 0.3;
       ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = Lr * 0.25 * L.sc * f;
@@ -247,6 +257,7 @@ const FX_DRAW = {
   // オーラ：楕円のまわりから、外向き＋上向き（rise）にゆらめく炎の舌。中心の楕円は空けて、縁を光らせる
   aura(ctx, L, p, R, bw, bh, f){
     const rx = bw * 0.3, ry = bh * 0.34, cy = bh * 0.06, n = clamp(Math.round(p.n), 6, 120), rise = clamp(p.rise, 0, 1);
+    // 炎の舌 1 本：楕円の縁の点（bx, by）から、外向きと上向き（rise の割合）を混ぜた向きへ伸ばす。上半分は長め、下半分は短め
     for(let i = 0; i < n; i++){
       const a = (i + R() * 0.7) / n * 2 * PI, bx = Math.cos(a) * rx, by = cy + Math.sin(a) * ry;
       let nx = Math.cos(a) * (1 - rise), ny = Math.sin(a) * (1 - rise) - rise; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
@@ -257,6 +268,7 @@ const FX_DRAW = {
       ctx.quadraticCurveTo(bx + nx * len * 0.5 + px * 0.9 + sway * 0.3, by + ny * len * 0.5 + py * 0.9, tx, ty);
       ctx.quadraticCurveTo(bx + nx * len * 0.5 - px * 0.9 - sway * 0.3, by + ny * len * 0.5 - py * 0.9, bx - px, by - py); ctx.closePath(); ctx.fill();
     }
+    // 最後に中心の楕円の縁を、光らせた線で 2 回なぞる（2 回で濃くする）
     ctx.shadowColor = p.c; ctx.shadowBlur = rx * 0.25 * L.sc * f; ctx.strokeStyle = rgba(p.c2, 0.8); ctx.lineWidth = rx * 0.05;
     ctx.beginPath(); ctx.ellipse(0, cy, rx, ry, 0, 0, 2 * PI); ctx.stroke(); ctx.stroke();
   },
@@ -264,6 +276,7 @@ const FX_DRAW = {
   // 炎：下の端から燃え上がる舌を横に並べる。奥に長い赤い炎、手前に短い黄色い芯
   fire(ctx, L, p, R, bw, bh, f){
     const n = clamp(Math.round(p.n), 3, 60), base = bh / 2;
+    // 炎の舌 1 本：下の端の x から高さ H、幅 wd、先が sway だけ横へなびく。下が c0、上へ c1 → 透明
     /** @param {number} x @param {number} wd @param {number} H @param {number} sway @param {string} c0 @param {string} c1 */
     const tongue = (x, wd, H, sway, c0, c1) => {
       const g = ctx.createLinearGradient(0, base, 0, base - H); g.addColorStop(0, rgba(c0, 1)); g.addColorStop(0.55, rgba(c1, 0.85)); g.addColorStop(1, rgba(c1, 0));
@@ -271,6 +284,7 @@ const FX_DRAW = {
       ctx.bezierCurveTo(x - wd / 2, base - H * 0.4, x - wd * 0.1 + sway, base - H * 0.7, x + sway, base - H);
       ctx.bezierCurveTo(x + wd * 0.2 + sway, base - H * 0.6, x + wd / 2, base - H * 0.35, x + wd / 2, base); ctx.closePath(); ctx.fill();
     };
+    // 1 周目：奥の大きい炎（c → c2）、2 周目：手前の小さい芯（c2 → 白）。最後に下の端を c2 の光でぼかしてつなぐ
     for(let pass = 0; pass < 2; pass++) for(let i = 0; i < n; i++){
       const x = -bw / 2 + (i + 0.5 + (R() - 0.5) * 0.6) / n * bw, wd = bw / n * (1.4 + R() * 0.8) * (pass ? 0.7 : 1);
       const H = bh * (0.45 + R() * 0.55) * clamp(p.h, 0.1, 2) * (pass ? 0.55 : 1), sway = (R() - 0.5) * wd * 0.8;
@@ -290,17 +304,20 @@ const FX_DRAW = {
   // ヒビ割れ：中心から外へ折れ曲がりながら伸びる線と、それをつなぐ輪の線。黒い影を少しずらして描き、ガラスの割れ目らしくする
   crack(ctx, L, p, R, bw, bh, f){
     const n = clamp(Math.round(p.n), 3, 40), Rx = bw / 2 * 0.95, Ry = bh / 2 * 0.95, /** @type {number[][][]} */ rays = [];
+    // 中心から外へ n 本の線：8 段に分けて、段ごとに向きを少しずつ曲げながら伸ばす（長さは 0.6〜1 倍でばらつかせる）
     for(let i = 0; i < n; i++){
       const a0 = (i + R() * 0.6) / n * 2 * PI, k = 0.6 + R() * 0.4, pts = [[0, 0]]; let a = a0;
       for(let s = 1; s <= 8; s++){ a += (R() - 0.5) * 0.35; const t = s / 8 * k; pts.push([Math.cos(a) * Rx * t, Math.sin(a) * Ry * t]); }
       rays.push(pts);
     }
+    // 線を短い区間 segs に分ける（中心に近いほど太い）
     /** @type {Array<[number[], number[], number]>} */ const segs = [];
     rays.forEach(pts => { for(let s = 1; s < pts.length; s++) segs.push([pts[s - 1], pts[s], (1 - s / pts.length) * 3 + 0.8]); });
     // 輪：ring の割合の半径あたりで、となりの線どうしを（ときどき途切れさせて）つなぐ
     for(const t of [0.25, 0.5, 0.8].map(v => Math.round(v * 8 * clamp(p.ring, 0.1, 1.2)))) if(t >= 1 && t <= 8)
       rays.forEach((pts, i) => { const q = rays[(i + 1) % n]; if(R() < 0.75 && pts[t] && q[t]) segs.push([pts[t], q[t], 1]); });
     ctx.lineCap = ctx.lineJoin = 'round';
+    // 1 回目：黒い影を右下へ 2 ずらして、2 回目：本体の色で、すべての区間を描く。最後に中心の光
     for(const [col, off] of [['rgba(0,0,0,.45)', 2], [p.c, 0]]){
       ctx.strokeStyle = col;
       for(const [a, b, w] of segs){ ctx.lineWidth = w * 1.6 * p.w; ctx.beginPath(); ctx.moveTo(a[0] + off, a[1] + off); ctx.lineTo(b[0] + off, b[1] + off); ctx.stroke(); }
@@ -311,6 +328,7 @@ const FX_DRAW = {
   // グリッチ：横長の色の帯と、小さな四角いノイズ。colorful ならシアン・マゼンタ・黄・白から選ぶ
   glitch(ctx, L, p, R, bw, bh, f){
     const pal = ['#38f6ff', '#ff2bd6', '#fff14a', '#ffffff', '#4a5cff'], n = clamp(Math.round(p.n), 1, 120), a = clamp(p.amt, 0, 1);
+    // 横長の帯 n 本（細いものが多くなるよう高さを偏らせる）→ 小さい四角いノイズ 2n 個
     for(let i = 0; i < n; i++){
       const y = (R() - 0.5) * bh, h = bh * (0.004 + R() * R() * 0.05), w = bw * (0.15 + R() * 0.85) * (0.4 + a * 0.6), x = (R() - 0.5) * bw - w / 2;
       ctx.fillStyle = rgba(p.colorful ? pal[Math.floor(R() * pal.length)] : p.c, 0.35 + R() * 0.55); ctx.fillRect(x, y, w, h);
@@ -322,6 +340,7 @@ const FX_DRAW = {
   petals(ctx, L, p, R, bw, bh, f){
     const pals = /** @type {Record<string, string[]>} */ ({sakura:['#ffc2d6', '#ffb0cb', '#ffd9e6', '#ff9ec0'], leaf:['#7bd66a', '#4fbf5a', '#a9e36b', '#3fa66a'], momiji:['#ff5a2e', '#ff8a2a', '#ffc23d', '#e8322a']});
     const shape = hasKey(pals, p.shape) ? p.shape : 'sakura', pal = pals[shape];
+    // 1 枚ずつ：位置・向きを乱数で決め、横に縮めて裏返りかけの向きに見せる。葉っぱには中心の葉脈を足す
     for(let i = 0; i < clamp(Math.round(p.n), 1, 300); i++){
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (22 + R() * 24) * p.size;
       ctx.save(); ctx.translate(x, y); ctx.rotate(R() * 2 * PI); ctx.scale(0.35 + Math.abs(Math.cos(R() * PI)) * 0.65, 1);
@@ -333,6 +352,7 @@ const FX_DRAW = {
   // 泡（画面に散らばる丸い泡）・水しぶき（中心から上へ飛び散るしずく）
   bubbles(ctx, L, p, R, bw, bh, f){
     if(p.type === 'splash'){
+      // しずく 1 つ：下寄り（0.35 bh）を中心に、上半分の向き a へ距離 d だけ飛ばす。遠いほど小さく、先は外向き
       for(let i = 0; i < clamp(Math.round(p.n), 1, 200); i++){
         const a = -PI * (0.08 + R() * 0.84), d = Math.min(bw, bh) * (0.15 + R() * 0.8), x = Math.cos(a) * d * (bw / bh), y = bh * 0.35 + Math.sin(a) * d, s = (6 + R() * 18) * p.size * (1.2 - d / Math.min(bw, bh));
         ctx.save(); ctx.translate(x, y); ctx.rotate(a + PI / 2 + PI); ctx.fillStyle = p.c; ctx.beginPath(); scatterShape(ctx, 'drop', s); ctx.fill();
@@ -340,6 +360,7 @@ const FX_DRAW = {
       }
       return;
     }
+    // 泡 1 つ：中が透明で縁ほど濃い丸＋縁の線＋左上の白い光の弧
     for(let i = 0; i < clamp(Math.round(p.n), 1, 300); i++){
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (10 + R() * R() * 60) * p.size;
       const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.8, rgba(p.c, 0.12)); g.addColorStop(1, rgba(p.c, 0.35));
@@ -353,6 +374,7 @@ const FX_DRAW = {
   shock(ctx, L, p, R, bw, bh, f){
     const n = clamp(Math.round(p.n), 1, 8), rx = bw / 2 * 0.95, k = clamp(p.tilt, 0.1, 1) * (bh / bw) / 0.62;
     ctx.save(); ctx.scale(1, k);
+    // 縦を k 倍に縮めた座標で描く（輪が横に平たくなる）。線の太さは縮まないよう ÷k。中心の光 → 輪 n 本 → 外へ飛ぶ線 24 本
     let g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx * 0.35); g.addColorStop(0, rgba(p.c, 0.9)); g.addColorStop(1, rgba(p.c, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx * 0.35, 0, 2 * PI); ctx.fill();
     for(let i = 0; i < n; i++){ const t = (i + 1) / n, r = rx * (0.3 + 0.7 * t);
@@ -365,6 +387,7 @@ const FX_DRAW = {
   // ヒット：中心の白い光と、細く鋭いトゲ（外側 c2 → 内側 c → 白い芯の3重）
   hit(ctx, L, p, R, bw, bh, f){
     const n = clamp(Math.round(p.n), 4, 40), RR = Math.min(bw, bh) / 2 * 0.95 * p.size, sp = [];
+    // トゲ 1 本ぶんの [向き, 長さ, 太さの比]。同じトゲを 3 色（外 c2 → c → 白い芯）で、内側ほど小さく重ねる
     for(let i = 0; i < n; i++) sp.push([(i + R() * 0.7) / n * 2 * PI, RR * (0.45 + R() * 0.55), 0.05 + R() * 0.06]);
     ctx.shadowColor = p.c2; ctx.shadowBlur = RR * 0.15 * L.sc * f;
     for(const [col, k] of [[p.c2, 1], [p.c, 0.72], ['#ffffff', 0.4]]){
@@ -376,6 +399,7 @@ const FX_DRAW = {
   },
   // ピカピカ：ななめの光の帯（n 本。2本目からは細く）と、小さなキラッ
   shine(ctx, L, p, R, bw, bh, f){
+    // 光の帯はレイヤーの範囲で切り抜き、angle だけ回した座標で縦の帯（左右が透明のグラデ）として描く
     ctx.save(); ctx.beginPath(); ctx.rect(-bw / 2, -bh / 2, bw, bh); ctx.clip();
     ctx.rotate((p.angle || 0) * PI / 180);
     const D = Math.hypot(bw, bh);
@@ -384,12 +408,15 @@ const FX_DRAW = {
       g.addColorStop(0, rgba(p.c, 0)); g.addColorStop(0.5, rgba(p.c, 0.9)); g.addColorStop(1, rgba(p.c, 0)); ctx.fillStyle = g; ctx.fillRect(x - w / 2, -D / 2, w, D);
     }
     ctx.restore();
+    // 小さなキラッ（4 方向に尖った星）を 3 つ
     ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 12 * L.sc * f;
     for(let i = 0; i < 3; i++){ const x = (R() - 0.5) * bw * 0.85, y = (R() - 0.5) * bh * 0.85, r = 16 + R() * 22, k = r * 0.16;
       ctx.beginPath(); ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x + k, y - k, x + r, y); ctx.quadraticCurveTo(x + k, y + k, x, y + r);
       ctx.quadraticCurveTo(x - k, y + k, x - r, y); ctx.quadraticCurveTo(x - k, y - k, x, y - r); ctx.fill(); }
   },
 };
+// ctx に fx レイヤー L を描く。f＝倍率（ドキュメント座標→ピクセル）。L.x/y はドキュメント座標の中心、rot は度
+// 以降の座標は「L の中心が原点・sc=1 の局所座標」。translate→rotate→scale の順は変えない（回転・拡大の中心が中心点になる）
 /** @param {CanvasRenderingContext2D} ctx @param {FxLayer} L @param {number} f */
 function drawFx(ctx, L, f){
   const p = L.p, [bw, bh] = FX_BOX(L);

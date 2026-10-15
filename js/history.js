@@ -11,6 +11,7 @@
 /** @type {string[]} */
 let hist = [];
 let hIdx = -1, restoring = false;
+// 今の DOC を取り消し履歴に積む（取り消したあとに積むと、その先のやり直しの履歴は捨てる）。上限を超えたら古いものから捨てる
 function pushHist(){
   if(restoring || !DOC) return;
   // 直前と同じ内容なら積まない（変更のない操作や、デバウンス後の重複呼び出しで同じ状態が来うるため）

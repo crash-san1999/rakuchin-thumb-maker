@@ -90,18 +90,23 @@ function drawBoxes(ctx, cells){
 // prep は renderStyle の変換付き ctx 生成関数を受け取る（同じ座標系で描くため）。戻り値 E は A に blit される
 /** @param {StyleVars['prep']} prep @param {number} W @param {number} H @param {Glyph[]} items @param {number} outer @param {number} scale */
 function drawExtrude(prep, W, H, items, outer, scale){
+  // e＝押し出しの設定、ex＝厚み（論理 px）、a＝ずらす向き（ラジアン）、step＝1 枚ごとのずらし量（実ピクセルで約 1px）
   const e = RS.extrude, ex = e.depth, a = e.angle * PI / 180, step = Math.max(0.25, 1 / scale);
+  // E＝押し出しの絵。D＝奥ほど透明にするときの「奥行きの濃淡」（白＝奥、黒＝手前）。fade が 0 なら作らない
   const E = mk(W, H), x = prep(E), D = e.fade > 0 ? mk(W, H) : null, dx = D ? prep(D) : null;
+  // 1 枚ぶん：文字を奥行き d だけ角度 a の向きへずらし、色 col で塗り（フチがあればフチの太さで線も）描く
   const pass = /** @param {CanvasRenderingContext2D} c @param {string} col @param {number} d */ (c, col, d) => {
     c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.fillStyle = c.strokeStyle = col; c.lineWidth = outer * 2;
     drawGlyphs(c, items, (it, px, py) => { if(outer > 0) c.strokeText(it.t, px, py); c.fillText(it.t, px, py); });
     c.restore();
   };
+  // 奥（d＝厚み）から手前（d→0）へ順に重ねる。ストライプなら厚みの位置で c と c2 を交互に、奥ほど shade の割合で暗くする
   for(let d = ex; d > 0; d -= step){
     const base = e.stripe && Math.floor(d / Math.max(0.5, e.stripeW)) % 2 ? e.c2 : e.c;
     pass(x, darken(base, e.shade * (d / ex)), d);
     if(dx){ const g = Math.round(255 * d / ex); pass(dx, `rgb(${g},${g},${g})`, d); }
   }
+  // 奥を透明に：E の各画素の不透明度に「1 − fade × 奥行き」を掛ける
   if(D){
     const ec = ctx2d(E, {willReadFrequently:true}), ei = ec.getImageData(0, 0, W, H), ed = ei.data;
     const dd = ctx2d(D, {willReadFrequently:true}).getImageData(0, 0, W, H).data;
@@ -115,8 +120,10 @@ function drawExtrude(prep, W, H, items, outer, scale){
 // 背面側に置かれるので、実際の文字・フチは後から上に重なる
 /** @param {StyleVars['prep']} prep @param {number} W @param {number} H @param {Glyph[]} items @param {number} outer */
 function drawOffsetLayer(prep, W, H, items, outer){
+  // O＝板ずれの絵。(o.x, o.y) だけずらして、色 o.c 1 色で文字の形を塗る
   const o = RS.offset, O = mk(W, H), x = prep(O);
   x.translate(o.x, o.y); x.fillStyle = x.strokeStyle = o.c;
+  // 文字の形（フチの太さ lw ぶん太らせたもの）を塗る。中抜きは「フチ＋板ずれの太さ」で塗ってから「フチの太さ」で抜く
   const sil = /** @param {number} lw */ lw => { x.lineWidth = lw; drawGlyphs(x, items, (it, px, py) => { if(lw > 0) x.strokeText(it.t, px, py); x.fillText(it.t, px, py); }); };
   if(o.hollow){ sil((outer + o.w) * 2); x.globalCompositeOperation = 'destination-out'; sil(outer * 2); }
   else sil(outer * 2);
@@ -127,8 +134,10 @@ function drawOffsetLayer(prep, W, H, items, outer){
 // 実ピクセルで処理（setTransform を単位行列にして貼る）
 /** @param {HTMLCanvasElement} F @param {number} scale */
 function innerShadow(F, scale){
+  // 1) inv＝文字の外側だけ黒い絵（全面を黒で塗り、文字の形を抜く）
   const s = RS.inner, W = F.width, H = F.height, inv = mk(W, H), ix = ctx2d(inv);
   ix.fillStyle = '#000'; ix.fillRect(0, 0, W, H); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(F, 0, 0);
+  // 2) その外側から、影（ずらし・ぼかし）だけを作る → 3) 文字の中にだけ（source-atop）重ねる
   const sh = effectOnly(inv, s.x, s.y, s.blur, rgba(s.c, s.a), scale);
   const fx = ctx2d(F); fx.save(); fx.setTransform(1, 0, 0, 1, 0, 0); fx.globalCompositeOperation = 'source-atop'; fx.drawImage(sh, 0, 0); fx.restore();
 }
@@ -137,13 +146,16 @@ function innerShadow(F, scale){
 // 反転部分は destination-in のグラデで下へ向かって透明にする。反射元は影なしの body を使う（影・光彩まで反射しないため）。gap は scale 倍して実ピクセルに
 /** @param {HTMLCanvasElement} B @param {HTMLCanvasElement} body @param {number} scale */
 function addReflection(B, body, scale){
+  // 反射の高さ len は、絵の高さに対する割合（r.len）。gap は文字と反射の間のすき間
   const r = RS.reflect, bb = bbox(body); if(!bb) return B;
   const ch = bb.b - bb.t + 1, len = Math.max(1, Math.round(ch * r.len)), gap = Math.round(r.gap * scale), W = B.width;
+  // R＝反射：body の下端から len ぶんを上下反転して写し、上（文字に近い側）が濃く下が透明になるグラデで切り抜く
   const R = mk(W, len), rx = ctx2d(R);
   rx.save(); rx.scale(1, -1); rx.drawImage(body, 0, bb.b - len + 1, W, len, 0, -len, W, len); rx.restore();
   rx.globalCompositeOperation = 'destination-in';
   const g = rx.createLinearGradient(0, 0, 0, len); g.addColorStop(0, `rgba(0,0,0,${r.a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
   rx.fillStyle = g; rx.fillRect(0, 0, W, len);
+  // 高さを伸ばした新しいキャンバスに、反射 → 元の絵（B）の順に重ねる
   const O = mk(W, Math.max(B.height, bb.b + 1 + gap + len + 2)), ox = ctx2d(O);
   ox.drawImage(R, 0, bb.b + 1 + gap); ox.drawImage(B, 0, 0);
   return O;
@@ -154,10 +166,12 @@ function addReflection(B, body, scale){
 // 値ノイズ（256x256 の乱数表を滑らかに補間し、周波数違いを 0.6/0.3/0.1 で重ねたもの）。戻り値は (x,y) → -1〜1 の関数。
 // 乱数表は rng(seed) 由来なので、同じ seed なら毎回同じノイズ（再描画で形が変わらない）。表は 256 周期で繰り返す（& 255）
 /** @param {number} seed */ function makeNoise(seed){
+  // tab＝256×256 の乱数の表。v(x,y)＝表の値（256 で折り返す）、sm＝なめらかな補間の重み
   const R = rng(seed), N = 256, tab = new Float32Array(N * N);
   for(let i = 0; i < tab.length; i++) tab[i] = R();
   const v = /** @param {number} x @param {number} y */ (x, y) => tab[((y & 255) << 8) + (x & 255)];
   const sm = /** @param {number} t */ t => t * t * (3 - 2 * t);
+  // 格子の 4 点の乱数を、なめらか（smoothstep）に補間した値（0〜1）
   const n = /** @param {number} x @param {number} y */ (x, y) => {
     const xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi);
     const a = v(xi, yi), b = v(xi + 1, yi), c = v(xi, yi + 1), d = v(xi + 1, yi + 1);
@@ -170,12 +184,14 @@ function addReflection(B, body, scale){
 // 各出力画素は「ノイズでずらした位置の元画素」を取る逆引き方式（穴が空かない）。bbox ± (amp+2) の範囲だけ処理して速度を確保
 /** @param {HTMLCanvasElement} c @param {number} amp @param {number} sc @param {number} seed @param {number} [stretchY] */
 function displace(c, amp, sc, seed, stretchY){
+  // 絵のある範囲（＋ずらす量ぶんの余白）だけを処理する
   const bb = bbox(c); if(!bb || amp <= 0) return;
   const W = c.width, H = c.height, pad = Math.ceil(amp) + 2;
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), r = Math.min(W - 1, bb.r + pad), b = Math.min(H - 1, bb.b + pad);
   const w = r - l + 1, h = b - t + 1, ctx = ctx2d(c, {willReadFrequently:true});
   const src = ctx.getImageData(l, t, w, h).data, out = ctx.createImageData(w, h), od = out.data, nz = makeNoise(seed);
   const sy = sc * (stretchY || 1);
+  // 出力の各画素 (x,y) に、ノイズでずらした位置 (sx,syy) の元の画素を写す（横・縦で別のノイズを使う）
   for(let y = 0; y < h; y++){
     for(let x = 0; x < w; x++){
       const nx = (x + l) / sc, ny = (y + t) / sy;
@@ -193,6 +209,7 @@ function displace(c, amp, sc, seed, stretchY){
 // 外炎（c2→c3）と内炎＝芯（c1→c2）の2層を 'lighter' 合成で重ね、最後に軽くぼかして炎らしく馴染ませる。乱数は固定シード f.seed
 /** @param {HTMLCanvasElement} body @param {number} scale */
 function makeFire(body, scale){
+  // 1) 炎の根元を探す：sp 間隔の縦の列ごとに、上が透明な不透明の画素（文字の上端）を拾う。見つけたら size の 1/4 だけ下へ飛ばす
   const f = RS.fire, W = body.width, H = body.height, bb = bbox(body), out = mk(W, H);
   if(!bb) return out;
   const d = ctx2d(body, {willReadFrequently:true}).getImageData(0, 0, W, H).data;
@@ -204,12 +221,14 @@ function makeFire(body, scale){
       if(d[k] > 128 && d[k - W * 4] <= 128){ tops.push([xi, y]); y += Math.round(RS.size * 0.25 * scale); }
     }
   }
+  // 2) 土台の照り返し：文字の形を c3 で塗って、ぼかして少し上へずらして敷く
   const o = ctx2d(out);
   // 土台の赤い照り返し
   const sil = mk(W, H), sx = ctx2d(sil);
   sx.drawImage(body, 0, 0); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = f.c3; sx.fillRect(0, 0, W, H);
   o.filter = `blur(${Math.max(2, RS.size * 0.08 * scale)}px)`; o.globalAlpha = 0.9; o.drawImage(sil, 0, -RS.size * 0.05 * scale); o.filter = 'none'; o.globalAlpha = 1;
   const T = mk(W, H), t = ctx2d(T);
+  // 炎の舌 1 本：根元 (x,y) から高さ h・幅 w、先が sway だけ横へなびく。下から c0 → c1 → c2（透明）へのグラデで塗る
   /** @param {number} x @param {number} y @param {number} h @param {number} w @param {number} sway @param {string} c0 @param {string} c1 @param {string} c2 @param {number} a */
   const tongue = (x, y, h, w, sway, c0, c1, c2, a) => {
     const o = t, g = o.createLinearGradient(0, y, 0, y - h);
@@ -219,6 +238,7 @@ function makeFire(body, scale){
     o.bezierCurveTo(x + sway + w * 0.35, y - h * 0.7, x + w * 0.9, y - h * 0.35, x + w, y + w * 0.4);
     o.closePath(); o.fill();
   };
+  // 3) 炎の舌：外炎（長く・c2→c3）を全部の根元に、芯（短く・c1→c2）を 65% の根元に。lighter で重ねて明るく混ぜる
   const Hs = f.height * RS.size * scale, wild = f.wild;
   t.globalCompositeOperation = 'lighter';
   for(const [x, y] of tops){   // 外炎
@@ -230,6 +250,7 @@ function makeFire(body, scale){
     const h = Hs * (0.2 + R() * 0.4), w = RS.size * scale * (0.05 + R() * 0.05);
     tongue(x, y, h, w, (R() - 0.5) * w * 2.5 * wild, f.c1, f.c2, f.c3, 0.65);
   }
+  // 4) 舌をまとめて軽くぼかして重ねる
   o.filter = `blur(${Math.max(1, RS.size * 0.02 * scale)}px)`; o.drawImage(T, 0, 0); o.filter = 'none';
   return out;
 }
@@ -239,11 +260,13 @@ function makeFire(body, scale){
 // 実ピクセル処理のため setTransform を単位行列に戻している。outerPx は呼び出し側で scale 掛け済みの最外フチ幅
 /** @param {HTMLCanvasElement} F @param {HTMLCanvasElement} K @param {number} outerPx @param {string|null} strokeColor @param {number} scale */
 function drawDrips(F, K, outerPx, strokeColor, scale){
+  // wPx＝しずくの太さ、step＝しずくを探す横の間隔、gapPx＝しずくの下に必要な空き（他の文字・行に被さらないように）
   const dr = RS.drip, bb = bbox(F); if(!bb) return;
   const W = F.width, R = rng(dr.seed), fctx = ctx2d(F, {willReadFrequently:true});
   const d = fctx.getImageData(0, 0, W, F.height).data;
   const wPx = Math.max(3, dr.w * RS.size * scale), step = Math.max(2, Math.round(wPx * 1.4)), gapPx = RS.size * 0.22 * scale;
   /** @type {{x: number, y: number, len: number, w: number, col: string}[]} */ const list = [];
+  // しずくの根元を探す：塗りの下端（不透明の真下が透明）の画素を、amt の確率で選ぶ。下に gapPx の空きがある所だけ
   for(let x = bb.l + step; x < bb.r - step; x += step){
     for(let y = bb.t; y < bb.b; y++){
       const i = (y * W + x) * 4 + 3;
@@ -256,6 +279,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
       }
     }
   }
+  // しずく 1 本の形：icicle（つらら）は細い三角、それ以外（round）は根元から細く伸びて先が丸くふくらむ形
   const path = /** @param {CanvasRenderingContext2D} c @param {typeof list[number]} q */ (c, q) => {
     const w2 = q.w / 2, x = q.x, y = q.y; c.beginPath();
     if(dr.style === 'icicle'){ c.moveTo(x - w2, y - 2); c.lineTo(x, y + q.len); c.lineTo(x + w2, y - 2); c.closePath(); return; }
@@ -263,11 +287,13 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
     c.lineTo(x - w2 * 0.8, y + q.len); c.arc(x, y + q.len, w2 * 1.05, PI, 0, true);
     c.lineTo(x + w2 * 0.8, y + q.len * 0.5); c.quadraticCurveTo(x + w2 * 0.8, y, x + w2 * 1.6, y - 2); c.closePath();
   };
+  // フチがあるときは、フチ K にもしずくをフチの太さで描いて、フチがしずくを縁取るようにする
   if(outerPx > 0 && strokeColor){
     const k = ctx2d(K); k.save(); k.setTransform(1, 0, 0, 1, 0, 0);
     k.strokeStyle = k.fillStyle = strokeColor; k.lineWidth = outerPx * 2; k.lineJoin = 'round';
     list.forEach(q => { path(k, q); k.stroke(); k.fill(); }); k.restore();
   }
+  // 塗り F にしずくを描く（色は根元の色、または指定の色）
   fctx.save(); fctx.setTransform(1, 0, 0, 1, 0, 0);
   list.forEach(q => { fctx.fillStyle = q.col; path(fctx, q); fctx.fill(); }); fctx.restore();
 }
@@ -278,12 +304,14 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
   const p = RS.pattern, bb = bbox(F); if(!bb) return;
   const sz = Math.max(3, p.size * scale), x = ctx2d(F);
   x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = p.a; x.fillStyle = p.c;
+  // 角度 a で回した格子を、絵の範囲の中心から、範囲を覆う半径 Rr まで並べる
   const a = p.angle * PI / 180, ca = Math.cos(a), sa = Math.sin(a), cx = (bb.l + bb.r) / 2, cy = (bb.t + bb.b) / 2;
   const Rr = Math.hypot(bb.r - bb.l, bb.b - bb.t) / 2 + sz, hh = Math.max(1, bb.b - bb.t);
   x.beginPath();
   for(let u = -Rr; u <= Rr; u += sz) for(let v = -Rr; v <= Rr; v += sz){
     const px = cx + u * ca - v * sa, py = cy + u * sa + v * ca;
     if(px < bb.l - sz || px > bb.r + sz || py < bb.t - sz || py > bb.b + sz) continue;
+    // 点の半径：絵の上端で 0、下端で格子の 62%（下ほど大きい網点）
     const r = sz * 0.62 * Math.max(0, Math.min(1, (py - bb.t) / hh));
     if(r < 0.4) continue;
     x.moveTo(px + r, py); x.arc(px, py, r, 0, 7);
@@ -295,6 +323,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
 // パターン種別 'cutlines' のとき drawPattern の代わりに呼ばれる。縦書きは1マスごとに刻む
 /** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L */
 function drawCutLines(ctx, L){
+  // n＝切れ込みの本数（模様の大きさから決める）。切れ込みの太さは下ほど太く、濃さ（a）で全体の太さが変わる
   const p = RS.pattern, n = Math.max(2, Math.round(p.size / 3));
   ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000';
   L.lines.forEach((ln, i) => {
@@ -311,6 +340,7 @@ function drawCutLines(ctx, L){
       });
       return;
     }
+    // 横書き：行の下半分（字の高さの半分あたりからベースラインまで）に、行の横幅いっぱいの切れ込み
     const top = lineTop(L, i) + RS.size * 0.48, bot = baseY(L, i) + RS.size * 0.03, band = (bot - top) / n;
     for(let k = 0; k < n; k++){
       const th = band * (0.12 + 0.55 * (k / n)) * Math.max(0.2, p.a * 1.6);
@@ -335,16 +365,19 @@ function drawCutLines(ctx, L){
 // 候補は固定シード(5)でシャッフルしたのち、グリッド(cell=gap/√2)で近傍だけ距離判定して間引き、gap 以上離れた点だけ採用（O(n) に近い間引き）。
 // F 描画の後ろ・ベベル／インナーシャドウ／テカリより後に呼ぶ必要がある（既に描かれた塗りの形を読むため）
 /** @param {HTMLCanvasElement} F @param {number} scale */ function drawBulbs(F, scale){
+  // r＝電球の半径、gap＝電球どうしの最小の間隔（実ピクセル）
   const b = RS.bulbs, r = Math.max(1.5, b.size * RS.size * scale), gap = Math.max(r * 2.4, b.gap * RS.size * scale), bb = bbox(F); if(!bb) return;
   const W = F.width, H = F.height, pad = Math.ceil(r * 2) + 2;
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), w = Math.min(W, bb.r + pad) - l, h = Math.min(H, bb.b + pad) - t;
   const ctx = ctx2d(F, {willReadFrequently:true}), d = ctx.getImageData(l, t, w, h).data;
+  // 1) 不透明度を 2 回ぼかした「高さ」にし、0.62 の等高線（塗りの少し内側の輪郭）の画素を候補にする
   const a = new Float32Array(w * h); for(let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] / 255;
   const rr = Math.max(1, Math.round(r * 0.6)), hm = boxBlur(boxBlur(a, w, h, rr), w, h, rr), T = 0.62, /** @type {number[][]} */ pts = [];
   for(let y = 1; y < h - 1; y++) for(let x = 1; x < w - 1; x++){
     const i = y * w + x;
     if(hm[i] >= T && (hm[i - 1] < T || hm[i + 1] < T || hm[i - w] < T || hm[i + w] < T)) pts.push([x + l, y + t]);
   }
+  // 2) 候補を決まった並びでシャッフルし（輪郭の順に並ぶと偏るため）、近くにすでに置いた電球が無いものだけを採る（格子に分けて近所だけ調べる）
   const R = rng(5); for(let i = pts.length - 1; i > 0; i--){ const j = Math.floor(R() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; }
   const cell = gap / Math.SQRT2, /** @type {Map<number, number[]>} */ grid = new Map(), /** @type {number[][]} */ ok = [];
   const key = /** @param {number} i @param {number} j */ (i, j) => i * 100003 + j;
@@ -355,6 +388,7 @@ function drawCutLines(ctx, L){
     }
     if(!near){ grid.set(key(gi, gj), [x, y]); ok.push([x, y]); }
   }
+  // 3) 電球を描く：光（影のぼかし）付きで、左上が白く光る丸いグラデ
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
   for(const [x, y] of ok){
     ctx.shadowColor = rgba(b.c, b.glow); ctx.shadowBlur = r * 3;
@@ -368,6 +402,7 @@ function drawCutLines(ctx, L){
 // B（最終合成）の上に直接描く。位置は 75% が文字の輪郭上、残りが bbox 内のランダム。固定シードなので再描画しても位置は同じ。
 // body から輪郭を取る（B は影・光彩を含み輪郭がぼやけるため）。ワープ・残像後の body と B は同寸法
 /** @param {HTMLCanvasElement} B @param {HTMLCanvasElement} body @param {number} scale */ function drawSparkles(B, body, scale){
+  // 輪郭の点が無い（何も描かれていない）ときは描かない
   const s = RS.sparkle; if(s.count <= 0) return;
   const pts = edgePoints(body), bb = bbox(body); if(!pts.length || !bb) return;
   const R = rng(s.seed), x = ctx2d(B), base = s.size * RS.size * scale;
@@ -375,9 +410,11 @@ function drawCutLines(ctx, L){
   if(s.glow){ x.shadowColor = s.c; x.shadowBlur = base * 0.6; }
   for(let i = 0; i < s.count; i++){
     let px, py;
+    // 75% は輪郭の上、残りは絵の範囲のどこか
     if(R() < 0.75){ const p = pts[Math.floor(R() * pts.length)]; px = p[0]; py = p[1]; }
     else { px = bb.l + R() * (bb.r - bb.l); py = bb.t + R() * (bb.b - bb.t); }
     const r = base * (0.35 + R() * 0.65), k = r * 0.16;
+    // 4 方向に尖った星（2 次曲線で、中心へ向かってくびれる）
     x.beginPath(); x.moveTo(px, py - r);
     x.quadraticCurveTo(px + k, py - k, px + r, py); x.quadraticCurveTo(px + k, py + k, px, py + r);
     x.quadraticCurveTo(px - k, py + k, px - r, py); x.quadraticCurveTo(px - k, py - k, px, py - r);

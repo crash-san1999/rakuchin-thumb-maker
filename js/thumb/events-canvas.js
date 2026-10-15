@@ -14,6 +14,7 @@
    Shift/Ctrl+クリックで複数選択 → 通常のヒット判定 → 何も無ければ背景。pointermove が drag.mode ごとに値を更新し、pointerup（end）で確定する。 */
 {
   const tv = $('#tv');
+  // 画面上の位置（マウス・指の clientX/Y）→ ドキュメント座標。キャンバスは CSS で縮んで表示されているので、表示の大きさで割って直す
   const toDoc = /** @param {{clientX: number, clientY: number}} e */ e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };
   // 選択中レイヤーのハンドルの上か。'rot'（回転）／'scale'（四隅）／null。当たり半径は画面上の 11px・10px（描画サイズより少し大きく、掴みやすくしている）。
   // 複数選択・ロック中は出さない
@@ -71,11 +72,13 @@
   tv.addEventListener('pointermove', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e);
+    // つかんでいないとき：ポインタの下にあるもの（効果の中心・編集モード・しっぽのつまみ・回転／拡大のつまみ・レイヤー・背景画像）に合わせてカーソルの形だけ変える
     if(!drag && fxHandleOn() && Math.hypot(x - DOC.bg.fcx * DOC.w, y - DOC.bg.fcy * DOC.h) < 20 * DOC.w / tvCss){ tv.style.cursor = 'grab'; return; }
     if(!drag && editLayer() && edit){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
     if(!drag && tailHandleAt(x, y)){ tv.style.cursor = 'grab'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && assetOf(DOC.bg.asset) ? 'grab' : 'default'); return; }
     const d = drag;
+    // 編集モード・しっぽ・効果の中心（スナップは 1/3・1/2・2/3 に 8px 以内）・背景画像の位置（画面の半分を 1 とする割合）
     if(d.mode === 'edit'){ editPointerMove(x, y); return; }
     if(d.mode === 'tail'){ tailDragMove(d.st, x, y, e); syncDocSoon(); livePaint(); return; }
     if(d.mode === 'fx'){
@@ -100,6 +103,7 @@
         for(const sy of [DOC.h / 2, DOC.h / 3, DOC.h * 2 / 3]) if(Math.abs(ny - sy) < th){ ny = sy; snapLines.y = sy; break; }
       }
       if(d.snap) xformApply(d.snap, nx - d.lx, ny - d.ly); else{ L.x = Math.round(nx); L.y = Math.round(ny); }
+    // 拡大縮小：中心からの距離が、つかんだときの何倍になったか（0.05〜10 倍）
     }else if(d.mode === 'scale' && d.snap){
       xformApply(d.snap, 0, 0, clamp(Math.hypot(x - d.snap.cx, y - d.snap.cy) / Math.max(1, d.d0), 0.05, 10), 0);
     }else if(d.mode === 'scale'){
@@ -146,6 +150,7 @@
     }else return;
     e.preventDefault(); syncDoc(); docChanged(true);
   }, {passive:false});
+  // 右クリック：ポインタの下のレイヤーのメニュー（ブラウザのメニューは出さない）
   tv.addEventListener('contextmenu', e => {
     if(DOC.mode !== 'thumb') return;
     const [x, y] = toDoc(e), L = hitMenuLayer(x, y); if(!L) return;
@@ -168,11 +173,13 @@
     if(DOC.mode !== 'thumb' || $('#help').classList.contains('show') || $('.pop.show')) return;
     if(isTyping(e)) return;
     const L = selLayer(); if(!L) return;
+    // st＝矢印キーで動かす量
     const st = e.shiftKey ? 10 : 1;
     if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); layerAction(L.id, 'del'); }
     else if(e.key.startsWith('Arrow')){
       e.preventDefault(); if(L.locked) return;
       const dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0;
+      // 複数選択中なら全部、そうでなければ選択中の 1 つを動かす（グループなら中身ごと）
       const ms = (DOC.msel || []).length >= 2 ? DOC.msel.map(layerById).filter(/** @returns {l is Layer} */ l => !!l) : [L];
       xformSnap(ms, L.x, L.y).kids.forEach(o => { o.L.x += dx; o.L.y += dy; });
       docChanged(true);

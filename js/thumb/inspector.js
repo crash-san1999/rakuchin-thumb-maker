@@ -22,17 +22,21 @@ const drowPg = /** @param {PanelRow} r @param {boolean} [bg] */ (r, bg) => `<div
 /** @param {PanelRow} r */
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
+  // 分割フレームの配置の選択（分割数ごとのボタン。今の分割数のものだけ見える）・反転ボタン
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6, 7, 8].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
   if(r.flips) return `<div class="row"${sa}><label>${r.l}</label><div class="crow flips"><button class="btn sm" data-flip="flip" title="左右反転（H）">${ic('fliph')}左右</button><button class="btn sm" data-flip="flipV" title="上下反転（V）">${ic('flipv')}上下</button></div></div>`;
+  // 中身をあとで別のファイルが入れる空の箱（マスの一覧・背景色と文字・1週間の自動入力・予定表の入力とデザイン）
   if(r.cells) return `<div class="cellBox"${sa}></div>`;
   if(r.ctext) return `<div class="ctBox"${sa}></div>`;
   if(r.week) return `<div class="wkBox"${sa}></div>`;
   if(r.sched) return `<div class="schBox"${sa}></div>`;
   if(r.schedStyle) return `<div class="schStyleBox"${sa}></div>`;
+  // ワンクリックで設定を入れるボタンの並び（マスの効果・フレームのプリセット）と、フレームの形の選択
   if(r.cfxchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック効果</div><div class="pcats fxchips">${CELL_FX_CHIPS.map(([k, t]) => `<button data-cfx="${k}">${t}</button>`).join('')}</div></div>`;
   if(r.frpre){ const nm = Object.fromEntries(FRAME_PRESETS.map(p => [p[0], p[1]]));
     return `<div${sa}>${FRAME_GROUPS.map(([g, ks]) => `<div class="frgrp">${g}</div><div class="pcats frpre">${ks.map(k => `<button data-frpre="${k}">${nm[k]}</button>`).join('')}</div>`).join('')}<div class="pcats frpre"><button data-frpre="off">フレームなし</button></div></div>`; }
   if(r.shapes) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes" data-dseg="@frame.shape">${FRAME_SHAPES.map(([k, t]) => `<button data-v="${k}" title="${t}">${k === 'none' ? '<span>なし</span>' : `<img src="${shapeIcon(k)}" alt="${t}">`}</button>`).join('')}</div></div>`;
+  // 小見出し・エフェクトの追加ボタン・仕上げ／背景のワンクリック・9 か所の配置ボタン・任意のボタンの並び
   if(r.sub) return `<div class="subhead" style="margin-top:24px"${sa}>${r.sub}${r.note ? `<span class="subnote">${r.note}</span>` : ''}</div>`;
   if(r.addfx) return `<div class="subhead" style="margin-top:26px">動的エフェクト<span class="subnote">レイヤーとして追加され、文字や画像と同じように移動・拡大縮小・回転できます</span></div><div class="fxgrps">${fxChipsHtml('btn sm')}</div>`;
   if(r.finchips) return `<div${sa}><div class="subhead" style="margin-top:18px">ワンクリック仕上げ<span class="subnote">サムネ全体の雰囲気を一発で変えます</span></div><div class="pcats fxchips">${Object.entries(FIN_PRESETS).map(([k, v]) => `<button data-finfx="${k}">${v[0]}</button>`).join('')}</div></div>`;
@@ -45,6 +49,7 @@ function drow(r){
 // フレーム形状のアイコン（44px の canvas から作る dataURL）。形ごとに1回だけ作って使い回す
 /** @type {Record<string, string>} */
 const shapeIconCache = {};
+// 形 k のアイコン（44px の canvas に塗った形）の dataURL。形ごとに 1 回だけ作る
 /** @param {string} k */ function shapeIcon(k){
   if(shapeIconCache[k]) return shapeIconCache[k];
   const c = mk(44, 44), x = ctx2d(c); x.translate(22, 22); x.beginPath(); framePath(x, k, 32, 32, 0.2); x.fillStyle = '#1f1b2d'; x.fill();
@@ -78,11 +83,14 @@ function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = 
 /** @param {string} page */
 function setPage(page){
   const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);
+  // ページ → 見せるペイン（文字の 3 つか、サムネの 'thumb'）
   const pane = /** @type {Record<string, string>} */ ({'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'})[page] || 'thumb';
   $$('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === pane));
+  // 文字のテキストペインの中の 2 つの節（テキスト・フォント）と、レイヤー・背景の節を出し分ける
   const tp = $('.pane[data-pane=text]'), [ts, fs] = $$(':scope > section', tp);
   ts.classList.toggle('secoff', page !== 'txt-text'); fs.classList.toggle('secoff', page !== 'txt-font');
   $('#layerSec').classList.toggle('secoff', !page.startsWith('lay-')); $('#bgSec').classList.toggle('secoff', !page.startsWith('bg-'));
+  // 行の pg（'|' 区切りで複数書ける）にページの後半が含まれる行だけ見せる。タブの「選択中」を付け、先頭へスクロール
   const pg = page.split('-')[1];
   $$('#selBox [data-pg], #bgRows [data-pg]').forEach(el => el.classList.toggle('pgoff', !(el.dataset.pg ?? '').split('|').includes(pg)));
   $$('#tabs [data-page]').forEach(b => b.classList.toggle('on', b.dataset.page === page));
@@ -94,10 +102,12 @@ function setPage(page){
 /** @param {boolean} [force] */
 function renderInspector(force){
   if(!DOC || !$('#insHead')) return;
+  // 見出し：種類のアイコン・名前（選択が同じでも毎回）。選択が同じならここで終わり
   const ctx = insCtx(), L = selLayer(), key = ctx + '|' + (L ? L.id : ''), [icn, typ] = INS_INFO[ctx];
   const name = ctx === 'bg' ? '何も選んでいないときは背景の設定です' : ctx === 'textmode' ? '文字だけを透過PNGで作ります' : L ? layerName(L) : '';
   if($('#insName').textContent !== name) $('#insName').textContent = name;
   if(key === insKey && !force) return;
+  // 選択が変わった：見出しの種類・「選択を外す」ボタンを合わせ、タブを作り直して開くページを決める
   $('#insIc').innerHTML = ic(icn); $('#insType').textContent = typ; $('#insDesel').style.display = ctx !== 'bg' && ctx !== 'textmode' ? '' : 'none';
   insKey = key;
   const pages = INS_PAGES[ctx];
@@ -114,6 +124,7 @@ function openInspector(page){ pendingPage = page || null; renderInspector(true);
 // 文字モードに入るとき、スマホのシート（レイヤー・追加）は閉じる。ステージが画像背景表示のままサムネモードへ戻る場合は、背景を市松（checker）に戻す
 /** @param {string} m @param {boolean} [silent] */
 function setMode(m, silent){
+  // body のクラス・モードのボタン・保存ボタンの文字をモードに合わせる
   DOC.mode = m;
   document.body.classList.toggle('mode-thumb', m === 'thumb'); document.body.classList.toggle('mode-text', m === 'text');
   $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));

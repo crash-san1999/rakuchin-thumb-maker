@@ -13,6 +13,7 @@ var {openHelp, closeHelp, openLog, togglePop} = (() => {
 // ttm_helpAuto は「次回も起動時に表示する」チェック（#helpNoAuto。id は名前と逆の意味なので注意）の値そのもの。
 // 未設定（初回）は main.js が !== false で判定して表示し、ここではチェックなしで開く。一度閉じると false が保存され、チェックしない限り次回から出ない
 function openHelp(){ $('#help').classList.add('show'); $as('#helpNoAuto', HTMLInputElement).checked = LS.get('ttm_helpAuto', false) === true; }
+// 使い方を閉じる。「次回も起動時に表示する」のチェックの状態を ttm_helpAuto に保存する
 function closeHelp(){ $('#help').classList.remove('show'); LS.set('ttm_helpAuto', $as('#helpNoAuto', HTMLInputElement).checked); }
 $('#helpBtn').onclick = openHelp;
 /* 更新履歴：js/changelog.js の内容を表示。見ていない更新があるときは「？」ボタンに点を付ける */
@@ -45,11 +46,13 @@ document.addEventListener('keydown', e => {
 // スマホはメニューを CSS で下に固定表示するので、前回の PC 用の位置指定だけ消す
 /** @param {string} id @param {HTMLElement} anchor */ function togglePop(id, anchor){
   const el = document.getElementById(id); if(!el) return;
+  // いったん全部閉じ、閉じていたものだけ開く（開いていたものを押したら閉じたまま）
   const open = !el.classList.contains('show');
   $$('.pop.show').forEach(p => p.classList.remove('show'));
   if(!open) return;
   el.classList.add('show');
   if(isMobile){ el.style.left = ''; el.style.top = ''; return; }
+  // PC：ボタンのすぐ下、左端をボタンにそろえる（画面の外に出る分は内側へ）
   const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
   el.style.left = clamp(r.left, 8, innerWidth - w - 8) + 'px'; el.style.top = clamp(r.bottom + 8, 8, innerHeight - h - 8) + 'px';
 }

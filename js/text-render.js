@@ -46,11 +46,13 @@ const METALS = {
   return text.split('\n').map(line => {
     /** @type {TextSeg[]} */
     const segs = []; let acc = false, buf = '';
+    // 1 文字ずつ見て、{ で強調を始め、} で終える（そこまでの buf を 1 つの一続きとして出す）
     for(const ch of line){
       if(ch === '{' && !acc){ if(buf) segs.push({t:buf, a:false}); buf = ''; acc = true; }
       else if(ch === '}' && acc){ if(buf) segs.push({t:buf, a:true}); buf = ''; acc = false; }
       else buf += ch;
     }
+    // 行末に残った文字（閉じていない { の後ろなら強調のまま）
     if(buf) segs.push({t:buf, a:acc});
     return segs;
   });
@@ -84,9 +86,11 @@ const V_SMALL = /[ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュ�
 function vCells(segs){
   /** @type {VCell[]} */ const out = [];
   const sz = RS.size, meas = /** @param {string} t */ t => mctx.measureText(t).width;
+  // マスを 1 つ足す。o で字幅・送り量・回転・補正などを上書きでき、字面中央合わせの補正（gx,gy）は noCenter でなければ計算する
   /** @param {string} t @param {boolean} a @param {Partial<VCell>} [o] */
   const push = (t, a, o) => { const c = /** @type {VCell} */ (Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o)); [c.gx, c.gy] = (o && o.noCenter) ? [0, 0] : inkCenter(t, c.w); out.push(c); };
   for(const s of segs){
+    // 文字列を「半角英数字・記号の連続／全角数字の連続／！？の連続／それ以外の 1 文字」に区切って、種類ごとにマスにする
     for(const tok of (s.t.match(/[\x21-\x7e]+|[０-９]+|[！？]+|[\s\S]/gu) || [])){
       const tcy = RS.vtcy && /^([0-9!?]{2,4}|[０-９]{2,4}|[！？]{2,4})$/u.test(tok);   // 全角の「２０」「！！」も縦中横にする
       // 縦中横は半角に正規化して1マスに収める。幅がマスの92%を超える分だけ縮める（隣のマスにはみ出さないための余白8%）
@@ -113,10 +117,12 @@ function layoutV(){
   // 縦書きの 1 列。cx・x0・y0 は列の位置で、下でまとめて入れる
   /** @type {VLine[]} */
   const lines = parse(RS.text).map(segs => {
+    // 列の長さ len＝マスの送り量の合計（マスの間に字間 ls）
     const cells = vCells(segs); let len = 0;
     cells.forEach((c, j) => { len += c.adv + (j ? RS.ls : 0); });
     return {cells, len, w:len, segs:cells, cx:0, x0:0, y0:0};
   });
+  // 列は右から左へ。cx＝列の中心、x0＝列の左端、y0＝揃え（上／中央／下）に応じた列の書き出し位置
   const w = step * (lines.length - 1) + sz, h = Math.max(sz, ...lines.map(l => l.len));
   lines.forEach((ln, i) => {
     ln.cx = w - sz / 2 - i * step; ln.x0 = ln.cx - sz / 2;
@@ -130,6 +136,7 @@ function layoutV(){
 function layout(){
   mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
   if(RS.vertical) return layoutV();
+  // 行ごとに、一続きごとの幅（s.w）を測って行の幅 w を出す。全体の幅はいちばん長い行
   const lines = parse(RS.text).map(segs => {
     let w = 0; segs.forEach(s => { s.w = mctx.measureText(s.t).width; w += s.w; });
     return {segs, w};
@@ -155,6 +162,7 @@ function glyphs(L){
   /** @type {Glyph[]} */ const items = [];
   const R = rng(RS.jitter.seed), J = RS.jitter.on;
   mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
+  // 縦書き：列ごとに、マスを上から送り量 adv ぶんずつ並べる（by＝マスの中心の y、cx・cy＝句読点などの補正を足した描く位置）
   if(L.v){
     L.lines.forEach((ln, i) => {
       let y = ln.y0;
@@ -167,6 +175,7 @@ function glyphs(L){
     });
     return items;
   }
+  // 横書き：揃えに応じた行の書き出し x から並べる。ゆらぎなしは一続きごとに 1 つ、ゆらぎありは 1 文字ずつ（回転・上下・拡大の乱数つき）
   L.lines.forEach((ln, i) => {
     let x = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const y = baseY(L, i);
@@ -189,6 +198,7 @@ function glyphs(L){
 function drawGlyphs(ctx, items, op){
   const mid = RS.size * 0.38;
   for(const it of items){
+    // 縦書きのマス：マスの中心へ移動 → 斜体 → 横倒し（r90）→ ゆらぎの回転 → 縮小、の順で掛けてから、中心基準の位置に描く
     if(it.vt){
       ctx.save(); ctx.translate(it.cx, it.cy + (it.dy || 0));
       if(RS.skew) ctx.transform(1, 0, -Math.tan(RS.skew * PI / 180), 1, 0, 0);
@@ -197,6 +207,7 @@ function drawGlyphs(ctx, items, op){
       const k = (it.sc || 1) * (it.k || 1); ctx.scale(k, k);
       op(it, -it.cw / 2 + it.gx, mid + it.gy); ctx.restore(); continue;
     }
+    // 横書きでゆらぎなし：そのままの位置に描く。ゆらぎあり：文字の見た目の中心を原点に、回転・拡大してから描く
     if(it.rot === undefined){ op(it, it.x, it.y); continue; }
     const cw = it.cw ?? 0, sc = it.sc ?? 1;
     ctx.save(); ctx.translate(it.x + cw / 2, it.y - mid + (it.dy ?? 0)); ctx.rotate(it.rot); ctx.scale(sc, sc);
@@ -233,6 +244,7 @@ function fillStyles(ctx, L){
   const two = (c1, c2, mid) => mid ? [[0,c1],[.5,mid],[1,c2]] : [[0,c1],[1,c2]];
   /** @type {(it: Glyph) => string|CanvasGradient} */ let main;
   /** @type {(it: Glyph) => string|CanvasGradient} */ let acc;
+  // 単色・グラデ（全体／行ごと）・2 色分割（上下／左右）・金属で、main（普通の文字）と acc（強調）の塗り方を作る
   if(RS.fillType === 'solid'){ main = () => RS.fill1; acc = () => RS.accent1; }
   else if(RS.fillType === 'grad'){
     const ms = two(RS.fill1, RS.fill2, RS.fill3on ? RS.fill3 : null), as = two(RS.accent1, RS.accent2);
@@ -299,6 +311,7 @@ function styleMargin(L, layers, outer, ex){
 /** @param {StyleVars} sv */
 function styleBack(sv){
   const {scale, L, items, cells, outer, ex, W, H, prep} = sv;
+  // 背景シェイプ → 一文字囲み → マーカーは A に直接描く。板ずれ・押し出しは別のキャンバスに描いてから A に重ねる
   const A = mk(W, H), ax = prep(A);
   if(RS.plate.on) drawPlate(ax, L, outer);
   if(RS.box.on) drawBoxes(ax, cells);
@@ -338,6 +351,7 @@ function styleFill(sv, K){
       blit(F, T);
     }
   }else drawGlyphs(fx, items, (it, px, py) => { fx.fillStyle = fs(it); fx.fillText(it.t, px, py); });
+  // 傍点（強調の文字の上の点）を塗り色で描き、続けてドリップ・模様・ベベル・インナーシャドウ・テカリ・電球を順に足す
   if(dotCells.length){ fx.fillStyle = RS.dots.c; dotCells.forEach(c => withCell(fx, c, () => { dotPath(fx); fx.fill(); })); }
   if(RS.drip.on && RS.drip.amt > 0) drawDrips(F, K, outer * scale, layers.length ? layers[layers.length - 1].c : null, scale);
   if(RS.pattern.on && RS.pattern.a > 0){
@@ -410,6 +424,8 @@ function styleRotate(B){
   const rx = ctx2d(R); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
   return R;
 }
+// 文字スタイル RS を scale 倍で描いた、透明余白を切り詰めた絵を返す（render の中身）。文字が空なら 1×1。
+// 下の 1)〜8) の順に、背面 A・フチ K・塗り F の 3 枚を作って重ね、光彩・影・反射・グリッチ・回転をかけて仕上げる
 /** @param {number} scale */
 function renderStyle(scale){
   platePlace = null;
@@ -474,6 +490,7 @@ function plateOnCanvas(P, rotM){
   let M = new DOMMatrix().translate(trimShift[0], trimShift[1]);
   if(rotM) M = M.multiply(rotM);
   M = M.multiply(P.m);
+  // 論理座標の点 → 最終の絵のピクセル座標
   const at = /** @param {number[]} p */ ([x, y]) => { const q = M.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };
   return {m:[M.a, M.b, M.c, M.d, M.e, M.f], tip:at(P.tip), base:at(P.base), center:at(P.lc), lc:P.lc, lbase:P.base, ltip:P.tip, rx:P.rx, ry:P.ry, kind:P.kind, size:P.size};
 }

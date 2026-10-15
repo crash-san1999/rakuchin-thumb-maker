@@ -22,10 +22,14 @@ const schedStyleHtml = /** @param {string} k @param {string} title */ (k, title)
   <div class="row"><label>太さ</label><select data-ssw="${k}"></select></div></div>`;
 // 値を入れる（入力中の欄は除く）
 const setVal = /** @param {HTMLElement|null} el @param {string} v */ (el, v) => { const f = /** @type {HTMLInputElement|null} */ (el); if(f && document.activeElement !== f && f.value !== v) f.value = v; };
+// 予定表の設定パネルの中身を、選んでいる予定表に合わせる（7 行ぶんの見出し・時刻・タイトル・画像・おやすみ、週の始まり、文字スタイル）。
+// 入力中の欄は上書きしない（setVal）。予定表を選んでいないときは何もしない
 function renderSched(){
   const L = selLayer(); if(!isSched(L)) return;
   const days = schedDays(L);
+  // 「予定」タブ（スマホのシートと PC のパネルの両方にあるので、すべての .schBox に同じことをする）
   $$('.schBox').forEach(box => {
+    // 別の予定表に切り替わったときだけ、中身（週の設定・まとめて入力・7 行の入力欄）を作り直す
     if(box.dataset.lid !== L.id){
       box.dataset.lid = L.id;
       box.innerHTML = `<div class="subhead" style="margin-top:6px">週<span class="subnote">その週のどの日を選んでも、週の始まりから7日ぶんの日付が入ります</span></div>
@@ -41,7 +45,9 @@ function renderSched(){
         <div class="subhead" style="margin-top:20px">1週間の予定<span class="subnote">時刻が空の日は「いつもの時刻」になります。画像は右の□か、キャンバスの行にドロップ</span></div>
         <div class="schRows">${[...Array(7).keys()].map(schedRowHtml).join('')}</div>`;
     }
+    // 週の設定の値を入れる
     setVal($('#schStart', box), L.start || ymd(new Date())); setVal($('#schFirst', box), L.first); setVal($('#schTime', box), L.time);
+    // 7 行ぶん：見出し（日付）・おやすみ・時刻（空のときの薄い表示は「いつもの時刻」）・タイトル・画像の小さい絵（変わったときだけ作り直す）・× ボタン
     $$('.schRow', box).forEach(el => {
       const i = +(el.dataset.srow ?? 0), r = L.rows[i], A = assetOf(r.asset);
       const day = schedDayLabel(L, days[i]); if($('.schDay', el).textContent !== day) $('.schDay', el).textContent = day;
@@ -54,8 +60,10 @@ function renderSched(){
       $('.schClr', el).hidden = !A;
     });
   });
+  // 「デザイン」タブ：日付・時刻（d）とタイトル・おやすみ（t）の文字スタイル
   $$('.schStyleBox').forEach(box => {
     if(box.dataset.lid !== L.id){ box.dataset.lid = L.id; box.innerHTML = schedStyleHtml('d', '日付・時刻') + schedStyleHtml('t', 'タイトル・おやすみ'); }
+    // プリセット・フォント・太さの欄に今の値を入れる。フォントの選択肢は 1 度だけ作り、一覧に無いフォントなら先頭に足す。太さの選択肢はフォントが変わったときだけ作り直す
     for(const k of ['d', 't']){
       const st = k === 'd' ? schedDStyle(L) : schedTStyle(L), pre = k === 'd' ? L.dpre : L.tpre;
       setVal($(`[data-ssp="${k}"]`, box), pre);
@@ -73,22 +81,26 @@ function renderSched(){
 const schedLayer = () => { const L = selLayer(); return isSched(L) ? L : null; };
 document.addEventListener('input', e => {
   const t = inputOf(e), L = schedLayer(); if(!L || !t.closest) return;
+  // 行の時刻・タイトル：入力のたびに書き込む（描き直しは docChanged から）。いつもの時刻：書き込んでパネルも合わせる（空の行の薄い表示が変わるため）
   const row = t.closest('.schRow');
   if(row && (t.dataset.sf === 'time' || t.dataset.sf === 'title')){ L.rows[+(row.dataset.srow ?? 0)][t.dataset.sf] = t.value; docChanged(false); return; }
   if(t.id === 'schTime'){ L.time = t.value; syncDoc(); docChanged(false); }
 });
 document.addEventListener('change', e => {
   const t = inputOf(e), L = schedLayer(); if(!L || !t.closest) return;
+  // おやすみ・週（日付・週の始まり）
   const row = t.closest('.schRow');
   if(row && t.dataset.sf === 'rest'){ L.rows[+(row.dataset.srow ?? 0)].rest = t.checked; syncDoc(); docChanged(false); return; }
   if(t.id === 'schStart'){ if(/^\d{4}-\d{2}-\d{2}$/.test(t.value)){ L.start = t.value; syncDoc(); docChanged(false); } return; }
   if(t.id === 'schFirst'){ L.first = t.value === 'sun' ? 'sun' : 'mon'; syncDoc(); docChanged(false); return; }
+  // 文字スタイル（プリセット・フォント・太さ）。k＝'d' か 't'
   const k = t.dataset.ssp || t.dataset.ssf || t.dataset.ssw; if(!k) return;
   const sk = k === 'd' ? 'dstyle' : 'tstyle', pk = k === 'd' ? 'dpre' : 'tpre';
   if(t.dataset.ssp){ L[pk] = t.value; L[sk] = null; }   // プリセットを選び直したら、フォント・太さの変更は捨ててプリセットどおりに
   else {
     const st = L[sk] || (L[sk] = schedPreset(L[pk]));
     if(t.dataset.ssf){
+      // フォントを変えたら、太さはそのフォントにある太さのうち、今の太さにいちばん近いものにする。大きいフォントは読み込み中と知らせる
       const f = findFont(t.value), w0 = st.weight, ws = weightsOf(f);
       st.font = t.value; st.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);
       if(f && (f.mb || 0) > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
@@ -99,11 +111,13 @@ document.addEventListener('change', e => {
 // 行の画像：□で選ぶ（隠しファイル入力 #schedfile）／×で外す
 let schedPickRow = -1;
 document.addEventListener('click', e => {
+  // × なら画像を外す。□なら、どの行かを覚えてファイル選択を開く
   const b = tgt(e).closest && tgt(e).closest('[data-simg], [data-sclr]'), L = schedLayer(); if(!b || !L) return;
   if(b.dataset.sclr != null){ L.rows[+b.dataset.sclr].asset = null; syncDoc(); docChanged(false); return; }
   schedPickRow = +(b.dataset.simg ?? -1); $('#schedfile').click();
 });
 {
+  // 行の画像を選ぶための、見えないファイル入力（1 つだけ作って使い回す）
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'schedfile'; inp.hidden = true; inp.multiple = true; document.body.appendChild(inp);
   // 複数選んだときは、選んだ行から下へ、画像の無い（おやすみでない）行に順に入れる
   inp.onchange = async () => {

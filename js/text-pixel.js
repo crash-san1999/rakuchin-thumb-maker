@@ -12,6 +12,7 @@
 /** @param {HTMLCanvasElement} c */
 function bbox(c){
   const w = c.width, h = c.height, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, w, h).data;
+  // t・l は最小、r・b は最大を探す（r が -1 のまま＝不透明な画素が 1 つも無い）
   let t = h, l = w, r = -1, b = -1;
   for(let y = 0; y < h; y++){
     const row = y * w * 4;
@@ -21,9 +22,10 @@ function bbox(c){
   }
   return r < 0 ? null : {l, t, r, b};
 }
-// 透明な余白を切り落とし、四方に pad px だけ余白を付けて返す（最終出力用）。全透明なら 1x1 を返す
+// 直前の trim で、絵が左上へずれた量 [x, y]（ピクセル。吹き出しのしっぽのつまみの位置合わせに renderStyle が読む）
 /** @type {number[]} */
 let trimShift = [0, 0];
+// 透明な余白を切り落とし、四方に pad px だけ余白を付けて返す（最終出力用）。全透明なら 1x1 を返す
 /** @param {HTMLCanvasElement} c @param {number} pad */ function trim(c, pad){
   const bb = bbox(c); if(!bb) return mk(1, 1);
   const cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, o = mk(cw + pad * 2, ch + pad * 2);
@@ -34,6 +36,7 @@ let trimShift = [0, 0];
 // 箱型ブラー（横→縦の2パス、端は最寄りの値で延長）。移動平均で走査するので半径 r によらず O(w×h)。bevel / drawBulbs が高さマップを作るのに使う。
 // 戻り値は src と同じ大きさの Float32Array（0〜1 の濃度）。2回かけて近似ガウスにしている（呼び出し側）
 /** @param {number[] | Float32Array<ArrayBuffer>} src @param {number} w @param {number} h @param {number} r */ function boxBlur(src, w, h, r){
+  // 横のパス（src → tmp）→ 縦のパス（tmp → out）。acc は窓（幅 2r+1）の合計で、1 つ進むたびに右端を足して左端を引く
   const tmp = new Float32Array(w * h), out = new Float32Array(w * h), div = 2 * r + 1;
   for(let y = 0; y < h; y++){
     const o = y * w; let acc = 0;
@@ -55,13 +58,16 @@ let trimShift = [0, 0];
 function bevel(c, sizePx, b){
   const bb = bbox(c); if(!bb) return;
   const W = c.width, H = c.height, r = Math.max(1, Math.round(sizePx / 2));
+  // 処理する範囲（絵の範囲＋まわり 2〜3px）を切り出し、不透明度だけを 0〜1 の配列 a にする
   const l = Math.max(0, bb.l - 2), t = Math.max(0, bb.t - 2), w = Math.min(W, bb.r + 3) - l, h = Math.min(H, bb.b + 3) - t;
   const ctx = ctx2d(c, {willReadFrequently:true});
   const img = ctx.getImageData(l, t, w, h), d = img.data, n = w * h;
   const a = new Float32Array(n); for(let i = 0; i < n; i++) a[i] = d[i * 4 + 3] / 255;
+  // hm＝高さマップ（不透明度を 2 回ぼかしたもの。縁ほど低く、内側ほど高い）。la＝光の向き、k＝傾きの強さ（彫り込みは符号を反転）
   const hm = boxBlur(boxBlur(a, w, h, r), w, h, r);
   const la = b.angle * PI / 180, lx = Math.cos(la), ly = Math.sin(la);
   const k = r * 2 * b.depth * (b.style === 'deboss' ? -1 : 1);
+  // 画素ごとに、高さの傾き（左右・上下の差）と光の向きの内積から明るさ s を出し、明るい側は白へ、暗い側は黒へ寄せる
   for(let y = 1; y < h - 1; y++){
     for(let x = 1; x < w - 1; x++){
       const i = y * w + x, p = i * 4; if(!d[p + 3]) continue;
@@ -79,7 +85,9 @@ function bevel(c, sizePx, b){
 // glitter / noise は固定シード（11 / 7）のタイルを作る＝再描画しても模様が変わらない。halftone / cutlines はここではなく別関数（renderStyle で振り分け）
 /** @param {HTMLCanvasElement} c @param {number} scale */ function drawPattern(c, scale){
   const p = RS.pattern, sz = Math.max(2, Math.round(p.size * scale));
+  // tile＝繰り返す 1 枚の柄、tr＝柄の回転・拡大（パターンに掛ける変換）
   let tile, tr = new DOMMatrix().rotateSelf(p.angle);
+  // ラメ：色の明るさを変えた小さな四角を 700 個（ときどき白）
   if(p.type === 'glitter'){
     tile = mk(96, 96); const x = ctx2d(tile), R = rng(11), [r, g, bl] = hex2rgb(p.c);
     for(let i = 0; i < 700; i++){
@@ -88,10 +96,12 @@ function bevel(c, sizePx, b){
       x.fillRect(R() * 96, R() * 96, s2, s2);
     }
     tr = tr.scaleSelf(Math.max(0.3, sz / 16));
+  // ノイズ：色は p.c のまま、不透明度だけを乱数にした画素
   }else if(p.type === 'noise'){
     tile = mk(128, 128); const x = ctx2d(tile), id = x.createImageData(128, 128), R = rng(7), [r, g, bl] = hex2rgb(p.c);
     for(let i = 0; i < 128 * 128; i++){ id.data[i*4] = r; id.data[i*4+1] = g; id.data[i*4+2] = bl; id.data[i*4+3] = R() * 255; }
     x.putImageData(id, 0, 0); tr = tr.scaleSelf(Math.max(0.25, sz / 16));
+  // ストライプ・ドット・チェック・方眼：大きさ sz の 1 マスに図形を 1 つ描いて繰り返す
   }else{
     tile = mk(sz, sz); const x = ctx2d(tile); x.fillStyle = p.c;
     if(p.type === 'stripe') x.fillRect(0, 0, sz / 2, sz);
@@ -140,6 +150,7 @@ function drawMarker(ctx, L){
   ctx.save(); ctx.fillStyle = rgba(m.c, m.a);
   L.lines.forEach((ln, i) => {
     if(!ln.segs.length) return;
+    // 縦書き：列の右寄り（pos）に縦長の帯。横書き：行の下寄り（pos）に、行の文字の幅＋左右のはみ出しの横長の帯
     if(L.v){ const vl = /** @type {VLine} */ (ln), over = RS.size * m.over, hh = RS.size * m.h, cx = vl.x0 + RS.size * 1.02 * m.pos; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - hh / 2, vl.y0 - over, hh, vl.len + over * 2, Math.min(hh / 2, RS.size * 0.08)) : ctx.rect(cx - hh / 2, vl.y0 - over, hh, vl.len + over * 2); ctx.fill(); return; }
     const x0 = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const over = RS.size * m.over, hh = RS.size * m.h, cy = lineTop(L, i) + RS.size * 1.02 * m.pos;
@@ -155,11 +166,13 @@ function drawMarker(ctx, L){
   const g = RS.grunge, bb = bbox(c); if(!bb) return;
   const R = rng(g.seed), sz = g.size * scale, bw = bb.r - bb.l, bh = bb.b - bb.t;
   const x = ctx2d(c); x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; x.strokeStyle = '#000';
+  // 1) 丸い斑点を n 個（大きさは小さいものが多くなるよう 3 乗で偏らせる）
   const n = Math.min(40000, Math.round(g.amt * bw * bh / (sz * sz) * 0.06));
   for(let i = 0; i < n; i++){
     const px = bb.l + R() * bw, py = bb.t + R() * bh, rr = sz * (0.25 + Math.pow(R(), 3) * 2.2);
     x.globalAlpha = 0.5 + R() * 0.5; x.beginPath(); x.ellipse(px, py, rr, rr * (0.5 + R() * 0.8), R() * PI, 0, 7); x.fill();
   }
+  // 2) 細い引っかき傷を、強さに比例した本数（横長の短い線）
   x.lineCap = 'round';
   const m = Math.round(g.amt * 25);
   for(let i = 0; i < m; i++){
@@ -178,6 +191,7 @@ function warp(src){
   const w = RS.warp; if(w.type === 'none' || !w.amt) return src;
   const bb = bbox(src); if(!bb) return src;
   const W = src.width, H = src.height, cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, cx = bb.l + cw / 2, cy = bb.t + ch / 2, A = w.amt;
+  // 台形：1px 高の行ごとに横幅を変えて貼り直す（上を縮める／下を縮める。中央の縦の線は動かない）
   if(w.type === 'trap'){
     const o = mk(W, H), x = ctx2d(o);
     for(let y = 0; y < H; y++){
@@ -187,6 +201,7 @@ function warp(src){
     }
     return o;
   }
+  // U＝画素の x を、文字の範囲での横位置 0〜1 に。amp＝縦にずらす量の最大（文字の高さ × 強さ）
   const U = /** @param {number} px */ px => Math.min(1, Math.max(0, (px - bb.l) / cw)), amp = A * ch;
   /** ワープの種類ごとに、横位置 u（0〜1）での [縦のずれ, 縦の倍率] を返す @type {Record<string, (u: number) => number[]>} */
   const WARPS = {
@@ -198,9 +213,11 @@ function warp(src){
   };
   if(!hasKey(WARPS, w.type)) return src;
   const fn = WARPS[w.type];
+  // 変形後に縦へはみ出す範囲を先に調べ、そのぶん高いキャンバスを作る（off＝上へはみ出す量）
   let minY = 0, maxY = H;
   for(let px = 0; px < W; px += 2){ const [dy, s] = fn(U(px)); minY = Math.min(minY, cy - cy * s + dy); maxY = Math.max(maxY, cy + (H - cy) * s + dy); }
   const off = -Math.floor(minY), o = mk(W, Math.ceil(maxY - minY) + 2), x = ctx2d(o);
+  // 1px 幅の列ごとに、縦のずれ dy と倍率 s をかけて貼り直す（倍率の中心は絵の縦の中心 cy）
   for(let px = 0; px < W; px++){ const [dy, s] = fn(U(px + 0.5)); x.drawImage(src, px, 0, 1, H, px, off + cy - cy * s + dy, 1, H * s); }
   return o;
 }
@@ -222,12 +239,16 @@ function glitch(B, scale){
   const g = RS.glitch, W = B.width, H = B.height, d = g.rgb * scale;
   const out = mk(W, H), o = ctx2d(out);
   if(d > 0){
+    // B の形を色 col 1 色で塗った絵（ずらして重ねる赤・青の層を作る）
     const tint = /** @param {string} col */ col => { const c = mk(W, H), x = ctx2d(c); x.drawImage(B, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, W, H); return c; };
+    // 色ずれ：シアンを左へ、赤を右へずらして重ねる（lighter で足すので、重なった所は白っぽくなる）
     o.globalAlpha = 0.9; o.drawImage(tint('#00e5ff'), -d, 0);
     o.globalCompositeOperation = 'lighter'; o.drawImage(tint('#ff0040'), d, 0);
     o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1;
   }
+  // 元の絵を上に重ねる
   o.drawImage(B, 0, 0);
+  // 横帯のずらし：絵の高さの中から、決まった乱数で帯の位置・高さ・ずらす量を選び、帯ごと左右へずらす
   if(g.slices > 0 && g.shift > 0){
     const bb = bbox(out) || {t:0, b:H}, R = rng(g.seed), span = bb.b - bb.t;
     for(let i = 0; i < g.slices; i++){

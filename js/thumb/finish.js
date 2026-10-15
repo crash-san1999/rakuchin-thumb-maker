@@ -58,6 +58,7 @@ const finOn = /** @param {DocFin|null|undefined} F */ F => !!F && ((F.look !== '
 
 // 粒子の柄は 256px の1枚をキャッシュして繰り返す。乱数は固定シード(7)なので、書き出しのたびにノイズが変わらない（プレビューと出力が一致）
 /** @type {HTMLCanvasElement | null} */ let grainTile = null;
+// 粒子の柄（初回だけ作る）を、描き先 x の繰り返しパターンにして返す
 /** @param {CanvasRenderingContext2D} x */ function grainPattern(x){
   if(!grainTile){ grainTile = mk(256, 256); const g = ctx2d(grainTile), im = g.createImageData(256, 256), d = im.data, R = rng(7);
     for(let i = 0; i < d.length; i += 4){ const v = 128 + (R() - 0.5) * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; } g.putImageData(im, 0, 0); }
@@ -69,8 +70,10 @@ const finOn = /** @param {DocFin|null|undefined} F */ F => !!F && ((F.look !== '
 /** @param {HTMLCanvasElement} c @param {DocFin} F @param {number} f */
 function applyFinish(c, F, f){
   const W = c.width, H = c.height, x = ctx2d(c), mask = mk(W, H); ctx2d(mask).drawImage(c, 0, 0);
+  // c の今の絵を、filter（CSS のフィルター）をかけてコピーした別のキャンバス（ルック・ブルーム・RGB ずれの元にする）
   const copy = /** @param {string} [filter] */ (filter) => { const t = mk(W, H), tx = ctx2d(t); if(filter) tx.filter = filter; tx.drawImage(c, 0, 0); tx.filter = 'none'; return t; };
   x.save();
+  // ルック：フィルターをかけたコピーに、ルックの色の重ね（[合成モード, 色, 濃さ] の並び）を足し、強さの割合で上に重ねる
   const L = FIN_LOOKS[F.look];
   if(L && L[1] !== undefined && F.amt > 0){
     const t = copy(L[1]), tx = ctx2d(t);
@@ -114,15 +117,18 @@ function applyFinish(c, F, f){
   }
   if(F.paper > 0) paperOver(x, W, H, clamp(F.paper, 0, 1), f);
   if(F.dust > 0) dustOver(x, W, H, clamp(F.dust, 0, 1), f);
+  // 周辺減光：中心から外へ黒く
   if(F.vig > 0){
     const g = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.32, W / 2, H / 2, Math.hypot(W, H) / 2);
     g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${clamp(F.vig, 0, 1)})`); x.fillStyle = g; x.fillRect(0, 0, W, H);
   }
+  // 処理前の絵の形で切り抜く（透明だった部分を透明に戻す）
   x.globalCompositeOperation = 'destination-in'; x.drawImage(mask, 0, 0);
   x.restore();
 }
 // 紙の質感：生成りの色を乗算でうっすら重ね、むらの柄（低い周波数のノイズ＋細かい繊維）をオーバーレイで重ねる。柄は 512px を1枚作って繰り返す（固定シード）
 /** @type {HTMLCanvasElement | null} */ let paperTile = null;
+// 紙の質感を x に重ねる（濃さ a）。柄は初回だけ作り、f に合わせて拡大して繰り返す
 /** @param {CanvasRenderingContext2D} x @param {number} W @param {number} H @param {number} a @param {number} f */ function paperOver(x, W, H, a, f){
   if(!paperTile){ paperTile = mk(512, 512); const g = ctx2d(paperTile), R = rng(29);
     g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
@@ -140,8 +146,10 @@ function applyFinish(c, F, f){
 /** @param {CanvasRenderingContext2D} x @param {number} W @param {number} H @param {number} a @param {number} f */ function dustOver(x, W, H, a, f){
   const R = rng(31), k = Math.max(0.5, f);
   x.save(); x.lineCap = 'round';
+  // 縦の傷：上の方から下へ、少し曲がった細い線（6 割は白、残りは黒）
   for(let i = 0; i < Math.round(14 * a) + 2; i++){ const px = R() * W, y0 = R() * H * 0.6, len = H * (0.2 + R() * 0.8); x.strokeStyle = R() < 0.6 ? `rgba(255,255,255,${0.15 + a * 0.35})` : `rgba(0,0,0,${0.1 + a * 0.3})`;
     x.lineWidth = (0.6 + R() * 1.4) * k; x.beginPath(); x.moveTo(px, y0); x.quadraticCurveTo(px + (R() - 0.5) * 30 * k, y0 + len / 2, px + (R() - 0.5) * 20 * k, y0 + len); x.stroke(); }
+  // ほこり：小さな楕円の点（小さいものが多い）
   for(let i = 0; i < Math.round(260 * a); i++){ const r = (0.6 + R() * R() * 4) * k; x.fillStyle = R() < 0.5 ? `rgba(255,255,255,${0.3 + R() * 0.5})` : `rgba(0,0,0,${0.25 + R() * 0.45})`;
     x.beginPath(); x.ellipse(R() * W, R() * H, r, r * (0.4 + R() * 0.6), R() * PI, 0, 2 * PI); x.fill(); }
   x.restore();
@@ -153,6 +161,7 @@ function halftoneOver(c, x, F, f){
   const W = c.width, H = c.height, s = Math.max(3, F.halfSize * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
   const sm = mk(gw, gh), sx = ctx2d(sm, {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
   const d = sx.getImageData(0, 0, gw, gh).data, t = mk(W, H), tx = ctx2d(t);
+  // 紙：元の絵を明るく・淡くしたもの。その上に、マスの色を 3 割暗くした点を打つ
   tx.filter = 'brightness(1.3) saturate(.7)'; tx.drawImage(c, 0, 0); tx.filter = 'none';
   for(let j = 0; j < gh; j++) for(let i = 0; i < gw; i++){
     const k = (j * gw + i) * 4, l = (0.299 * d[k] + 0.587 * d[k + 1] + 0.114 * d[k + 2]) / 255, r = s * 0.62 * Math.sqrt(Math.max(0, 1 - l * 0.92));
@@ -160,6 +169,7 @@ function halftoneOver(c, x, F, f){
     tx.fillStyle = `rgb(${d[k] * 0.7 | 0},${d[k + 1] * 0.7 | 0},${d[k + 2] * 0.7 | 0})`;
     tx.beginPath(); tx.arc(i * s + s / 2 + (j % 2 ? s / 2 : 0), j * s + s / 2, r, 0, 7); tx.fill();
   }
+  // 網点の絵を、強さの割合で元の絵に重ねる
   x.globalAlpha = clamp(F.half, 0, 1); x.drawImage(t, 0, 0); x.globalAlpha = 1;
 }
 
@@ -197,6 +207,7 @@ const BG_PATTERNS = [['dot', 'ドット'], ['stripe', 'ストライプ'], ['chec
 /** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} f @param {DocBg['pat']} p @param {number} cx @param {number} cy */
 function drawBgPattern(ctx, W, H, f, p, cx, cy){
   const s = Math.max(3, p.size * f), t = mk(W, H), x = ctx2d(t); x.fillStyle = x.strokeStyle = p.c;
+  // ドット（奇数行は半分ずらす）・ストライプ（斜め 45°）・チェック・方眼・横じま・放射ライン（中心 (cx, cy) から n 本の三角形）
   if(p.type === 'dot'){ for(let j = 0, y = s / 2; y < H + s; y += s, j++) for(let X = (j % 2) * s / 2; X < W + s; X += s){ x.beginPath(); x.arc(X, y, s * 0.28, 0, 7); x.fill(); } }
   else if(p.type === 'stripe'){ x.lineWidth = s * 0.45; x.beginPath(); for(let X = -H; X < W + H; X += s){ x.moveTo(X, 0); x.lineTo(X + H, H); } x.stroke(); }
   else if(p.type === 'check'){ for(let j = 0; j * s < H; j++) for(let i = j % 2; i * s < W; i += 2) x.fillRect(i * s, j * s, s, s); }
@@ -205,6 +216,7 @@ function drawBgPattern(ctx, W, H, f, p, cx, cy){
   else if(p.type === 'sunburst'){ const n = Math.max(6, Math.round(p.size)), R = Math.hypot(W, H) * 2; x.beginPath();
     for(let i = 0; i < n; i++){ const a0 = i / n * 2 * PI, a1 = a0 + PI / n; x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); x.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); x.closePath(); }
     x.fill(); }
+  // 柄の絵を、不透明度・合成モードを付けて背景に重ねる
   ctx.save(); ctx.globalAlpha = clamp(p.a, 0, 1); ctx.globalCompositeOperation = /** @type {GlobalCompositeOperation} */ (p.mode || 'source-over'); ctx.drawImage(t, 0, 0); ctx.restore();
 }
 return {FIN_LOOKS, FIN_PRESETS, finOn, applyFinPreset, applyFinish, posterize, threshold, tiltShift, BG_PATTERNS, drawBgPattern};

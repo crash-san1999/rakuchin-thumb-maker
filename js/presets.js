@@ -324,12 +324,14 @@ function renderPresets(){
   if(!cats.includes(pcat)) pcat = 'すべて';
   $('#pcats').innerHTML = cats.map(c => `<button data-pcat="${c}" class="${c === pcat ? 'on' : ''}">${c}</button>`).join('');
   const box = $('#presets'); box.innerHTML = '';
+  // 選んだ分類の組み込みスタイル：ボタン（見本はそのスタイルの色・フォント）を並べ、フォントの読み込みを始める
   const shown = pcat === 'すべて' ? PRESETS : pcat === 'マイ' ? [] : PRESETS.filter(([n]) => PCATS[pcat].includes(n));
   shown.forEach(([name, p]) => {
     const b = document.createElement('button'); b.textContent = name; b.style.cssText = presetStyle(p);
     b.onclick = () => applyPreset(p); box.appendChild(b);
     ensureCss(findFont(p.font));
   });
+  // 自作スタイル：ボタンに削除（×）を付ける。× は確認してから素材置き場から消す（ボタンの適用は走らせない）
   if(pcat === 'すべて' || pcat === 'マイ') myStyles().forEach(mp => {
     const b = document.createElement('button'); b.textContent = mp.name; b.style.cssText = presetStyle(mp.s);
     const x = document.createElement('span'); x.className = 'x'; x.textContent = '×'; x.title = '削除';

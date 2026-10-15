@@ -7,11 +7,14 @@
 /** @type {number} */
 let cellDragFrom;
 var {renderCells, renderCellText, collageIcon} = (() => {
+// 「マスの画像」の一覧（マスごとのボタン：画像の縮小・背景色・文字。画像のあるマスはドラッグで入れ替えられる）と、選んでいるマスの操作ボタンを作る。
+// 見た目が変わらなければ作り直さない（key）。分割フレームを選んでいないときは何もしない
 function renderCells(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
   // key：一覧の見た目が変わる要素（選択マス・画像・背景色・文字の先頭3字）だけの印。同じなら innerHTML の作り直しを省く（再描画のたびに作り直すと、ドラッグ中のボタンが消えて操作が途切れるため）
   const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => (assetOf(c.asset) ? c.asset : '') + (c.bg.on ? c.bg.c : '') + (cellHasText(c) ? c.tx.text.slice(0, 3) : ''))].join('|');
+  // 「マスの画像」タブ（スマホのシートと PC のパネルの両方）。マスのボタン（画像の縮小か、文字の先頭か、番号）と、選んでいるマスの操作ボタンを並べる
   $$('.cellBox').forEach(box => {
   if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = assetOf(L.cells[i].asset);
@@ -24,6 +27,7 @@ function renderCells(){
 function renderCellText(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   L.ac = clamp(L.ac || 0, 0, collageN(L) - 1);
+  // c＝選んでいるマス。opts＝[値, 表示名] の並びから option の HTML を作る（v を選んだ状態にする）
   const c = L.cells[L.ac];
   const opts = /** @param {string[][]} arr @param {string} v */ (arr, v) => arr.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('');
   $$('.ctBox').forEach(box => {
@@ -35,6 +39,7 @@ function renderCellText(){
         <div class="row"><label>太さ</label><select id="ctWeight"></select></div>
         <div class="row"><label>文字スタイル</label><select id="ctPre"><option value="">標準（ポップ）</option>${Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${g}">${ns.map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
     }
+    // 文字（入力中でなければ）・文字スタイルの値を入れる。フォントの選択肢は 1 度だけ作り、一覧に無いフォントなら先頭に足す
     const ta = $as('#ctText', HTMLTextAreaElement, box); if(document.activeElement !== ta) ta.value = c.tx.text || '';
     ta.dataset.cell = String(L.ac); $as('#ctPre', HTMLSelectElement, box).value = L.tpre || '';
     const st = L.tstyle || collageDefaultStyle(), fs = $as('#ctFont', HTMLSelectElement, box), wsel = $as('#ctWeight', HTMLSelectElement, box);
@@ -44,10 +49,12 @@ function renderCellText(){
     }
     if(![...fs.options].some(o => o.value === st.font)) fs.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(st.font)}">${escapeHtml(st.font)}</option>`);
     fs.value = st.font;
+    // 太さの選択肢はフォントが変わったときだけ作り直す。今の太さが無ければ、いちばん近い太さを選ぶ
     if(wsel.dataset.f !== st.font){ wsel.dataset.f = st.font; wsel.innerHTML = weightsOf(findFont(st.font)).map(w => `<option value="${w}">${w}</option>`).join(''); }
     wsel.value = String(st.weight);
     if(wsel.value !== String(st.weight)){ const ws = [...wsel.options].map(o => +o.value); wsel.value = String(ws.reduce((a, b) => Math.abs(b - st.weight) < Math.abs(a - st.weight) ? b : a, ws[0])); }
   });
+  // 「1週間の自動入力」：設定の欄は別レイヤーに切り替わったときだけ作り、日付（入力中でなければ）・色分け・MEMO のマス（8 分割のときだけ見せる）の値を入れる
   $$('.wkBox').forEach(box => {
     if(box.dataset.lid !== L.id){
       box.dataset.lid = L.id;
@@ -69,10 +76,12 @@ function renderCellText(){
 /* ---------- 操作パネルのイベント（document に委譲。パネルは再描画されるので、要素ごとには付けない） ---------- */
 document.addEventListener('input', e => {
   const t = inputOf(e), L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
+  // マスの文字：入力のたびに書き込む（空なら文字なし。手で直したので「自動入力の文字」の印 wk は外す）
   if(t.id === 'ctText'){ const c = L.cells[L.ac || 0]; c.tx.text = t.value; c.tx.on = t.value.trim() !== ''; c.tx.wk = false; syncDoc(); docChanged(false); }
 });
 document.addEventListener('change', e => {
   const t = inputOf(e), L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
+  // 文字スタイル：プリセット（空なら標準に戻す）／フォント・太さ（プリセットの値から写して変える）
   if(t.id === 'ctPre'){ if(t.value) collageSetStyle(L, t.value); else { L.tpre = ''; L.tstyle = null; } syncDoc(); docChanged(false); }
   else if(t.id === 'ctFont' || t.id === 'ctWeight'){
     const ts = L.tstyle || (L.tstyle = collageDefaultStyle());
@@ -83,10 +92,12 @@ document.addEventListener('change', e => {
     } else ts.weight = +t.value;
     syncDoc(); docChanged(false);
   }
+  // 1週間の自動入力の設定は、書き込むだけ（反映は「1週間を入れる」ボタンを押したとき）
   else if(t.dataset && t.dataset.wk){ /** @type {Record<string, any>} */ (L.wk)[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.dataset.wk === 'memo' ? +t.value : t.value; }
 });
 document.addEventListener('click', e => {
   const b = tgt(e).closest && tgt(e).closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
+  // 押したボタンと同じ箱の日付の欄を読んでから、1 週間ぶんの文字を入れる
   const wb = b.closest('.wkBox'), st = wb && $as('#wkStart', HTMLInputElement, wb); if(st && st.value) L.wk.start = st.value;
   collageFillWeek(L); syncDoc(); docChanged(false); toast('1週間を入れました。マスをクリックして、文字や色を直せます');
 });
@@ -112,6 +123,7 @@ document.addEventListener('drop', e => {
 }, true);
 document.addEventListener('dragend', () => { cellDragFrom = -1; $$('.cellbtn.dropto').forEach(x => x.classList.remove('dropto')); });
 document.addEventListener('click', e => {
+  // マスのボタン（cb）：そのマスを選ぶ。操作ボタン（ca）：画像を選ぶ／位置・大きさを戻す／反転／外す
   const cb = tgt(e).closest('[data-cell]'), ca = tgt(e).closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;
   if(cb){ L.ac = +(cb.dataset.cell ?? 0); if(!assetOf(L.cells[L.ac].asset) && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
@@ -122,6 +134,7 @@ document.addEventListener('click', e => {
   else { L.cells[L.ac].asset = null; syncDoc(); docChanged(false); }
 });
 {
+  // マスの画像を選ぶための、見えないファイル入力。複数選んだときは、選んでいるマスから後ろの、画像の無いマスへ順に入れる
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'cellfile'; inp.hidden = true; inp.multiple = true; document.body.appendChild(inp);
   inp.onchange = async () => {
     const L = selLayer(), files = [...(inp.files || [])]; inp.value = ''; if(!L || L.type !== 'collage' || !files.length) return;
@@ -135,6 +148,7 @@ document.addEventListener('click', e => {
 // レイアウト選択ボタン用の小さなアイコン（48×28 の data URL）。キー＝レイアウト名＋分割数でキャッシュ。傾き・境界の形は付けない
 /** @type {Record<string, string>} */
 const collageIconCache = {};
+// 配置の選択ボタン用の小さな図（48×28）。マスごとに色を変えて塗り、dataURL にして配置と分割数ごとに使い回す
 /** @param {string} lay @param {number} n */ function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];
   const c = mk(48, 28), x = ctx2d(c), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c', '#2bb5a0', '#e0e04a'];

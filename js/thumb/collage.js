@@ -67,6 +67,8 @@ const cellW = /** @param {any} c */ c => clamp(+(c && c.w) || 1, 0.05, 20);
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 /** @param {CollageLayer} L */
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
+// 効果のおまかせ（CELL_FX_PRESETS の name）を、選んでいる分割フレーム・グループ・画像レイヤーに当てる。
+// 分割フレームで「マスごと」なら選択中のマスに、それ以外は全体の効果に。画像レイヤーの明るさ・彩度はレイヤー側（L.bright・L.sat）に持つ
 /** @param {string} name */
 function applyCellFx(name){
   const L = selLayer(); if(!L || (L.type !== 'collage' && L.type !== 'group' && L.type !== 'image')) return;
@@ -96,6 +98,7 @@ const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], 
 /** @param {CollageLayer} L */
 // n は数値だが、古い・手で書き換えた保存データでは文字列のこともあるので parseInt で受ける
 const collageN = L => clamp(parseInt(/** @type {any} */ (L.n)) || 2, 2, 8);
+// 配置 lay が、分割数 n で使えるか（COLLAGE_LAYOUTS の 3 番目の条件）
 const collageLayoutOk = /** @param {string} lay @param {number} n */ (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };
 
 // 全部のマスの文字のまとめての調整：on（オン／オフ）が無い古いデータは、値を動かしていればオンとみなす（最初の版では書き出しに効いていたので、見た目を保つ）

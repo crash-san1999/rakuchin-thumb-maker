@@ -46,9 +46,11 @@ function schedBandColor(L, d, r){
 // 行・列の位置（キャンバスのピクセル）。日付の列は左、帯は日付の右から端まで。画像の列は帯の右端（16:9）。
 // 戻り値：rows[i] = {y, h（帯の高さ）, date:[x, w], time:[x, w], title:[x, w], img:[x, w] | null, band:[x, w]}
 /** @param {SchedLayer} L @param {number} W @param {number} H */ function schedLayout(L, W, H){
+  // rh＝1 行の高さ、bh＝帯の高さ（すき間 gap を引いたもの）。日付は幅の 30%、時刻は 16%、画像は 16:9（幅の 24% まで）
   const rh = H / 7, bh = rh * (1 - clamp(+L.gap || 0, 0, 0.6)), dateW = W * 0.3, timeW = W * 0.16;
   const imgW = L.img ? Math.min(W * 0.24, bh * 16 / 9) : 0, bandX = dateW - W * 0.01, bandW = W - bandX;
   return [...Array(7)].map((_, i) => {
+    // 帯を行の中で縦の中央に。タイトルは時刻の右から、画像（あれば）の手前まで
     const y = rh * i + (rh - bh) / 2, pad = bh * 0.12;
     const titleX = dateW + timeW, titleW = Math.max(1, W - titleX - (imgW ? imgW + pad : pad));
     return {y, h:bh, date:[0, dateW - pad], time:[dateW + pad * 0.3, timeW - pad * 0.3], title:[titleX, titleW],
@@ -74,6 +76,7 @@ function schedBandColor(L, d, r){
 /** @param {CanvasRenderingContext2D} x @param {TextStyle} st @param {string} text @param {number} bx @param {number} bw @param {number} by @param {number} bh @param {string} al @param {number} fill */
 function schedText(x, st, text, bx, bw, by, bh, al, fill){
   if(!String(text).trim()) return;
+  // いったん 0.25 倍で描いて大きさを測り、枠（幅 bw・高さ bh×fill）に収まる倍率 k で描き直す
   const s = Object.assign({}, st, {text:String(text), pad:2, vertical:false}), c0 = render(0.25, s); if(c0.width <= 2) return;
   const k = clamp(Math.min(bw / (c0.width / 0.25), bh * fill / (c0.height / 0.25)), 0.03, 8), c = render(k, s);
   const cx = al === 'l' ? bx + c.width / 2 : bx + bw / 2;
@@ -91,6 +94,7 @@ function schedImage(x, A, ix, iw, by, bh){
 // 予定表全体を W×H の1枚のキャンバスに描く。描く順序：行ごとに 帯 → 日付 → 時刻・タイトル（おやすみなら おやすみの文字）→ 画像
 /** @param {SchedLayer} L @param {number} W @param {number} H */ function schedCanvas(L, W, H){
   const c = mk(W, H), x = ctx2d(c), days = schedDays(L), lay = schedLayout(L, W, H), ds = schedDStyle(L), ts = schedTStyle(L);
+  // 行ごと：帯（乱数の種は行ごとに変える）→ 日付 →（おやすみなら、おやすみの文字だけ）→ 時刻 → タイトル → 画像
   lay.forEach((g, i) => {
     const r = L.rows[i] || SCHED_ROW(), d = days[i];
     if(L.band !== 'none'){ x.fillStyle = schedBandColor(L, d, r); schedBandPath(x, L.band, g.band[0], g.y, g.band[1], g.h, (L.seed | 0) * 31 + i * 7 + 1); x.fill(); }
@@ -126,6 +130,7 @@ async function ensureSchedFonts(L){
 }
 // ドキュメント座標 (x, y) が予定表 L の何行目か（回転・拡大縮小を考慮）。外なら -1
 /** @param {SchedLayer} L @param {number} x @param {number} y */ function schedRowAt(L, x, y){
+  // レイヤーの中心からの差を逆に回して、予定表の左上を原点とする座標 (lx, ly) にする
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
   return lx < 0 || ly < 0 || lx > w || ly > h ? -1 : clamp(Math.floor(ly / (h / 7)), 0, 6);
@@ -133,6 +138,7 @@ async function ensureSchedFonts(L){
 // 保存データを既定値と混ぜ、外から来た値（プロジェクトファイル）を安全な範囲にそろえる。種類の登録（下の defineLayerKind の normalize）から呼ぶ
 /** @param {any} L @returns {SchedLayer} */
 function normalizeSched(L){
+  // pick＝選択肢 list にある値ならそのまま、無ければ d。str＝文字列なら n 文字まで、でなければ d
   const b = SCHED_BASE(), o = Object.assign(b, L);
   const pick = /** @param {any} v @param {string[][]} list @param {string} d */ (v, list, d) => list.some(q => q[0] === v) ? v : d, str = /** @param {any} v @param {number} n @param {string} [d] */ (v, n, d = '') => typeof v === 'string' ? v.slice(0, n) : d;
   o.start = /^\d{4}-\d{2}-\d{2}$/.test(o.start) ? o.start : ''; o.first = o.first === 'sun' ? 'sun' : 'mon';
@@ -185,19 +191,25 @@ async function schedTakeFiles(files, cx, cy){
    戻り値：{done：入れた行の番号の配列（同じ日が2回あれば後の行が勝つ）, skipped：使わなかった行の数} */
 const SCHED_REST_RE = /^(お?やすみ|お?休み|休止|休養日?|配信なし|off|OFF|Off)$/;
 const SCHED_SEP = '\\s\\-–—:：|｜/／~〜・,、';
+// 一括入力の 1 行を読む（書き方は上の説明）。戻り値：day＝入れる日（0〜6、無ければ -1）、outside＝その週に無い日付、time・rest・title
 /** @param {SchedLayer} L @param {string} line @param {Date[]} days */
 function schedParseLine(L, line, days){
   let s = String(line).replace(/　/g, ' ').trim(), day = -1, outside = false;
   /** @type {string|null} */ let time = null;
+  // 1) 先頭の日付：その週の何日目か（週に無ければ outside）
   const dm = /^(\d{1,2})\s*[\/月]\s*(\d{1,2})\s*日?/.exec(s);
   if(dm){ const mo = +dm[1], da = +dm[2]; day = days.findIndex(d => d.getMonth() + 1 === mo && d.getDate() === da); outside = day < 0; s = s.slice(dm[0].length); }
+  // 2) 曜日：日付が無いか、日付と同じ日を指すときだけ使う
   const wm = /^[\s(（]*([日月火水木金土])(?:曜日?)?[)）]?/.exec(s.trim());
   if(wm){ const g = WK_JA.indexOf(wm[1]), j = days.findIndex(d => d.getDay() === g); if(day < 0 || day === j){ day = j; s = s.trim().slice(wm[0].length); } }
+  // 3) 時刻（30 時まで）：「20:00」か「20時」「20時30分」（「から」「開始」などが続いてもよい）。見つけた部分は文字から取り除く
   const tm = /(\d{1,2})\s*[:：]\s*(\d{2})/.exec(s) || new RegExp(`(\\d{1,2})\\s*時(?:\\s*(\\d{1,2})\\s*分)?(?=$|[${SCHED_SEP}]|から|より|開始|スタート)`).exec(s);
   if(tm && +tm[1] <= 30){ time = `${+tm[1]}:${String(tm[2] ? +tm[2] : 0).padStart(2, '0')}`; s = s.slice(0, tm.index) + s.slice(tm.index + tm[0].length).replace(/^\s*(から|より|開始|スタート)/, ''); }
+  // 4) 残りの前後の区切り記号を取ったものがタイトル。おやすみの言葉だけなら、おやすみの日
   const title = s.replace(new RegExp(`^[${SCHED_SEP}]+|[${SCHED_SEP}]+$`, 'g'), '').trim();
   return {day, outside, time, rest: SCHED_REST_RE.test(title), title: SCHED_REST_RE.test(title) ? '' : title.slice(0, 60)};
 }
+// 一括入力のテキスト全体を 1 行ずつ読んで、その日の行へ入れる（時刻が予定表の既定と同じなら空にして既定に任せる）
 /** @param {SchedLayer} L @param {string} text */
 function schedApplyText(L, text){
   const days = schedDays(L);
@@ -205,9 +217,11 @@ function schedApplyText(L, text){
   let next = 0, skipped = 0;
   for(const raw of String(text).split(/\r?\n/)){
     if(!raw.trim()) continue;
+    // 入れる日 i：書いてあればその日、無ければ前の行の次の日。週の外・8 日目以降は使わない
     const p = schedParseLine(L, raw, days), i = p.day >= 0 ? p.day : next;
     if(p.outside || i > 6){ skipped++; continue; }
     const r = L.rows[i];
+    // おやすみ・時刻（おやすみなら時刻は空）・タイトル（おやすみなら前のタイトルを残す）を入れる
     r.rest = p.rest; if(p.time != null) r.time = p.time === L.time ? '' : p.time; else if(p.rest) r.time = '';
     if(!p.rest) r.title = p.title;
     done.push(i); next = i + 1;
