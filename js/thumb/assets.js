@@ -118,7 +118,7 @@ function cropSrc(L, A){
   const r = cropRect(L, A.img.naturalWidth, A.img.naturalHeight), key = [L.asset, r.sx, r.sy, r.sw, r.sh].join(',');
   const e = cropCache.get(L.id); if(e && e.key === key) return e.obj;
   const cv = mk(r.sw, r.sh); cv.getContext('2d').drawImage(A.img, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
-  cv.naturalWidth = r.sw; cv.naturalHeight = r.sh;
+  Object.assign(cv, {naturalWidth: r.sw, naturalHeight: r.sh});   // 画像（img）と同じ名前で元の大きさを持たせ、img の代わりに使えるようにする
   const obj = {img: cv, name: A.name}; cropCache.set(L.id, {key, obj}); return obj;
 }
 // 画像レイヤーの絵：トリミング → 背景透過 → ブラシ の順にかけたもの（どれも使っていなければ元の画像）。

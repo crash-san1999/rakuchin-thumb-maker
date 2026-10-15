@@ -12,19 +12,19 @@
   const ov = $('#ddov'); let depth = 0;   // depth：dragenter/leave は子要素をまたぐたびに発火するので、入れ子の深さを数えて、本当に画面の外へ出たときだけ消す
   // 分割フレームのマス同士の入れ替えドラッグ（cellDragFrom>=0。collage-panel.js）は、ファイルのドロップとして扱わない
   const hasFiles = e => cellDragFrom < 0 && [...(e.dataTransfer?.types || [])].some(t => t === 'Files' || t === 'text/uri-list');
-  const show = on => { ov.classList.toggle('show', on); if(!on) ov.querySelectorAll('[data-dz]').forEach(z => z.classList.remove('hot')); };
+  const show = on => { ov.classList.toggle('show', on); if(!on) $$('[data-dz]', ov).forEach(z => z.classList.remove('hot')); };
   window.addEventListener('dragenter', e => { if(!hasFiles(e)) return; e.preventDefault(); depth++; show(true); });
   window.addEventListener('dragleave', e => { if(!hasFiles(e)) return; depth = Math.max(0, depth - 1); if(!depth) show(false); });
   window.addEventListener('dragover', e => {
     if(!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-    const z = e.target.closest && e.target.closest('[data-dz]');
-    const hot = z || ov.querySelector('[data-dz=layer]');
-    ov.querySelectorAll('[data-dz]').forEach(x => x.classList.toggle('hot', x === hot));
+    const z = tgt(e).closest && tgt(e).closest('[data-dz]');
+    const hot = z || $('[data-dz=layer]', ov);
+    $$('[data-dz]', ov).forEach(x => x.classList.toggle('hot', x === hot));
   });
   window.addEventListener('drop', async e => {
     if(!hasFiles(e)) return;
     e.preventDefault(); depth = 0;
-    const z = e.target.closest && e.target.closest('[data-dz]'), zone = z ? z.dataset.dz : 'layer';
+    const z = tgt(e).closest && tgt(e).closest('[data-dz]'), zone = z ? z.dataset.dz : 'layer';
     show(false);
     let files = [...(e.dataTransfer.files || [])];
     // ほかのタブからドラッグした画像（ファイルが付いていない場合）はURLから取得を試す。サイト側の制限（CORS）で取れないことがあるので、その場合は案内を出す

@@ -154,13 +154,13 @@
       if(k) selectLayer(k.id);
       return;
     }
-    if(L && L.type === 'text'){ selectLayer(L.id); openInspector('txt-text'); if(!isMobile){ $('#text').focus(); $('#text').select(); } }
+    if(L && L.type === 'text'){ selectLayer(L.id); openInspector('txt-text'); if(!isMobile){ $as('#text', HTMLTextAreaElement).focus(); $as('#text', HTMLTextAreaElement).select(); } }
     else if(L) enterEditAt(L, x, y);
   });
   // キー操作（選択中のレイヤーに対して）：Delete 削除／矢印 1px（Shift で 10px）移動／Ctrl+G グループ／Ctrl+D 複製／Ctrl+[ ] 重なり順／H・V 反転／Esc 解除。
   // 文字入力中・ヘルプやポップアップ表示中は何もしない（入力を奪わないため）
   document.addEventListener('keydown', e => {
-    if(DOC.mode !== 'thumb' || $('#help').classList.contains('show') || document.querySelector('.pop.show')) return;
+    if(DOC.mode !== 'thumb' || $('#help').classList.contains('show') || $('.pop.show')) return;
     if(isTyping(e)) return;
     const L = selLayer(); if(!L) return;
     const st = e.shiftKey ? 10 : 1;

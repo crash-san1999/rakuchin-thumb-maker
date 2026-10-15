@@ -152,11 +152,11 @@ function renderLib(){
   fl.hidden = !(full || warn || !libOk);
   fl.dataset.lv = full || !libOk ? 'full' : 'warn';
   fl.textContent = !libOk ? 'このブラウザでは、素材置き場の保存領域が使えません（プライベートモードなど）。' : full ? '素材置き場がいっぱいです。これ以上は保存できません。不要な素材を削除するか、バックアップを書き出して整理してください。' : `もうすぐいっぱいです（残り ${fmtBytes(LIB_MAX_BYTES - used)}）。`;
-  document.querySelectorAll('#libMenu [data-lt]').forEach(b => b.classList.toggle('on', b.dataset.lt === libTab));
-  document.querySelectorAll('#libMenu [data-lpane]').forEach(p => { p.hidden = p.dataset.lpane !== libTab; });
-  document.querySelectorAll('#libAddImg, #libRegImg, #libRegStyle').forEach(b => { b.disabled = full || !libOk; b.title = full ? 'いっぱいで保存できません' : ''; });
+  $$('#libMenu [data-lt]').forEach(b => b.classList.toggle('on', b.dataset.lt === libTab));
+  $$('#libMenu [data-lpane]').forEach(p => { p.hidden = p.dataset.lpane !== libTab; });
+  $$as('#libAddImg, #libRegImg, #libRegStyle', HTMLButtonElement).forEach(b => { b.disabled = full || !libOk; b.title = full ? 'いっぱいで保存できません' : ''; });
   // 「選択中の画像を登録」は、画像レイヤーを選んでいるときだけ押せる
-  const L = selLayer(); $('#libRegImg').disabled = full || !libOk || !(L && L.type === 'image');
+  const L = selLayer(); $as('#libRegImg', HTMLButtonElement).disabled = full || !libOk || !(L && L.type === 'image');
   const bk = LS.get('ttm_libbackup', 0); $('#libBackup').textContent = bk ? `最後のバックアップ：${new Date(bk).toLocaleDateString('ja-JP')}` : 'バックアップはまだありません';
   if(libTab === 'img'){
     const it = libItems('img').sort((a, b) => b.created - a.created);
@@ -187,16 +187,16 @@ async function libInit(){
   const menu = $('#libMenu');
   menu.addEventListener('click', e => {
     e.stopPropagation();   // 一覧を描き直しても、メニューが閉じないようにする
-    const t = e.target, lt = t.closest('[data-lt]'), del = t.closest('[data-ldel]'), card = t.closest('[data-lid]');
+    const t = tgt(e), lt = t.closest('[data-lt]'), del = t.closest('[data-ldel]'), card = t.closest('[data-lid]');
     if(lt){ libTab = lt.dataset.lt; LS.set('ttm_libtab', libTab); renderLib(); return; }
     if(del){ const it = LIB.find(i => i.id === del.dataset.ldel); if(it && confirm(`「${it.name}」を素材置き場から削除しますか？（作成中のサムネの画像は消えません）`)) libDelete(it.id); return; }
     if(card){ const it = LIB.find(i => i.id === card.dataset.lid); if(it) it.kind === 'img' ? libUseImage(it) : libUseStyle(it); return; }
     if(t.closest('#libAddImg')) $('#libFile').click();
     else if(t.closest('#libRegImg')){ const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(A) libAddImageSrc(A.src, L.name || A.name || '画像').then(ok => { if(ok) toast(`素材に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`); }); }
-    else if(t.closest('#libRegStyle')){ const T = textLayer(); libAddStyle($('#libStyleName').value || 'マイ設定', T ? T.style : S); }
+    else if(t.closest('#libRegStyle')){ const T = textLayer(); libAddStyle($as('#libStyleName', HTMLInputElement).value || 'マイ設定', T ? T.style : S); }
     else if(t.closest('#libExport')) libExport();
     else if(t.closest('#libImportBtn')) $('#libImport').click();
   });
-  $('#libFile').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if(fs.length) libAddFiles(fs); };
-  $('#libImport').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) libImport(f); };
+  $('#libFile').onchange = e => { const fs = [...inputOf(e).files]; inputOf(e).value = ''; if(fs.length) libAddFiles(fs); };
+  $('#libImport').onchange = e => { const f = inputOf(e).files[0]; inputOf(e).value = ''; if(f) libImport(f); };
 }

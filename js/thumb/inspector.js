@@ -70,14 +70,14 @@ function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = 
 function setPage(page){
   const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);
   const pane = {'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'}[page] || 'thumb';
-  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === pane));
-  const tp = document.querySelector('.pane[data-pane=text]'), [ts, fs] = tp.querySelectorAll(':scope > section');
+  $$('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === pane));
+  const tp = $('.pane[data-pane=text]'), [ts, fs] = $$(':scope > section', tp);
   ts.classList.toggle('secoff', page !== 'txt-text'); fs.classList.toggle('secoff', page !== 'txt-font');
   $('#layerSec').classList.toggle('secoff', !page.startsWith('lay-')); $('#bgSec').classList.toggle('secoff', !page.startsWith('bg-'));
   const pg = page.split('-')[1];
-  document.querySelectorAll('#selBox [data-pg], #bgRows [data-pg]').forEach(el => el.classList.toggle('pgoff', !el.dataset.pg.split('|').includes(pg)));
-  document.querySelectorAll('#tabs [data-page]').forEach(b => b.classList.toggle('on', b.dataset.page === page));
-  const pn = document.querySelector('.pane.on'); if(pn) pn.scrollTop = 0;
+  $$('#selBox [data-pg], #bgRows [data-pg]').forEach(el => el.classList.toggle('pgoff', !el.dataset.pg.split('|').includes(pg)));
+  $$('#tabs [data-page]').forEach(b => b.classList.toggle('on', b.dataset.page === page));
+  const pn = $('.pane.on'); if(pn) pn.scrollTop = 0;
 }
 // パネルの組み直し。選択が変わったとき（insKey が変わったとき）だけタブを作り直す。force=true で必ず作り直す。
 // 見出しの名前は毎回更新する（レイヤー名の変更・文字の編集に追従するため）が、内容が同じなら DOM を触らない。
@@ -104,7 +104,7 @@ function openInspector(page){ pendingPage = page || null; renderInspector(true);
 function setMode(m, silent){
   DOC.mode = m;
   document.body.classList.toggle('mode-thumb', m === 'thumb'); document.body.classList.toggle('mode-text', m === 'text');
-  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  $$('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
   $('#dlLabel').textContent = isMobile ? '保存' : (m === 'thumb' ? 'サムネを保存' : '透過PNGを保存');
   if(m === 'text' && (sheet === 'layers' || sheet === 'add')) openSheet(null);
   renderInspector(true);

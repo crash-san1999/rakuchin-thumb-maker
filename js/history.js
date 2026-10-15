@@ -33,7 +33,7 @@ $('#undo').onclick = () => restoreHist(hIdx - 1);
 $('#redo').onclick = () => restoreHist(hIdx + 1);
 // 文字入力中はブラウザ標準の Ctrl+Z（入力欄内の取り消し）に任せる。それ以外でだけアプリの履歴を動かす
 document.addEventListener('keydown', e => {
-  const t = e.target, typing = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /text|search|number|password/.test(t.type));
+  const t = inputOf(e), typing = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /text|search|number|password/.test(t.type));
   if(typing || !(e.ctrlKey || e.metaKey)) return;
   const k = e.key.toLowerCase();
   if(k === 'z' && !e.shiftKey){ e.preventDefault(); restoreHist(hIdx - 1); }

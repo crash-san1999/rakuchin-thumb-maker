@@ -62,25 +62,25 @@ function refreshSizeUI(force){
   if(!DOC) return;
   const key = `${DOC.w}x${DOC.h}|${DOC.exportW}|${DOC.hdr}`; if(key === sizeUiKey && !force) return; sizeUiKey = key;
   const opts = exportSizes().map(W => { const H = Math.round(W * DOC.h / DOC.w); return `<option value="${W}">${W}×${H}${W === DOC.w ? '（等倍）' : W === 3840 || H === 3840 ? '（4K）' : ''}</option>`; }).join('');
-  document.querySelectorAll('select[data-d="exportW"]').forEach(sel => { sel.innerHTML = opts; sel.value = String(DOC.exportW); });
-  const cur = `${DOC.w}x${DOC.h}`, ps = $('#canvasPreset');
+  $$as('select[data-d="exportW"]', HTMLSelectElement).forEach(sel => { sel.innerHTML = opts; sel.value = String(DOC.exportW); });
+  const cur = `${DOC.w}x${DOC.h}`, ps = $as('#canvasPreset', HTMLSelectElement);
   if(ps){ ps.innerHTML = CANVAS_PRESETS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('') + '<option value="custom">自由に指定…</option>'; const hv = DOC.hdr ? DOC.hdr + '-header' : cur; ps.value = CANVAS_PRESETS.some(p => p[0] === hv) ? hv : 'custom'; }
-  if($('#cvW') && document.activeElement !== $('#cvW')) $('#cvW').value = DOC.w;
-  if($('#cvH') && document.activeElement !== $('#cvH')) $('#cvH').value = DOC.h;
+  if($as('#cvW', HTMLInputElement) && document.activeElement !== $as('#cvW', HTMLInputElement)) $as('#cvW', HTMLInputElement).value = String(DOC.w);
+  if($as('#cvH', HTMLInputElement) && document.activeElement !== $as('#cvH', HTMLInputElement)) $as('#cvH', HTMLInputElement).value = String(DOC.h);
   $('#cvNow') && ($('#cvNow').textContent = `${DOC.w}×${DOC.h}（${(DOC.w / DOC.h).toFixed(2)}:1）`);
   // キャンバスのサイズに合わせて、分割フレームの横幅・高さの上限を変える
-  document.querySelectorAll('[data-d="@bw"]').forEach(el => { el.max = DOC.w; });
-  document.querySelectorAll('[data-d="@bh"]').forEach(el => { el.max = DOC.h; });
+  $$as('[data-d="@bw"]', HTMLInputElement).forEach(el => { el.max = String(DOC.w); });
+  $$as('[data-d="@bh"]', HTMLInputElement).forEach(el => { el.max = String(DOC.h); });
 }
 // 以降はイベント委譲（要素が動的に作り直されても効くよう document に付ける）。プリセットは即適用、「自由に指定…」は入力欄へ誘導、適用ボタン・Enter で #cvW/#cvH の値を適用
 document.addEventListener('change', e => {
-  if(e.target.id === 'canvasPreset'){
-    const v = e.target.value; if(v === 'custom'){ $('#cvW').focus(); $('#cvW').select(); return; }
+  if(tgt(e).id === 'canvasPreset'){
+    const v = inputOf(e).value; if(v === 'custom'){ $as('#cvW', HTMLInputElement).focus(); $as('#cvW', HTMLInputElement).select(); return; }
     const hd = headerOfPreset(v), sp = HEADER_SPECS[hd];
-    const [w, h] = sp ? [sp.w, sp.h] : v.split('x').map(Number); setCanvasSize(w, h, $('#cvFit').checked, hd);
+    const [w, h] = sp ? [sp.w, sp.h] : v.split('x').map(Number); setCanvasSize(w, h, $as('#cvFit', HTMLInputElement).checked, hd);
   }
 });
 document.addEventListener('click', e => {
-  if(e.target.closest('#cvApply')){ if(!setCanvasSize($('#cvW').value, $('#cvH').value, $('#cvFit').checked)) refreshSizeUI(true); }
+  if(tgt(e).closest('#cvApply')){ if(!setCanvasSize($as('#cvW', HTMLInputElement).value, $as('#cvH', HTMLInputElement).value, $as('#cvFit', HTMLInputElement).checked)) refreshSizeUI(true); }
 });
-document.addEventListener('keydown', e => { if((e.target.id === 'cvW' || e.target.id === 'cvH') && e.key === 'Enter'){ e.preventDefault(); $('#cvApply').click(); } });
+document.addEventListener('keydown', e => { if((tgt(e).id === 'cvW' || tgt(e).id === 'cvH') && e.key === 'Enter'){ e.preventDefault(); $('#cvApply').click(); } });

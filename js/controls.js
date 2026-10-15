@@ -181,7 +181,7 @@ const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:get
     // syncUI(el)：操作中の入力欄自身は上書きしない（入力途中の文字やカーソル位置が飛ぶため）。同じキーの他の欄（スライダー⇔数値）は更新される
     resetAdj(); setK(k, v); syncUI(el);
     // 文字が変わったらフォント一覧の見本（.fs）も追従させる。一覧は数が多いので 300ms デバウンス
-    if(k === 'text'){ clearTimeout(KB.st); KB.st = setTimeout(() => document.querySelectorAll('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
+    if(k === 'text'){ clearTimeout(KB.st); KB.st = setTimeout(() => $$('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
     schedule();
   },
   onSeg(k, v){ setK(k, v); syncUI(); schedule(); },
@@ -209,45 +209,45 @@ function buildTextControls(){
       <h3>${s.on ? `<label class="sw"><input type="checkbox" data-k="${s.on}"><span></span></label>` : ''}${s.t}${s.hint ? ` <span class="hint">${s.hint}</span>` : ''}</h3>
       <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : ''}${(s.rows || []).map(rowHTML).join('')}</div>
     </section>`).join('');
-  document.querySelectorAll('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
+  $$('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
 }
 
 // S の内容を画面へ反映する（入力欄の値・ボタンの選択状態・表示条件）。S を直接書き換えた後（パレット適用・履歴復元・初期化など）は必ず呼ぶ。
 // except：入力中の欄を上書きしないための除外（onInput から渡される）
 function syncUI(except){
   KB.sync(except);
-  document.querySelectorAll('[data-pi]').forEach(el => { el.style.opacity = +el.dataset.pi < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
-  document.querySelectorAll('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
+  $$('[data-pi]').forEach(el => { el.style.opacity = +el.dataset.pi < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
+  $$('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
 }
 // 見出しクリックで折りたたみ。見出し内のスイッチ（.sw）は ON/OFF 用なので除く
 document.addEventListener('click', e => {
-  const h =e.target.closest('section > h3');
-  if(h && !e.target.closest('.sw')) h.parentElement.classList.toggle('collapsed');
+  const h =tgt(e).closest('section > h3');
+  if(h && !tgt(e).closest('.sw')) h.parentElement.classList.toggle('collapsed');
 });
 // スイッチを ON にしたら自動で開く（開いて設定を触れるように）。値の反映自体は KB の input ハンドラ側
 document.addEventListener('change', e => {
-  const sw = e.target.closest('.sw');
-  if(sw && e.target.checked) sw.closest('section').classList.remove('collapsed');
+  const sw = tgt(e).closest('.sw');
+  if(sw && inputOf(e).checked) sw.closest('section').classList.remove('collapsed');
 });
 // 太さ・英数字フォントの select は index.html に固定で置かれた欄（パネル生成の対象外）。change 時の追加処理：
 // 太さは数値化して S.weight に入れ直し、英数字フォントを変えたらフォント一覧の表示（renderFontList）を更新する
 document.addEventListener('change', e => {
-  if(e.target.id === 'weight'){ S.weight = parseFloat(e.target.value); schedule(); }
-  if(e.target.id === 'fontLatin') renderFontList();
+  if(tgt(e).id === 'weight'){ S.weight = parseFloat(inputOf(e).value); schedule(); }
+  if(tgt(e).id === 'fontLatin') renderFontList();
 });
 // 色欄まわりのボタン：おまかせパレット（data-boxpal）／この色だけランダム（data-rnd）／スポイト（data-eye）。
 // いずれも色を直接書き換えるので resetAdj を先に呼ぶ。パレットは slice() でコピーして BOX_PALETTES 本体を S と共有しない（編集で定義が壊れないように）
 document.addEventListener('click', e => {
-  const bp = e.target.closest('[data-boxpal]');
+  const bp = tgt(e).closest('[data-boxpal]');
   if(bp){ const p = BOX_PALETTES.find(q => q[0] === bp.dataset.boxpal); if(p){ resetAdj(); S.box.pal = p[2].slice(); S.box.pn = p[3]; syncUI(); schedule(); } return; }
-  const rb = e.target.closest('[data-rnd]');
+  const rb = tgt(e).closest('[data-rnd]');
   if(rb){ resetAdj(); setK(rb.dataset.rnd, randomLike(getK(rb.dataset.rnd))); syncUI(); schedule(); return; }
-  const eb = e.target.closest('[data-eye]');
+  const eb = tgt(e).closest('[data-eye]');
   // EyeDropper は非対応ブラウザではボタン自体を出さない（bind.js）。キャンセル時は reject されるので catch で握りつぶす。sRGBHex は #rrggbb 形式で返る
   if(eb){ new EyeDropper().open().then(r => { resetAdj(); setK(eb.dataset.eye, r.sRGBHex.slice(0, 7).toLowerCase()); syncUI(); schedule(); }).catch(() => {}); return; }
 });
 $('#pcats').addEventListener('click', e => {
-  const b = e.target.closest('[data-pcat]'); if(!b) return;
+  const b = tgt(e).closest('[data-pcat]'); if(!b) return;
   pcat = b.dataset.pcat; LS.set('ttm_pcat', pcat); renderPresets();
 });
 // 今の S を素材置き場（thumb/library.js）にスタイルとして登録する

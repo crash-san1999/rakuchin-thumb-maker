@@ -18,7 +18,7 @@
 /* ---------- イベント ---------- */
 // 設定パネルのボタン類（クリックの委譲）。ボタンの id・data 属性は inspector.js の行定義と対応する
 document.addEventListener('click', e => {
-  const pb = e.target.closest('[data-place]');
+  const pb = tgt(e).closest('[data-place]');
   if(pb){
     const L = selLayer(), d = L && dims.get(L.id); if(!d) return;
     // 配置ボタン：data-place は '横縦'（l/c/r × t/m/b）。余白は幅の3.5%・高さの5%。
@@ -29,23 +29,23 @@ document.addEventListener('click', e => {
     L.y = Math.round(v === 't' ? my + bh / 2 : v === 'b' ? DOC.h - my - bh / 2 : DOC.h / 2);
     syncDoc(); docChanged(false); return;
   }
-  if(e.target.closest('#collageEditBtn, #cellFab')){ toggleEdit('cells'); return; }
+  if(tgt(e).closest('#collageEditBtn, #cellFab')){ toggleEdit('cells'); return; }
   // 分割フレームを画面いっぱいに：中心・大きさ・回転を初期化（bw/bh はキャンバスと同じ寸法）
-  if(e.target.closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:DOC.w / 2, y:DOC.h / 2, bw:DOC.w, bh:DOC.h, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
-  if(e.target.closest('#frameEditBtn')){ toggleEdit('frame'); return; }
+  if(tgt(e).closest('#collageFill')){ const L = selLayer(); if(L){ Object.assign(L, {x:DOC.w / 2, y:DOC.h / 2, bw:DOC.w, bh:DOC.h, sc:1, rot:0}); syncDoc(); docChanged(false); } return; }
+  if(tgt(e).closest('#frameEditBtn')){ toggleEdit('frame'); return; }
   // ブラシ開始時、前回「色を拾う」で終わっていたら道具を「消す」に戻す（拾うモードのまま入ると色を拾うだけで終わってしまうため）
-  if(e.target.closest('#cutBrushBtn')){ const L = selLayer(); if(L && L.btool === 'pick') L.btool = 'erase'; toggleEdit('cut'); return; }
-  if(e.target.closest('#cutPickBtn')){ const L = selLayer(); if(L && L.type === 'image' && EDIT_MODES.cut.ok(L)){ L.btool = 'pick'; if(edit && edit.kind === 'cut') syncDoc(); else setEdit('cut', L); paintPreview(false); } else if(L) toast('切り抜きフレームを使っている画像では、色を拾うモードは使えません。「四隅から自動で拾う」か、色の欄で指定してください', true); return; }
-  if(e.target.closest('#cutAutoBtn')){
+  if(tgt(e).closest('#cutBrushBtn')){ const L = selLayer(); if(L && L.btool === 'pick') L.btool = 'erase'; toggleEdit('cut'); return; }
+  if(tgt(e).closest('#cutPickBtn')){ const L = selLayer(); if(L && L.type === 'image' && EDIT_MODES.cut.ok(L)){ L.btool = 'pick'; if(edit && edit.kind === 'cut') syncDoc(); else setEdit('cut', L); paintPreview(false); } else if(L) toast('切り抜きフレームを使っている画像では、色を拾うモードは使えません。「四隅から自動で拾う」か、色の欄で指定してください', true); return; }
+  if(tgt(e).closest('#cutAutoBtn')){
     const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(!A) return;
     const c = cutAutoColor(cropSrc(L, A).img); if(!c){ toast('四隅が透明なので、色を拾えませんでした', true); return; }
     L.key.c = c; L.key.on = true; syncDoc(); docChanged(false); return;
   }
-  if(e.target.closest('#cutUndoStroke')){ const L = selLayer(); if(L && L.type === 'image' && L.strokes.length){ L.strokes.pop(); syncDoc(); docChanged(false); } return; }
-  if(e.target.closest('#cutClearStrokes')){ const L = selLayer(); if(L && L.type === 'image' && L.strokes.length){ L.strokes = []; syncDoc(); docChanged(false); toast('ブラシの跡を消しました'); } return; }
+  if(tgt(e).closest('#cutUndoStroke')){ const L = selLayer(); if(L && L.type === 'image' && L.strokes.length){ L.strokes.pop(); syncDoc(); docChanged(false); } return; }
+  if(tgt(e).closest('#cutClearStrokes')){ const L = selLayer(); if(L && L.type === 'image' && L.strokes.length){ L.strokes = []; syncDoc(); docChanged(false); toast('ブラシの跡を消しました'); } return; }
   // フレームのプリセット：形・枠をプリセットで置き換えるが、大きさ・位置（fs・cx・cy）は引き継ぎ、見た目の位置が動かないよう補正する。
   // p[2] が frame の差分、p[3] があればフチ（outline）も一緒にオンにする
-  const frp = e.target.closest('[data-frpre]');
+  const frp = tgt(e).closest('[data-frpre]');
   if(frp){
     const L = selLayer(); if(!L || L.type !== 'image') return;
     const p = FRAME_PRESETS.find(q => q[0] === frp.dataset.frpre);
@@ -55,35 +55,35 @@ document.addEventListener('click', e => {
     if(p[3]) L.outline = Object.assign({}, L.outline, {on:true}, p[3]);
     syncDoc(); docChanged(false); return;
   }
-  const afb = e.target.closest('[data-addfx]');
+  const afb = tgt(e).closest('[data-addfx]');
   if(afb){ addFx(afb.dataset.addfx); return; }
-  const fx = e.target.closest('[data-bgfx]');
+  const fx = tgt(e).closest('[data-bgfx]');
   if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
-  const ffx = e.target.closest('[data-finfx]');
+  const ffx = tgt(e).closest('[data-finfx]');
   if(ffx){ applyFinPreset(ffx.dataset.finfx); toast(ffx.dataset.finfx === 'reset' ? '仕上げエフェクトを外しました' : `仕上げ「${ffx.textContent}」をかけました（「仕上げ」タブで調整できます）`); return; }
-  const gb = e.target.closest('[data-guide]');
+  const gb = tgt(e).closest('[data-guide]');
   if(gb){ DOC.guides[gb.dataset.guide] = !DOC.guides[gb.dataset.guide]; syncDoc(); saveDoc(); paintPreview(false); return; }
-  const mb = e.target.closest('[data-mode]');
+  const mb = tgt(e).closest('[data-mode]');
   if(mb){ setMode(mb.dataset.mode); return; }
-  const tb = e.target.closest('#tabs [data-page]');
+  const tb = tgt(e).closest('#tabs [data-page]');
   if(tb){ setPage(tb.dataset.page); return; }
-  if(e.target.closest('#insDesel')){ selectLayer(null); return; }
+  if(tgt(e).closest('#insDesel')){ selectLayer(null); return; }
 });
 // レイヤーの追加・設定パネルのボタン（元はレイヤーパネルのブロックの中にあったもの）
 $('#addCollageBtn').onclick = () => addCollage();
 $('#addSchedBtn').onclick = () => addSched();
-document.addEventListener('click', e => { if(e.target.closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ applyCropChange(L, () => { L.crop = {t:0, b:0, l:0, r:0}; }); syncDoc(); docChanged(false); } } });
-document.addEventListener('click', e => { if(e.target.closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; L.fx = mergeCellFx(); syncDoc(); docChanged(false); } } });
-document.addEventListener('click', e => { if(e.target.closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
+document.addEventListener('click', e => { if(tgt(e).closest('#cropReset')){ const L = selLayer(); if(L && L.type === 'image'){ applyCropChange(L, () => { L.crop = {t:0, b:0, l:0, r:0}; }); syncDoc(); docChanged(false); } } });
+document.addEventListener('click', e => { if(tgt(e).closest('#imgColorReset')){ const L = selLayer(); if(L && L.type === 'image'){ L.bright = 0; L.sat = 0; L.fx = mergeCellFx(); syncDoc(); docChanged(false); } } });
+document.addEventListener('click', e => { if(tgt(e).closest('#ungroupBtn')){ const G = selLayer(); if(isGroup(G)) ungroupLayers(G); } });
 $('#addText').onclick = () => {
   const st = clone(S); st.text = 'テキスト';
   const L = mkTextLayer(st, DOC.w / 2, DOC.h / 2, 1.2);
   DOC.layers.push(L); selectLayer(L.id); docChanged(false);
-  openInspector('txt-text'); setTimeout(() => { $('#text').focus(); $('#text').select(); }, 60);
+  openInspector('txt-text'); setTimeout(() => { $as('#text', HTMLTextAreaElement).focus(); $as('#text', HTMLTextAreaElement).select(); }, 60);
 };
 $('#addImg').onclick = () => $('#imgfile').click();
-$('#imgfile').onchange = e => { addImageLayers([...e.target.files]); e.target.value = ''; };
-$('#bgimgfile').onchange = e => { const f = e.target.files[0]; if(f) setBgFromFile(f); e.target.value = ''; };
+$('#imgfile').onchange = e => { addImageLayers([...inputOf(e).files]); inputOf(e).value = ''; };
+$('#bgimgfile').onchange = e => { const f = inputOf(e).files[0]; if(f) setBgFromFile(f); inputOf(e).value = ''; };
 // いまの作業を、プロジェクトファイル（.json）として保存する。
 // 形式：{app:'rakuchin-thumb', v:1, doc:DOC, assets:{アセットid: dataURL}}。DOC は画像本体を持たない（id だけ）ので、
 // 使っている画像（usedAssets）の本体をここで同梱する。素材置き場のバックアップ（app:'rakuchin-thumb-maker', type:'library'）とは別形式
@@ -100,14 +100,14 @@ function newProject(keepSize){
   loadDocObj(Object.assign(normalizeDoc(null), keep, {mode:'thumb'}));
   toast('新規作成しました。元に戻すには Ctrl+Z（上の ↶）');
 }
-const openNew = () => { document.querySelectorAll('.pop.show').forEach(p => p.classList.remove('show')); $('#newModal').classList.add('show'); };
+const openNew = () => { $$('.pop.show').forEach(p => p.classList.remove('show')); $('#newModal').classList.add('show'); };
 const closeNew = () => $('#newModal').classList.remove('show');
-document.addEventListener('click', e => { if(e.target.closest('#newBtn, #newBtn2')) openNew(); });
-$('#newModal').addEventListener('click', e => { if(e.target.id === 'newModal' || e.target.closest('[data-new-close]')) closeNew(); });
-$('#newSave').onclick = () => { saveProject(); closeNew(); newProject($('#newKeepSize').checked); };
-$('#newNoSave').onclick = () => { closeNew(); newProject($('#newKeepSize').checked); };
+document.addEventListener('click', e => { if(tgt(e).closest('#newBtn, #newBtn2')) openNew(); });
+$('#newModal').addEventListener('click', e => { if(tgt(e).id === 'newModal' || tgt(e).closest('[data-new-close]')) closeNew(); });
+$('#newSave').onclick = () => { saveProject(); closeNew(); newProject($as('#newKeepSize', HTMLInputElement).checked); };
+$('#newNoSave').onclick = () => { closeNew(); newProject($as('#newKeepSize', HTMLInputElement).checked); };
 $('#openProj').onclick = () => $('#projfile').click();
-$('#projfile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(f) openProjectFile(f); };
+$('#projfile').onchange = e => { const f = inputOf(e).files[0]; inputOf(e).value = ''; if(f) openProjectFile(f); };
 // ファイルを読んで、素材置き場のバックアップなら libImport へ、プロジェクトなら画像を先に登録してから DOC を差し替える
 // （DOC を先に差し替えると、画像が未登録のまま描画されて「読み込めません」になるため）。
 // 画像の名前は元のファイル名を保存していないので、id を名前に使っている

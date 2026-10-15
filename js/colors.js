@@ -95,7 +95,7 @@ function genPalette(mode){
 // 色欄の対応はここが唯一の定義。新しい装飾の色欄を足したらここにも足さないとパレット適用で色が変わらない。
 function applyPalette(P){
   resetAdj();   // 一括調整のスライダーは新しい色を基準に取り直すので、先に 0 に戻す
-  if(!$('#lockFill').checked){ S.fill1 = P.base; S.fill2 = P.base2; S.fill3 = mixHex(P.base, '#ffffff', 0.5); S.accent1 = P.accent; S.accent2 = P.accent2; }
+  if(!$as('#lockFill', HTMLInputElement).checked){ S.fill1 = P.base; S.fill2 = P.base2; S.fill3 = mixHex(P.base, '#ffffff', 0.5); S.accent1 = P.accent; S.accent2 = P.accent2; }
   const seq = [P.dark, P.light, P.dark]; S.strokes.forEach((st, i) => st.c = seq[i]);   // フチ1〜3：濃い→明るい→濃い（二重フチで縁取りが映える並び）
   Object.assign(S.extrude, {c:P.deep, c2:P.accent}); Object.assign(S.glow, {c:P.glow, c2:P.accent});
   S.shadow.c = mixHex(P.deep, '#000000', 0.6); S.offset.c = P.accent;
@@ -125,12 +125,12 @@ function colorPaths(o = S, pre = '', out = []){
 let adjBase = null;
 function resetAdj(){
   if(!adjBase) return; adjBase = null;
-  ['H','S','L'].forEach(k => { $('#adj' + k).value = 0; }); showAdj();
+  ['H','S','L'].forEach(k => { $as('#adj' + k, HTMLInputElement).value = '0'; }); showAdj();
 }
-function showAdj(){ $('#oH').textContent = $('#adjH').value + '°'; $('#oS').textContent = $('#adjS').value; $('#oL').textContent = $('#adjL').value; ['H','S','L'].forEach(k => paintRange($('#adj' + k))); }
-['H','S','L'].forEach(k => $('#adj' + k).addEventListener('input', () => {
+function showAdj(){ $('#oH').textContent = $as('#adjH', HTMLInputElement).value + '°'; $('#oS').textContent = $as('#adjS', HTMLInputElement).value; $('#oL').textContent = $as('#adjL', HTMLInputElement).value; ['H','S','L'].forEach(k => paintRange($as('#adj' + k, HTMLInputElement))); }
+['H','S','L'].forEach(k => $as('#adj' + k, HTMLInputElement).addEventListener('input', () => {
   if(!adjBase) adjBase = colorPaths().map(p => [p, getK(p)]);
-  const dh = +$('#adjH').value, ds = +$('#adjS').value, dl = +$('#adjL').value;
+  const dh = +$as('#adjH', HTMLInputElement).value, ds = +$as('#adjS', HTMLInputElement).value, dl = +$as('#adjL', HTMLInputElement).value;
   // 彩度は「残りの余地」に対する割合で増減（+側は 100-s、-側は s）。これで 0〜100 を超えず、すでに鮮やかな色が飽和しきらない
   adjBase.forEach(([p, c]) => { const [h, s, l] = hexToHsl(c); setK(p, hsl(h + dh, s + ds * (ds > 0 ? (100 - s) / 100 : s / 100), l + dl)); });
   // schedule()（preview.js）と違い、レイヤー一覧の再構築（renderLayers / syncDoc）は行わず、描画・保存・履歴だけ予約する。thumb モードでの扱いは update() 側で分岐
@@ -143,7 +143,7 @@ $('#shuffle').onclick = () => {
   // 最大24回試し、コントラスト5以上が出たら即採用。出なければ最もマシだったものを使う（無限ループ回避）
   let best = null, bestScore = -1;
   for(let i = 0; i < 24; i++){
-    const P = genPalette($('#harm').value);
+    const P = genPalette($as('#harm', HTMLSelectElement).value);
     const sc = Math.min(contrast(P.base, P.dark), contrast(P.base2, P.dark), contrast(P.accent, P.dark));
     if(sc > bestScore){ best = P; bestScore = sc; }
     if(sc >= 5) break;
@@ -160,12 +160,12 @@ function renderThemes(){
     `<button class="theme" data-ti="${i}" title="${hint || n}"><div class="bars">${[a[0], a[1], a[2], a[4], a[7]].map(c => `<i style="background:${c}"></i>`).join('')}</div><b>${n}</b>${hint ? `<small>${hint}</small>` : ''}</button>`).join('');
 }
 $('#themes').addEventListener('click', e => {
-  const b = e.target.closest('[data-ti]'); if(!b) return;
+  const b = tgt(e).closest('[data-ti]'); if(!b) return;
   applyPalette(toP((ttab === 'thumb' ? THUMB_PALETTES : THEME_PALETTES)[+b.dataset.ti][2]));
 });
 $('#ttabs').addEventListener('click', e => {
-  const b = e.target.closest('[data-tt]'); if(!b) return;
-  ttab = b.dataset.tt; document.querySelectorAll('#ttabs button').forEach(x => x.classList.toggle('on', x === b)); renderThemes();
+  const b = tgt(e).closest('[data-tt]'); if(!b) return;
+  ttab = b.dataset.tt; $$('#ttabs button').forEach(x => x.classList.toggle('on', x === b)); renderThemes();
 });
 
 /* 背景画像から配色：代表色をk-meansで抽出し、背景から浮く色を組み立てる */
