@@ -9,6 +9,7 @@
 // ここから下の bbox / trim / boxBlur / bevel / drawPattern などは setTransform を使わない「実ピクセル」で動く（座標系は冒頭参照）。
 // bbox：alpha が 2 を超える画素の外接矩形（l,t,r,b は端のピクセル含む）。何も無ければ null。getImageData で全画素を読むので重い。
 // 呼び出し側は null を必ず考慮する（空文字・全透明のとき）。willReadFrequently は読み出し中心のキャンバスだと示してソフトウェア描画に寄せるヒント
+/** @param {HTMLCanvasElement} c */
 function bbox(c){
   const w = c.width, h = c.height, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, w, h).data;
   let t = h, l = w, r = -1, b = -1;
@@ -21,8 +22,9 @@ function bbox(c){
   return r < 0 ? null : {l, t, r, b};
 }
 // 透明な余白を切り落とし、四方に pad px だけ余白を付けて返す（最終出力用）。全透明なら 1x1 を返す
+/** @type {number[]} */
 let trimShift = [0, 0];
-/** @param {CanvasImageSource} c @param {number} pad */ function trim(c, pad){
+/** @param {HTMLCanvasElement} c @param {number} pad */ function trim(c, pad){
   const bb = bbox(c); if(!bb) return mk(1, 1);
   const cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, o = mk(cw + pad * 2, ch + pad * 2);
   ctx2d(o).drawImage(c, bb.l, bb.t, cw, ch, pad, pad, cw, ch);
@@ -49,6 +51,7 @@ let trimShift = [0, 0];
 // c を直接書き換える（戻り値なし）。sizePx は実ピクセル（scale 掛け済み）、b は RS.bevel。
 // 速度のため bbox の周囲 2px だけを切り出して処理する。傾き = 高さマップの勾配 × 光ベクトル。浮き出し/彫り込みは k の符号反転で表す。
 // 傾き s>0 は白方向に、s<0 は黒方向に混ぜる（hl / sh が強さ）。pow(s,0.8) はハイライトの立ち上がりをやや強める調整値
+/** @param {HTMLCanvasElement} c @param {number} sizePx @param {TextStyle['bevel']} b */
 function bevel(c, sizePx, b){
   const bb = bbox(c); if(!bb) return;
   const W = c.width, H = c.height, r = Math.max(1, Math.round(sizePx / 2));
@@ -104,13 +107,15 @@ function bevel(c, sizePx, b){
 /* テカリ（行ごとの上半分ハイライト） */
 // fx（prep 済み＝論理座標）に直接描く。source-atop で文字の画素の上にだけ白を重ねる。bot の曲線（quadraticCurveTo）で下端をカーブさせてアニメ風の光沢にする。
 // 横書きの帯の範囲（x0〜x1）は L.w より size 分ずつ広く取る（文字が L.w からはみ出しても帯が途切れないように）
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L */
 function drawGloss(ctx, L){
   const g = RS.gloss;
   ctx.save(); ctx.globalCompositeOperation = 'source-atop';
   L.lines.forEach((ln, i) => {
     if(L.v){   // 縦書き：左から光が当たる帯（カラムごと）
-      if(!ln.cells.length) return;
-      const left = ln.x0 - RS.size * 0.15, right = ln.x0 + RS.size * 1.02 * g.h, y0 = ln.y0 - RS.size, y1 = ln.y0 + ln.len + RS.size;
+      const vl = /** @type {VLine} */ (ln);
+      if(!vl.cells.length) return;
+      const left = vl.x0 - RS.size * 0.15, right = vl.x0 + RS.size * 1.02 * g.h, y0 = vl.y0 - RS.size, y1 = vl.y0 + vl.len + RS.size;
       const gr = ctx.createLinearGradient(left, 0, right, 0);
       gr.addColorStop(0, `rgba(255,255,255,${g.a})`); gr.addColorStop(1, `rgba(255,255,255,${g.a * 0.35})`);
       ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(left, y0); ctx.lineTo(left, y1); ctx.lineTo(right, y1);
@@ -129,12 +134,13 @@ function drawGloss(ctx, L){
 /* マーカー（文字の後ろの帯） */
 // 背面レイヤー A に描く。roundRect は古いブラウザに無いので、無ければ rect にフォールバックする。
 // 帯の位置 pos は行の高さ基準（0=上端寄り、1=下端寄り）、over は左右（縦書きは上下）のはみ出し量
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L */
 function drawMarker(ctx, L){
   const m = RS.marker;
   ctx.save(); ctx.fillStyle = rgba(m.c, m.a);
   L.lines.forEach((ln, i) => {
     if(!ln.segs.length) return;
-    if(L.v){ const over = RS.size * m.over, hh = RS.size * m.h, cx = ln.x0 + RS.size * 1.02 * m.pos; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - hh / 2, ln.y0 - over, hh, ln.len + over * 2, Math.min(hh / 2, RS.size * 0.08)) : ctx.rect(cx - hh / 2, ln.y0 - over, hh, ln.len + over * 2); ctx.fill(); return; }
+    if(L.v){ const vl = /** @type {VLine} */ (ln), over = RS.size * m.over, hh = RS.size * m.h, cx = vl.x0 + RS.size * 1.02 * m.pos; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - hh / 2, vl.y0 - over, hh, vl.len + over * 2, Math.min(hh / 2, RS.size * 0.08)) : ctx.rect(cx - hh / 2, vl.y0 - over, hh, vl.len + over * 2); ctx.fill(); return; }
     const x0 = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const over = RS.size * m.over, hh = RS.size * m.h, cy = lineTop(L, i) + RS.size * 1.02 * m.pos;
     const x = x0 - over, w = ln.w + over * 2, y = cy - hh / 2, rr = Math.min(hh / 2, RS.size * 0.08);
@@ -167,6 +173,7 @@ function drawMarker(ctx, L){
 // src を変形した新しいキャンバスを返す（type none・強さ0・空なら src をそのまま返すので、呼び出し側は同一かどうかを前提にしない）。
 // 1px 幅の列（trap は1px高の行）ごとに縦位置 dy と縦倍率 s を変えて貼り直す方式。fn(u) は文字の横位置 u(0〜1) → [縦ずれ, 縦倍率]。
 // 変形で縦にはみ出す量を先に走査（minY/maxY）して出力の高さと基準位置 off を決める。この走査は 2px 刻み（速度優先）、貼り付けは1px刻み
+/** @param {HTMLCanvasElement} src */
 function warp(src){
   const w = RS.warp; if(w.type === 'none' || !w.amt) return src;
   const bb = bbox(src); if(!bb) return src;
@@ -200,6 +207,7 @@ function warp(src){
 // 影・光彩の「影の部分だけ」を取り出したキャンバスを返す（本体は描かれない）。canvas の shadow は本体と一緒にしか描けないので、
 // 本体を画面外（左へ OFF だけずらした位置）に描き、shadowOffsetX に同じ OFF を足して影だけをキャンバス内に落とすトリックを使っている。
 // ox,oy,blur は論理 px（scale を掛けて実ピクセルにする）。呼び出し時の変換には依存しない（setTransform 前提なし）
+/** @param {HTMLCanvasElement} src @param {number} ox @param {number} oy @param {number} blur @param {string} color @param {number} scale */
 function effectOnly(src, ox, oy, blur, color, scale){
   const c = mk(src.width, src.height), x = ctx2d(c), OFF = src.width + 200;
   x.shadowColor = color; x.shadowBlur = blur * scale; x.shadowOffsetX = ox * scale + OFF; x.shadowOffsetY = oy * scale;
@@ -209,6 +217,7 @@ function effectOnly(src, ox, oy, blur, color, scale){
 /* グリッチ */
 // 最終段（反射の後）で B 全体に掛ける。シアン・赤の色ずれ（左右に d だけずらして lighter 合成）→ 本体 → 横帯のずらし、の順。
 // 帯は out を毎回コピーしてから切り出す（ずらした結果を次の帯が拾って二重にならないように）。帯の位置・幅・量は固定シード
+/** @param {HTMLCanvasElement} B @param {number} scale */
 function glitch(B, scale){
   const g = RS.glitch, W = B.width, H = B.height, d = g.rgb * scale;
   const out = mk(W, H), o = ctx2d(out);
@@ -232,5 +241,5 @@ function glitch(B, scale){
 
 // 合成の小道具。どちらも dst の変換を一時的に単位行列にして、src を実ピクセルで重ねる（A/K/F はすべて同寸法のキャンバスなので位置は一致する）。
 // blit=上に重ねる / cut=src の形で dst を抜く（destination-out）
-const blit = (dst, src) => { const c = ctx2d(dst); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0); c.restore(); };
-const cut = (dst, src) => { const c = ctx2d(dst); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.drawImage(src, 0, 0); c.restore(); };
+const blit = /** @param {HTMLCanvasElement} dst @param {HTMLCanvasElement} src */ (dst, src) => { const c = ctx2d(dst); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(src, 0, 0); c.restore(); };
+const cut = /** @param {HTMLCanvasElement} dst @param {HTMLCanvasElement} src */ (dst, src) => { const c = ctx2d(dst); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-out'; c.drawImage(src, 0, 0); c.restore(); };

@@ -38,6 +38,7 @@ tvCss = 800; snapLines = {x:null, y:null}; drag = null;
 // 文字キャッシュの印に使う「フォントが読み込み済みか」。Web フォントは後から読み込み完了するので、
 // これを印に含めないと、代替フォントで描いた古い絵がキャッシュに残ったままになる（読み込み前後で '0'→'1' に変わる）。
 // 先頭の1文字は日本語フォント、2文字目は英数字用フォント（fontLatin があるとき）の状態
+/** @param {TextStyle} st */
 function fontKey(st){
   const t = st.text.replace(/[{}\n]/g, '').slice(0, 24) || 'あ';
   let k = document.fonts.check(`${st.weight} 20px "${st.font}"`, t) ? '1' : '0';
@@ -46,12 +47,13 @@ function fontKey(st){
 }
 // 文字レイヤーの絵（{sk, k, c}）。実際の描画は text-render.js の render(倍率, スタイル)。
 // pad:2 は、描いた文字を外接矩形に切り詰めたあとに残す余白（px）。レイヤーの絵が文字ぴったりになるので、dims（選択枠）もそのサイズになる
-/** @param {TextLayer} L */
+/** @param {TextLayer} L @param {number} need @param {boolean|undefined} live @param {Map<string, any>} cache */
 function textCanvas(L, need, live, cache){
   const sk = JSON.stringify(L.style) + fontKey(L.style);
   return cacheByScale(cache, L.id, sk, need, live, () => render(need, Object.assign({}, L.style, {pad: 2})));
 }
 // 画像の形のまま color で塗りつぶした canvas（フチ・影の元絵）。source-in で、不透明部分だけが color になる
+/** @param {ImgSrc} A @param {string} color */
 function tinted(A, color){
   // フチ色ごとに作ると色を動かすたびにメモリが増えるので、最後の1色だけ持つ
   if(A.tintColor === color && A.tintCanvas) return A.tintCanvas;
@@ -69,16 +71,17 @@ const imgFxOn = L => { const x = L.fx; return !!x && !!(x.contrast || x.hue || x
 // 「色を重ねる」：重ね方（乗算・オーバーレイなど）で色を重ねた結果を、絵のある部分にだけ置く。
 // 重ね方の指定（globalCompositeOperation）と「絵のある部分だけ」（source-atop）は同時に使えないので、別のキャンバスで重ねてから
 // source-atop で戻す。こうしないと、切り抜き画像の周りやグループの外など透明な部分まで色が付く。不透明な部分の結果は直接塗るのと同じ
+/** @param {HTMLCanvasElement} o @param {CellFx['tint']} t */
 function tintAtop(o, t){
   const T = mk(o.width, o.height), tx = ctx2d(T);
-  tx.drawImage(o, 0, 0); tx.globalCompositeOperation = t.mode; tx.globalAlpha = t.a; tx.fillStyle = t.c; tx.fillRect(0, 0, o.width, o.height);
+  tx.drawImage(o, 0, 0); tx.globalCompositeOperation = /** @type {GlobalCompositeOperation} */ (t.mode); tx.globalAlpha = t.a; tx.fillStyle = t.c; tx.fillRect(0, 0, o.width, o.height);
   const ox = ctx2d(o); ox.save(); ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = 1; ox.drawImage(T, 0, 0); ox.restore();
 }
 /* 画像の絵を ctx の (dx,dy,dw,dh) に描く。効果が無ければ従来どおり明度・彩度のフィルターだけで直接描く。
    効果があるときは、絵だけを別キャンバス（ぼかし・ブラーのぶん余白付き）に描いて効果をかけてから置く（フチ・影にはかけない）。
    f＝DOC 座標→描画先ピクセルの倍率（効果の量は DOC 座標で持っているため）。暗く・色かぶり・周辺減光は source-atop で、絵のある部分にだけかける。
    作る canvas が大きすぎる（極端に拡大した画像）ときは、効果を省いて直接描く */
-/** @param {ImageLayer} L */
+/** @param {CanvasRenderingContext2D} x @param {ImgSrc} A @param {ImageLayer} L @param {number} f @param {number} dx @param {number} dy @param {number} dw @param {number} dh */
 function imgPicture(x, A, L, f, dx, dy, dw, dh){
   if(!imgFxOn(L)){ x.filter = imgFilter(L); x.drawImage(A.img, dx, dy, dw, dh); x.filter = 'none'; return; }
   const fx = Object.assign({}, L.fx, {bright: L.bright || 0, sat: L.sat || 0});
@@ -104,7 +107,7 @@ function imgPicture(x, A, L, f, dx, dy, dw, dh){
    フレーム形状があるときは framedCanvas（frames.js）に任せる。
    sk の中身が、この絵の見た目に効く値の全部（トリミング・フチ・反転・明度彩度・背景透過/ブラシ）。ここに無い値を変えても再描画されない。
    明度・彩度（imgFilter）は絵だけにかけて、フチ・影にはかけない。 */
-/** @param {ImageLayer} L */
+/** @param {ImageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache @returns {CacheEntry|null} */
 function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
@@ -116,12 +119,12 @@ function imageCanvas(L, f, live, cache){
     const pad = Math.ceil(Math.max(r, r2) + ob * 1.6) + 2;
     const cw = Math.max(1, Math.round(iw * need)), ch = Math.max(1, Math.round(ih * need));
     const c = mk(cw + pad * 2, ch + pad * 2), x = ctx2d(c);
-    const flipTo = y => { if(L.flip){ y.translate(c.width, 0); y.scale(-1, 1); } if(L.flipV){ y.translate(0, c.height); y.scale(1, -1); } };
+    const flipTo = /** @param {CanvasRenderingContext2D} y */ y => { if(L.flip){ y.translate(c.width, 0); y.scale(-1, 1); } if(L.flipV){ y.translate(0, c.height); y.scale(1, -1); } };
     if(r > 0){
       // フチ：canvas にはパスの太らせ（stroke 的な処理）が無いので、フチ色に塗った絵を円周上に少しずつずらして貼る方法で太らせる。
       // 半径 rad と rad*0.55 の2周にして、細い隙間ができにくくする。貼る数 n は半径に比例（16〜56）
       const O = mk(c.width, c.height), y = ctx2d(O); flipTo(y);
-      const stamp = (t, rad) => { const n = Math.max(16, Math.min(56, Math.round(rad * 1.5)));
+      const stamp = /** @param {HTMLCanvasElement} t @param {number} rad */ (t, rad) => { const n = Math.max(16, Math.min(56, Math.round(rad * 1.5)));
         for(const rr of [rad, rad * 0.55]) for(let i = 0; i < n; i++){ const a = i / n * 2 * PI; y.drawImage(t, pad + Math.cos(a) * rr, pad + Math.sin(a) * rr, cw, ch); } };
       if(st === 'double') stamp(tinted(A, o.c2), r2);
       stamp(tinted(A, o.c), r);
@@ -139,9 +142,10 @@ function imageCanvas(L, f, live, cache){
    q は e.c の座標へ直す倍率（影・光彩の px 指定は DOC 座標なので）。spread で形を太らせ（フチと同じ円周スタンプ）、blur でぼかす。
    str>1 は同じ絵を重ねて濃くする（光彩の「強さ」。最大4回）。キーが変わるたびに作るので、スライダー操作中のメモリ増加を抑えるため6個を超えたら捨てる。
    pad の上限 700px は、極端な設定で巨大な canvas を作らないための歯止め */
+/** @param {CacheEntry} e @param {number} q @param {string} col @param {number} blur @param {number} spread @param {number} str @returns {HTMLCanvasElement} */
 function haloCanvas(e, q, col, blur, spread, str){
   const key = [q.toFixed(3), col, blur, spread, str].join('|'); e.halo = e.halo || new Map();
-  if(e.halo.has(key)) return e.halo.get(key);
+  const hit = e.halo.get(key); if(hit) return hit;
   const sp = Math.max(0, spread) * q, bl = Math.max(0, blur) * q, pad = Math.min(700, Math.ceil(sp + bl * 1.6) + 2);
   const W = e.c.width + pad * 2, H = e.c.height + pad * 2, S = mk(W, H), sx = ctx2d(S);
   if(sp > 0.5){ const n = Math.max(16, Math.min(60, Math.round(sp * 1.5)));
@@ -157,7 +161,8 @@ function haloCanvas(e, q, col, blur, spread, str){
 // 文字・画像レイヤー1枚を描く（グループの中身からも呼ばれる）。
 // need = 今の描画先で必要な倍率、e.k = キャッシュ絵を描いたときの倍率。差があれば s = need / e.k で拡大縮小して貼る（live 中のごまかし）。
 // dims には「回転前・DOC 座標」の大きさを記録する（e.c の寸法 ÷ e.k = 倍率1のときの寸法、× L.sc = DOC 座標）
-/** 文字・画像レイヤー（と、画像として扱う未知の種類）を描く @param {TextLayer|ImageLayer} L */
+/** 文字・画像レイヤー（と、画像として扱う未知の種類）を描く
+ * @param {CanvasRenderingContext2D} ctx @param {TextLayer|ImageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
 function drawLayer(ctx, L, f, live, cache){
   const need = L.sc * f;
   const e = L.type === 'text' ? textCanvas(L, need, live, cache) : imageCanvas(L, f, live, cache);
@@ -167,7 +172,7 @@ function drawLayer(ctx, L, f, live, cache){
   ctx.save(); layerComposite(ctx, L);
   // 影・光彩は本体より先（奥）に描く。drawH は本体と同じ変換（位置・回転・拡大）で、ずらし dx,dy だけ足して halo を貼る。
   // q は halo を e.c の座標で作るための倍率（f / s）
-  const q = f / s, drawH = (H, a, dx, dy) => { ctx.save(); ctx.globalAlpha *= a; ctx.translate(L.x * f + dx, L.y * f + dy); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(s, s); ctx.drawImage(H, -H.width / 2, -H.height / 2); ctx.restore(); };
+  const q = f / s, drawH = /** @param {HTMLCanvasElement} H @param {number} a @param {number} dx @param {number} dy */ (H, a, dx, dy) => { ctx.save(); ctx.globalAlpha *= a; ctx.translate(L.x * f + dx, L.y * f + dy); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(s, s); ctx.drawImage(H, -H.width / 2, -H.height / 2); ctx.restore(); };
   if(L.type === 'image'){
     const sh = L.shadow, g = L.glow;
     if(sh.on && sh.a > 0) drawH(haloCanvas(e, q, sh.c || '#000000', sh.blur, sh.sp || 0, 1), sh.a, (sh.x || 0) * f, sh.y * f);
@@ -179,6 +184,7 @@ function drawLayer(ctx, L, f, live, cache){
 }
 /* ここから下の duotone・mosaic・zoomBlur・motionBlur は、背景画像（と分割フレームのマス）の効果。c を直接書き換えるものと、新しい canvas を返すものがある。
    duotone：輝度（0.299/0.587/0.114 の標準的な加重）を 0〜1 にして、暗い色 c1 → 明るい色 c2 の間を補間する */
+/** @param {HTMLCanvasElement} c @param {string} c1 @param {string} c2 */
 function duotone(c, c1, c2){
   const x = ctx2d(c, {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data;
   const A = hex2rgb(c1), B = hex2rgb(c2);
@@ -189,12 +195,14 @@ function duotone(c, c1, c2){
   x.putImageData(im, 0, 0);
 }
 // モザイク：いったん縮小して、補間なし（imageSmoothingEnabled=false）で拡大し直す。c を直接書き換える
+/** @param {HTMLCanvasElement} c @param {number} size */
 function mosaic(c, size){
   const W = c.width, H = c.height, sw = Math.max(1, Math.round(W / Math.max(2, size))), sh = Math.max(1, Math.round(H / Math.max(2, size)));
   const t = mk(sw, sh); ctx2d(t).drawImage(c, 0, 0, sw, sh);
   const x = ctx2d(c); x.save(); x.imageSmoothingEnabled = false; x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0, W, H); x.restore();
 }
 // ズームブラー：中心 (cx,cy) を基準に少しずつ拡大した絵を、alpha 1/(i+1) で重ねる（＝全枚数の平均になる）。枚数 n は強さに応じて 10〜32 で負荷を抑える。新しい canvas を返す
+/** @param {HTMLCanvasElement} src @param {number} amt @param {number} cx @param {number} cy */
 function zoomBlur(src, amt, cx, cy){
   const W = src.width, H = src.height, o = mk(W, H), x = ctx2d(o), n = Math.max(10, Math.min(32, Math.round(amt * 70)));
   for(let i = 0; i < n; i++){
@@ -205,6 +213,7 @@ function zoomBlur(src, amt, cx, cy){
   return o;
 }
 // モーションブラー：角度方向に ±dist/2 の範囲でずらして重ねる。新しい canvas を返す
+/** @param {HTMLCanvasElement} src @param {number} dist @param {number} angle */
 function motionBlur(src, dist, angle){
   const W = src.width, H = src.height, o = mk(W, H), x = ctx2d(o), n = Math.max(8, Math.min(32, Math.round(dist / 4)));
   const a = angle * PI / 180, dx = Math.cos(a), dy = Math.sin(a);
@@ -219,8 +228,9 @@ function motionBlur(src, dist, angle){
 /* 画像の色調・効果（背景と分割フレームのマスで共通。b は bright/contrast/sat/hue/blur/tone/duo1/duo2/mosaic/mb/zb を持つ）。
    canvas の CSS filter 文字列を返す（何も無ければ 'none'）。ぼかしは DOC 座標の px なので f を掛けて描画先の px にする。
    'duotone' は filter では表せないので、ここでは何もせず postFx 側で後処理する */
+/** @param {CellFx|DocBg} b @param {number} f */
 function toneFilter(b, f){
-  const fl = [];
+  /** @type {string[]} */ const fl = [];
   if(b.bright) fl.push(`brightness(${1 + b.bright})`);
   if(b.contrast) fl.push(`contrast(${Math.max(0, 1 + b.contrast)})`);
   if(b.sat) fl.push(`saturate(${Math.max(0, 1 + b.sat)})`);
@@ -232,6 +242,7 @@ function toneFilter(b, f){
 // 描き終えた画像にかける効果（2色・imgfx.js の加工・ミニチュア・モザイク・ゆがみ・色収差・モーションブラー・ズームブラー・ノイズ）。cx, cy はズームブラーの中心。
 // 順序依存：色を減らす系（2色・ポスタライズ・2値化）→ ぼかし系（ミニチュア）→ モザイク →（新しい canvas を作る）モーション → ズーム。
 // 前半は c を直接書き換え、後半は新しい canvas を返すので、必ず戻り値を使うこと
+/** @param {HTMLCanvasElement} c @param {CellFx|DocBg} b @param {number} f @param {number} cx @param {number} cy */
 function postFx(c, b, f, cx, cy){
   if(b.tone === 'duotone') duotone(c, b.duo1, b.duo2);
   extraFxColor(c, b, f);   // グラデーションマップ・色の置き換え・油絵・ポスタライズ・2値化・線画・網点・シャープ（imgfx.js）
@@ -266,6 +277,7 @@ function postFx(c, b, f, cx, cy){
 // 背景の描画順：（単色／グラデ／画像）→ 暗くする → グラデ影 → 色を重ねる → 柄 → 周辺減光。
 // 周辺減光・柄・ズームブラーの中心は bg.fcx/fcy（0〜1 の比率。-0.2〜1.2 まで画面外も可）。
 // グラデの r は、角度 a 方向に画面を覆いきる長さ（四隅まで色が届くように |cos|W + |sin|H の半分）
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} f */
 function drawBackground(ctx, W, H, f){
   const b = DOC.bg;
   if(b.type === 'color'){ ctx.fillStyle = b.color; ctx.fillRect(0, 0, W, H); }
@@ -282,7 +294,7 @@ function drawBackground(ctx, W, H, f){
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
   if(b.tint.on && b.tint.a > 0){
-    ctx.save(); ctx.globalCompositeOperation = b.tint.mode; ctx.globalAlpha = b.tint.a; ctx.fillStyle = b.tint.c; ctx.fillRect(0, 0, W, H); ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation = /** @type {GlobalCompositeOperation} */ (b.tint.mode); ctx.globalAlpha = b.tint.a; ctx.fillStyle = b.tint.c; ctx.fillRect(0, 0, W, H); ctx.restore();
   }
   if(b.pat && b.pat.on && b.pat.a > 0) drawBgPattern(ctx, W, H, f, b.pat, W * b.fcx, H * b.fcy);
   if(b.vignette > 0){
@@ -298,6 +310,7 @@ function drawBackground(ctx, W, H, f){
    gid 付きのレイヤー（グループの中身）は、ここでは描かずグループが自分の位置で描く。
    仕上げ（fin）がオンのときは、いったん別 canvas T に全部描いてから applyFinish をかけて ctx に重ねる：
    仕上げは背景・全レイヤーを描き終えた1枚に対してまとめてかけるため。 */
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {boolean|undefined} live @param {Map<string, any>} cache */
 function compose(ctx, W, H, live, cache){
   const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (assetOf(DOC.bg.asset) ? 1 : 0);
   let b = cache.get('__bg');
@@ -311,7 +324,7 @@ function compose(ctx, W, H, live, cache){
   if(!DOC.bg.hidden){ x.save(); x.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); x.drawImage(bc, 0, 0); x.restore(); }
   for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(x, L, f, live, cache);
   // 仕上げエフェクト（サムネ全体）：全部描いてから、まとめてかける（レイヤーごとではなく全体にかかる）
-  if(fo){ applyFinish(T, DOC.fin, f); ctx.drawImage(T, 0, 0); }
+  if(T){ applyFinish(T, DOC.fin, f); ctx.drawImage(T, 0, 0); }
 }
 /* プレビュー canvas（#tv）に描く。表示幅 w は、ステージの余白を除いた幅・高さに収まる最大値（縦横比 DOC.w:DOC.h を保つ）。
    canvas 内部の解像度は w × dpr（最大2：高密度画面でも重くしすぎない）。small は縮小表示モード（幅 246 固定）で、補助表示を出さない。

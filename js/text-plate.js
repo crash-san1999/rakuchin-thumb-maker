@@ -8,25 +8,26 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
-/** @type {any} */
+/** @type {PlatePlace|null} */
 let platePlace;
 var {TAIL_ANGLE, drawPlate} = (() => {
 // 直前の drawPlate が描いた吹き出しの位置（論理座標と、そのときの変換）。renderStyle が開始時に null に戻す
-/** @type {any} */
 platePlace = null;
 // 直前の bubbleTail が作ったしっぽの付け根・先と、吹き出しの中心・半径・種類（論理座標）。drawPlate が platePlace にまとめる
-/** @type {any} */
+/** @type {TailPts|null} */
 let tailPts = null;
 /* 吹き出しのしっぽ（中心から見た角度で位置を決める。tail: left=左下 center=下 right=右下 tl=左上 tr=右上 sl=左 sr=右 free=自由（tpos の角度） none=なし） */
+/** @type {Record<string, number>} */
 const TAIL_ANGLE = {left:115, center:90, right:65, tl:245, tr:295, sl:180, sr:0};
 // しっぽを付ける位置の角度（度。画面座標で下が正）。なし・未知の向きは undefined。free のときは p.tpos（0〜360）
-const tailDeg = p => { const t = p.tail || 'left'; return t === 'free' ? ((+p.tpos || 0) % 360 + 360) % 360 : TAIL_ANGLE[t]; };
+const tailDeg = /** @param {TextStyle['plate']} p @returns {number|undefined} */ p => { const t = p.tail || 'left'; return t === 'free' ? ((+p.tpos || 0) % 360 + 360) % 360 : TAIL_ANGLE[t]; };
 // 戻り値は本体とは別の Path2D。drawPlate が枠線→塗りの順に本体としっぽを別々に描くので、しっぽの付け根の枠線は塗りで隠れる。tail なし／未知の向きなら null。
 // 第1引数 _c は未使用。rx,ry は図形の半径、kind: 'box'=四角の縁 / 'ellipse'=楕円の縁 / 'dots'=雲用の小さな丸の列 /
 // 'ray'=縁までの距離を rx にそのまま渡す（ギザギザのように、縁が楕円で表せない形用。ry は使わない）。
 // 角度は画面座標（下が正）で、tailDeg の度数＝中心から見た付け根の位置。
 // 付け根の位置とは別に、先の向きを tdir（度。±）でずらし、tw で付け根の太さ、tbend で曲がり（−1〜1。先のほうが横へしなる）を変えられる。
 // tdir・tbend が 0、tw が 1 のときは、以前と同じ形（同じ座標・同じ直線）になる（保存済みのサムネの見た目を変えないため）
+/** @param {CanvasRenderingContext2D} _c @param {TextStyle['plate']} p @param {number} cx @param {number} cy @param {number} rx @param {number} ry @param {string} kind */
 function bubbleTail(_c, p, cx, cy, rx, ry, kind){
   const deg = tailDeg(p); if(deg === undefined) return null;
   const ctx = new Path2D();
@@ -53,6 +54,7 @@ function bubbleTail(_c, p, cx, cy, rx, ry, kind){
 }
 // 中心 (cx,cy) から角度 deg（画面座標・TAIL_ANGLE と同じ）の向きに進んで、折れ線 pts（閉じた多角形の頂点列）の縁に当たるまでの距離。当たらなければ 0。
 // ギザギザの吹き出しは、とげの長さが向きごとに違う（半径の 1.04〜1.44 倍）ので、固定の楕円では縁に付けられない。実際の輪郭との交点を求めて、しっぽの付け根にする
+/** @param {number[][]} pts @param {number} cx @param {number} cy @param {number} deg */
 function rayToPolygon(pts, cx, cy, deg){
   const a = deg * PI / 180, dx = Math.cos(a), dy = Math.sin(a); let best = 0;
   for(let i = 0; i < pts.length - 1; i++){
@@ -66,11 +68,12 @@ function rayToPolygon(pts, cx, cy, deg){
 // 文字全体（L.ty0〜ty1 × 0〜L.w）の外側に pad＋フチの最大幅 outer を足した矩形を基準に描く。背面レイヤー A に最初に描かれる。
 // 楕円系（ellipse / obubble / cloud）は矩形の角まで覆うよう半径を 1.1〜1.3 倍に広げている。その広がりぶんは renderStyle 側の余白 pl（['burst','ellipse',...] の 0.3*(L.w+L.h)）で確保しているので、
 // 形を追加・拡大したら pl の対象リストも見直すこと（足りないとキャンバス端で切れる）。ギザギザは固定シード p.seed
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L @param {number} outer */
 function drawPlate(ctx, L, outer){
   const p = RS.plate, pad = RS.size * p.pad + outer;
   const x0 = -pad, y0 = L.ty0 - pad, x1 = L.w + pad, y1 = L.ty1 + pad;
   const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  let tail = null; tailPts = null;
+  /** @type {Path2D|null} */ let tail = null; tailPts = null;
   const m = ctx.getTransform();   // 論理座標 → この絵のピクセル（しっぽのつまみの位置合わせ用に残す）
   ctx.save(); ctx.beginPath(); ctx.lineJoin = 'round';
   switch(p.shape){
@@ -106,7 +109,8 @@ function drawPlate(ctx, L, outer){
       ctx.closePath();
       const deg = tailDeg(p), reach = deg === undefined ? 0 : rayToPolygon(pts, cx, cy, deg);
       tail = reach > 0 ? bubbleTail(ctx, p, cx, cy, reach, 0, 'ray') : bubbleTail(ctx, p, cx, cy, w / 2 * 1.04, h / 2 * 1.08, 'ellipse');
-      if(tailPts){ tailPts.rx = w / 2 * 1.16; tailPts.ry = h / 2 * 1.25; tailPts.kind = 'ellipse'; }   // つまみで長さを決めるときは、とげの平均くらいの楕円で見る
+      const tp = /** @type {TailPts|null} */ (tailPts);   // bubbleTail が入れる（型の上では、上で null にしたままに見える）
+      if(tp){ tp.rx = w / 2 * 1.16; tp.ry = h / 2 * 1.25; tp.kind = 'ellipse'; }   // つまみで長さを決めるときは、とげの平均くらいの楕円で見る
       break;
     }
     case 'para': { const k = h * 0.35; ctx.moveTo(x0 + k, y0); ctx.lineTo(x1 + k, y0); ctx.lineTo(x1 - k, y1); ctx.lineTo(x0 - k, y1); ctx.closePath(); break; }

@@ -127,7 +127,8 @@ const EDIT_MODES = {
     pinchStart: L => ({}),
     pinch(){},
     overlay(ctx, L, f, dpr){
-      const A = assetOf(L.asset), S = cropSrc(L, A);
+      const A = assetOf(L.asset); if(!A) return;
+      const S = cropSrc(L, A);
       // 消した部分も薄く見せる（戻すときの目安）
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f * (L.flip ? -1 : 1), L.sc * f * (L.flipV ? -1 : 1));
       ctx.globalAlpha = 0.28; ctx.drawImage(S.img, -S.img.naturalWidth / 2, -S.img.naturalHeight / 2); ctx.restore();

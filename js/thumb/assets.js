@@ -25,7 +25,9 @@ const ASSETS = {};
 // 画像の id（null・未設定のこともある）から、読み込み済みの画像を引く。無ければ undefined
 /** @param {string|null|undefined} id @returns {Asset|undefined} */
 const assetOf = id => id ? ASSETS[id] : undefined;
+/** @param {string} src @returns {Promise<HTMLImageElement>} */
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+/** @param {IDBRequest} r @returns {Promise<any>} */
 const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 // DB は1回だけ開いて使い回す（Promise ごと保持）。upgrade は assets と lib のどちらのストアも無ければ作る
 // （version 2：lib は素材置き場の追加で増えた。古い version 1 の DB でもデータを消さずに lib だけ増える）
@@ -37,6 +39,7 @@ function idb(){
   }));
 }
 // 保存は待たない（書き込み結果は tx のイベントで受ける）。容量不足などで失敗したら、画像が次回開いたときに消える旨を警告する
+/** @param {string} id @param {{src: string, name: string}} v */
 async function idbPut(id, v){
   const fail = () => saveWarn('画像をブラウザに保存できませんでした（容量がいっぱいの可能性）。このままだと、ページを開き直したときに画像が消えるので、「プロジェクト」から書き出して残してください');
   try{ const db = await idb(), tx = db.transaction('assets', 'readwrite'); tx.objectStore('assets').put(v, id); tx.onerror = tx.onabort = fail; }catch{ fail(); }
@@ -44,6 +47,7 @@ async function idbPut(id, v){
 /* 画像を ASSETS に登録して id を返す。src は dataURL。
    id 省略で新規採番。skipPut=true は「すでに IndexedDB にある」ときの復元用（書き戻さない）。
    thumb は 72px 角に収めた小さな画像で、レイヤーパネルのサムネ用（本体を毎回縮小描画しないため） */
+/** @param {string} src @param {string} name @param {string} [id] @param {boolean} [skipPut] */
 async function addAsset(src, name, id, skipPut){
   id = id || 'A' + uid();
   const img = await loadImg(src);
@@ -54,8 +58,9 @@ async function addAsset(src, name, id, skipPut){
   return id;
 }
 // File → dataURL。長辺 3840px（4K）を超える画像は縮小する：キャンバス上限（5000px）に対して十分で、IndexedDB・メモリの節約になるため。JPEG は JPEG のまま再圧縮、それ以外は PNG（透過を守る）
+/** @param {Blob} file @returns {Promise<string>} */
 async function fileToSrc(file){
-  const src = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+  const src = await new Promise(/** @param {(v: string) => void} res @param {(e: any) => void} rej */ (res, rej) => { const r = new FileReader(); r.onload = () => res(/** @type {string} */ (r.result)); r.onerror = rej; r.readAsDataURL(file); });
   const img = await loadImg(src), mx = Math.max(img.naturalWidth, img.naturalHeight), LIM = 3840;
   if(mx <= LIM) return src;
   const k = LIM / mx, c = mk(img.naturalWidth * k, img.naturalHeight * k);
@@ -83,6 +88,7 @@ async function idbRestore(){
   return Object.assign(LAYER_BASE(), IMAGE_BASE(), {id:uid(), type:/** @type {'image'} */ ('image'), name, asset:id, x:Math.round(DOC.w * 0.74), y:Math.round(DOC.h * 0.56), sc});
 }
 // 画像ファイルをレイヤーとして追加。skipCollage でなければ、先に分割フレームのマスへ入れる処理（collageTakeFiles）に渡し、残りだけをレイヤーにする
+/** @param {File[]} files @param {boolean} [skipCollage] */
 async function addImageLayers(files, skipCollage){
   if(!skipCollage){ files = await collageTakeFiles(files.filter(f => /^image\//.test(f.type))); if(!files.length) return; }
   let last = null;
@@ -95,6 +101,7 @@ async function addImageLayers(files, skipCollage){
   if(last){ openInspector(); selectLayer(last); docChanged(false); toast('画像を追加しました。ドラッグで移動、角で拡大、上の丸で回転できます'); }
 }
 // 背景画像に設定。位置・拡大は初期化する。wantBgPalette は「背景から配色を作る」操作の待ち状態で、画像が入った時点でパレット生成する
+/** @param {File} f */
 async function setBgFromFile(f){
   const id = await addAsset(await fileToSrc(f), f.name);
   Object.assign(DOC.bg, {asset:id, type:'image', zoom:1, ox:0, oy:0});
@@ -104,8 +111,9 @@ async function setBgFromFile(f){
 
 // 画像の表示範囲（上下左右のトリミング）。値は 0〜0.9、向かい合う辺の合計は 0.95 まで
 // （全部切り落として画像が消えるのを防ぐ。値は元画像に対する割合なので、古い保存データや欠けたキーも 0 として扱う）
+/** @param {any} c */
 function cropClamp(c){
-  const n = v => clamp(+v || 0, 0, 0.9), o = {t:n(c && c.t), b:n(c && c.b), l:n(c && c.l), r:n(c && c.r)};
+  const n = /** @param {any} v */ v => clamp(+v || 0, 0, 0.9), o = {t:n(c && c.t), b:n(c && c.b), l:n(c && c.l), r:n(c && c.r)};
   o.b = Math.min(o.b, 0.95 - o.t); o.r = Math.min(o.r, 0.95 - o.l); return o;
 }
 /** @param {ImageLayer} L */
@@ -120,20 +128,21 @@ const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 
 // 切り取った絵を持つ、元の画像と同じ形の入れ物（{img, name}。img は canvas に naturalWidth/Height を足したもの）を返す。
 // トリミングなしなら元の A をそのまま返す。レイヤーごとに1枚だけ持ち、アセット・範囲が変わったときだけ作り直す（キーは key）。
 // 削除されたレイヤーの分は render.js の pruneLayerCaches で捨てる
+/** @type {Map<string, {key: string, obj: ImgSrc}>} */
 const cropCache = new Map();
-/** @param {ImageLayer} L */
+/** @param {ImageLayer} L @param {ImgSrc} A @returns {ImgSrc} */
 function cropSrc(L, A){
   if(!cropOn(L)) return A;
   const r = cropRect(L, A.img.naturalWidth, A.img.naturalHeight), key = [L.asset, r.sx, r.sy, r.sw, r.sh].join(',');
   const e = cropCache.get(L.id); if(e && e.key === key) return e.obj;
   const cv = mk(r.sw, r.sh); ctx2d(cv).drawImage(A.img, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
-  Object.assign(cv, {naturalWidth: r.sw, naturalHeight: r.sh});   // 画像（img）と同じ名前で元の大きさを持たせ、img の代わりに使えるようにする
-  const obj = {img: cv, name: A.name}; cropCache.set(L.id, {key, obj}); return obj;
+  const img = Object.assign(cv, {naturalWidth: r.sw, naturalHeight: r.sh});   // 画像（img）と同じ名前で元の大きさを持たせ、img の代わりに使えるようにする
+  const obj = {img, name: A.name}; cropCache.set(L.id, {key, obj}); return obj;
 }
 // 画像レイヤーの絵：トリミング → 背景透過 → ブラシ の順にかけたもの（どれも使っていなければ元の画像）。
 // 透過・ブラシはトリミング後の絵に対して行う（無駄に切り落とす部分を処理しない）。ブラシの跡は元の画像基準の割合で持つので、トリミングを変えても跡の位置はずれない（cutout.js の cutSrc が元画像座標へ換算する）。
 // 戻り値は {img, name}（ASSETS の要素と同じ形）。アセットが無い（読み込めない）ときは undefined
-/** @param {ImageLayer} L */
+/** @param {ImageLayer} L @returns {ImgSrc|undefined} */
 function layerSrc(L){
   const A = assetOf(L.asset); if(!A) return A;
   const S = cropSrc(L, A);
@@ -141,7 +150,7 @@ function layerSrc(L){
   return cutSrc(L, S, A);
 }
 // トリミングを変える（change はトリミング値を書き換える関数）。見えている部分が動かないように、レイヤーの位置（フレームがあるときはフレームの中心）を補正する
-/** @param {ImageLayer} L */
+/** @param {ImageLayer} L @param {() => void} change */
 function applyCropChange(L, change){
   const A = assetOf(L.asset), iw = A ? A.img.naturalWidth : 1, ih = A ? A.img.naturalHeight : 1;
   const r0 = cropRect(L, iw, ih), fr = L.frame && L.frame.shape !== 'none' ? L.frame : null;
@@ -155,6 +164,7 @@ function applyCropChange(L, change){
 }
 
 // 画像レイヤー：crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
+/** @param {any} L @returns {ImageLayer} */
 function normalizeImageLayer(L){
   return Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
         fx: mergeCellFx(L.fx),   // 色は mergeCellFx の中で fxColorsSafe が安全な値にそろえる

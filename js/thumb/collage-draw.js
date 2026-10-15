@@ -17,38 +17,40 @@ exporting = false;
 /** @param {CollageLayer} L @param {number} W @param {number} H @param {string} [lay] */
 function collageCellsOf(L, W, H, lay){ return collageCells(lay || L.layout, collageN(L), W, H, L.slant, L.main, L.cells.map(cellW)); }
 // ws＝マスごとの幅の比率（「縦に並べる」「横に並べる」だけで使う）。全部同じなら等分（従来と同じ計算）
-/** @param {string} lay @param {number} n @param {number} W @param {number} H @param {number} [slant] @param {number} [main] @param {number[]|null} [ws] */
+/** @param {string} lay @param {number} n @param {number} W @param {number} H @param {number} [slant] @param {number} [main] @param {number[]|null} [ws] @returns {number[][][]} */
 function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   if(!collageLayoutOk(lay, n)) lay = 'cols';
   const wk = ws && ws.slice(0, n).some(v => v !== ws[0]) ? ws.slice(0, n) : null, wsum = wk ? wk.reduce((a, b) => a + b, 0) : 0;
   // 境界 i の位置（0〜1）。比率が全部同じときは i / k（従来どおり）。k === n（マスを1列に全部並べる）のは「縦に並べる」「横に並べる」だけなので、
   // ほかの配置（グリッド・大きく・2段など）には比率は効かない
-  const edgeAt = (i, k) => { if(!wk || k !== n) return i / k; let a = 0; for(let j = 0; j < i; j++) a += wk[j]; return a / wsum; };
+  const edgeAt = /** @param {number} i @param {number} k */ (i, k) => { if(!wk || k !== n) return i / k; let a = 0; for(let j = 0; j < i; j++) a += wk[j]; return a / wsum; };
+  /** @param {number} x0 @param {number} x1 @param {number} y0 @param {number} y1 @param {number} k @param {number} d @returns {number[][][]} */
   const quadCols = (x0, x1, y0, y1, k, d) => { // x0..x1 を k 列に、上下で d ずらす
-    const tops = [], bots = [];
+    /** @type {number[][]} */ const tops = [];
+    /** @type {number[][]} */ const bots = [];
     for(let i = 0; i <= k; i++){ const x = x0 + (x1 - x0) * edgeAt(i, k), e = i === 0 || i === k ? 0 : d; tops.push([x + e, y0]); bots.push([x - e, y1]); }
     return [...Array(k)].map((_, i) => [tops[i], tops[i + 1], bots[i + 1], bots[i]]);
   };
-  const swap = cells => cells.map(p => p.map(([x, y]) => [y, x]).reverse());
+  const swap = /** @param {number[][][]} cells */ cells => cells.map(p => p.map(([x, y]) => [y, x]).reverse());
   if(lay === 'cols') return quadCols(0, W, 0, H, n, slant * H * 0.5);
   if(lay === 'rows') return swap(quadCols(0, H, 0, W, n, slant * W * 0.5));
   if(COLLAGE_ROWS2[lay]){   // 上の段・下の段で、マスの数を変える（各段は幅を等分）
-    const rows = COLLAGE_ROWS2[lay], out = [];
+    /** @type {number[][][]} */ const out = [], rows = COLLAGE_ROWS2[lay];
     rows.forEach((k, j) => out.push(...quadCols(0, W, H * j / 2, H * (j + 1) / 2, k, slant * H * 0.25)));
     return out;
   }
   if(lay === 'grid' || lay === 'grid2'){
-    const c = lay === 'grid' ? (n === 4 ? 2 : n === 6 ? 3 : 4) : 2, r = n / c, out = [];
+    const c = lay === 'grid' ? (n === 4 ? 2 : n === 6 ? 3 : 4) : 2, r = n / c, /** @type {number[][][]} */ out = [];
     for(let j = 0; j < r; j++) for(let i = 0; i < c; i++){ const x0 = W * i / c, x1 = W * (i + 1) / c, y0 = H * j / r, y1 = H * (j + 1) / r; out.push([[x0, y0], [x1, y0], [x1, y1], [x0, y1]]); }
     return out;
   }
   if(lay === 'bigL' || lay === 'bigT'){
     // 左に大きい1マス＋右の列。右の残りが4マス以上なら2列に分けて並べる（上から順に番号）。bigT は W/H を入れ替えて作る
     const big = /** @param {number} W @param {number} H */ (W, H) => {
-      const m = W * main, d = slant * H * 0.5, xl = y => m + d * (1 - 2 * y / H), k = n - 1, out = [[[0, 0], [xl(0), 0], [xl(H), H], [0, H]]];
-      const colCells = (xa, xb, cnt) => { for(let j = 0; j < cnt; j++){ const y0 = H * j / cnt, y1 = H * (j + 1) / cnt; out.push([[xa(y0), y0], [xb(y0), y0], [xb(y1), y1], [xa(y1), y1]]); } };
+      const m = W * main, d = slant * H * 0.5, xl = /** @param {number} y */ y => m + d * (1 - 2 * y / H), k = n - 1, /** @type {number[][][]} */ out = [[[0, 0], [xl(0), 0], [xl(H), H], [0, H]]];
+      const colCells = /** @param {(y: number) => number} xa @param {(y: number) => number} xb @param {number} cnt */ (xa, xb, cnt) => { for(let j = 0; j < cnt; j++){ const y0 = H * j / cnt, y1 = H * (j + 1) / cnt; out.push([[xa(y0), y0], [xb(y0), y0], [xb(y1), y1], [xa(y1), y1]]); } };
       if(k <= 3) colCells(xl, () => W, k);
-      else { const mid = y => (xl(y) + W) / 2; colCells(xl, mid, Math.ceil(k / 2)); colCells(mid, () => W, Math.floor(k / 2)); }
+      else { const mid = /** @param {number} y */ y => (xl(y) + W) / 2; colCells(xl, mid, Math.ceil(k / 2)); colCells(mid, () => W, Math.floor(k / 2)); }
       return out;
     };
     return lay === 'bigL' ? big(W, H) : swap(big(H, W));
@@ -57,6 +59,7 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
     // 右（下）に大きい1マス：左（上）に大きい形を左右（上下）反転して作る。大きいマスが 1 番目なのは同じ。
     // 小さいマスは、反転すると読む順が逆になるので、左（上）の列（段）から順に数え直す
     const k = n - 1, half = Math.ceil(k / 2);
+    /** @type {(p: number[][]) => number[][]} */
     const mir = lay === 'bigR' ? p => p.map(([x, y]) => [W - x, y]).reverse() : p => p.map(([x, y]) => [x, H - y]).reverse();
     const m = collageCells(lay === 'bigR' ? 'bigL' : 'bigT', n, W, H, slant, main).map(mir);
     return k <= 3 ? m : [m[0], ...m.slice(1 + half), ...m.slice(1, 1 + half)];
@@ -64,12 +67,12 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   // 放射状：中心から扇形に分ける
   // 各扇は中心＋境界の光線が画面の縁に当たる点＋その間にある画面の角。角を含めないと、扇の間に隙間（欠け）ができる
   const cx = W / 2, cy = H / 2, a0 = -PI / 2 + slant * PI / 2;
-  const ray = a => { const dx = Math.cos(a), dy = Math.sin(a); let t = Infinity;
+  const ray = /** @param {number} a */ a => { const dx = Math.cos(a), dy = Math.sin(a); let t = Infinity;
     if(dx > 1e-9) t = Math.min(t, (W - cx) / dx); if(dx < -1e-9) t = Math.min(t, -cx / dx); if(dy > 1e-9) t = Math.min(t, (H - cy) / dy); if(dy < -1e-9) t = Math.min(t, -cy / dy);
     return [cx + dx * t, cy + dy * t]; };
   /** @type {Array<[number[], number]>} */
   const corners = [[0, 0], [W, 0], [W, H], [0, H]].map(p => [p, Math.atan2(p[1] - cy, p[0] - cx)]);
-  const norm = a => ((a % (2 * PI)) + 2 * PI) % (2 * PI);
+  const norm = /** @param {number} a */ a => ((a % (2 * PI)) + 2 * PI) % (2 * PI);
   return [...Array(n)].map((_, i) => {
     const s = a0 + 2 * PI * i / n, span = 2 * PI / n;
     const mid = corners.map(([p, a]) => /** @type {[number[], number]} */ ([p, norm(a - s)])).filter(([, r]) => r > 1e-6 && r < span - 1e-6).sort((u, v) => u[1] - v[1]).map(([p]) => p);
@@ -82,12 +85,14 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
 // 隣り合うマスは同じ辺を共有するので、辺の両端の座標から作ったキー(key)で形をキャッシュし、向きだけ反転して使う。
 // これで境界がぴったり重なる（キーは 0.5px 単位に丸める）。乱数の種も辺のキーから決めるので、再描画しても形が変わらない。
 // 画像の外枠にあたる辺（onBox）は加工しない。taper で辺の両端は振幅を 0 に絞り、角でずれないようにする
+/** @param {number[][][]} cells @param {number} W @param {number} H @param {string} edge @param {number} A */
 function collageShape(cells, W, H, edge, A){
-  const near = (a, b) => Math.abs(a - b) < 0.6;
-  const onBox = (p, q) => (near(p[0], 0) && near(q[0], 0)) || (near(p[0], W) && near(q[0], W)) || (near(p[1], 0) && near(q[1], 0)) || (near(p[1], H) && near(q[1], H));
-  const key = p => Math.round(p[0] * 2) + ',' + Math.round(p[1] * 2);
-  const hash = s => { let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) % 100000 + 1; };
-  const inner = new Map();
+  const near = /** @param {number} a @param {number} b */ (a, b) => Math.abs(a - b) < 0.6;
+  const onBox = /** @param {number[]} p @param {number[]} q */ (p, q) => (near(p[0], 0) && near(q[0], 0)) || (near(p[0], W) && near(q[0], W)) || (near(p[1], 0) && near(q[1], 0)) || (near(p[1], H) && near(q[1], H));
+  const key = /** @param {number[]} p */ p => Math.round(p[0] * 2) + ',' + Math.round(p[1] * 2);
+  const hash = /** @param {string} s */ s => { let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) % 100000 + 1; };
+  /** @type {Map<string, number[][]>} */ const inner = new Map();
+  /** @param {number[]} p @param {number[]} q @returns {{pts: number[][], inner: boolean}} */
   const edgePts = (p, q) => {
     if(onBox(p, q) || Math.hypot(q[0] - p[0], q[1] - p[1]) < 1) return {pts:[p, q], inner:false};
     const rev = key(p) > key(q), [a, b] = rev ? [q, p] : [p, q], k = key(a) + '|' + key(b);
@@ -111,14 +116,14 @@ function collageShape(cells, W, H, edge, A){
     }
     return {pts: rev ? pts.slice().reverse() : pts, inner:true};
   };
-  const polys = cells.map(poly => { const out = []; poly.forEach((p, j) => { const {pts} = edgePts(p, poly[(j + 1) % poly.length]); out.push(...pts.slice(0, -1)); }); return out; });
+  const polys = cells.map(poly => { const out = /** @type {number[][]} */ ([]); poly.forEach((p, j) => { const {pts} = edgePts(p, poly[(j + 1) % poly.length]); out.push(...pts.slice(0, -1)); }); return out; });
   return {polys, lines:[...inner.values()]};
 }
 
-function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); }
+/** @param {CanvasRenderingContext2D} x @param {number[][]} poly */ function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); }
 // マスの画像（背景・文字・効果は別）を描く。poly の外接矩形をマスの範囲とし、画面外にはみ出す分は切る。
 // showEmpty：画像のないマスにプレースホルダー（番号と「画像をドロップ」）を描くか。書き出し時は false
-/** @param {CollageLayer} L */
+/** @param {CanvasRenderingContext2D} x @param {CollageLayer} L @param {number} i @param {number[][]} poly @param {number} W @param {number} H @param {boolean} showEmpty */
 function collageCellPicture(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = assetOf(cell.asset);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
@@ -164,17 +169,17 @@ function collageCellPicture(x, L, i, poly, W, H, showEmpty){
 }
 // 文字の描画：マスに収まる大きさに合わせて、文字スタイルでレンダリング（text-render.js の render）
 // 文字スタイルは分割フレーム全体で1つ（L.tstyle。null なら既定の「ポップ」）。文字だけはマスごと
-const cellHasText = c => !!(c && c.tx && c.tx.on && String(c.tx.text || '').trim());
-/** @param {CollageLayer} L */
+const cellHasText = /** @param {CollageCell|undefined} c */ c => !!(c && c.tx && c.tx.on && String(c.tx.text || '').trim());
 // マスの文字のスタイル：分割フレーム共通の文字スタイルに、マスごとの色の上書き（t＝cell.tx）を重ねる。
 // 文字の色は単色の塗りに、フチの色は全部のフチをその色にする（共通のスタイルは書き換えない）
+/** @param {CollageLayer} L @param {string} text @param {CollageCell['tx']} [t] */
 function cellTextStyle(L, text, t){
   const st = Object.assign({}, L.tstyle || collageDefaultStyle(), {text, pad:2});
   if(t && t.fcOn){ st.fillType = 'solid'; st.fill1 = t.fc; }
   if(t && t.ecOn) st.strokes = st.strokes.map(s => Object.assign({}, s, {c:t.ec}));
   return st;
 }
-/** @param {CollageLayer} L */
+/** @param {CanvasRenderingContext2D} x @param {CollageLayer} L @param {CollageCell} cell @param {number} bx0 @param {number} by0 @param {number} cw @param {number} ch */
 function drawCellText(x, L, cell, bx0, by0, cw, ch){
   const t = cell.tx, st = cellTextStyle(L, String(t.text), t), band = t.pos === 'c' ? 0.86 : 0.3, tt = L.ttx && L.ttx.on ? L.ttx : {sc:1, ox:0, oy:0};
   // まず 0.25 倍で試し描きして文字の大きさを測り、マスに収まる倍率 k を出してから本描画する（band＝文字が使える高さの割合。中央は大きく、上下寄せは帯状）。
@@ -187,7 +192,7 @@ function drawCellText(x, L, cell, bx0, by0, cw, ch){
 }
 // マス1つ分（背景色 → 画像 → 文字 の順）を描く。背景も文字も無ければ画像だけの軽い経路に任せる。
 // 背景の fillRect を上下左右 1px 広げるのは、クリップ境界の隙間（アンチエイリアスの透け）を防ぐため
-/** @param {CollageLayer} L */
+/** @param {CanvasRenderingContext2D} x @param {CollageLayer} L @param {number} i @param {number[][]} poly @param {number} W @param {number} H @param {boolean} showEmpty */
 function collageCellImage(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = assetOf(cell.asset), bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
   if(!hasBg && !hasTx){ collageCellPicture(x, L, i, poly, W, H, showEmpty); return; }
@@ -213,12 +218,12 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
   const rad = Math.max(0, (L.radius || 0) * s);
   x.save(); x.beginPath(); x.roundRect(0, 0, W, H, Math.min(rad, Math.min(W, H) / 2)); x.clip();
   polys.forEach((p, i) => { x.save(); collagePath(x, p); x.clip(); collageCellImage(x, L, i, p, W, H, showEmpty); x.restore(); });
-  const strokeLines = (w, col) => { x.lineWidth = w; x.strokeStyle = col; x.lineJoin = 'round'; x.lineCap = 'round'; x.beginPath(); lines.forEach(pts => pts.forEach(([px, py], j) => j ? x.lineTo(px, py) : x.moveTo(px, py))); x.stroke(); };
+  const strokeLines = /** @param {number} w @param {string} col */ (w, col) => { x.lineWidth = w; x.strokeStyle = col; x.lineJoin = 'round'; x.lineCap = 'round'; x.beginPath(); lines.forEach(pts => pts.forEach(([px, py], j) => j ? x.lineTo(px, py) : x.moveTo(px, py))); x.stroke(); };
   // （すき間 gap は、境界線を destination-out で抜いて透明にする＝背後の背景が見える）
   // ぼかしてつなげる：マスごとに画像を描き、自分の多角形をぼかしたマスクで切り抜いて重ねる。
   // ext は外枠にあたる辺を画面の外へ伸ばす（そこまでぼかされて外枠が薄くならないように）
   if(st === 'blur' && lw > 0){
-    const ext = p => p.map(([px, py]) => [px < 0.6 ? -lw * 4 : px > W - 0.6 ? W + lw * 4 : px, py < 0.6 ? -lw * 4 : py > H - 0.6 ? H + lw * 4 : py]);
+    const ext = /** @param {number[][]} p */ p => p.map(([px, py]) => [px < 0.6 ? -lw * 4 : px > W - 0.6 ? W + lw * 4 : px, py < 0.6 ? -lw * 4 : py > H - 0.6 ? H + lw * 4 : py]);
     polys.forEach((p, i) => {
       const t = mk(W, H), tx = ctx2d(t); collageCellImage(tx, L, i, p, W, H, showEmpty);
       tx.globalCompositeOperation = 'destination-in'; tx.filter = `blur(${lw * 0.8}px)`; collagePath(tx, ext(p)); tx.fillStyle = '#000'; tx.fill(); tx.filter = 'none';
@@ -240,7 +245,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 }
 // ctx に分割フレームを描く。実際の絵は collageCanvas で作ってレイヤーごとにキャッシュし、ここでは位置・回転・影・不透明度を付けて貼るだけ。
 // dims（選択枠・グループ範囲用）は描画のたびに更新。f＝倍率、live＝操作中、cache＝レイヤー id → {sk, k, c}
-/** @param {CollageLayer} L */
+/** @param {CanvasRenderingContext2D} ctx @param {CollageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
 function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));

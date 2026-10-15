@@ -18,7 +18,7 @@
 */
 /**
  * 倍率で判定する描画キャッシュ。
- * @returns {{sk:string, k:number, c:HTMLCanvasElement}}
+ * @returns {CacheEntry}
  * @param {Map<string, any>} cache
  * @param {string} id
  * @param {string} sk

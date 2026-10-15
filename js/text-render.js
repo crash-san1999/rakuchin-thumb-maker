@@ -23,7 +23,7 @@ var {mctx, darken, fontStr, METALS, parse, lsx, layout, baseY, lineTop, glyphs, 
 // mctx：文字幅の計測専用の小さな canvas。描画用 ctx とは別にして、font / letterSpacing を計測のたびに設定し直して使う
 const mctx = ctx2d(mk(4, 4));
 // 押し出しの奥行き用に色を暗くする（t=0 で元の色、1 で黒）
-const darken =(h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
+const darken = /** @param {string} h @param {number} t */ (h, t) => { const [r, g, b] = hex2rgb(h); return `rgb(${r*(1-t)|0},${g*(1-t)|0},${b*(1-t)|0})`; };
 // フォールバックの並び：英数字フォント → 日本語フォント → Noto Sans JP → sans-serif。未読込のフォントで寸法が変わるのを避けるため、描画前に ensureFont() で待つこと
 const fontStr = () =>`${RS.weight} ${RS.size}px ${RS.fontLatin ? '"' + RS.fontLatin + '", ' : ''}"${RS.font}", "Noto Sans JP", sans-serif`;
 /* 金属の色（上→下）。0.5付近の暗い帯が「映り込みの地平線」 */
@@ -41,8 +41,7 @@ const METALS = {
 
 // 文字列を行ごとの {t:文字列, a:強調か} の配列に分解する。{ } で囲んだ部分が強調（accent 色）。
 // 閉じ忘れの { は行末まで強調、対応のない } は普通の文字として残す（acc の状態で判定）。強調は行をまたがない（行ごとに acc を初期化）
-// 文字の一続き（seg）：t＝文字、a＝{ } で囲んだ強調部分か、w＝描いたときの幅（layout が後から入れる）
-/** @typedef {{t: string, a: boolean, w?: number}} TextSeg */
+// 文字の一続き・縦書きのマス・文字の並び・描く文字などの型（TextSeg・VCell・TextLayout・Glyph・StyleVars）は types/types.js
 /** @param {string} text @returns {TextSeg[][]} */ function parse(text){
   return text.split('\n').map(line => {
     /** @type {TextSeg[]} */
@@ -81,9 +80,12 @@ const V_SMALL = /[ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュ�
 /* 縦書きの「マス」に分ける（縦中横・横倒し・回転・補正をここで決める） */
 // 戻り値の各マス：t=文字 a=強調か w=字幅 adv=縦方向の送り量 ox,oy=描画位置の補正 gx,gy=字面中央合わせの補正 k=縮小率 r90=90度回すか
 // 英数字・記号の連続(\x21-\x7e)は1トークンにまとめ、vlat='side' なら横倒しで1マス、'up' なら1文字ずつ立てる（記号は V_ROT で回転）
+/** @param {TextSeg[]} segs */
 function vCells(segs){
-  const out = [], sz = RS.size, meas = t => mctx.measureText(t).width;
-  const push = (t, a, o) => { const c = Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o); [c.gx, c.gy] = (o && o.noCenter) ? [0, 0] : inkCenter(t, c.w); out.push(c); };
+  /** @type {VCell[]} */ const out = [];
+  const sz = RS.size, meas = /** @param {string} t */ t => mctx.measureText(t).width;
+  /** @param {string} t @param {boolean} a @param {Partial<VCell>} [o] */
+  const push = (t, a, o) => { const c = /** @type {VCell} */ (Object.assign({t, a, w:meas(t), adv:sz, ox:0, oy:0, k:1, r90:false}, o)); [c.gx, c.gy] = (o && o.noCenter) ? [0, 0] : inkCenter(t, c.w); out.push(c); };
   for(const s of segs){
     for(const tok of (s.t.match(/[\x21-\x7e]+|[０-９]+|[！？]+|[\s\S]/gu) || [])){
       const tcy = RS.vtcy && /^([0-9!?]{2,4}|[０-９]{2,4}|[！？]{2,4})$/u.test(tok);   // 全角の「２０」「！！」も縦中横にする
@@ -105,13 +107,15 @@ function vCells(segs){
 }
 // 縦書きのレイアウト。行（列）は右から左へ並ぶ（cx は列の中心x）。w=列の並びの幅、h=いちばん長い列の長さ。
 // align は縦書きでは上/中央/下の意味（left=上詰め）。戻り値に v:true を付け、描画側が縦横を分岐する目印にする
+/** @returns {TextLayout} */
 function layoutV(){
   const sz = RS.size, step = sz * RS.lh;
-  /** 縦書きの 1 列。cx・x0・y0 は列の位置で、下でまとめて入れる @type {{cells: any[], len: number, w: number, segs: any[], cx?: number, x0?: number, y0?: number}[]} */
+  // 縦書きの 1 列。cx・x0・y0 は列の位置で、下でまとめて入れる
+  /** @type {VLine[]} */
   const lines = parse(RS.text).map(segs => {
     const cells = vCells(segs); let len = 0;
     cells.forEach((c, j) => { len += c.adv + (j ? RS.ls : 0); });
-    return {cells, len, w:len, segs:cells};
+    return {cells, len, w:len, segs:cells, cx:0, x0:0, y0:0};
   });
   const w = step * (lines.length - 1) + sz, h = Math.max(sz, ...lines.map(l => l.len));
   lines.forEach((ln, i) => {
@@ -122,6 +126,7 @@ function layoutV(){
 }
 // 文字列 → レイアウト L（{lines, w, h, lineH, ty0, ty1}）。論理座標で、原点は左上（ベースライン基準の y は baseY で出す）。
 // 最初に mctx の font / letterSpacing を設定する。後続の glyphs / inkShift / charCells も mctx を使うので、フォント変更後はここを通ってから計測すること。
+/** @returns {TextLayout} */
 function layout(){
   mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
   if(RS.vertical) return layoutV();
@@ -133,27 +138,29 @@ function layout(){
   const lineH = RS.size * RS.lh;
   // 高さ：最終行はベースライン下のはみ出し（ディセンダ）分として size の 1.25 倍分を確保。ty0/ty1 は背景シェイプ用に「字の見える上端・下端」
   const h = lineH * (lines.length - 1) + RS.size * 1.25;
-  const L = {lines, w, h, lineH};
+  const L = {lines, w, h, lineH, ty0:0, ty1:0};
   L.ty0 = lineTop(L, 0); L.ty1 = baseY(L, lines.length - 1) + RS.size * 0.14;
   return L;
 }
 // i 行目のベースラインy（1行目は上端から size×0.98 下）と、字の上端y（ベースラインの 0.9 size 上。1行目で上端から約 0.08 size の余白）。
 // 塗りのグラデ・テカリ・マーカーなど「行の高さ」を基準にする処理はすべてこの2つを共有しているので、数値を変えるときは同時に見た目を確認すること
-const baseY = (L, i) => RS.size * 0.98 + i * L.lineH;
-const lineTop = (L, i) => baseY(L, i) - RS.size * 0.9;
+const baseY = /** @param {{lineH: number}} L @param {number} i */ (L, i) => RS.size * 0.98 + i * L.lineH;
+const lineTop = /** @param {{lineH: number}} L @param {number} i */ (L, i) => baseY(L, i) - RS.size * 0.9;
 
 /* 描画する文字の並び（ゆらぎONなら1文字ずつ。縦書きは常に1マスずつ） */
 // 戻り値 items は drawGlyphs / charCells / 塗り・フチ・押し出し・板ずれすべてで共有される（全パスで同じ位置に描くため、1回だけ作って使い回す）。
 // ゆらぎの乱数は rng(seed) の固定シードなので、再描画しても（プレビューと書き出しでも）同じ並びになる。items の生成順・乱数の消費順を変えるとゆらぎの出方が変わる。
+/** @param {TextLayout} L @returns {Glyph[]} */
 function glyphs(L){
-  const items = [], R = rng(RS.jitter.seed), J = RS.jitter.on;
+  /** @type {Glyph[]} */ const items = [];
+  const R = rng(RS.jitter.seed), J = RS.jitter.on;
   mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
   if(L.v){
     L.lines.forEach((ln, i) => {
       let y = ln.y0;
       ln.cells.forEach(c => {
         const by = y + c.adv / 2; y += c.adv + RS.ls;
-        const it = {t:c.t, a:c.a, line:i, vt:true, cw:c.w, bx:ln.cx, by, cx:ln.cx + c.ox, cy:by + c.oy, r90:c.r90, k:c.k, gx:c.gx, gy:c.gy, x:0, y:0};
+        /** @type {Glyph} */ const it = {t:c.t, a:c.a, line:i, vt:true, cw:c.w, bx:ln.cx, by, cx:ln.cx + c.ox, cy:by + c.oy, r90:c.r90, k:c.k, gx:c.gx, gy:c.gy, x:0, y:0};
         if(J){ it.rot = (R()*2-1) * RS.jitter.rot * PI / 180; it.dy = (R()*2-1) * RS.jitter.y; it.sc = 1 + (R()*2-1) * RS.jitter.scale; }
         items.push(it);
       });
@@ -164,7 +171,7 @@ function glyphs(L){
     let x = RS.align === 'left' ? 0 : RS.align === 'right' ? L.w - ln.w : (L.w - ln.w) / 2;
     const y = baseY(L, i);
     ln.segs.forEach(s => {
-      if(!J){ items.push({t:s.t, x, y, a:s.a, line:i}); x += s.w; return; }
+      if(!J){ items.push({t:s.t, x, y, a:s.a, line:i}); x += s.w ?? 0; return; }
       for(const ch of s.t){
         const cw = mctx.measureText(ch).width;
         items.push({t:ch, x, y, a:s.a, line:i, cw,
@@ -178,6 +185,7 @@ function glyphs(L){
 // items を1つずつ ctx に描く共通ルーチン。実際の描画（fillText / strokeText 等）は op(it, x, y) として呼び出し側が渡す
 // （塗り・フチ・押し出し・板ずれで同じ配置を共有するため）。ゆらぎ（rot あり）や縦書きは「文字の中心」を原点に回転・拡大してから描く。
 // mid は文字の見た目の縦中心（ベースラインからの高さ）で、回転の中心をここに置くと文字が自然に傾く。斜体(skew)は縦書きのみここで1文字ずつ掛ける（横書きは prep の変換で全体に掛かる）
+/** @param {CanvasRenderingContext2D} ctx @param {Glyph[]} items @param {(it: Glyph, x: number, y: number) => void} op */
 function drawGlyphs(ctx, items, op){
   const mid = RS.size * 0.38;
   for(const it of items){
@@ -190,14 +198,16 @@ function drawGlyphs(ctx, items, op){
       op(it, -it.cw / 2 + it.gx, mid + it.gy); ctx.restore(); continue;
     }
     if(it.rot === undefined){ op(it, it.x, it.y); continue; }
-    ctx.save(); ctx.translate(it.x + it.cw / 2, it.y - mid + it.dy); ctx.rotate(it.rot); ctx.scale(it.sc, it.sc);
-    op(it, -it.cw / 2, mid); ctx.restore();
+    const cw = it.cw ?? 0, sc = it.sc ?? 1;
+    ctx.save(); ctx.translate(it.x + cw / 2, it.y - mid + (it.dy ?? 0)); ctx.rotate(it.rot); ctx.scale(sc, sc);
+    op(it, -cw / 2, mid); ctx.restore();
   }
 }
 
 /* 塗り */
 // 角度つきグラデーション。line を省略すると全体（L.w × L.h）、指定すると その行（縦書きは列）の矩形を基準にする。
 // 半径 r は「その角度で矩形の端から端まで届く長さ」（|cos|×幅 + |sin|×高さ の半分）なので、どの角度でも両端の色がちょうど端に来る
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L @param {Array<[number, string]>} stops @param {number} [line] @param {number} [ang] */
 function angGrad(ctx, L, stops, line, ang){
   const a = (ang ?? RS.gradAngle) * PI / 180;
   let bx = 0, bw = L.w, by = line === undefined ? 0 : lineTop(L, line), bh = line === undefined ? L.h : RS.size * 1.05;
@@ -208,17 +218,21 @@ function angGrad(ctx, L, stops, line, ang){
   return g;
 }
 // 行 i の上→下の縦グラデ（金属・上下分割用）。縦書きは列の長さ方向に張る
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L @param {number} i @param {Array<[number, string]>} stops */
 function vGrad(ctx, L, i, stops){
-  const ln = L.lines[i], top = L.v ? ln.y0 : lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + (L.v ? Math.max(1, ln.len) : RS.size * 1.02));
+  const ln = L.v ? L.lines[i] : null, top = ln ? ln.y0 : lineTop(L, i), g = ctx.createLinearGradient(0, top, 0, top + (ln ? Math.max(1, ln.len) : RS.size * 1.02));
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 }
 // 塗り方（単色・グラデ・2色分割・金属）に応じた fillStyle を返す関数 it => style を作る。it.a（強調）なら強調色側を使う。
 // グラデの座標は L（論理座標）で作り、使う時点の変換で解釈されるので、prep 済みの ctx（fx と同じ変換）で使うこと
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L @returns {(it: Glyph) => string|CanvasGradient} */
 function fillStyles(ctx, L){
   const n = L.lines.length, idx = [...Array(n).keys()];
+  /** @param {string} c1 @param {string} c2 @param {string|null} [mid] @returns {Array<[number, string]>} */
   const two = (c1, c2, mid) => mid ? [[0,c1],[.5,mid],[1,c2]] : [[0,c1],[1,c2]];
-  let main, acc;
+  /** @type {(it: Glyph) => string|CanvasGradient} */ let main;
+  /** @type {(it: Glyph) => string|CanvasGradient} */ let acc;
   if(RS.fillType === 'solid'){ main = () => RS.fill1; acc = () => RS.accent1; }
   else if(RS.fillType === 'grad'){
     const ms = two(RS.fill1, RS.fill2, RS.fill3on ? RS.fill3 : null), as = two(RS.accent1, RS.accent2);
@@ -230,7 +244,7 @@ function fillStyles(ctx, L){
     }
   }else if(RS.fillType === 'split'){
     // 2色分割：色を切り替える境目に 0.002 だけ幅を持たせた、ほぼ段差のグラデにしている
-    const p = RS.splitPos, sp = (c1, c2) => [[0,c1],[p,c1],[Math.min(1, p + 0.002),c2],[1,c2]];
+    const p = RS.splitPos, sp = /** @param {string} c1 @param {string} c2 @returns {Array<[number, string]>} */ (c1, c2) => [[0,c1],[p,c1],[Math.min(1, p + 0.002),c2],[1,c2]];
     if(RS.splitDir === 'h'){
       const gm = idx.map(i => vGrad(ctx, L, i, sp(RS.fill1, RS.fill2))), ga = idx.map(i => vGrad(ctx, L, i, sp(RS.accent1, RS.accent2)));
       main = it => gm[it.line]; acc = it => ga[it.line];
@@ -252,13 +266,14 @@ RS = /** @type {any} */ (null);   // render() の外では使わない（型で�
 // style を scale 倍で描いたキャンバスを返す（style を省略すると、文字パネルで編集中のスタイル）
 // 戻り値は透明余白をトリミング済みの canvas（文字が空なら 1x1）。同期処理で、フォントは読み込み済み前提（呼ぶ前に ensureFont を await）。
 // 前の RS を退避して finally で戻すので、入れ子で呼ばれても（サムネ側が別 style で描く間など）RS が壊れない。例外が出ても必ず戻る
-/** @param {number} scale */ function render(scale, style = S){
+/** @param {number} scale @param {TextStyle} [style] */ function render(scale, style = S){
   const prev = RS; RS = style;
   try{ return renderStyle(scale); } finally { RS = prev; }
 }
 // 描画本体。レイヤー（キャンバス）の役割：A=背面と最終合成の土台 / K=フチ / F=塗り。3枚とも同寸法(W×H)なので blit/cut が位置合わせなしで使える。
 // plainText() は S を読む（fonts.js）。サムネ側が style を渡すときも空判定にはパネルの文字が使われる点に注意（実際の描画は RS.text）
 // renderStyle の余白 m（装飾ごとのはみ出し量の合計）。L＝layout()、layers＝フチ（内側からの累積の太さ）、outer＝フチの総太さ、ex＝立体の厚み
+/** @param {TextLayout} L @param {StrokeLayer[]} layers @param {number} outer @param {number} ex */
 function styleMargin(L, layers, outer, ex){
   // ここから m までは、装飾ごとの「はみ出し量」を足し合わせてキャンバスの余白を決める。足りないと装飾がキャンバス端で切れ、
   // 多すぎるとメモリ・時間が増える（最後に trim で切り落とすが、先に大きく確保される）。装飾を追加・拡大したら対応する項をここに足すこと
@@ -281,6 +296,7 @@ function styleMargin(L, layers, outer, ex){
   return m;
 }
 // renderStyle 1) 背面のキャンバス A を作って返す
+/** @param {StyleVars} sv */
 function styleBack(sv){
   const {scale, L, items, cells, outer, ex, W, H, prep} = sv;
   const A = mk(W, H), ax = prep(A);
@@ -292,6 +308,7 @@ function styleBack(sv){
   return A;
 }
 // renderStyle 2) フチのキャンバス K を作って返す
+/** @param {StyleVars} sv */
 function styleStrokes(sv){
   const {items, dotCells, layers, W, H, prep} = sv;
   // 外側（太い）→内側（細い）の順に同じ文字を線で重ね描きする。K は後でぼかし等で作り直すことがあるので let
@@ -304,14 +321,15 @@ function styleStrokes(sv){
   return K;
 }
 // renderStyle 3) 塗りのキャンバス F を作って返す（ドリップ・ベベルは K も読む／書き換える）
+/** @param {StyleVars} sv @param {HTMLCanvasElement} K */
 function styleFill(sv, K){
   const {scale, L, items, dotCells, layers, outer, W, H, prep} = sv;
   // 順序が大事：ドリップ・模様・ベベルなどは「描かれた塗りの形」を読む／上から重ねるので、塗りの直後に、この順で行う
   const F = mk(W, H), fx = prep(F), fs = fillStyles(fx, L);
   if(L.v && RS.fillType !== 'solid'){
     // 縦書き：マスを回転させるとグラデーションも一緒に回ってしまうので、形を描いてから色を重ねる（行・強調ごと）
-    const groups = new Map();
-    for(const it of items){ const k = it.line * 2 + (it.a ? 1 : 0); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(it); }
+    /** @type {Map<number, Glyph[]>} */ const groups = new Map();
+    for(const it of items){ const k = it.line * 2 + (it.a ? 1 : 0); const g = groups.get(k) || []; groups.set(k, g); g.push(it); }
     for(const g of groups.values()){
       const T = mk(W, H), tx = prep(T);
       drawGlyphs(tx, g, (it, px, py) => { tx.fillStyle = '#000'; tx.fillText(it.t, px, py); });
@@ -338,6 +356,7 @@ function styleFill(sv, K){
   return F;
 }
 // renderStyle 3) の続き：フチのぼかし（K を作り直す）・フチの光彩（A へ重ねる）。作り直した K を返す
+/** @param {StyleVars} sv @param {HTMLCanvasElement} A @param {HTMLCanvasElement} K */
 function styleStrokeFx(sv, A, K){
   const {scale, layers, W, H} = sv;
   // フチのぼかし・フチの光彩（フチがあるときだけ）。ぼかしは K を作り直す（CSS blur の値は sblur×scale÷2）。光彩は str 回（最大4）重ねて濃くする。
@@ -347,6 +366,7 @@ function styleStrokeFx(sv, A, K){
   return K;
 }
 // renderStyle 4) A・K・F を合成し、かすれ・ゆがみ・ワープ・残像まで済ませた本体 body を返す
+/** @param {StyleVars} sv @param {HTMLCanvasElement} A @param {HTMLCanvasElement} K @param {HTMLCanvasElement} F */
 function styleComposite(sv, A, K, F){
   const {scale} = sv;
   // 中抜き(hollow)=フチ K から塗り F の形を抜いて、フチだけ残す／くり抜き(knock)=背面 A ごと塗りの形で抜く（後ろが透ける）／通常=K の上に F
@@ -361,6 +381,7 @@ function styleComposite(sv, A, K, F){
   return body;
 }
 // renderStyle 5) 炎・光彩・影の上に本体を重ね、キラキラを足した最終合成 B を返す
+/** @param {StyleVars} sv @param {HTMLCanvasElement} body */
 function styleGlowShadow(sv, body){
   const {scale} = sv;
   // B は最終合成用。炎 → 光彩 → 影 → 本体の順に重ねる（本体が最前面）。光彩・影は本体の形から作る（effectOnly）。以降、ワープ・残像後の body とは別に B を育てていく
@@ -382,12 +403,14 @@ function styleGlowShadow(sv, body){
   return B;
 }
 // renderStyle 7) 回転：回転後に収まる外接サイズのキャンバスを作り、中心を合わせて貼ったものを返す
+/** @param {HTMLCanvasElement} B */
 function styleRotate(B){
   const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
   const R = mk(Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a))));
   const rx = ctx2d(R); rx.translate(R.width / 2, R.height / 2); rx.rotate(a); rx.drawImage(B, -cw / 2, -chh / 2);
   return R;
 }
+/** @param {number} scale */
 function renderStyle(scale){
   platePlace = null;
   if(!plainText().trim()) return mk(1, 1);
@@ -406,7 +429,7 @@ function renderStyle(scale){
   // 描画用 ctx を作る関数。論理座標 → 実ピクセルの変換（scale 倍・余白 m 分のオフセット・斜体のせん断 -t）をここで一括して掛ける。
   // せん断 -t は下の行ほど x が左へずれる（t>0）ので、その分 t×L.h を左オフセットに足して切れないようにする（t<0 は右へはみ出すだけで W 側の |t|×L.h が吸収）。
   // font 等は canvas ごとに設定が必要（描画先を替えるたびに prep を通す）
-  const prep = c => {
+  const prep = /** @param {HTMLCanvasElement} c */ c => {
     const x = ctx2d(c);
     x.setTransform(scale, 0, -t * scale, scale, (m + Math.max(0, t) * L.h) * scale, m * scale);
     x.font = fontStr(); x.letterSpacing = lsx() + 'px'; x.lineJoin = 'round'; x.lineCap = 'round'; x.textBaseline = 'alphabetic';
@@ -414,7 +437,7 @@ function renderStyle(scale){
   };
 
   // 段階ごとの関数（styleBack 〜 styleGlowShadow）に渡す値
-  const sv = {scale, L, items, cells, dotCells, layers, outer, ex, W, H, prep};
+  /** @type {StyleVars} */ const sv = {scale, L, items, cells, dotCells, layers, outer, ex, W, H, prep};
   // 1) 背面：背景シェイプ → 一文字囲み → マーカー → 板ずれ → 押し出し
   const A = styleBack(sv);
   // 2) フチ（傍点にもフチ）
@@ -446,11 +469,12 @@ function renderStyle(scale){
   return new DOMMatrix().translate(RW / 2, RH / 2).rotate(RS.rotate).translate(-cw / 2, -chh / 2);
 }
 // platePlace（論理座標と、論理→背面の絵の変換 m）を、最終の絵（回転・トリミング後）のピクセル座標にまとめる
+/** @param {PlatePlace} P @param {DOMMatrix|null} rotM */
 function plateOnCanvas(P, rotM){
   let M = new DOMMatrix().translate(trimShift[0], trimShift[1]);
   if(rotM) M = M.multiply(rotM);
   M = M.multiply(P.m);
-  const at = ([x, y]) => { const q = M.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };
+  const at = /** @param {number[]} p */ ([x, y]) => { const q = M.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };
   return {m:[M.a, M.b, M.c, M.d, M.e, M.f], tip:at(P.tip), base:at(P.base), center:at(P.lc), lc:P.lc, lbase:P.base, ltip:P.tip, rx:P.rx, ry:P.ry, kind:P.kind, size:P.size};
 }
 return {mctx, darken, fontStr, METALS, parse, lsx, layout, baseY, lineTop, glyphs, drawGlyphs, render};

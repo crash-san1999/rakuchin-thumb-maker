@@ -83,6 +83,7 @@ const COLLAGE_LAYOUTS = [
   ['wk53', '上5・下3', n => n === 8], ['wk35', '上3・下5', n => n === 8],
 ];
 // 2段レイアウトの [上段のマス数, 下段のマス数]
+/** @type {Record<string, number[]>} */
 const COLLAGE_ROWS2 = {wk43:[4, 3], wk34:[3, 4], wk52:[5, 2], wk25:[2, 5], wk53:[5, 3], wk35:[3, 5]};
 const COLLAGE_EDGES = [['straight', 'まっすぐ'], ['zigzag', 'ギザギザ'], ['wave', '波'], ['rough', 'ラフ']];
 const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], ['gap', 'すき間（背景が見える）'], ['glow', '光る線'], ['blur', 'ぼかしてつなげる'], ['shadow', '影で重ねる']];
