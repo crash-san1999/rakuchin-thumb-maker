@@ -49,7 +49,7 @@ function boxPal(b){
   return a.length ? a : RANSOM;
 }
 // マス中心を原点に、半サイズ h の図形の経路を作る（塗り・線は呼び出し側）。円・ひし形は四角と見た目の大きさが揃うよう 1.08 / 1.4 倍にしている
-function boxPath(ctx, shape, h){
+/** @param {CanvasRenderingContext2D} ctx @param {string} shape @param {number} h */ function boxPath(ctx, shape, h){
   ctx.beginPath();
   if(shape === 'circle') ctx.arc(0, 0, h * 1.08, 0, 7);
   else if(shape === 'diamond'){ const k = h * 1.4; ctx.moveTo(0, -k); ctx.lineTo(k, 0); ctx.lineTo(0, k); ctx.lineTo(-k, 0); ctx.closePath(); }
@@ -68,7 +68,7 @@ function drawBoxes(ctx, cells){
 }
 /* 傍点 */
 // withCell の局所座標（文字のマス中心が原点）で、点の経路だけを作る（塗る／線を引くのは呼び出し側。経路は save/restore の外へ残る）
-function dotPath(ctx){
+/** @param {CanvasRenderingContext2D} ctx */ function dotPath(ctx){
   const d = RS.dots, r = RS.size * d.size * 0.5;
   ctx.save(); ctx.beginPath();
   if(RS.vertical){ ctx.translate(RS.size * 0.5 + r * 1.3, 0); ctx.rotate(PI / 2); }   // 縦書きは文字の右側に付ける
@@ -145,7 +145,7 @@ function addReflection(B, body, scale){
 
 // 値ノイズ（256x256 の乱数表を滑らかに補間し、周波数違いを 0.6/0.3/0.1 で重ねたもの）。戻り値は (x,y) → -1〜1 の関数。
 // 乱数表は rng(seed) 由来なので、同じ seed なら毎回同じノイズ（再描画で形が変わらない）。表は 256 周期で繰り返す（& 255）
-function makeNoise(seed){
+/** @param {number} seed */ function makeNoise(seed){
   const R = rng(seed), N = 256, tab = new Float32Array(N * N);
   for(let i = 0; i < tab.length; i++) tab[i] = R();
   const v = (x, y) => tab[((y & 255) << 8) + (x & 255)];
@@ -262,7 +262,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
 /* ハーフトーン（下ほど大きい網点） */
 // F を直接書き換え。bbox の中心を軸に角度 p.angle で回した格子に点を打ち、点の半径は上端 0 → 下端で最大になる（グラデーション状の網）。
 // 半径 0.4px 未満は打たない。source-atop で文字の中にだけ描く。パターン種別 'halftone' のとき drawPattern の代わりに呼ばれる
-function drawHalftone(F, scale){
+/** @param {HTMLCanvasElement} F @param {number} scale */ function drawHalftone(F, scale){
   const p = RS.pattern, bb = bbox(F); if(!bb) return;
   const sz = Math.max(3, p.size * scale), x = ctx2d(F);
   x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-atop'; x.globalAlpha = p.a; x.fillStyle = p.c;
@@ -307,7 +307,7 @@ function drawCutLines(ctx, L){
 }
 /* エッジ上の点を集める */
 // alpha>128 で、上下左右のどれかが透明な画素＝輪郭の画素を全部返す（実ピクセル座標の [x,y] 配列）。キラキラの置き場所の候補用。画像が大きいと配列も大きくなる
-function edgePoints(c){
+/** @param {HTMLCanvasElement} c */ function edgePoints(c){
   const bb = bbox(c); if(!bb) return [];
   const W = c.width, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, W, c.height).data, pts = [];
   for(let y = Math.max(1, bb.t); y <= Math.min(c.height - 2, bb.b); y++) for(let x = Math.max(1, bb.l); x <= Math.min(W - 2, bb.r); x++){
@@ -320,7 +320,7 @@ function edgePoints(c){
 // F に直接描く（実ピクセル）。高さマップを2回ぼかし、しきい値 T=0.62 を横切る画素＝塗りの輪郭の少し内側 を候補にする（ぼかした濃度の等高線を使うので、元の輪郭のギザつきや細部に左右されにくい）。
 // 候補は固定シード(5)でシャッフルしたのち、グリッド(cell=gap/√2)で近傍だけ距離判定して間引き、gap 以上離れた点だけ採用（O(n) に近い間引き）。
 // F 描画の後ろ・ベベル／インナーシャドウ／テカリより後に呼ぶ必要がある（既に描かれた塗りの形を読むため）
-function drawBulbs(F, scale){
+/** @param {HTMLCanvasElement} F @param {number} scale */ function drawBulbs(F, scale){
   const b = RS.bulbs, r = Math.max(1.5, b.size * RS.size * scale), gap = Math.max(r * 2.4, b.gap * RS.size * scale), bb = bbox(F); if(!bb) return;
   const W = F.width, H = F.height, pad = Math.ceil(r * 2) + 2;
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), w = Math.min(W, bb.r + pad) - l, h = Math.min(H, bb.b + pad) - t;
@@ -333,7 +333,7 @@ function drawBulbs(F, scale){
   }
   const R = rng(5); for(let i = pts.length - 1; i > 0; i--){ const j = Math.floor(R() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; }
   const cell = gap / Math.SQRT2, grid = new Map(), ok = [];
-  const key = (i, j) => i * 100003 + j;
+  const key = /** @param {number} i @param {number} j */ (i, j) => i * 100003 + j;
   for(const [x, y] of pts){
     const gi = Math.floor(x / cell), gj = Math.floor(y / cell); let near = false;
     for(let di = -2; di <= 2 && !near; di++) for(let dj = -2; dj <= 2 && !near; dj++){

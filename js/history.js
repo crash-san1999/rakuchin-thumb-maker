@@ -8,7 +8,9 @@
 */
 /* 取り消し／やり直し */
 // hist: DOC の JSON 文字列の履歴 / hIdx: 今表示している位置 / restoring: 復元中は pushHist を止める（復元自体が履歴を積まないように）
-let hist = [], hIdx = -1, restoring = false;
+/** @type {string[]} */
+let hist = [];
+let hIdx = -1, restoring = false;
 function pushHist(){
   if(restoring || !DOC) return;
   // 直前と同じ内容なら積まない（変更のない操作や、デバウンス後の重複呼び出しで同じ状態が来うるため）
@@ -17,7 +19,7 @@ function pushHist(){
   hist = hist.slice(0, hIdx + 1); hist.push(j); if(hist.length > 120) hist.shift(); hIdx = hist.length - 1;
 }
 // i 番目のスナップショットで DOC を丸ごと置き換える。範囲外は何もしない（先頭／末尾で押しても無害）
-function restoreHist(i){
+/** @param {number} i */ function restoreHist(i){
   if(i < 0 || i >= hist.length) return;
   hIdx = i; restoring = true;
   DOC = JSON.parse(hist[i]); DOC.msel = [];   // 複数選択（msel）の状態は復元時に空へ戻す

@@ -46,7 +46,7 @@ const LS = {
 };
 // 保存の失敗を知らせる（続けて何度も出ないよう、30秒に1回まで）
 let saveWarnAt = 0;
-function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
+/** @param {string} msg */ function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
 // 文字入力中かどうか。キーボードショートカットが入力操作を横取りしないための判定
 const isTyping = e => { const t = tgt(e); return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
 // サムネのレイヤーに共通の初期値（キャンバスの中央）。座標はキャンバス（DOC.w×DOC.h）の px で、原点は左上・x,y はレイヤー中心。
@@ -55,17 +55,17 @@ const LAYER_BASE = () => ({x:Math.round(((typeof DOC === 'object' && DOC) ? DOC.
 // 小数第3位までに丸める（保存データを読みやすく小さく保つ）
 const r3 = v => Math.round(v * 1000) / 1000;
 // 日時入りのファイル名用（例：20260929-213000）
-const stamp = (d = new Date()) => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
+const stamp = (d = new Date()) => { const p = /** @param {number} n */ n => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
 // ファイルとしてダウンロードさせる。URL の解放は、ブラウザが保存を始める前に消えないよう少し遅らせる
-function downloadBlob(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
+/** @param {Blob | MediaSource} blob @param {string} name */ function downloadBlob(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); }
 // キャンバス上に出す案内の帯（編集モード中など）。W は描画先キャンバスの幅（実ピクセル）、dpr を掛けて表示サイズを画面の大きさに揃える
-function drawBanner(ctx, W, dpr, msg){
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} dpr @param {string} msg */ function drawBanner(ctx, W, dpr, msg){
   ctx.save(); ctx.font = `800 ${12 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const tw = ctx.measureText(msg).width + 24 * dpr; ctx.fillStyle = 'rgba(31,27,45,.88)'; ctx.beginPath(); ctx.roundRect(W / 2 - tw / 2, 8 * dpr, tw, 26 * dpr, 13 * dpr); ctx.fill();
   ctx.fillStyle = '#ffb800'; ctx.fillText(msg, W / 2, 14 * dpr); ctx.restore();
 }
 // 画面下の通知。err のときは読む時間を長めにする（6秒／通常 2.6秒）。連続して呼ばれたら前のタイマーを取り消して出し直す
-function toast(msg, err){
+/** @param {string | null} msg @param {boolean} [err] */ function toast(msg, err){
   const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', err ? 6000 : 2600);
 }
@@ -227,7 +227,7 @@ const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${
 // 種つきの乱数（mulberry32 系）。同じ seed なら毎回同じ並びになる。
 // 「別パターンにする」で seed を変えるだけで見た目が変わり、再描画しても・保存して開き直しても形が動かないようにするため Math.random は使わない。
 // seed=0 でも状態が 0 にならないよう || 1 で避けている
-function rng(seed){
+/** @param {number} seed */ function rng(seed){
   let a = (Math.imul(seed | 0, 2654435761) >>> 0) || 1;
   return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }

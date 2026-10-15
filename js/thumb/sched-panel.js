@@ -14,7 +14,7 @@ function schedFontOpts(cur){
   return keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
 }
 // 1行ぶんの入力欄（i＝行番号）。見出し（日付）と値は renderSched が入れる
-const schedRowHtml = i => `<div class="schRow" data-srow="${i}">
+const schedRowHtml = /** @param {number} i */ i => `<div class="schRow" data-srow="${i}">
   <b class="schDay"></b>
   <label class="schRest"><input type="checkbox" data-sf="rest"> おやすみ</label>
   <input type="text" class="schTime" data-sf="time" maxlength="12" aria-label="時刻">
@@ -98,7 +98,7 @@ document.addEventListener('change', e => {
     if(t.dataset.ssf){
       const f = findFont(t.value), w0 = st.weight, ws = weightsOf(f);
       st.font = t.value; st.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);
-      if(f && f.mb > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
+      if(f && (f.mb || 0) > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
     } else st.weight = +t.value;
   }
   syncDoc(); docChanged(false);

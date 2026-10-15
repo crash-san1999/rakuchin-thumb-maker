@@ -4,6 +4,7 @@
    依存：ASSETS・toneFilter・postFx（render.js）・render（text-render.js）・collage.js のデータ定義、collage-cells.js の cellTextStyle まわり。 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {boolean} */
 let exporting;
 var {collageCellsOf, collageCells, collagePath, cellHasText, drawCollage} = (() => {
 // 書き出し中かどうか（外部から切り替える）。true の間は空のマスの「画像をドロップ」表示を描かない。キャッシュのキーにも含める（drawCollage）
@@ -44,7 +45,7 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   }
   if(lay === 'bigL' || lay === 'bigT'){
     // 左に大きい1マス＋右の列。右の残りが4マス以上なら2列に分けて並べる（上から順に番号）。bigT は W/H を入れ替えて作る
-    const big = (W, H) => {
+    const big = /** @param {number} W @param {number} H */ (W, H) => {
       const m = W * main, d = slant * H * 0.5, xl = y => m + d * (1 - 2 * y / H), k = n - 1, out = [[[0, 0], [xl(0), 0], [xl(H), H], [0, H]]];
       const colCells = (xa, xb, cnt) => { for(let j = 0; j < cnt; j++){ const y0 = H * j / cnt, y1 = H * (j + 1) / cnt; out.push([[xa(y0), y0], [xb(y0), y0], [xb(y1), y1], [xa(y1), y1]]); } };
       if(k <= 3) colCells(xl, () => W, k);
@@ -206,7 +207,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 // 描く順序：全体を角丸でクリップ → 各マスを自分の多角形でクリップして描く → 境界線（bstyle ごと）→ 外枠。
 // 境界の太さ lw・振幅 A は f 倍してピクセルにする。radius は s（キャンバス1pxあたりのドキュメント倍率）で換算
 /** @param {CollageLayer} L */
-function collageCanvas(L, W, H, f, lay){
+/** @param {number} W @param {number} H @param {number} f @param {string} [lay] */ function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = ctx2d(c), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
   const cells = collageCellsOf(L, W, H, lay), A = Math.max(2, (L.amp || 20) * f);
   const {polys, lines} = collageShape(cells, W, H, L.edge || 'straight', A);

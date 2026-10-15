@@ -16,6 +16,8 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+// 描画中の文字スタイル。render() の間だけ中身があり、ほかの関数はすべて render() の中から呼ばれる（型では「いつも中身がある」扱い。DOC と同じ）
+/** @type {TextStyle} */
 let RS;
 var {mctx, darken, fontStr, METALS, parse, lsx, layout, baseY, lineTop, glyphs, drawGlyphs, render} = (() => {
 // mctx：文字幅の計測専用の小さな canvas。描画用 ctx とは別にして、font / letterSpacing を計測のたびに設定し直して使う
@@ -38,8 +40,11 @@ const METALS = {
 
 // 文字列を行ごとの {t:文字列, a:強調か} の配列に分解する。{ } で囲んだ部分が強調（accent 色）。
 // 閉じ忘れの { は行末まで強調、対応のない } は普通の文字として残す（acc の状態で判定）。強調は行をまたがない（行ごとに acc を初期化）
-function parse(text){
+// 文字の一続き（seg）：t＝文字、a＝{ } で囲んだ強調部分か、w＝描いたときの幅（layout が後から入れる）
+/** @typedef {{t: string, a: boolean, w?: number}} TextSeg */
+/** @param {string} text @returns {TextSeg[][]} */ function parse(text){
   return text.split('\n').map(line => {
+    /** @type {TextSeg[]} */
     const segs = []; let acc = false, buf = '';
     for(const ch of line){
       if(ch === '{' && !acc){ if(buf) segs.push({t:buf, a:false}); buf = ''; acc = true; }
@@ -58,7 +63,7 @@ const V_SMALL = /[ぁぃぅぇぉっゃゅょゎゕゖァィゥェォッャュ�
 /* 句読点を「文字の右上」に置くための補正量（フォントごとの実際のインクの位置から計算） */
 // 前提：mctx.font が設定済み（layout() が先に設定する）。w は measureText の幅。戻り値 [dx, dy] は論理座標。
 // 0.38 は drawGlyphs の mid（ベースラインからマス中央までの高さ）と同じ比率。0.24 は右上へ寄せる量。インク情報が取れない（空白等）場合は固定の寄せ量にフォールバック
-function inkShift(ch, w){
+/** @param {string} ch @param {number} w */ function inkShift(ch, w){
   const m = mctx.measureText(ch), sz = RS.size;
   if(!(m.actualBoundingBoxRight || m.actualBoundingBoxLeft)) return [sz * 0.4, -sz * 0.4];
   const dx = (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - w / 2;
@@ -67,7 +72,7 @@ function inkShift(ch, w){
 }
 /* 文字の「見えている部分」の中心をマスの中心に合わせるための補正量（フォント内の余白に左右されない） */
 // 縦書きの1マスごとの見た目の位置ずれ（フォントごとに字面の位置が違う）を吸収する。戻り値 [gx, gy] は drawGlyphs でそのまま足される
-function inkCenter(t, w){
+/** @param {string} t @param {number} w */ function inkCenter(t, w){
   const m = mctx.measureText(t);
   if(!(m.actualBoundingBoxRight || m.actualBoundingBoxLeft)) return [0, 0];
   return [-((m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - w / 2), -(RS.size * 0.38 - (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2)];
@@ -101,6 +106,7 @@ function vCells(segs){
 // align は縦書きでは上/中央/下の意味（left=上詰め）。戻り値に v:true を付け、描画側が縦横を分岐する目印にする
 function layoutV(){
   const sz = RS.size, step = sz * RS.lh;
+  /** 縦書きの 1 列。cx・x0・y0 は列の位置で、下でまとめて入れる @type {{cells: any[], len: number, w: number, segs: any[], cx?: number, x0?: number, y0?: number}[]} */
   const lines = parse(RS.text).map(segs => {
     const cells = vCells(segs); let len = 0;
     cells.forEach((c, j) => { len += c.adv + (j ? RS.ls : 0); });
@@ -241,11 +247,11 @@ function fillStyles(ctx, L){
   return it => it.a ? acc(it) : main(it);
 }
 
-RS = null;
+RS = /** @type {any} */ (null);   // render() の外では使わない（型では「いつも中身がある」扱い）
 // style を scale 倍で描いたキャンバスを返す（style を省略すると、文字パネルで編集中のスタイル）
 // 戻り値は透明余白をトリミング済みの canvas（文字が空なら 1x1）。同期処理で、フォントは読み込み済み前提（呼ぶ前に ensureFont を await）。
 // 前の RS を退避して finally で戻すので、入れ子で呼ばれても（サムネ側が別 style で描く間など）RS が壊れない。例外が出ても必ず戻る
-function render(scale, style = S){
+/** @param {number} scale */ function render(scale, style = S){
   const prev = RS; RS = style;
   try{ return renderStyle(scale); } finally { RS = prev; }
 }
@@ -433,7 +439,7 @@ function renderStyle(scale){
   return out;
 }
 // 回転（styleRotate）で、回転前の絵のピクセル → 回転後のピクセルへの変換
-function rotateMatrix(B){
+/** @param {HTMLCanvasElement} B */ function rotateMatrix(B){
   const a = RS.rotate * PI / 180, cw = B.width, chh = B.height;
   const RW = Math.ceil(Math.abs(cw * Math.cos(a)) + Math.abs(chh * Math.sin(a))), RH = Math.ceil(Math.abs(cw * Math.sin(a)) + Math.abs(chh * Math.cos(a)));
   return new DOMMatrix().translate(RW / 2, RH / 2).rotate(RS.rotate).translate(-cw / 2, -chh / 2);

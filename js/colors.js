@@ -12,11 +12,13 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {HTMLImageElement|null} */
 let bgImg;
+/** @type {boolean} */
 let wantBgPalette;
 var {mixHex, contrast, randomLike, resetAdj, renderThemes, paletteFromBg} = (() => {
 // RGB(16進) → [色相0-360, 彩度0-100, 輝度0-100]。無彩色（mx===mn）は色相0・彩度0
-function hexToHsl(hex){
+/** @param {string} hex */ function hexToHsl(hex){
   let [r, g, b] = hex2rgb(hex).map(v => v / 255);
   const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let h = 0, s = 0;
   if(mx !== mn){
@@ -26,16 +28,16 @@ function hexToHsl(hex){
   return [h, s * 100, l * 100];
 }
 // hexToHsl の逆（h: 度, s・l: 0-100）→ "#rrggbb"。色相は負や360超でも回り込ませ、s・l は範囲に収める（色相をずらす計算が多いため）
-function hsl(h, s, l){
+/** @param {number} h @param {number} s @param {number} l */ function hsl(h, s, l){
   h = ((h % 360) + 360) % 360; s = clamp(s, 0, 100) / 100; l = clamp(l, 0, 100) / 100;
-  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
-  const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  const k = /** @param {number} n */ n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = /** @param {number} n */ n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
   return rgb2hex([f(0), f(8), f(4)]);
 }
 // 2色の線形補間（t=0 で a、t=1 で b）。RGB 空間での単純な混色
 const mixHex = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex(A.map((v, i) => v + (B[i] - v) * t)); };
 // 相対輝度とコントラスト比は WCAG 2.x の定義どおり（0.03928 / 2.4 は sRGB のガンマ補正の閾値・指数）。contrast は 1〜21
-function lum(hex){ const c = hex2rgb(hex).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+/** @param {string} hex */ function lum(hex){ const c = hex2rgb(hex).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
 const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
 /* パレット = [塗り, 塗り2, 強調, 強調2, 濃い色(フチ), 明るい色(2本目フチ), 深い色(立体), 光, 背景図形] */
@@ -78,7 +80,7 @@ const toP = a => ({base:a[0], base2:a[1], accent:a[2], accent2:a[3], dark:a[4], 
 
 // ランダム配色。mode は色相の関係（comp=補色 / analog=類似 / triad=3色 / mono=同系 / vivid・pastel・dark・mono_accent）。'auto' は重み付きで抽選（comp と vivid を2回入れて出やすくしている）。
 // 戻り値は toP() と同じ形のオブジェクト。シードを使わず Math.random なので再現性はない（やり直したい時は履歴 history.js から戻す）。
-function genPalette(mode){
+/** @param {string} mode */ function genPalette(mode){
   const R = Math.random, j = a => (R() * 2 - 1) * a;   // j(a): ±a の揺らぎ
   if(mode === 'auto'){ const ms = ['comp','analog','triad','mono','vivid','pastel','dark','mono_accent','comp','vivid']; mode = ms[Math.floor(R() * ms.length)]; }
   const h = R() * 360;
@@ -110,7 +112,7 @@ function applyPalette(P){
   syncUI(); schedule();
 }
 // 色欄の「この色だけランダム」用：色相だけ変え、彩度・明るさは元に近づける（無彩色は彩度75、白・黒に近い色は明度55に補正して色が付くようにする）
-function randomLike(hex){
+/** @param {string} hex */ function randomLike(hex){
   const [, s, l] = hexToHsl(hex);
   return hsl(Math.random() * 360, s < 12 ? 75 : Math.max(55, s), l < 4 || l > 97 ? 55 : l);
 }

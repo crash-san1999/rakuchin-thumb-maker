@@ -402,13 +402,13 @@ function drawFx(ctx, L, f){
 // ！？マークで選べる文字（[値, 表示]）。描くのはこの中の文字だけ（保存データの細工で長い文字列を描かせないため）
 const FX_MARKS = [['!?', '！？'], ['!', '！'], ['?', '？'], ['!!', '！！'], ['?!', '？！'], ['…', '…'], ['♪', '♪']];
 // 花びら・葉っぱ・もみじの輪郭パス（beginPath／fill は呼び出し側）。原点中心、r が大きさ
-function petalShape(c, shape, r){
+/** @param {CanvasRenderingContext2D} c @param {string} shape @param {number} r */ function petalShape(c, shape, r){
   if(shape === 'leaf'){ c.moveTo(0, -r); c.quadraticCurveTo(r * 0.7, 0, 0, r); c.quadraticCurveTo(-r * 0.7, 0, 0, -r); c.closePath(); }
   else if(shape === 'momiji'){ for(let i = 0; i < 14; i++){ const a = i / 14 * 2 * PI - PI / 2, k = i % 2 ? r * 0.42 : r * (i === 0 ? 1 : 0.88); i ? c.lineTo(Math.cos(a) * k, Math.sin(a) * k) : c.moveTo(Math.cos(a) * k, Math.sin(a) * k); } c.closePath(); c.rect(-r * 0.05, 0, r * 0.1, r * 1.1); }
   else { c.moveTo(-r * 0.18, -r); c.lineTo(0, -r * 0.78); c.lineTo(r * 0.18, -r); c.bezierCurveTo(r * 0.8, -r * 0.75, r * 0.55, r * 0.55, 0, r); c.bezierCurveTo(-r * 0.55, r * 0.55, -r * 0.8, -r * 0.75, -r * 0.18, -r); c.closePath(); }
 }
 // ハート・星などの輪郭パスだけを作る（beginPath／fill は呼び出し側）。原点中心、r が大きさ。未知の shape はハートになる
-function scatterShape(c, shape, r){
+/** @param {CanvasRenderingContext2D} c @param {string} shape @param {number} r */ function scatterShape(c, shape, r){
   if(shape === 'star'){ for(let i = 0; i < 10; i++){ const a = i / 10 * 2 * PI - PI / 2, k = i % 2 ? r * 0.45 : r; i ? c.lineTo(Math.cos(a) * k, Math.sin(a) * k) : c.moveTo(Math.cos(a) * k, Math.sin(a) * k); } c.closePath(); }
   else if(shape === 'note'){ c.ellipse(-r * 0.25, r * 0.55, r * 0.38, r * 0.28, -0.4, 0, 7); c.rect(r * 0.04, -r * 0.8, r * 0.14, r * 1.4); c.moveTo(r * 0.18, -r * 0.8); c.quadraticCurveTo(r * 0.75, -r * 0.5, r * 0.55, -r * 0.05); c.quadraticCurveTo(r * 0.6, -r * 0.45, r * 0.18, -r * 0.5); }
   else if(shape === 'drop'){ c.moveTo(0, -r); c.bezierCurveTo(r * 0.6, -r * 0.2, r * 0.75, r * 0.2, r * 0.6, r * 0.5); c.arc(0, r * 0.4, r * 0.6, 0.15, PI - 0.15); c.bezierCurveTo(-r * 0.75, r * 0.2, -r * 0.6, -r * 0.2, 0, -r); }

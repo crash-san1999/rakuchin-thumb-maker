@@ -22,7 +22,7 @@ function bbox(c){
 }
 // 透明な余白を切り落とし、四方に pad px だけ余白を付けて返す（最終出力用）。全透明なら 1x1 を返す
 let trimShift = [0, 0];
-function trim(c, pad){
+/** @param {CanvasImageSource} c @param {number} pad */ function trim(c, pad){
   const bb = bbox(c); if(!bb) return mk(1, 1);
   const cw = bb.r - bb.l + 1, ch = bb.b - bb.t + 1, o = mk(cw + pad * 2, ch + pad * 2);
   ctx2d(o).drawImage(c, bb.l, bb.t, cw, ch, pad, pad, cw, ch);
@@ -31,7 +31,7 @@ function trim(c, pad){
 }
 // 箱型ブラー（横→縦の2パス、端は最寄りの値で延長）。移動平均で走査するので半径 r によらず O(w×h)。bevel / drawBulbs が高さマップを作るのに使う。
 // 戻り値は src と同じ大きさの Float32Array（0〜1 の濃度）。2回かけて近似ガウスにしている（呼び出し側）
-function boxBlur(src, w, h, r){
+/** @param {number[] | Float32Array<ArrayBuffer>} src @param {number} w @param {number} h @param {number} r */ function boxBlur(src, w, h, r){
   const tmp = new Float32Array(w * h), out = new Float32Array(w * h), div = 2 * r + 1;
   for(let y = 0; y < h; y++){
     const o = y * w; let acc = 0;
@@ -74,7 +74,7 @@ function bevel(c, sizePx, b){
 // c は塗り F。source-atop で「すでに描かれている画素の上にだけ」重ねるので、文字の外に模様が漏れない。
 // setTransform を単位行列に戻しているのは、呼び出し時の変換（prep の scale・平行移動）が模様に掛からないようにするため（タイルは実ピクセル基準）。
 // glitter / noise は固定シード（11 / 7）のタイルを作る＝再描画しても模様が変わらない。halftone / cutlines はここではなく別関数（renderStyle で振り分け）
-function drawPattern(c, scale){
+/** @param {HTMLCanvasElement} c @param {number} scale */ function drawPattern(c, scale){
   const p = RS.pattern, sz = Math.max(2, Math.round(p.size * scale));
   let tile, tr = new DOMMatrix().rotateSelf(p.angle);
   if(p.type === 'glitter'){
@@ -145,7 +145,7 @@ function drawMarker(ctx, L){
 /* かすれ */
 // destination-out で、すでに描かれた画素を丸い斑点と細い線で削る（c を直接書き換え）。固定シード g.seed で毎回同じ削れ方。
 // 個数は面積と粒の大きさから算出し、40000 で頭打ち（巨大キャンバスで重くならないように）。scale を掛けて実ピクセルの大きさにしている
-function applyGrunge(c, scale){
+/** @param {HTMLCanvasElement} c @param {number} scale */ function applyGrunge(c, scale){
   const g = RS.grunge, bb = bbox(c); if(!bb) return;
   const R = rng(g.seed), sz = g.size * scale, bw = bb.r - bb.l, bh = bb.b - bb.t;
   const x = ctx2d(c); x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; x.strokeStyle = '#000';
@@ -180,7 +180,7 @@ function warp(src){
     }
     return o;
   }
-  const U = px => Math.min(1, Math.max(0, (px - bb.l) / cw)), amp = A * ch;
+  const U = /** @param {number} px */ px => Math.min(1, Math.max(0, (px - bb.l) / cw)), amp = A * ch;
   const WARPS = {
     arch:  u => [-amp * 0.6 * (1 - (2*u - 1) ** 2), 1],
     wave:  u => [amp * 0.35 * Math.sin(2 * PI * w.freq * u), 1],
@@ -212,7 +212,7 @@ function glitch(B, scale){
   const g = RS.glitch, W = B.width, H = B.height, d = g.rgb * scale;
   const out = mk(W, H), o = ctx2d(out);
   if(d > 0){
-    const tint = col => { const c = mk(W, H), x = ctx2d(c); x.drawImage(B, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, W, H); return c; };
+    const tint = /** @param {string} col */ col => { const c = mk(W, H), x = ctx2d(c); x.drawImage(B, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, W, H); return c; };
     o.globalAlpha = 0.9; o.drawImage(tint('#00e5ff'), -d, 0);
     o.globalCompositeOperation = 'lighter'; o.drawImage(tint('#ff0040'), d, 0);
     o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1;

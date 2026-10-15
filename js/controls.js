@@ -197,7 +197,7 @@ const paletteRowHTML = r => `<div data-show="${r.show}"><div class="row"><label>
 // KB.row の第2引数 true は「色欄にランダム・スポイトのボタンを付ける」指定
 const rowHTML = r => r.pal ? paletteRowHTML(r) : KB.row(r, true);
 // フチ i 本目の行。ON/太さ/色が横一列なので通常の行ではなく専用。キーは strokes.i.on|w|c（S.strokes 配列と対応）
-function strokeHTML(i){
+/** @param {number} i */ function strokeHTML(i){
   return `<div class="stroke-row"><label class="chk"><input type="checkbox" data-k="strokes.${i}.on"> フチ${i+1}</label>
     <input type="range" data-k="strokes.${i}.w" min="0" max="40" step="0.5"><input type="number" class="num" data-k="strokes.${i}.w" min="0" max="40" step="0.5">
     <input type="color" data-k="strokes.${i}.c"></div>`;
@@ -216,7 +216,7 @@ function buildTextControls(){
 
 // S の内容を画面へ反映する（入力欄の値・ボタンの選択状態・表示条件）。S を直接書き換えた後（パレット適用・履歴復元・初期化など）は必ず呼ぶ。
 // except：入力中の欄を上書きしないための除外（onInput から渡される）
-function syncUI(except){
+/** @param {HTMLElement} [except] */ function syncUI(except){
   KB.sync(except);
   $$('[data-pi]').forEach(el => { el.style.opacity = +(el.dataset.pi ?? 0) < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
   $$('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));

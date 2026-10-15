@@ -35,7 +35,7 @@ const layerMask = L => {
 const pixelRank = (L, x, y) => {
   let m; try{ m = layerMask(L); }catch{ return 0; }
   const cx = Math.round(x * MASK_K), cy = Math.round(y * MASK_K);
-  const at = (px, py) => px >= 0 && py >= 0 && px < m.W && py < m.H && m.a[(py * m.W + px) * 4 + 3] > 24;
+  const at = /** @param {number} px @param {number} py */ (px, py) => px >= 0 && py >= 0 && px < m.W && py < m.H && m.a[(py * m.W + px) * 4 + 3] > 24;
   if(at(cx, cy)) return 2;
   for(let dy = -NEAR; dy <= NEAR; dy++) for(let dx = -NEAR; dx <= NEAR; dx++) if(at(cx + dx, cy + dy)) return 1;
   return 0;

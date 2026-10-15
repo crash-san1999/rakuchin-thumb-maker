@@ -4,6 +4,7 @@
 /* マスの一覧（操作パネル） */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {number} */
 let cellDragFrom;
 var {renderCells, renderCellText, collageIcon} = (() => {
 function renderCells(){
@@ -81,7 +82,7 @@ document.addEventListener('change', e => {
     if(t.id === 'ctFont'){
       ts.font = t.value; const f = findFont(t.value), ws = weightsOf(f), w0 = ts.weight;
       ts.weight = ws.reduce((a, b) => Math.abs(b - w0) < Math.abs(a - w0) ? b : a, ws[0]);   // 選んだフォントにある、いちばん近い太さに
-      if(f && f.mb > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
+      if(f && (f.mb || 0) > 1 && !cssState.has(f.family)) toast(`「${f.family}」を読み込んでいます（約${f.mb}MB・初回のみ）`);
     } else ts.weight = +t.value;
     syncDoc(); docChanged(false);
   }
@@ -136,7 +137,7 @@ document.addEventListener('click', e => {
 
 // レイアウト選択ボタン用の小さなアイコン（48×28 の data URL）。キー＝レイアウト名＋分割数でキャッシュ。傾き・境界の形は付けない
 const collageIconCache = {};
-function collageIcon(lay, n){
+/** @param {string} lay @param {number} n */ function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];
   const c = mk(48, 28), x = ctx2d(c), cols = ['#ff4f8b', '#ffb800', '#34d2ff', '#7cd67c', '#b388ff', '#ff8a4c', '#2bb5a0', '#e0e04a'];
   collageCells(lay, n, 48, 28, 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 8]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });

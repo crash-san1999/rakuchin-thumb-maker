@@ -20,7 +20,7 @@ function collageCellAt(L, x, y){
    座標はレイヤーの回転を戻したローカル座標。傾き（slant）があると境界線は斜めなので、押した高さ（横に並べるなら横位置）での線の位置で比べる */
 // ドキュメント座標 (x,y) → 並べる向きに沿った位置 u（0〜1）と、その向きの長さ len。並べる向き以外のレイアウトは null
 /** @param {CollageLayer} L */
-function collageAxisPos(L, x, y){
+/** @param {number} x @param {number} y */ function collageAxisPos(L, x, y){
   if(!collageResizable(L.layout)) return null;
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
@@ -61,7 +61,7 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
 const collageAllText = L => L.cells.map(c => c.tx && c.tx.text || '').join('') || 'あ';
 function collageDefaultStyle(){ const p = PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
 /** @param {CollageLayer} L */
-function collageSetStyle(L, name){
+/** @param {string} name */ function collageSetStyle(L, name){
   const p = PRESETS.find(q => q[0] === name); if(!p) return;
   L.tpre = name; L.tstyle = merged(p[1]);
 }
@@ -73,7 +73,7 @@ const WK_JA = ['日', '月', '火', '水', '木', '金', '土'], WK_EN = ['SUN',
 const WK_BG = {wd:['#fff6dd', '#ffe9b8'], sat:['#d8ecff', '#a9d2ff'], sun:['#ffdbe3', '#ffb3c4']};
 // startStr は 'YYYY-MM-DD'（形式が違う・空なら今日）。first は 'sun' なら日曜始まり、それ以外は月曜始まり。
 // ローカル時間で日付だけを扱う（new Date('YYYY-MM-DD') は UTC 扱いで日がずれるので、年月日を分解して作る）
-function weekDates(startStr, first){   // 戻り値：7日ぶんの Date
+/** @param {string} startStr @param {string} first */ function weekDates(startStr, first){   // 戻り値：7日ぶんの Date
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startStr || ''), t = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(), d0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   const back = first === 'sun' ? d0.getDay() : (d0.getDay() + 6) % 7;
   return [...Array(7)].map((_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - back + i));
@@ -86,7 +86,7 @@ function weekLabel(d, wk){
   return wk.layout === 'side' ? dt + (wk.paren && wk.paren !== 'none' ? '' : ' ') + w : `${dt}\n${w}`;   // 日付の横（括弧があればくっつける）／日付の下
 }
 /** マス一覧の小さいボタンに出す文字：1行目だけ。「10/7(月)」のような日付は括弧の手前までを出して、途中で（の前で切れないようにする */
-function cellBtnLabel(text){
+/** @param {string} text */ function cellBtnLabel(text){
   const first = String(text || '').split('\n')[0].trim();
   const m = first.match(/^[^(（]+/);                    // 括弧より前（日付そのもの）
   const head = (m ? m[0] : first).trim() || first;
@@ -95,7 +95,7 @@ function cellBtnLabel(text){
 // 7日ぶんをマス0から順に入れる（マスが少なければそこまで）。画像のあるマスは文字を上寄せ('t')にして絵を隠さない。
 // 8分割のときは最後のマスを「MEMO」にする（ただし文字が入っていれば上書きしない）
 // 「1週間を入れる」が書く形の文字か（例：10/12(月)・10/12\n（月）・月曜日・MON・10/12）
-function isWeekText(s){
+/** @param {string} s */ function isWeekText(s){
   const t = String(s || '').replace(/\s+/g, ''), wd = '(?:[日月火水木金土](?:曜日)?|SUN|MON|TUE|WED|THU|FRI|SAT)';
   return new RegExp(`^(?:\\d{1,2}/\\d{1,2}(?:[(（]?${wd}[)）]?)?|[(（]?${wd}[)）]?)$`).test(t);
 }
@@ -163,13 +163,13 @@ function cellImg(x, img, cx, cy, dw, dh, cell){
 // 入れ替えるのは画像に付随する項目だけ（背景色・文字・効果は「マスの場所」に属するので動かさない）
 const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
 /** @param {CollageLayer} L */
-function swapCells(L, i, j){
+/** @param {number} i @param {number} j */ function swapCells(L, i, j){
   if(i === j || i < 0 || j < 0) return;
   const a = L.cells[i], b = L.cells[j];
   for(const k of CELL_IMG_KEYS){ const t = a[k]; a[k] = b[k]; b[k] = t; }
   L.ac = j;
 }
 /** @param {CollageLayer} L */
-function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
+/** @param {string | number} i */ function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
 return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell};
 })();

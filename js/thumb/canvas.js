@@ -33,7 +33,7 @@ const headerOfPreset = v => String(v).endsWith('-header') ? String(v).slice(0, -
 // normalizeDoc と setCanvasSize の両方で、超える書き出し幅は 0.9 倍ずつ縮めて収める
 const CANVAS_MIN = 200, CANVAS_MAX = 5000, EXPORT_MAX_PX = 36e6;
 // キャンバスのサイズを変える。fit のときは、今ある文字・画像などの位置と大きさも新しいサイズに合わせて置き直す
-function setCanvasSize(w, h, fit = true, hdr = ''){
+/** @param {string | number} w @param {string | number} h */ function setCanvasSize(w, h, fit = true, hdr = ''){
   w = Math.round(+w); h = Math.round(+h);
   if(!(w >= CANVAS_MIN && h >= CANVAS_MIN && w <= CANVAS_MAX && h <= CANVAS_MAX)){ toast(`サイズは ${CANVAS_MIN}〜${CANVAS_MAX} px の間で指定してください`, true); return false; }
   // ヘッダーのサイズを選んだときだけセーフエリアのガイドを自動でオン、それ以外のサイズではオフにする

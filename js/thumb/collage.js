@@ -41,7 +41,7 @@ function mergeCellFx(o){
 const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x));
 // マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
 /** @param {CollageLayer} L */
-const collageFx = (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
+const collageFx = /** @param {number} i */ (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
 const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
   ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'],
   ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['popart', 'ポップアート'], ['wave', 'ゆらゆら'], ['crt', 'ブラウン管'], ['scan', '走査線'], ['reset', 'なし']];

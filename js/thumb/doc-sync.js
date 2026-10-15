@@ -34,7 +34,7 @@ function dSet(k, v){
    live=true はスライダーのドラッグ中：まず軽い即時描画（livePaint）だけして、高品質の再描画は 220ms 止まってから行う。
    履歴は 450ms まとめて1回だけ積む（ドラッグ1回＝取り消し1回にするため）。
    text モード（文字だけを透過PNGで作る）ではサムネの再描画は不要なので、保存と履歴だけ行って戻る */
-function docChanged(live){
+/** @param {boolean} live */ function docChanged(live){
   saveDoc(); clearTimeout(histT); histT = setTimeout(pushHist, 450);
   if(DOC.mode !== 'thumb') return;
   clearTimeout(schT);
@@ -66,7 +66,7 @@ const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:
 // ドラッグ中など、何度も続けて呼ばれるときは1フレームに1回だけ同期する
 let syncRaf = 0;
 function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syncRaf = 0; syncDoc(); }); }
-function syncDoc(except){
+/** @param {HTMLElement} [except] */ function syncDoc(except){
   DB.sync(except);
   $$('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const sc = $('#safeChip'); if(sc) sc.hidden = !DOC.hdr;   // セーフエリアのボタンはヘッダー画像のときだけ出す

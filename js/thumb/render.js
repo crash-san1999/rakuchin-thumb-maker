@@ -18,6 +18,7 @@
 /* ---------- 描画 ---------- */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {number} */
 let tvCss;
 /** @type {{x: number|null, y: number|null}} */
 let snapLines;
@@ -247,7 +248,7 @@ function postFx(c, b, f, cx, cy){
 // 'blur' なら同じ画像を cover で拡大して暗くぼかしたものを敷く、'color' なら単色。
 // ぼかし画像を m=80px ぶん大きく描くのは、ぼかしで端が透けて黒い縁が出るのを防ぐため。
 // 画像が未読み込み（ASSETS に無い）ときは暗い単色を返す（読み込み完了後に compose のキャッシュキーが変わって描き直される）
-function bgImageLayer(W, H, f){
+/** @param {number} W @param {number} H @param {number} f */ function bgImageLayer(W, H, f){
   const b = DOC.bg, A = ASSETS[b.asset], c = mk(W, H), x = ctx2d(c);
   x.fillStyle = '#101014'; x.fillRect(0, 0, W, H);
   if(!A) return c;
@@ -316,7 +317,7 @@ function compose(ctx, W, H, live, cache){
    canvas 内部の解像度は w × dpr（最大2：高密度画面でも重くしすぎない）。small は縮小表示モード（幅 246 固定）で、補助表示を出さない。
    サイズが変わったときだけ width/height を代入する（代入すると canvas が消えてちらつくため）。
    live=false のときだけレイヤーパネルのサムネを更新する（ドラッグ中は重いので省く） */
-function paintPreview(live){
+/** @param {boolean} live */ function paintPreview(live){
   if(!DOC || DOC.mode !== 'thumb') return;
   const st = $('#stage'), tv = $as('#tv', HTMLCanvasElement), small = st.classList.contains('small');
   const cs = getComputedStyle(st), pw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ph = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8;

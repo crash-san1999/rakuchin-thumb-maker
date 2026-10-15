@@ -9,9 +9,9 @@
 */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
-let pwaReg;
+/** @type {ServiceWorkerRegistration | null} */ let pwaReg;
 var {pwaRegister} = (() => {
-pwaReg = null; let pwaPrompt = null;
+pwaReg = null; /** @type {Event | null} */ let pwaPrompt = null;
 function pwaRegister(){
   // file:// などでは Service Worker を登録できない（エラーになる）ので、http(s) のときだけ登録する
   if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;

@@ -11,8 +11,11 @@
 /* ============ プレビュー・書き出し ============ */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {number} */
 let tok;
+/** @type {number|undefined} */
 let schT;
+/** @type {number|undefined} */
 let histT;
 var {schedule, update, setBg, updateVis} = (() => {
 // tok: update() の世代番号（フォント待ちの間に新しい update が走ったら古い方を捨てる）/ schT: 再描画の遅延タイマー
@@ -70,7 +73,7 @@ $('#bgSeg').addEventListener('click', e => {
   setBg(b.dataset.bg);
 });
 // className を作り直すので、'small'（小さく表示）の状態だけは引き継ぐ
-function setBg(bg){
+/** @param {string} [bg] */ function setBg(bg){
   $('#stage').className = 'stage ' + bg + ($('#stage').classList.contains('small') ? ' small' : '');
   $$('#bgSeg button').forEach(x => x.classList.toggle('on', x.dataset.bg === bg));
 }
@@ -101,7 +104,7 @@ function updateVis(){
   el.textContent = `視認性 ${cr.toFixed(1)}:1 ${mark}`; el.className = 'vis ' + cls;
 }
 // 小さく表示 ⇄ 大きく表示。今の状態に合わせてボタンの文字・アイコン・説明も切り替える
-function setSmallView(on){
+/** @param {boolean} [on] */ function setSmallView(on){
   $('#stage').classList.toggle('small', on);
   const b = $('#smallBtn'); b.classList.toggle('on', on);
   b.innerHTML = `${ic(on ? 'monitor' : 'phone')}${on ? '大きく表示' : '小さく表示'}`;
