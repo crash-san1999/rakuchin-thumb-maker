@@ -25,7 +25,7 @@ async function update(){
   if(DOC && DOC.mode === 'thumb') return drawThumb();
   const my = ++tok; await ensureFont(); if(my !== tok) return;   // フォント読み込み中に次の update が来たら、こちらは描かずに終わる
   const dpr = Math.min(2, window.devicePixelRatio || 1);   // 高解像度画面でも2倍まで（メモリ・描画時間の上限）
-  const c = render(dpr), pv = $('#pv');
+  const c = render(dpr), pv = $as('#pv', HTMLCanvasElement);
   // canvas の幅を変えると内容が消えるので、必ず width/height を設定してから描く。CSS 幅は dpr で割って見た目の大きさに戻す
   pv.width = c.width; pv.height = c.height;
   const px = pv.getContext('2d'); px.clearRect(0, 0, c.width, c.height); px.drawImage(c, 0, 0);
@@ -59,17 +59,17 @@ document.addEventListener('keydown', e => { if((e.ctrlKey || e.metaKey) && e.key
 
 /* プレビュー背景 */
 $('#bgSeg').addEventListener('click', e => {
-  const b = e.target.closest('button'); if(!b) return;
+  const b = tgt(e).closest('button'); if(!b) return;
   if(b.dataset.bg === 'img'){ $('#bgfile').click(); return; }   // 「画像」は選択ダイアログを開くだけ。実際の切り替えは #bgfile の onchange 側
   setBg(b.dataset.bg);
 });
 // className を作り直すので、'small'（小さく表示）の状態だけは引き継ぐ
 function setBg(bg){
   $('#stage').className = 'stage ' + bg + ($('#stage').classList.contains('small') ? ' small' : '');
-  document.querySelectorAll('#bgSeg button').forEach(x => x.classList.toggle('on', x.dataset.bg === bg));
+  $$('#bgSeg button').forEach(x => x.classList.toggle('on', x.dataset.bg === bg));
 }
 $('#bgfile').onchange = e => {
-  const f = e.target.files[0]; if(!f) return;
+  const f = inputOf(e).files[0]; if(!f) return;
   const url = URL.createObjectURL(f);   // 注意：この URL は revokeObjectURL していない（背景として表示し続けるので、選び直すたびに増える）
   $('#stage').style.backgroundImage = `url(${url})`; setBg('img');
   // 「背景画像から配色」を押して画像を選んだ場合（wantBgPalette）は、読み込み完了を待ってから配色を作る（colors.js）

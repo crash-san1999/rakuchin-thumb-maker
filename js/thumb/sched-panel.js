@@ -29,7 +29,7 @@ const setVal = (el, v) => { if(el && document.activeElement !== el && el.value !
 function renderSched(){
   const L = selLayer(); if(!isSched(L)) return;
   const days = schedDays(L);
-  document.querySelectorAll('.schBox').forEach(box => {
+  $$('.schBox').forEach(box => {
     if(box.dataset.lid !== L.id){
       box.dataset.lid = L.id;
       box.innerHTML = `<div class="subhead" style="margin-top:6px">週<span class="subnote">その週のどの日を選んでも、週の始まりから7日ぶんの日付が入ります</span></div>
@@ -46,25 +46,25 @@ function renderSched(){
         <div class="schRows">${[...Array(7).keys()].map(schedRowHtml).join('')}</div>`;
     }
     const today = (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date());
-    setVal(box.querySelector('#schStart'), L.start || today); setVal(box.querySelector('#schFirst'), L.first); setVal(box.querySelector('#schTime'), L.time);
-    box.querySelectorAll('.schRow').forEach(el => {
+    setVal($('#schStart', box), L.start || today); setVal($('#schFirst', box), L.first); setVal($('#schTime', box), L.time);
+    $$('.schRow', box).forEach(el => {
       const i = +el.dataset.srow, r = L.rows[i], A = ASSETS[r.asset];
-      const day = schedDayLabel(L, days[i]); if(el.querySelector('.schDay').textContent !== day) el.querySelector('.schDay').textContent = day;
+      const day = schedDayLabel(L, days[i]); if($('.schDay', el).textContent !== day) $('.schDay', el).textContent = day;
       el.classList.toggle('rest', r.rest);
-      el.querySelector('[data-sf="rest"]').checked = r.rest;
-      setVal(el.querySelector('[data-sf="time"]'), r.time); el.querySelector('[data-sf="time"]').placeholder = L.time || '時刻';
-      setVal(el.querySelector('[data-sf="title"]'), r.title);
-      const th = el.querySelector('.schThumb'), src = A ? A.thumb : '';
+      $as('[data-sf="rest"]', HTMLInputElement, el).checked = r.rest;
+      setVal($as('[data-sf="time"]', HTMLInputElement, el), r.time); $as('[data-sf="time"]', HTMLInputElement, el).placeholder = L.time || '時刻';
+      setVal($('[data-sf="title"]', el), r.title);
+      const th = $('.schThumb', el), src = A ? A.thumb : '';
       if(th.dataset.src !== src){ th.dataset.src = src; th.innerHTML = A ? `<img src="${A.thumb}" alt="">` : ic('image'); }
-      el.querySelector('.schClr').hidden = !A;
+      $('.schClr', el).hidden = !A;
     });
   });
-  document.querySelectorAll('.schStyleBox').forEach(box => {
+  $$('.schStyleBox').forEach(box => {
     if(box.dataset.lid !== L.id){ box.dataset.lid = L.id; box.innerHTML = schedStyleHtml('d', '日付・時刻') + schedStyleHtml('t', 'タイトル・おやすみ'); }
     for(const k of ['d', 't']){
       const st = k === 'd' ? schedDStyle(L) : schedTStyle(L), pre = k === 'd' ? L.dpre : L.tpre;
-      setVal(box.querySelector(`[data-ssp="${k}"]`), pre);
-      const fs = box.querySelector(`[data-ssf="${k}"]`), ws = box.querySelector(`[data-ssw="${k}"]`);
+      setVal($(`[data-ssp="${k}"]`, box), pre);
+      const fs = $as(`[data-ssf="${k}"]`, HTMLSelectElement, box), ws = $as(`[data-ssw="${k}"]`, HTMLSelectElement, box);
       if(fs.dataset.built !== '1'){ fs.innerHTML = schedFontOpts(st.font); fs.dataset.built = '1'; }
       if(![...fs.options].some(o => o.value === st.font)) fs.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(st.font)}">${escapeHtml(st.font)}</option>`);
       fs.value = st.font;
@@ -77,13 +77,13 @@ function renderSched(){
 /* ---------- イベント ---------- */
 const schedLayer = () => { const L = selLayer(); return isSched(L) ? L : null; };
 document.addEventListener('input', e => {
-  const t = e.target, L = schedLayer(); if(!L || !t.closest) return;
+  const t = inputOf(e), L = schedLayer(); if(!L || !t.closest) return;
   const row = t.closest('.schRow');
   if(row && (t.dataset.sf === 'time' || t.dataset.sf === 'title')){ L.rows[+row.dataset.srow][t.dataset.sf] = t.value; docChanged(false); return; }
   if(t.id === 'schTime'){ L.time = t.value; syncDoc(); docChanged(false); }
 });
 document.addEventListener('change', e => {
-  const t = e.target, L = schedLayer(); if(!L || !t.closest) return;
+  const t = inputOf(e), L = schedLayer(); if(!L || !t.closest) return;
   const row = t.closest('.schRow');
   if(row && t.dataset.sf === 'rest'){ L.rows[+row.dataset.srow].rest = t.checked; syncDoc(); docChanged(false); return; }
   if(t.id === 'schStart'){ if(/^\d{4}-\d{2}-\d{2}$/.test(t.value)){ L.start = t.value; syncDoc(); docChanged(false); } return; }
@@ -104,7 +104,7 @@ document.addEventListener('change', e => {
 // 行の画像：□で選ぶ（隠しファイル入力 #schedfile）／×で外す
 let schedPickRow = -1;
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('[data-simg], [data-sclr]'), L = schedLayer(); if(!b || !L) return;
+  const b = tgt(e).closest && tgt(e).closest('[data-simg], [data-sclr]'), L = schedLayer(); if(!b || !L) return;
   if(b.dataset.sclr != null){ L.rows[+b.dataset.sclr].asset = null; syncDoc(); docChanged(false); return; }
   schedPickRow = +b.dataset.simg; $('#schedfile').click();
 });
@@ -120,15 +120,15 @@ document.addEventListener('click', e => {
 }
 // 週を動かす（前の週・次の週）／来週分を作る（次の週にして中身を空に）。どちらも取り消し（Ctrl+Z）で戻せる
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('[data-sweek], [data-snext]'), L = schedLayer(); if(!b || !L) return;
+  const b = tgt(e).closest && tgt(e).closest('[data-sweek], [data-snext]'), L = schedLayer(); if(!b || !L) return;
   if(b.dataset.snext != null){ schedShiftWeek(L, 1, true); toast(`${schedDayLabel(L, schedDays(L)[0])} からの週にして、中身を空にしました（取り消しで戻せます）`); }
   else { schedShiftWeek(L, +b.dataset.sweek, false); toast(`${schedDayLabel(L, schedDays(L)[0])} からの週にしました`); }
   syncDoc(); docChanged(false);
 });
 // テキストでまとめて入力
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('#schBulkGo'), L = schedLayer(); if(!b || !L) return;
-  const ta = $('#schBulkText'), text = ta ? ta.value : ''; if(!text.trim()){ toast('予定を1行に1日ずつ書いてください', true); return; }
+  const b = tgt(e).closest && tgt(e).closest('#schBulkGo'), L = schedLayer(); if(!b || !L) return;
+  const ta = $as('#schBulkText', HTMLTextAreaElement), text = ta ? ta.value : ''; if(!text.trim()){ toast('予定を1行に1日ずつ書いてください', true); return; }
   const {done, skipped} = schedApplyText(L, text);
   syncDoc(); docChanged(false);
   if(!done.length){ toast('入れられる行がありませんでした（日付がこの週に無いか、空の行だけです）', true); return; }

@@ -66,9 +66,9 @@ let syncRaf = 0;
 function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syncRaf = 0; syncDoc(); }); }
 function syncDoc(except){
   DB.sync(except);
-  document.querySelectorAll('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
+  $$('[data-guide]').forEach(b => b.classList.toggle('on', !!DOC.guides[b.dataset.guide]));
   const sc = $('#safeChip'); if(sc) sc.hidden = !DOC.hdr;   // セーフエリアのボタンはヘッダー画像のときだけ出す
-  const L = selLayer(); document.querySelectorAll('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
+  const L = selLayer(); $$('[data-flip]').forEach(b => b.classList.toggle('on', !!(L && L[b.dataset.flip])));
   renderInspector();
   renderCells(); renderCellText(); renderSched();
   refreshSizeUI();

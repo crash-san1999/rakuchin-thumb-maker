@@ -121,7 +121,7 @@ tools/docs_decorate.py     説明書の画像に、ポップな飾り（水玉�
 tests/                     自動テスト（Playwright）と、変更前後の見た目を比べるツール（helpers.py が共通部品、run_all.py が全件実行）
 tsconfig.json              型チェック（tsc --checkJs）の設定。配信物には関係しない（読み込まれない）
 types/types.js             型の定義（DOC・レイヤー各種・文字スタイル・編集モード）。既存のファクトリ関数から型を引くので、キーを足せば自動で反映
-types/dom-loose.d.ts       DOM まわりの型を一時的に緩める設定（締め方の手順もここに記載）
+types/dom-extra.d.ts       DOM の型の補い（closest() が HTMLElement を返す・標準の型に無いブラウザ API）。要素は core.js の $・$$・$as・tgt・inputOf で型付きで取り出す
 docs/manual.md             操作マニュアル
 docs/img/                  説明書の画像
 ```

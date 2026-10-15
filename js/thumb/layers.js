@@ -66,7 +66,7 @@ function renderLayers(){
 }
 // レイヤーのサムネを prevCache から描く。背景は cover（全面に敷く）、レイヤーは contain（0.94 倍で余白を残す）
 function refreshThumbs(){
-  document.querySelectorAll('#layerList canvas[data-th]').forEach(cv => {
+  $$as('#layerList canvas[data-th]', HTMLCanvasElement).forEach(cv => {
     const id = cv.dataset.th, e = prevCache.get(id), src = e && e.c, x = cv.getContext('2d');
     x.clearRect(0, 0, cv.width, cv.height); if(!src) return;
     const k = id === '__bg' ? Math.max(cv.width / src.width, cv.height / src.height) : Math.min(cv.width / src.width, cv.height / src.height) * 0.94;
@@ -95,8 +95,8 @@ function movePeer(id, to){
 // 名前の変更。label が空なら自動の名前（文字なら本文）に戻る。入力が自動名と同じときも空にして、あとで本文を変えたとき名前が追従するようにする。
 // Enter／blur で確定、Esc で取り消し。キー・ポインタ操作はキャンバスのショートカットに渡さない（stopPropagation）
 function startRename(id){
-  const row = document.querySelector(`#layerList [data-lid="${id}"]`), L = layerById(id); if(!row || !L) return;
-  const nm = row.querySelector('.nm'), inp = document.createElement('input');
+  const row = $(`#layerList [data-lid="${id}"]`), L = layerById(id); if(!row || !L) return;
+  const nm = $('.nm', row), inp = document.createElement('input');
   inp.type = 'text'; inp.value = layerName(L); nm.replaceWith(inp); inp.focus(); inp.select(); setTimeout(() => { inp.focus(); inp.select(); }, 30);
   let done = false;
   const fin = ok => { if(done) return; done = true; if(ok){ const v = inp.value.trim(); L.label = v && v !== layerName(Object.assign({}, L, {label:''})) ? v : ''; saveDoc(); } renderLayers(); syncDoc(); };
@@ -164,12 +164,12 @@ function guardMenuUntilRelease(){
 }
 $('#ctxmenu').addEventListener('click', e => {
   if(menuGuard) return;
-  const b = e.target.closest('[data-ma]'); if(!b) return;
+  const b = tgt(e).closest('[data-ma]'); if(!b) return;
   const id = $('#ctxmenu').dataset.lid; hideMenu();
   if(b.dataset.ma === 'rename'){ setTimeout(() => startRename(id), 0); return; }
   layerAction(id, b.dataset.ma);
 });
-document.addEventListener('pointerdown', e => { if(!e.target.closest('#ctxmenu')) hideMenu(); }, true);
+document.addEventListener('pointerdown', e => { if(!tgt(e).closest('#ctxmenu')) hideMenu(); }, true);
 window.addEventListener('blur', hideMenu);
 // レイヤーを選ぶ（id=null で選択解除）。keepMulti は複数選択を保ったまま主選択だけ変えるとき（toggleMulti から）。
 // 別のレイヤーを選ぶと、キャンバス上の編集モード（フレーム調整など）は終了する。
@@ -187,7 +187,7 @@ function selectLayer(id, keepMulti){
     if(L.style !== S){ S = L.style; resetAdj(); refreshTextUI(); }
   }
   syncDoc(); saveDoc();
-  const rows = document.querySelectorAll('#layerList .ly[data-lid]');
+  const rows = $$('#layerList .ly[data-lid]');
   if(rows.length === DOC.layers.length && !hadMulti && !keepMulti) rows.forEach(r => r.classList.toggle('on', r.dataset.lid === id)); else renderLayers();
   requestAnimationFrame(() => paintPreview(false));
 }
@@ -256,6 +256,6 @@ function layerAction(id, act){
 /** @param {Layer} L */
 function flipLayer(L, key){ L[key] = !L[key]; }
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-flip]'); const L = selLayer(); if(!b || !L || L.type !== 'image') return;
+  const b = tgt(e).closest('[data-flip]'); const L = selLayer(); if(!b || !L || L.type !== 'image') return;
   flipLayer(L, b.dataset.flip); syncDoc(); docChanged(false);
 });

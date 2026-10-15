@@ -39,9 +39,9 @@ function pwaApplyUpdate(){
 // ボタンは委譲で受ける（更新バー・追加ボタンの HTML がいつ作られても動くように）。
 // pwaPrompt.prompt() は利用者のクリック操作の中でしか呼べないので、beforeinstallprompt で受け取ったイベントを保持しておく
 document.addEventListener('click', e => {
-  if(e.target.closest('#updNow')) pwaApplyUpdate();
-  else if(e.target.closest('#updLater')) $('#updBar').classList.remove('show');
-  else if(e.target.closest('#pwaInstall') && pwaPrompt){ pwaPrompt.prompt(); pwaPrompt.userChoice.finally(() => { pwaPrompt = null; $('#pwaInstall').hidden = true; }); }
+  if(tgt(e).closest('#updNow')) pwaApplyUpdate();
+  else if(tgt(e).closest('#updLater')) $('#updBar').classList.remove('show');
+  else if(tgt(e).closest('#pwaInstall') && pwaPrompt){ pwaPrompt.prompt(); pwaPrompt.userChoice.finally(() => { pwaPrompt = null; $('#pwaInstall').hidden = true; }); }
 });
 // 「アプリとして追加」：ブラウザが追加できる状態になったときだけボタンを出す（iPhone は Safari の共有メニューから）
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwaPrompt = e; const b = $('#pwaInstall'); if(b) b.hidden = false; });

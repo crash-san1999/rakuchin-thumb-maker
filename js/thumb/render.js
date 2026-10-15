@@ -310,7 +310,7 @@ function compose(ctx, W, H, live, cache){
    live=false のときだけレイヤーパネルのサムネを更新する（ドラッグ中は重いので省く） */
 function paintPreview(live){
   if(!DOC || DOC.mode !== 'thumb') return;
-  const st = $('#stage'), tv = $('#tv'), small = st.classList.contains('small');
+  const st = $('#stage'), tv = $as('#tv', HTMLCanvasElement), small = st.classList.contains('small');
   const cs = getComputedStyle(st), pw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), ph = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 8;
   let w = Math.max(isMobile ? 140 : 240, Math.min(pw - (isMobile ? 6 : 0), ph * DOC.w / DOC.h));
   if(small) w = 246;

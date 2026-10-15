@@ -174,14 +174,14 @@ async function ensureFont(st = S){
 /* フォント一覧 */
 // 一覧の見本を、画面に近づいた（上下 200px）ものから順に読み込む。数千書体を一度に読み込まないための遅延読み込み。読み込みを始めたら監視をやめる
 const io = new IntersectionObserver(ents => {
-  ents.forEach(e => { if(e.isIntersecting){ ensureCss(findFont(e.target.dataset.family)); io.unobserve(e.target); } });
+  ents.forEach(e => { if(e.isIntersecting){ ensureCss(findFont(/** @type {HTMLElement} */ (e.target).dataset.family)); io.unobserve(e.target); } });
 }, {root: null, rootMargin: '200px'});
 function sampleText(){
   const s = plainText().split('\n').find(l => l.trim()) || '';
   return (s.trim() || 'サンプル文字あア亜').slice(0, 14);
 }
 // 一覧の絞り込み条件（検索語・分類・用途）を画面から読む
-const fontQuery = () => ({q: $('#fq').value.trim().toLowerCase(), cat: $('#fcat').value, use: $('#fuse').value});
+const fontQuery = () => ({q: $as('#fq', HTMLInputElement).value.trim().toLowerCase(), cat: $as('#fcat', HTMLSelectElement).value, use: $as('#fuse', HTMLSelectElement).value});
 // 絞り込み：「お気に入り」「web」は分類より優先。more（Google の残りの欧文）は、検索中か「欧文」タブのときだけ出す
 function filterFonts({q, cat, use}){
   return fonts.filter(f => {
@@ -207,7 +207,7 @@ function fontRow(f, smp, lsmp){
   const latBtn = f.cat === '欧文' ? `<button class="lat${S.fontLatin === f.family ? ' on' : ''}" title="英字・数字だけこのフォントにする">英数字</button>` : '';
   const name = `${escapeHtml(f.family)}<b>${escapeHtml(fontBadge(f))}</b>${u ? `<span class="tag">${escapeHtml(u)}</span>` : ''}${lazy ? `<span class="tag">選ぶと読込（約${f.mb}MB）</span>` : ''}`;
   d.innerHTML = `<div class="fn"><span>${name}</span><span>${latBtn}<button class="fav${favs.has(f.family) ? ' on' : ''}" title="お気に入り">${ic('star')}</button></span></div><div class="fs"></div>`;
-  const fs = d.querySelector('.fs'); fs.style.fontFamily = `"${f.family}", "Noto Sans JP", sans-serif`;
+  const fs = $('.fs', d); fs.style.fontFamily = `"${f.family}", "Noto Sans JP", sans-serif`;
   fs.textContent = f.cat === '欧文' ? lsmp : smp;
   return {d, watch: !lazy && LAZY_SRC.includes(f.src) && !cssState.has(f.family)};
 }
@@ -223,12 +223,12 @@ function renderFontList(){
 // 一覧のクリックは委譲で1か所に集める（行は renderFontList のたびに作り直されるため）。
 // 行の中のボタンで動作が分かれる：英数字ボタン＝英字だけ別フォント／★＝お気に入り／それ以外＝そのフォントを選ぶ
 $('#flist').addEventListener('click', e => {
-  const it = e.target.closest('.fi'); if(!it) return;
+  const it = tgt(e).closest('.fi'); if(!it) return;
   const fam = it.dataset.family;
-  if(e.target.closest('.lat')){
+  if(tgt(e).closest('.lat')){
     S.fontLatin = S.fontLatin === fam ? '' : fam; buildLatin(); renderFontList(); schedule(); return;
   }
-  const fb = e.target.closest('.fav');
+  const fb = tgt(e).closest('.fav');
   if(fb){
     favs.has(fam) ? favs.delete(fam) : favs.add(fam); LS.set('ttm_favs', [...favs]);
     fb.classList.toggle('on');
@@ -237,19 +237,19 @@ $('#flist').addEventListener('click', e => {
   }
   S.font = fam; fixWeight(); buildWeight();
   const ff = findFont(fam);
-  if(ff && ff.mb > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = it.querySelectorAll('.tag'); t.length > 1 && t[t.length - 1].remove(); }); }
-  document.querySelectorAll('.fi.on').forEach(x => x.classList.remove('on')); it.classList.add('on');
+  if(ff && ff.mb > 1 && !cssState.has(fam)){ toast(`「${fam}」を読み込んでいます（約${ff.mb}MB・初回のみ）`); ensureCss(ff, S.weight).then(() => { const t = $$('.tag', it); t.length > 1 && t[t.length - 1].remove(); }); }
+  $$('.fi.on').forEach(x => x.classList.remove('on')); it.classList.add('on');
   $('#curFont').textContent = `使用中: ${S.font}`; schedule();
 });
 // 検索欄は入力のたびに再描画すると重いので 120ms 待つ
-let fqT; $('#fq').addEventListener('input', () => { clearTimeout(fqT); fqT = setTimeout(renderFontList, 120); });
-$('#fcat').addEventListener('change', renderFontList);
-$('#fuse').addEventListener('change', renderFontList);
+let fqT; $as('#fq', HTMLInputElement).addEventListener('input', () => { clearTimeout(fqT); fqT = setTimeout(renderFontList, 120); });
+$as('#fcat', HTMLSelectElement).addEventListener('change', renderFontList);
+$as('#fuse', HTMLSelectElement).addEventListener('change', renderFontList);
 // 欧文フォントの見本文字：本文の英数字部分を優先し、無ければ呼び出し側が既定文に差し替える（空文字を返す）
 const latinSample = () => (plainText().match(/[A-Za-z0-9!?#%&+\-.:/ ]+/g) || []).map(x => x.trim()).filter(Boolean).join(' ').slice(0, 16);
 // 「英数字だけ別フォント」のプルダウンを作る。候補はお気に入りと使用中だけ（more の数千件を入れると選べないため）
 function buildLatin(){
-  const sel = $('#fontLatin');
+  const sel = $as('#fontLatin', HTMLSelectElement);
   const lat = fonts.filter(f => f.cat === '欧文' && (!f.more || f.family === S.fontLatin || favs.has(f.family)));
   sel.innerHTML = '<option value="">（日本語フォントのまま）</option>' + lat.map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)} ― ${escapeHtml((f.usage || '').split('（')[0])}</option>`).join('');
   sel.value = S.fontLatin || '';
@@ -276,16 +276,16 @@ function fixWeight(){
 const WN = {100:'Thin',200:'ExtraLight',300:'Light',400:'Regular',500:'Medium',600:'SemiBold',700:'Bold',800:'ExtraBold',900:'Black'};
 // 太さのプルダウンを作り直す。英数字フォントの欄が空（初回）なら、こちらもここで作る
 function buildWeight(){
-  if($('#fontLatin').options.length === 0) buildLatin(); else $('#fontLatin').value = S.fontLatin || '';
-  const sel = $('#weight'); sel.innerHTML = weightsOf(findFont(S.font)).map(w => `<option value="${w}">${w} ${WN[w]||''}</option>`).join('');
-  sel.value = S.weight;
+  if($as('#fontLatin', HTMLSelectElement).options.length === 0) buildLatin(); else $as('#fontLatin', HTMLSelectElement).value = S.fontLatin || '';
+  const sel = $as('#weight', HTMLSelectElement); sel.innerHTML = weightsOf(findFont(S.font)).map(w => `<option value="${w}">${w} ${WN[w]||''}</option>`).join('');
+  sel.value = String(S.weight);
 }
 
 /* 最新のフォント一覧（Fontsource API・キー不要）。新しく増えた日本語フォントを追加 */
 // 新しく見つかった分（fresh）は ttm_fsupd に保存し、次回起動時に buildBaseFonts が取り込む。
 // 追加位置は「最初の欧文」の直前＝日本語の並びの末尾。manual=false（自動確認）は失敗しても黙って終わる（通信できない環境で毎回エラーを出さない）
 async function updateFontList(manual){
-  const btn = $('#fetchG'); if(manual){ btn.disabled = true; }
+  const btn = $as('#fetchG', HTMLButtonElement); if(manual){ btn.disabled = true; }
   try{
     const r = await fetch('https://api.fontsource.org/v1/fonts?subsets=japanese');
     if(!r.ok) throw new Error('HTTP ' + r.status);
@@ -305,7 +305,7 @@ async function updateFontList(manual){
   }catch(e){ if(manual) toast('一覧を取得できませんでした（通信を確認してください）', true); }
   if(manual) btn.disabled = false;
 }
-$('#fetchG').onclick = () => updateFontList(true);
+$as('#fetchG', HTMLButtonElement).onclick = () => updateFontList(true);
 /* お気に入りのフォントを、起動後のひまな時間に先に読み込んでおく（通信量を抑える設定・モバイル回線のときはしない）。
    Service Worker が端末に保存するので、次の起動からはすぐ使える。
    3MB 超の重い書体は先読みしない。残りも 1.5 秒ずつずらして読む（一度に通信を集中させない） */
@@ -369,8 +369,8 @@ async function addWebFontUrl(raw){
   }
   const ok = added.filter(Boolean);
   if(!ok.length){ toast('フォントが見つかりませんでした。@font-face を含むCSSか、フォントファイルのURLか確認してください', true); return; }
-  $('#fsrcinfo').textContent = fontInfoText(); $('#webUrl').value = '';
-  $('#fcat').value = ''; $('#fq').value = ok[0].family; renderFontList();
+  $('#fsrcinfo').textContent = fontInfoText(); $as('#webUrl', HTMLInputElement).value = '';
+  $as('#fcat', HTMLSelectElement).value = ''; $as('#fq', HTMLInputElement).value = ok[0].family; renderFontList();
   toast(`「${ok.map(f => f.family).join('」「')}」を追加しました。一覧から選んでください`);
 }
 // 任意の CSS を読み込み、その前後で document.fonts に増えた family を新しいフォントとして登録する
@@ -383,8 +383,8 @@ async function addCssFamilies(href){
   fams.forEach(fam => { const e = findFont(fam) || addWebEntry({family: fam, cat:'デザイン', usage:'', weights:[400,700], src:'url', css: href}); cssState.set(fam, Promise.resolve()); first = first || e; });
   return first;
 }
-$('#addWebUrl').onclick = () => { const v = $('#webUrl').value.trim(); if(v) addWebFontUrl(v); };
-$('#webUrl').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('#addWebUrl').click(); } });
+$('#addWebUrl').onclick = () => { const v = $as('#webUrl', HTMLInputElement).value.trim(); if(v) addWebFontUrl(v); };
+$as('#webUrl', HTMLInputElement).addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('#addWebUrl').click(); } });
 
 /* PC内フォント */
 /* ---------- PC内フォント ----------
@@ -457,16 +457,16 @@ $('#loadLocal').onclick = async () => {
     n = addLocalFonts(found);
     toast(`${why}、よく使われるフォント${LOCAL_CANDIDATES.length}種から検出しました：${found.length}書体。ほかのフォントは下の欄に名前を入れて追加できます`);
   }
-  $('#fcat').value = 'PC内'; renderFontList();
+  $as('#fcat', HTMLSelectElement).value = 'PC内'; renderFontList();
 };
 $('#addLocalName').onclick = () => {
-  const name = $('#localName').value.trim().replace(/^["']|["']$/g, ''); if(!name) return;
+  const name = $as('#localName', HTMLInputElement).value.trim().replace(/^["']|["']$/g, ''); if(!name) return;
   if(!fontInstalled(name)){ toast(`「${name}」が見つかりません。フォント設定に表示される正式な名前か、英語名で試してください`, true); return; }
-  addLocalFonts([name]); $('#localName').value = '';
-  S.font = name; fixWeight(); buildWeight(); $('#fcat').value = 'PC内'; renderFontList(); schedule();
+  addLocalFonts([name]); $as('#localName', HTMLInputElement).value = '';
+  S.font = name; fixWeight(); buildWeight(); $as('#fcat', HTMLSelectElement).value = 'PC内'; renderFontList(); schedule();
   toast(`「${name}」を追加して適用しました`);
 };
-$('#localName').addEventListener('keydown', e => { if(e.key === 'Enter') $('#addLocalName').click(); });
+$as('#localName', HTMLInputElement).addEventListener('keydown', e => { if(e.key === 'Enter') $('#addLocalName').click(); });
 
 /* フォントファイル */
 // ドロップ・選択されたフォントファイルをその場で読み込む。フォント名はファイル名から決める（中身の名前は読まない）。
@@ -483,9 +483,9 @@ async function addFontFiles(files){
       S.font = fam; n++;
     }catch(e){ toast(`${file.name} を読み込めませんでした`, true); }
   }
-  if(n){ fixWeight(); buildWeight(); $('#fcat').value = 'ファイル'; renderFontList(); schedule(); toast(`${n} 個のフォントを追加しました（再読み込みで消えます）`); }
+  if(n){ fixWeight(); buildWeight(); $as('#fcat', HTMLSelectElement).value = 'ファイル'; renderFontList(); schedule(); toast(`${n} 個のフォントを追加しました（再読み込みで消えます）`); }
 }
 const drop = $('#drop');
 drop.onclick = () => $('#ffile').click();
-$('#ffile').onchange = e => { addFontFiles(e.target.files); e.target.value = ''; };
+$('#ffile').onchange = e => { addFontFiles(inputOf(e).files); inputOf(e).value = ''; };
 // ドロップは画面全体のドロップ処理（thumb/events-drop.js）が受け取る

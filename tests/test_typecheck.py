@@ -1,5 +1,5 @@
 """型チェック：TypeScript（tsc --checkJs）で js/ の型の指摘が 0 件（プロパティ名のタイプミス・存在しない項目の参照などを見つける）"""
-# 設定は tsconfig.json、型の定義は types/（types.js・dom-loose.d.ts）。ブラウザは使わない。
+# 設定は tsconfig.json、型の定義は types/（types.js・dom-extra.d.ts）。ブラウザは使わない。
 # tsc の探し方：① PATH にある tsc ② プロジェクトの node_modules（npx --no-install）③ npx で版を固定して取得（通信が必要。CI はこれ）。
 # どれも使えない（Node.js が無い・通信できない）ときは、失敗ではなく「省略」として結果に書く。
 # 版を固定するのは、TypeScript の更新で指摘の基準が変わり、コードを変えていないのにテストが落ちるのを防ぐため。上げるときは TS_VERSION を変えて 0 件を確認する。

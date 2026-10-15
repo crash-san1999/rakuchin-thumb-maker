@@ -31,7 +31,7 @@ function applyView(first){
   document.body.classList.toggle('is-mobile', m);
   if(!m){ openSheet(null); }   // PC に戻ったときシートが開きっぱなしにならないよう閉じる
   const vb = $('#viewBtn'); if(vb){ vb.innerHTML = ic(m ? 'phone' : 'monitor'); vb.title = (m ? 'スマホ表示中' : 'PC表示中') + '（タップで切り替え）'; }
-  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === LS.get('ttm_view', 'auto')));
+  $$('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === LS.get('ttm_view', 'auto')));
   // DOC は起動のごく初期には null の可能性があるため守る
   if(DOC) $('#dlLabel').textContent = m ? '保存' : (DOC.mode === 'thumb' ? 'サムネを保存' : '透過PNGを保存');
   if(!first) setTimeout(() => paintPreview(false), 60);   // レイアウトが変わるとキャンバスの表示サイズも変わるので、CSS が落ち着いてから描き直す
@@ -49,27 +49,27 @@ function openSheet(name, force){
   $('#lpanel').classList.toggle('sheet-on', name === 'layers');
   $('#side').classList.toggle('sheet-on', name === 'ins');
   if(name && name !== 'layers') $('#sheetTitle').textContent = sheetTitle(name);
-  document.querySelectorAll('#mbar [data-sheet]').forEach(b => b.classList.toggle('on', b.dataset.sheet === name));
+  $$('#mbar [data-sheet]').forEach(b => b.classList.toggle('on', b.dataset.sheet === name));
   // シートの開閉アニメーション（CSS 約 0.3 秒）が終わってから描き直す。キャンバスの見える面積が変わるため。340 は CSS の長さに合わせた値
   clearTimeout(openSheet.t); openSheet.t = setTimeout(() => paintPreview(false), 340);
 }
 // 下バー。'add' はシートではなく追加メニュー（ポップアップ）、'bg' は「レイヤー未選択＝背景の設定」としてインスペクターを開く
-$('#mbar').addEventListener('click', e => { const b = e.target.closest('[data-sheet]'); if(!b) return; const n = b.dataset.sheet;
+$('#mbar').addEventListener('click', e => { const b = tgt(e).closest('[data-sheet]'); if(!b) return; const n = b.dataset.sheet;
   if(n === 'add'){ openSheet(null); togglePop('addMenu', b); return; }
   if(n === 'bg'){ selectLayer(null); openSheet('ins', true); return; }
   openSheet(n); });
 document.addEventListener('click', e => {
-  if(e.target.closest('button[data-close-sheet]')){ openSheet(null); return; }
-  const vb = e.target.closest('#viewSeg [data-view]');
+  if(tgt(e).closest('button[data-close-sheet]')){ openSheet(null); return; }
+  const vb = tgt(e).closest('#viewSeg [data-view]');
   if(vb){ LS.set('ttm_view', vb.dataset.view); applyView(true); setTimeout(() => paintPreview(false), 60); toast(vb.dataset.view === 'auto' ? '画面を自動判定に戻しました' : vb.dataset.view === 'pc' ? 'PC表示に固定しました' : 'スマホ表示に固定しました'); }
 });
 $('#viewBtn').onclick = () => { LS.set('ttm_view', isMobile ? 'pc' : 'mobile'); applyView(true); setTimeout(() => paintPreview(false), 60); toast(isMobile ? 'スマホ表示に切り替えました（ファイルメニュー で「自動判定」に戻せます）' : 'PC表示に切り替えました'); };
 /* シートは下へスワイプで閉じる：つまみ（.sheet-grip）をドラッグ中はシート自体を指に追従させ（transition を一時的に切る）、
    70px 以上下げたら閉じる。ほぼ動かさず離した（4px 未満）ときはタップ扱いで閉じる。それ以外は元の位置へ戻る。
    pointer capture で、指がつまみの外に出てもイベントを受け続ける */
-document.querySelectorAll('.sheet-grip').forEach(g => {
+$$('.sheet-grip').forEach(g => {
   let y0 = null;
-  g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(e.target.closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(tgt(e).closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
   g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0); g.parentElement.style.transform = `translateY(${dy}px)`; g.parentElement.style.transition = 'none'; });
   const up = e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
   g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);

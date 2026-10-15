@@ -23,12 +23,12 @@ function readInput(el){
 function makeBinder(o){
   const sel = a => `[data-${a}]`;
   document.addEventListener('input', e => {
-    const el = e.target, k = el.dataset && el.dataset[o.val]; if(!k) return;
+    const el = tgt(e), k = el.dataset && el.dataset[o.val]; if(!k) return;
     const v = readInput(el); if(v !== undefined) o.onInput(k, v, el);
   });
   document.addEventListener('click', e => {
-    const rr = e.target.closest(sel(o.reroll)); if(rr){ o.onReroll(rr.dataset[o.reroll]); return; }
-    const b = e.target.closest(`${sel(o.seg)} button`); if(!b) return;
+    const rr = tgt(e).closest(sel(o.reroll)); if(rr){ o.onReroll(rr.dataset[o.reroll]); return; }
+    const b = tgt(e).closest(`${sel(o.seg)} button`); if(!b) return;
     const g = b.parentElement; o.onSeg(g.dataset[o.seg], g.dataset.num ? parseFloat(b.dataset.v) : b.dataset.v, b);
   });
   // 表示条件：「キー=値1|値2」または「キー!=値1|値2」を & でつなぐ
@@ -38,14 +38,14 @@ function makeBinder(o){
     // 値 → 画面。except は今まさに入力中の欄（値を書き戻すとカーソルや入力途中の文字が壊れるので飛ばす）。
     // get が undefined/null を返すキーは触らない（その欄は別の仕組みで管理されている）
     sync(except){
-      document.querySelectorAll(sel(o.val)).forEach(el => {
+      $$as(sel(o.val), HTMLInputElement).forEach(el => {
         if(el === except) return;
         const v = o.get(el.dataset[o.val]);
         if(el.type === 'checkbox') el.checked = !!v; else if(v !== undefined && v !== null) el.value = v;
         if(el.type === 'range') paintRange(el);
       });
-      document.querySelectorAll(sel(o.seg)).forEach(g => { const v = String(o.get(g.dataset[o.seg])); g.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
-      document.querySelectorAll(sel(o.show)).forEach(el => { el.style.display = el.dataset[o.show].split('&').every(cond) ? '' : 'none'; });
+      $$(sel(o.seg)).forEach(g => { const v = String(o.get(g.dataset[o.seg])); $$('button', g).forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
+      $$(sel(o.show)).forEach(el => { el.style.display = el.dataset[o.show].split('&').every(cond) ? '' : 'none'; });
     },
     // 基本の行（ボタン選択・プルダウン・別パターン・色・チェック・スライダー）の HTML。
     // r のキーで種類が決まる：seg / sel / seed / c / chk、どれでもなければスライダー（r.r＝キー、min/max/step 必須）。

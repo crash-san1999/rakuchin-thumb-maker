@@ -7,7 +7,7 @@ function renderCells(){
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
   // key：一覧の見た目が変わる要素（選択マス・画像・背景色・文字の先頭3字）だけの印。同じなら innerHTML の作り直しを省く（再描画のたびに作り直すと、ドラッグ中のボタンが消えて操作が途切れるため）
   const key = [L.id, n, L.ac, ...L.cells.slice(0, n).map(c => (ASSETS[c.asset] ? c.asset : '') + (c.bg.on ? c.bg.c : '') + (cellHasText(c) ? c.tx.text.slice(0, 3) : ''))].join('|');
-  document.querySelectorAll('.cellBox').forEach(box => {
+  $$('.cellBox').forEach(box => {
   if(box.dataset.key === key) return; box.dataset.key = key;
   box.innerHTML = `<div class="cellgrid">${[...Array(n)].map((_, i) => { const A = ASSETS[L.cells[i].asset];
     const c = L.cells[i], bgs = c.bg.on ? ` style="background:${c.bg.grad ? `linear-gradient(${safeColor(c.bg.c)},${safeColor(c.bg.c2)})` : safeColor(c.bg.c)}"` : '';
@@ -21,7 +21,7 @@ function renderCellText(){
   L.ac = clamp(L.ac || 0, 0, collageN(L) - 1);
   const c = L.cells[L.ac], today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const opts = (arr, v) => arr.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('');
-  document.querySelectorAll('.ctBox').forEach(box => {
+  $$('.ctBox').forEach(box => {
     // 入力欄は別レイヤーに切り替わったときだけ作り直す（入力中のフォーカスや選択を壊さないため）。以降の値の反映は、編集中の欄(activeElement)を避けて行う
     if(box.dataset.lid !== L.id){
       box.dataset.lid = L.id;
@@ -30,9 +30,9 @@ function renderCellText(){
         <div class="row"><label>太さ</label><select id="ctWeight"></select></div>
         <div class="row"><label>文字スタイル</label><select id="ctPre"><option value="">標準（ポップ）</option>${Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${g}">${ns.map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`).join('')}</select></div>`;
     }
-    const ta = box.querySelector('#ctText'); if(document.activeElement !== ta) ta.value = c.tx.text || '';
-    ta.dataset.cell = L.ac; box.querySelector('#ctPre').value = L.tpre || '';
-    const st = L.tstyle || collageDefaultStyle(), fs = box.querySelector('#ctFont'), wsel = box.querySelector('#ctWeight');
+    const ta = $as('#ctText', HTMLTextAreaElement, box); if(document.activeElement !== ta) ta.value = c.tx.text || '';
+    ta.dataset.cell = String(L.ac); $as('#ctPre', HTMLSelectElement, box).value = L.tpre || '';
+    const st = L.tstyle || collageDefaultStyle(), fs = $as('#ctFont', HTMLSelectElement, box), wsel = $as('#ctWeight', HTMLSelectElement, box);
     if(fs.dataset.built !== '1'){   // フォント一覧（欧文と、ふだん出さない書体を除く）。お気に入りを先頭に
       const ok = f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === st.font), grp = {};
       fonts.filter(ok).forEach(f => (grp[favs.has(f.family) ? 'お気に入り' : f.cat] = grp[favs.has(f.family) ? 'お気に入り' : f.cat] || []).push(f));
@@ -46,7 +46,7 @@ function renderCellText(){
     wsel.value = String(st.weight);
     if(wsel.value !== String(st.weight)){ const ws = [...wsel.options].map(o => +o.value); wsel.value = String(ws.reduce((a, b) => Math.abs(b - st.weight) < Math.abs(a - st.weight) ? b : a, ws[0])); }
   });
-  document.querySelectorAll('.wkBox').forEach(box => {
+  $$('.wkBox').forEach(box => {
     if(box.dataset.lid !== L.id){
       box.dataset.lid = L.id;
       box.innerHTML = `<div class="row"><label>この日を含む週</label><input type="date" id="wkStart" data-wk="start"></div>
@@ -59,18 +59,18 @@ function renderCellText(){
         <div class="row"><label class="chk"><input type="checkbox" data-wk="color"> 平日・土・日で背景色を分ける</label></div>
         <div class="crow"><button class="btn sm" id="wkGo">${ic('grid')}1週間を入れる</button></div>`;
     }
-    const st = box.querySelector('#wkStart'); if(document.activeElement !== st) st.value = L.wk.start || today;
-    box.querySelector('[data-wk="color"]').checked = !!L.wk.color;
-    box.querySelector('[data-wkmemo]').hidden = collageN(L) < 8; box.querySelector('[data-wk="memo"]').value = String(L.wk.memo || 8);
+    const st = $as('#wkStart', HTMLInputElement, box); if(document.activeElement !== st) st.value = L.wk.start || today;
+    $as('[data-wk="color"]', HTMLInputElement, box).checked = !!L.wk.color;
+    $('[data-wkmemo]', box).hidden = collageN(L) < 8; $as('[data-wk="memo"]', HTMLSelectElement, box).value = String(L.wk.memo || 8);
   });
 }
 /* ---------- 操作パネルのイベント（document に委譲。パネルは再描画されるので、要素ごとには付けない） ---------- */
 document.addEventListener('input', e => {
-  const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
+  const t = inputOf(e), L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
   if(t.id === 'ctText'){ const c = L.cells[L.ac || 0]; c.tx.text = t.value; c.tx.on = t.value.trim() !== ''; c.tx.wk = false; syncDoc(); docChanged(false); }
 });
 document.addEventListener('change', e => {
-  const t = e.target, L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
+  const t = inputOf(e), L = selLayer(); if(!L || L.type !== 'collage' || !t.closest) return;
   if(t.id === 'ctPre'){ if(t.value) collageSetStyle(L, t.value); else { L.tpre = ''; L.tstyle = null; } syncDoc(); docChanged(false); }
   else if(t.id === 'ctFont' || t.id === 'ctWeight'){
     if(!L.tstyle) L.tstyle = collageDefaultStyle();
@@ -84,14 +84,14 @@ document.addEventListener('change', e => {
   else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.dataset.wk === 'memo' ? +t.value : t.value; }
 });
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
-  const st = b.closest('.wkBox').querySelector('#wkStart'); if(st && st.value) L.wk.start = st.value;
+  const b = tgt(e).closest && tgt(e).closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
+  const st = $as('#wkStart', HTMLInputElement, b.closest('.wkBox')); if(st && st.value) L.wk.start = st.value;
   collageFillWeek(L); syncDoc(); docChanged(false); toast('1週間を入れました。マスをクリックして、文字や色を直せます');
 });
-document.addEventListener('click', e => { const b = e.target.closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
+document.addEventListener('click', e => { const b = tgt(e).closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
 // 幅をそろえる／文字の色を全部のマスに／まとめての調整を戻す
 document.addEventListener('click', e => {
-  const b = e.target.closest && e.target.closest('#cwReset, #ctColorAll, #ttxReset'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
+  const b = tgt(e).closest && tgt(e).closest('#cwReset, #ctColorAll, #ttxReset'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
   if(b.id === 'cwReset'){ L.cells.forEach(c => c.w = 1); toast('マスの幅をそろえました'); }
   else if(b.id === 'ctColorAll'){ const s = L.cells[L.ac || 0].tx; L.cells.forEach(c => Object.assign(c.tx, {fcOn:s.fcOn, fc:s.fc, ecOn:s.ecOn, ec:s.ec})); toast(`マス${(L.ac || 0) + 1}の文字色・フチ色を、全部のマスにそろえました`); }
   else L.ttx = {on:L.ttx.on, sc:1, ox:0, oy:0};
@@ -100,17 +100,17 @@ document.addEventListener('click', e => {
 // 一覧のマスをドラッグして、別のマスに落とすと入れ替え
 // dragover／drop はキャプチャ段階で受けて stopPropagation する（ファイルのドロップで画像を追加する側の処理に渡さないため）。cellDragFrom<0 のときは何もしない
 let cellDragFrom = -1;
-document.addEventListener('dragstart', e => { const b = e.target.closest && e.target.closest('.cellbtn[data-cell]'); if(!b) return; cellDragFrom = +b.dataset.cell; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'cell'); });
-document.addEventListener('dragover', e => { if(cellDragFrom < 0) return; const b = e.target.closest && e.target.closest('.cellbtn[data-cell]'); if(b){ e.preventDefault(); e.stopPropagation(); document.querySelectorAll('.cellbtn.dropto').forEach(x => x.classList.toggle('dropto', x === b)); b.classList.add('dropto'); } }, true);
+document.addEventListener('dragstart', e => { const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(!b) return; cellDragFrom = +b.dataset.cell; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'cell'); });
+document.addEventListener('dragover', e => { if(cellDragFrom < 0) return; const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(b){ e.preventDefault(); e.stopPropagation(); $$('.cellbtn.dropto').forEach(x => x.classList.toggle('dropto', x === b)); b.classList.add('dropto'); } }, true);
 document.addEventListener('drop', e => {
-  if(cellDragFrom < 0) return; const b = e.target.closest && e.target.closest('.cellbtn[data-cell]'), L = selLayer(), from = cellDragFrom; cellDragFrom = -1;
-  document.querySelectorAll('.cellbtn.dropto').forEach(x => x.classList.remove('dropto'));
+  if(cellDragFrom < 0) return; const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'), L = selLayer(), from = cellDragFrom; cellDragFrom = -1;
+  $$('.cellbtn.dropto').forEach(x => x.classList.remove('dropto'));
   e.preventDefault(); e.stopPropagation();
   if(b && L && L.type === 'collage' && +b.dataset.cell !== from){ swapCells(L, from, +b.dataset.cell); syncDoc(); docChanged(false); toast(`マス${from + 1}とマス${+b.dataset.cell + 1}の画像を入れ替えました`); }
 }, true);
-document.addEventListener('dragend', () => { cellDragFrom = -1; document.querySelectorAll('.cellbtn.dropto').forEach(x => x.classList.remove('dropto')); });
+document.addEventListener('dragend', () => { cellDragFrom = -1; $$('.cellbtn.dropto').forEach(x => x.classList.remove('dropto')); });
 document.addEventListener('click', e => {
-  const cb = e.target.closest('[data-cell]'), ca = e.target.closest('[data-cellact]'), L = selLayer();
+  const cb = tgt(e).closest('[data-cell]'), ca = tgt(e).closest('[data-cellact]'), L = selLayer();
   if(!L || L.type !== 'collage' || (!cb && !ca)) return;
   if(cb){ L.ac = +cb.dataset.cell; if(!ASSETS[L.cells[L.ac].asset] && cb.closest('[data-pg="cells"]')) $('#cellfile').click(); syncDoc(); paintPreview(false); return; }   // 画像を選ぶ画面が開くのは「マスの画像」タブだけ（背景色・文字、効果のタブでは開かない）
   if(ca.dataset.cellact === 'pick') $('#cellfile').click();

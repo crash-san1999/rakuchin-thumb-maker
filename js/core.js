@@ -10,7 +10,23 @@
   素の <script> の読み込みなので、ここで const/let/function にしたものはそのまま全ファイルのグローバルになる。
 */
 /* ============ 基本 ============ */
-const $ = s => document.querySelector(s);
+// このアプリの画面はすべて HTML の要素なので、HTMLElement として返す（Element のままだと dataset・value・hidden などが型の上で使えない）
+/** @param {string} s @param {ParentNode} [root] @returns {HTMLElement} */
+const $ = (s, root = document) => /** @type {HTMLElement} */ (root.querySelector(s));
+// querySelectorAll の HTMLElement 版（root を省くと document から探す）
+/** @param {string} s @param {ParentNode} [root] @returns {NodeListOf<HTMLElement>} */
+const $$ = (s, root = document) => /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll(s));
+// 入力欄・選択肢・canvas など、決まった種類の要素として取り出す（型チェック用。type は型を決めるためだけに渡し、実行時には使わない）
+// 例：$as('#cvW', HTMLInputElement).value
+/** @template {HTMLElement} T @param {string} s @param {{new(): T, prototype: T}} type @param {ParentNode} [root] @returns {T} */
+const $as = (s, type, root = document) => /** @type {any} */ (root.querySelector(s));
+/** querySelectorAll の、決まった種類の要素版 @template {HTMLElement} T @param {string} s @param {{new(): T, prototype: T}} type @param {ParentNode} [root] @returns {NodeListOf<T>} */
+const $$as = (s, type, root = document) => /** @type {any} */ (root.querySelectorAll(s));
+// イベントの対象を要素として受け取る（クリック・入力などの対象は、このアプリではいつも HTML の要素）。入力欄の値・ファイルを読むときは inputOf
+/** @param {Event} e @returns {HTMLElement} */
+const tgt = e => /** @type {HTMLElement} */ (e.target);
+/** @param {Event} e @returns {HTMLInputElement} */
+const inputOf = e => /** @type {HTMLInputElement} */ (e.target);
 const clone = o => JSON.parse(JSON.stringify(o));
 // 辞書 o に、キー k が「自分の項目として」あるか。保存データの値で表を引く前の確認に使う
 // （o[k] だと 'toString'・'constructor' などの名前で、どのオブジェクトにもある関数を拾ってしまい、細工・破損したデータで描画が止まる）
@@ -27,7 +43,7 @@ const LS = {
 let saveWarnAt = 0;
 function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
 // 文字入力中かどうか。キーボードショートカットが入力操作を横取りしないための判定
-const isTyping = e => { const t = e.target; return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
+const isTyping = e => { const t = tgt(e); return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
 // サムネのレイヤーに共通の初期値（キャンバスの中央）。座標はキャンバス（DOC.w×DOC.h）の px で、原点は左上・x,y はレイヤー中心。
 // DOC は後から宣言される let なので、起動前に呼ばれても落ちないよう typeof で守り、未確定なら 1920×1080 とみなす
 const LAYER_BASE = () => ({x:Math.round(((typeof DOC === 'object' && DOC) ? DOC.w : 1920) / 2), y:Math.round(((typeof DOC === 'object' && DOC) ? DOC.h : 1080) / 2), sc:1, rot:0, op:1, hidden:false, locked:false, blend:'source-over'});
@@ -128,11 +144,11 @@ const ICONS = {
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 // HTML に書いた <i data-ic="名前"> をアイコンの SVG に置き換える
-const paintIcons = (root = document) => root.querySelectorAll('[data-ic]').forEach(el => { el.outerHTML = ic(el.dataset.ic); });
+const paintIcons = (root = document) => $$('[data-ic]', root).forEach(el => { el.outerHTML = ic(el.dataset.ic); });
 // スライダーの「つまみより左」を塗るため、CSS 変数 --p に進み具合（%）を渡す。値が変わるたびに呼ぶ必要がある（下の input リスナーと bind.js の sync）
 function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((el.value - mn) / (mx - mn)) * 100 + '%'); }
 function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
-document.addEventListener('input', e => { if(e.target.type === 'range') paintRange(e.target); });
+document.addEventListener('input', e => { if(inputOf(e).type === 'range') paintRange(tgt(e)); });
 // サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める
 /** @type {Doc | null} */
 let DOC = null;

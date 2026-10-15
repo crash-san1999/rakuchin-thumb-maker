@@ -15,10 +15,10 @@
   list.addEventListener('pointerdown', e => {
     if(e.button !== 0) return;
     lpFired = false;
-    const row = e.target.closest('.ly[data-lid]'); if(!row || e.target.closest('[data-la]') || e.target.closest('input')) return;
+    const row = tgt(e).closest('.ly[data-lid]'); if(!row || tgt(e).closest('[data-la]') || tgt(e).closest('input')) return;
     // 入れ替えできるのは同じ階層（同じグループの中、またはグループの外）のレイヤーどうし
     // 同じ階層の行だけを入れ替え対象にする（グループの中身は中身どうし、グループの外は外どうし）
-    const rows = [...list.querySelectorAll('.ly[data-lid]')].filter(r => (r.dataset.gid || '') === (row.dataset.gid || '')), from = rows.indexOf(row);
+    const rows = [...$$('.ly[data-lid]', list)].filter(r => (r.dataset.gid || '') === (row.dataset.gid || '')), from = rows.indexOf(row);
     ld = {row, id:row.dataset.lid, y0:e.clientY, s0:list.scrollTop, y:e.clientY, started:false, rows, rects:null, from, to:from, pid:e.pointerId};
     clearTimeout(lpT);
     if(e.pointerType !== 'mouse') lpT = setTimeout(() => { if(ld && !ld.started){ ld = null; lpFired = true; toggleMulti(row.dataset.lid); if(navigator.vibrate) navigator.vibrate(12); } }, 480);
@@ -76,35 +76,35 @@
   list.addEventListener('pointerup', endDrag); list.addEventListener('pointercancel', endDrag);
   // 不透明度スライダーを触っている間は、パネルの再描画を止める（layers.js の lpSliding。スライダーが作り直されてドラッグが切れるのを防ぐ）。
   // 離すのは window で受ける：スライダーの外で指を離しても必ず解除するため
-  list.addEventListener('pointerdown', e => { if(e.target.closest('.ly-op')) lpSliding = true; }, true);
+  list.addEventListener('pointerdown', e => { if(tgt(e).closest('.ly-op')) lpSliding = true; }, true);
   window.addEventListener('pointerup', () => { lpSliding = false; });
-  list.addEventListener('input', e => { const op = e.target.closest('.ly-op'); if(op) op.querySelector('b').textContent = Math.round(parseFloat(e.target.value) * 100) + '%'; });
+  list.addEventListener('input', e => { const op = tgt(e).closest('.ly-op'); if(op) $('b', op).textContent = Math.round(parseFloat(inputOf(e).value) * 100) + '%'; });
   list.addEventListener('click', e => {
     if(lpFired){ lpFired = false; return; }   // 長押しで複数選択に入った直後の click は無視する
     if(suppressClick) return;
-    const mb = e.target.closest('[data-multi]');
+    const mb = tgt(e).closest('[data-multi]');
     if(mb){ if(mb.dataset.multi === 'group') groupLayers(DOC.msel); else selectLayer(DOC.sel); return; }
-    const bga = e.target.closest('[data-bga]');
+    const bga = tgt(e).closest('[data-bga]');
     if(bga){ DOC.bg.hidden = !DOC.bg.hidden; renderLayers(); syncDoc(); docChanged(false); toast(DOC.bg.hidden ? '背景を非表示にしました（PNGで保存すると背景が透明になります）' : '背景を表示しました'); return; }
-    if(e.target.closest('.ly-op')) return;
-    if(e.target.closest('[data-bgrow]')){ selectLayer(null); if(isMobile) openSheet('ins', true); return; }
-    const row = e.target.closest('[data-lid]'); if(!row) return;
-    const act = e.target.closest('[data-la]');
+    if(tgt(e).closest('.ly-op')) return;
+    if(tgt(e).closest('[data-bgrow]')){ selectLayer(null); if(isMobile) openSheet('ins', true); return; }
+    const row = tgt(e).closest('[data-lid]'); if(!row) return;
+    const act = tgt(e).closest('[data-la]');
     if(act){
       if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(), id = row.dataset.lid; if(!isSelected(id)) selectLayer(id); setTimeout(() => showMenu(id, r.left - 150, r.bottom + 4, r.top - 4), 0); return; }
       layerAction(row.dataset.lid, act.dataset.la); return;
     }
-    if(e.target.closest('input')) return;
+    if(tgt(e).closest('input')) return;
     // Ctrl／Shift＋クリック（スマホは、選択中にタップ）で複数選択
     if(e.ctrlKey || e.metaKey || e.shiftKey || (isMobile && DOC.msel && DOC.msel.length)){ toggleMulti(row.dataset.lid); return; }
     selectLayer(row.dataset.lid);
   });
   list.addEventListener('dblclick', e => {
-    const row = e.target.closest('[data-lid]'); if(!row || e.target.closest('[data-la]')) return;
+    const row = tgt(e).closest('[data-lid]'); if(!row || tgt(e).closest('[data-la]')) return;
     startRename(row.dataset.lid);
   });
   list.addEventListener('contextmenu', e => {
-    const row = e.target.closest('[data-lid]'); if(!row) return;
+    const row = tgt(e).closest('[data-lid]'); if(!row) return;
     e.preventDefault(); openLayerMenu(row.dataset.lid, e.clientX, e.clientY);
   });
 }
