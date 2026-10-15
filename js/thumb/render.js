@@ -13,7 +13,7 @@
     - L.x・L.y は DOC 座標でのレイヤー中心。描くときは「中心へ translate → rotate → scale」の順。
     - live=true はドラッグ・スライダー操作中の軽い描画。キャッシュの拡大率が多少ずれていても作り直さない。
     - キャッシュ（cache）は Map<レイヤーid, {sk, k, c…}>。sk は「見た目を決める値の印」、k はそのとき描いた倍率、c は描いた canvas。
-      sk が同じで k のずれが 2% 未満なら使い回し、c は拡大縮小して描く（s = need / k）。
+      sk が同じで k のずれが 2% 未満なら使い回し、c は拡大縮小して描く（s = need / k）。判定は layer-paint.js の cacheByScale。
 */
 /* ---------- 描画 ---------- */
 // prevCache：プレビュー用の描画キャッシュ（'__bg' に背景も入る）。dims：レイヤーid → 描画した絵の大きさ（DOC 座標。フチ込み・回転前）。
@@ -40,12 +40,7 @@ function fontKey(st){
 /** @param {Layer} L */
 function textCanvas(L, need, live, cache){
   const sk = JSON.stringify(L.style) + fontKey(L.style);
-  let e = cache.get(L.id);
-  if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
-    const c = render(need, Object.assign({}, L.style, {pad: 2}));
-    e = {sk, k:need, c}; cache.set(L.id, e);
-  }
-  return e;
+  return cacheByScale(cache, L.id, sk, need, live, () => render(need, Object.assign({}, L.style, {pad: 2})));
 }
 // 画像の形のまま color で塗りつぶした canvas（フチ・影の元絵）。source-in で、不透明部分だけが color になる
 function tinted(A, color){
@@ -106,8 +101,7 @@ function imageCanvas(L, f, live, cache){
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
   const need = L.sc * f, o = L.outline, ow = o.on ? o.w : 0;
   const sk = [L.asset, JSON.stringify(cropOf(L)), o.on, o.w, o.c, o.style, o.c2, o.w2, o.blur, L.flip, L.flipV, L.bright, L.sat, JSON.stringify(L.fx), cutSig(L)].join('|');
-  let e = cache.get(L.id);
-  if(!(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02))){
+  return cacheByScale(cache, L.id, sk, need, live, () => {
     const iw = A.img.naturalWidth, ih = A.img.naturalHeight, r = ow * f, st = o.style === 'double' || o.style === 'grad' ? o.style : 'solid';
     const r2 = st === 'double' ? (ow + Math.max(0, o.w2 || 0)) * f : r, ob = r > 0 ? Math.max(0, o.blur || 0) * f : 0;
     const pad = Math.ceil(Math.max(r, r2) + ob * 1.6) + 2;
@@ -129,9 +123,8 @@ function imageCanvas(L, f, live, cache){
     }
     flipTo(x);
     imgPicture(x, A, L, f, pad, pad, cw, ch);
-    e = {sk, k:need, c}; cache.set(L.id, e);
-  }
-  return e;
+    return c;
+  });
 }
 /* 影・光彩：絵の形（フチ込み）から作ったぼかし画像。画像のキャッシュ(e)にくっつけて使い回す。大きさは e.c の座標。
    q は e.c の座標へ直す倍率（影・光彩の px 指定は DOC 座標なので）。spread で形を太らせ（フチと同じ円周スタンプ）、blur でぼかす。
@@ -162,7 +155,7 @@ function drawLayer(ctx, L, f, live, cache){
   if(!e) return;
   const s = need / e.k;
   dims.set(L.id, {w: e.c.width / e.k * L.sc, h: e.c.height / e.k * L.sc});
-  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
+  ctx.save(); layerComposite(ctx, L);
   // 影・光彩は本体より先（奥）に描く。drawH は本体と同じ変換（位置・回転・拡大）で、ずらし dx,dy だけ足して halo を貼る。
   // q は halo を e.c の座標で作るための倍率（f / s）
   const q = f / s, drawH = (H, a, dx, dy) => { ctx.save(); ctx.globalAlpha *= a; ctx.translate(L.x * f + dx, L.y * f + dy); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(s, s); ctx.drawImage(H, -H.width / 2, -H.height / 2); ctx.restore(); };

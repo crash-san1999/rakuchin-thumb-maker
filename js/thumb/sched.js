@@ -104,10 +104,8 @@ function drawSched(ctx, L, f, live, cache){
   const ds = schedDStyle(L), ts = schedTStyle(L);
   const sk = JSON.stringify([L.bw, L.bh, L.start, L.first, L.fmt, L.paren, L.time, L.band, L.bandColor, L.bandC, L.restText, L.restC, L.gap, L.img, L.seed,
     ds, ts, fontKey(ds), fontKey(ts), schedDays(L).map(d => schedDayLabel(L, d)), L.rows, L.rows.map(r => !!ASSETS[r.asset])]);
-  let e = cache.get(L.id);
-  if(!(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H))){ e = {sk, c: schedCanvas(L, W, H)}; cache.set(L.id, e); }
-  ctx.save(); ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
-  ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180);
+  const e = cacheBySize(cache, L.id, sk, W, H, live, () => schedCanvas(L, W, H));
+  ctx.save(); poseLayer(ctx, L, f);
   ctx.drawImage(e.c, -w * f / 2, -h * f / 2, w * f, h * f);
   ctx.restore();
 }

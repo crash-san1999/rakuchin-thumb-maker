@@ -70,7 +70,7 @@ function drawGroup(ctx, G, f, live, cache){
     if(fx.sil && fx.sil.on && fx.sil.a > 0){ ox.globalCompositeOperation = 'source-atop'; ox.globalAlpha = fx.sil.a; ox.fillStyle = fx.sil.c; ox.fillRect(0, 0, o.width, o.height); ox.globalAlpha = 1; }
     ox.restore(); src = o; off = -m;
   }
-  ctx.save(); ctx.globalAlpha = G.op ?? 1; ctx.globalCompositeOperation = G.blend || 'source-over';
+  ctx.save(); layerComposite(ctx, G);
   const sh = G.shadow; if(sh && sh.on && sh.a > 0){ ctx.shadowColor = `rgba(0,0,0,${sh.a})`; ctx.shadowBlur = sh.blur * f; ctx.shadowOffsetY = sh.y * f; }
   ctx.drawImage(src, off, off);
   ctx.restore();
