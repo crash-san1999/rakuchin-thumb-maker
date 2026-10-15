@@ -7,6 +7,7 @@
    ・layers … レイヤーパネルの HTML（種類・選択・複数選択・非表示・ロック・グループ・背景などの状態ごと。1 文字の違いも検出）
    ・fontlist … フォント一覧（renderFontList）の HTML・件数表示・見本の遅延読み込みの対象（検索語 × 分類 × 用途 × 選択中・英数字用・お気に入り・本文の状態ごと）
    ・collage … 分割フレームの全レイアウト × 分割数・境界・効果・背景色と文字・1週間の自動入力・位置→マスの判定・アイコン
+   ・compose … 全体の合成（compose）：全種類のレイヤーを重ね、グループの不透明度・合成・効果、描画キャッシュの使い回しと操作中（live）の経路まで
    compare.py と違い、1 ピクセルの違いも許さない（同じブラウザで描くので、描画内容が同じなら結果も完全に同じになる）。
    「描き方を整理しただけで、見た目は変えない」リファクタリングの確認に使う。違いがあれば、その組み合わせの名前を表示する"""
 import asyncio, base64, subprocess, sys, tempfile
@@ -236,6 +237,44 @@ for(const [t, f, fl] of [['RANK UP 99', fonts[3].family, lat ? lat.family : ''],
 fonts.splice(fonts.length - fake.length, fake.length); io.observe = obs0; cssState.clear(); keepCss.forEach((v, k) => cssState.set(k, v)); favs.clear(); keepFav.forEach(f => favs.add(f)); Object.assign(S, keepS); set('', '', ''); renderFontList();
 return out;"""
 
+# 全体の合成：文字・画像（フチ・影・光彩）・切り抜きフレーム・分割フレーム・週間予定表・動的エフェクトを 1 枚に重ね、グループ（不透明度・合成・効果）も通す。
+# compose（render.js）で描くので、レイヤーの重ね方・描画キャッシュの使い回し（2 回目・倍率を少し変えたとき）・操作中（live）の経路まで比べる
+COMPOSE = HASH + r"""
+const out = [];
+const base = () => {
+  const L = [];
+  const t = mkTextLayer(merged({text:'テスト 123'}), 500, 300, 1.2); Object.assign(t, {id:'T1', op:0.8, blend:'multiply', rot:12}); L.push(t);
+  const im = normalizeLayer({id:'I1', type:'image', asset:'Acmp', x:1300, y:400, sc:0.5, rot:-8, op:0.9,
+    outline:{on:true, w:12, c:'#ffffff', style:'double', c2:'#ff0000', w2:5, blur:2}, shadow:{on:true, blur:20, y:10, a:0.6, x:6, c:'#000000', sp:4},
+    glow:{on:true, c:'#00e5ff', blur:20, a:0.8, str:2}, flip:true, bright:0.2}); L.push(im);
+  const fr = normalizeLayer({id:'I2', type:'image', asset:'Acmp2', x:400, y:800, sc:0.4, rot:20, frame:{shape:FRAME_SHAPES[3][0], style:FRAME_STYLES[2][0] || 'neon'}}); L.push(fr);
+  const co = Object.assign(COLLAGE_BASE(), {id:'C1', n:3, x:1400, y:800, sc:0.4, rot:5, op:0.85, blend:'screen', shadow:{on:true, blur:20, y:8, a:0.5}});
+  co.cells[0].asset = 'Acmp'; co.cells[1].asset = 'Acmp2'; L.push(normalizeLayer(co));
+  const sc = Object.assign(SCHED_BASE(), {id:'S1', x:900, y:600, sc:0.6, rot:-4, op:0.95, start:'2026-10-12'});
+  sc.rows[0].title = '配信'; sc.rows[2].rest = true; sc.rows[1].asset = 'Acmp'; L.push(normalizeLayer(sc));
+  const fx = mkFx('lines'); Object.assign(fx, {id:'F1', op:0.6, rot:30, blend:'overlay'}); L.push(fx);
+  return L;
+};
+const run = (name, setup) => {
+  DOC.layers = base(); DOC.sel = null; DOC.msel = []; setup && setup();
+  for(const [W, live] of [[960, false], [1920, false], [640, true]]){
+    const cache = new Map();
+    for(const rep of [0, 1]){   // 2回目はキャッシュを使い回す経路
+      const c = mk(W, Math.round(W * DOC.h / DOC.w)); compose(c.getContext('2d'), c.width, c.height, live, cache);
+      out.push([`${name} W${W} live${live} rep${rep}`, H(c)]);
+    }
+    // 拡大率を少し変えて、キャッシュの判定（倍率 2% ／寸法）の境目を通す
+    for(const d of [1.01, 1.05, 1.6]){ const c = mk(Math.round(W * d), Math.round(W * d * DOC.h / DOC.w)); compose(c.getContext('2d'), c.width, c.height, live, cache); out.push([`${name} W${W} live${live} x${d}`, H(c)]); }
+  }
+};
+run('素');
+run('グループ', () => { const g = Object.assign(LAYER_BASE(), GROUP_BASE(), {id:'G1', op:0.7, blend:'multiply', shadow:{on:true, blur:20, y:10, a:0.5}});
+  DOC.layers.splice(0, 0, g); DOC.layers.forEach(l => { if(['T1', 'F1'].includes(l.id)) l.gid = 'G1'; }); });
+run('グループ効果', () => { const g = Object.assign(LAYER_BASE(), GROUP_BASE(), {id:'G1'}); g.fx.blur = 3; g.fx.dim = 0.2;
+  DOC.layers.splice(0, 0, g); DOC.layers.forEach(l => { if(['I1', 'S1'].includes(l.id)) l.gid = 'G1'; }); });
+return out;
+"""
+
 async def capture(p, root, suites):
     pg = await open_app(p, root=root)
     res = {}
@@ -243,7 +282,7 @@ async def capture(p, root, suites):
     if 'text' in suites: res['text'] = await pg.evaluate('(() => {' + TEXT + '})()')
     if 'fontlist' in suites: res['fontlist'] = await pg.evaluate('(() => {' + FONTLIST + '})()')
     if 'normalize' in suites: res['normalize'] = await pg.evaluate('(() => {' + NORMALIZE + '})()')
-    if 'frames' in suites or 'collage' in suites or 'layers' in suites:
+    if any(s in suites for s in ('frames', 'collage', 'layers', 'compose')):
         # テスト用の画像を、決まった id の素材として登録する（変更前後とも同じ条件にする。IndexedDB には書かない）
         src = 'data:image/jpeg;base64,' + base64.b64encode(Path(IMG['city.jpg']).read_bytes()).decode()
         await pg.evaluate("src => addAsset(src, 'cmp', 'Acmp', true)", src)
@@ -252,6 +291,7 @@ async def capture(p, root, suites):
         if 'frames' in suites: res['frames'] = await pg.evaluate('(() => {' + FRAMES + '})()')
         if 'collage' in suites: res['collage'] = await pg.evaluate('(() => {' + COLLAGE + '})()')
         if 'layers' in suites: res['layers'] = await pg.evaluate('(() => {' + LAYERS + '})()')
+        if 'compose' in suites: res['compose'] = await pg.evaluate('(() => {' + COMPOSE + '})()')
     errs = list(pg.errors); await close(pg)
     return res, errs
 
@@ -259,14 +299,16 @@ async def main(ref, suites):
     with tempfile.TemporaryDirectory() as d:
         subprocess.run(f'git -C "{ROOT}" archive {ref} | tar -x -C "{d}"', shell=True, check=True)
         async with async_playwright() as p:
-            old, e1 = await capture(p, d, suites)
-            new, e2 = await capture(p, ROOT, suites)
+            # 変更前と変更後は別々のブラウザなので、同時に描く（待ち時間が半分になる）
+            (old, e1), (new, e2) = await asyncio.gather(capture(p, d, suites), capture(p, ROOT, suites))
     bad = 0
     for s in suites:
         o, n = dict(old.get(s, [])), dict(new.get(s, []))
         diff = [k for k in o if o[k] != n.get(k)] + [k for k in n if k not in o]
         errs = [k for k, v in n.items() if v.startswith('ERROR')]
-        print(f'[{s}] {len(n)} 通り：一致 {len(n) - len(diff)}／違い {len(diff)}' + (f'／エラー {len(errs)}' if errs else ''))
+        kinds = len(set(n.values()))
+        print(f'[{s}] {len(n)} 通り：一致 {len(n) - len(diff)}／違い {len(diff)}' + (f'／エラー {len(errs)}' if errs else '') + f'（異なる結果 {kinds} 種類）')
+        if n and kinds < min(5, len(n)): print(f'   注意：結果の種類が少なすぎる（描けていない可能性）'); bad += 1
         for k in diff[:30]: print(f'   違い: {k}\n      前: {o.get(k)}\n      後: {n.get(k)}')
         for k in errs[:10]: print(f'   エラー: {k} {n[k]}')
         bad += len(diff) + len(errs)
@@ -277,5 +319,5 @@ async def main(ref, suites):
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers', 'normalize', 'fontlist'])
+    suites = next((a.split('=')[1].split(',') for a in sys.argv[1:] if a.startswith('--suite=')), ['fx', 'frames', 'collage', 'text', 'layers', 'normalize', 'fontlist', 'compose'])
     sys.exit(1 if asyncio.run(main(args[0] if args else 'HEAD', suites)) else 0)
