@@ -7,7 +7,7 @@ async def run(p):
     assert await pg.evaluate("CHANGELOG.length > 5 && CHANGELOG.every(e => e.d && e.t && e.items.length)"), '更新履歴のデータが不正'
     ds = await pg.evaluate("CHANGELOG.map(e => e.d)"); assert ds == sorted(ds, reverse=True), f'新しい順でない {ds}'
     await pg.evaluate("LS.set('ttm_seenLog', 'old'); $('#helpBtn').classList.remove('has-new')")
-    await pg.reload(); await settle(pg, 3000)
+    await pg.reload(); await app_ready(pg); await settle(pg, 3000)
     assert await pg.evaluate("$('#helpBtn').classList.contains('has-new')"), '未読の印が付かない'
     await pg.evaluate("openHelp()"); await settle(pg, 300)
     await pg.evaluate("$('#logOpen').click()"); await settle(pg, 300)

@@ -15,6 +15,6 @@ async def run(p):
     assert await pg.evaluate('S.font') == 'Nico Moji'
     await pg.fill('#webUrl', 'https://fonts.google.com/specimen/Totally+New+Font'); await pg.click('#addWebUrl'); await pg.wait_for_timeout(500)
     assert await pg.evaluate("!!findFont('Totally New Font')")
-    await pg.reload(wait_until='commit'); await pg.wait_for_timeout(4500)
+    await pg.reload(wait_until='commit'); await app_ready(pg); await pg.wait_for_timeout(4500)
     assert await pg.evaluate("[!!findFont('Totally New Font'), S.font]") == [True, 'Nico Moji'], '再読み込みで消えた'
     await close(pg)

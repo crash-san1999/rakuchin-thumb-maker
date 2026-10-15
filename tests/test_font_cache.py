@@ -15,7 +15,7 @@ async def run(p):
             u = r.request.url
             await (r.continue_() if u.startswith('http://127.0.0.1') else r.abort())
         await pg.route('**/*', route)
-        await pg.goto(url); await pg.wait_for_timeout(3000)
+        await pg.goto(url); await app_ready(pg); await pg.wait_for_timeout(3000)
         await pg.evaluate("document.querySelector('#help').classList.remove('show')")
         await wait_until(pg, "!!navigator.serviceWorker.controller")
         await pg.evaluate("navigator.serviceWorker.ready.then(() => 1)")
@@ -26,7 +26,7 @@ async def run(p):
         assert await pg.evaluate("[...document.fonts].some(x => x.family.replace(/\"/g, '') === 'ラノベPOPv2' && x.status === 'loaded')"), '★を付けても先読みされない'
         assert await pg.evaluate("S.font") != 'ラノベPOPv2', '★でフォントが選ばれてしまった'
         # 保存：Service Worker が有効なら、フォントが Cache Storage に入る
-        await pg.reload(); await pg.wait_for_timeout(2500)
+        await pg.reload(); await app_ready(pg); await pg.wait_for_timeout(2500)
         n = await pg.evaluate("caches.open('ttm-fonts-v1').then(c => c.keys()).then(k => k.map(r => r.url))")
         assert any('lanobe-pop' in u for u in n), f'フォントが端末に保存されていない {n}'
         # お気に入りは、次の起動後に自動で読み込まれる

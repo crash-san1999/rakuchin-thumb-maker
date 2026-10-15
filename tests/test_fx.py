@@ -15,7 +15,7 @@ async def run(p):
     await pg.evaluate("applyBgFx('lines')"); assert await pg.evaluate("DOC.layers.filter(l => l.auto).map(l => l.kind)") == ['lines']
     await pg.evaluate("""(() => { saveDoc.t && clearTimeout(saveDoc.t); const d = JSON.parse(JSON.stringify(DOC)); d.layers = d.layers.filter(l => l.type !== 'fx');
       d.bg.lines = {on:true, a:0.4, n:100, c:'#ffffff'}; d.bg.fcx = 0.3; d.bg.fcy = 0.4; localStorage.setItem('ttm_doc', JSON.stringify(d)); })()""")
-    await pg.reload(wait_until='commit'); await pg.wait_for_timeout(4500)
+    await pg.reload(wait_until='commit'); await app_ready(pg); await pg.wait_for_timeout(4500)
     m = await pg.evaluate("DOC.layers.filter(l => l.type === 'fx').map(l => [l.kind, l.x, l.y, l.op])")
     assert m == [['lines', 576, 432, 0.4]], f'旧データの集中線が移行されない {m}'
     await close(pg)
