@@ -110,7 +110,7 @@ const cropOf = L => cropClamp(L.crop);
 const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 || c.r > 0; };
 // 元の画像のどこを使うか（ピクセル）。sw・sh を最低 8px にするのは、極端なトリミングで 0 幅の canvas ができるのを避けるため
 /** @param {ImageLayer} L */
-/** @param {number} iw @param {number} ih */ function cropRect(L, iw, ih){
+/** @param {number} iw @param {number} ih */ /** @param {ImageLayer} L */ function cropRect(L, iw, ih){
   const c = cropOf(L), sx = Math.round(c.l * iw), sy = Math.round(c.t * ih);
   return {sx, sy, sw: Math.max(8, Math.round(iw * (1 - c.l - c.r))), sh: Math.max(8, Math.round(ih * (1 - c.t - c.b)))};
 }

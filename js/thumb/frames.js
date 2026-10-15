@@ -87,6 +87,7 @@ const FRAME_GROUPS = [
 // 形ごとのパス（framePath から呼ぶ）。キーは FRAME_SHAPES の shape。rect は 'none'・未知の形にも使う（角丸四角）。
 // 第2引数は framePath が用意する値と小道具：a・b＝半分の幅・高さ、w・h、mn＝短辺、r＝角丸の割合、seed、R＝形ごとの乱数、noise・rough・poly・ring・scallop。
 // 乱数 R() を呼ぶ順番・回数が形そのもの（保存済みの seed の形が変わる）なので、各関数の中の順序を入れ替えないこと
+/** 形ごとのパスの作り方（x：描き先、g：形の値と補助） @type {Record<string, (x: CanvasPath, g: FramePathGeom) => void>} */
 const FRAME_PATHS = {
   circle(x, {a, b}){ x.ellipse(0, 0, a, b, 0, 0, 2 * PI); },
   arch(x, {a, b}){ const ry = Math.min(a, b); x.moveTo(-a, b); x.lineTo(-a, -b + ry); x.ellipse(0, -b + ry, a, ry, 0, PI, 2 * PI); x.lineTo(a, b); x.closePath(); },
@@ -153,8 +154,9 @@ const FRAME_PATHS = {
       for(let i = 0; i < n; i++){ const t = w * i / n; p.push([-a + t, -b + wv(t)]); } for(let i = 0; i < n; i++){ const t = h * i / n; p.push([a - wv(t), -b + t]); }
       for(let i = 0; i < n; i++){ const t = w * i / n; p.push([a - t, b - wv(t)]); } for(let i = 0; i < n; i++){ const t = h * i / n; p.push([-a + wv(t), b - t]); } poly(p);
   },
-  splash(x, {a, b, seed}){ const R = rng((seed || 1) * 21), n = 30, pts = [];
+  splash(x, {a, b, seed}){ const R = rng((seed || 1) * 21), n = 30, /** @type {Array<[number, number]>} */ pts = [];
       for(let i = 0; i < n; i++){ const t = i / n * 2 * PI, k = i % 5 === 2 ? 0.97 + R() * 0.03 : 0.74 + R() * 0.12; pts.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); }
+      /** @param {number[]} p @param {number[]} q @returns {[number, number]} */
       const m = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; x.moveTo(...m(pts[n - 1], pts[0]));
       for(let i = 0; i < n; i++) x.quadraticCurveTo(...pts[i], ...m(pts[i], pts[(i + 1) % n])); x.closePath();
   },
@@ -172,27 +174,33 @@ function frameBubbleGeom(w, h, r, o){
   const vert = side === 'b' || side === 't', len = vert ? w : h, bw = vert ? w : w * 0.8, bh = vert ? h * 0.8 : h, rr = Math.min(bw, bh) * Math.min(0.5, r);
   const at = (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
     : side === 'l' ? [-a + w * 0.2 + 1 - depth * (w * 0.2 + 1), -b + u] : [-a + bw - 1 + depth * (w - bw + 1), -b + u];
-  return {side, tp, tt, len, at, rect:[side === 'l' ? -a + w * 0.2 : -a, side === 't' ? -b + h * 0.2 : -b, bw, bh, rr],
+  return {side, tp, tt, len, at, rect:/** @type {[number, number, number, number, number]} */ ([side === 'l' ? -a + w * 0.2 : -a, side === 't' ? -b + h * 0.2 : -b, bw, bh, rr]),
     p1:at(len * (tp - tw / 2), 0), tip:at(len * (tp + tt), 1), p2:at(len * (tp + tw / 2), 0), mid:tb ? at(len * (tp + tt / 2 + tb * 0.15), 0.5) : null};
 }
+/** x はパスを描く先（canvas の描き先か Path2D） @param {CanvasPath} x @param {string} shape @param {number} w @param {number} h @param {number} [r] @param {number} [seed] @param {Record<string, any>} [o] */
 function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ごとの追加の設定（吹き出しのしっぽ。L.frame をそのまま渡す）
   const a = w / 2, b = h / 2, mn = Math.min(w, h);
   const R = rng((seed || 1) * 97 + shape.length * 13);
   // なめらかなゆらぎ（knots個の乱数を補間）＋トゲ
   // 戻り値は n 個の 0〜1 の値。spike が大きいほど補間値より個別の乱数（2.2乗で小さい値が多い）の割合が増え、ギザギザになる。
   // R() を呼ぶ回数・順序が形そのものなので、変更すると保存済みの seed の形が変わる
+  /** @type {FramePathGeom['noise']} */
   const noise = (n, knots, spike) => { const k = [...Array(knots + 1)].map(() => R()); return [...Array(n)].map((_, i) => { const t = i / n * knots, j = Math.floor(t), f = (1 - Math.cos((t - j) * PI)) / 2;
     const sm = k[j] * (1 - f) + k[j + 1] * f; return Math.min(1, sm * (1 - spike) + (spike ? R() ** 2.2 * spike * 1.7 : 0)); }); };
   // 四辺（上・右・下・左の順）それぞれ [点数, 内側へのゆらぎ幅, knots, spike] を渡すと、時計回りの粗い縁の点列を返す
+  /** @type {FramePathGeom['rough']} */
   const rough = (sides) => { const p = [], [T, Rt, B, L] = sides.map(([n, amp, knots, spike]) => noise(n, knots, spike).map(v => v * amp));
     T.forEach((v, i) => p.push([-a + w * i / T.length, -b + v])); Rt.forEach((v, i) => p.push([a - v, -b + h * i / Rt.length]));
     B.forEach((v, i) => p.push([a - w * i / B.length, b - v])); L.forEach((v, i) => p.push([-a + v, b - h * i / L.length])); return p; };
+  /** @type {FramePathGeom['poly']} */
   const poly = pts => { pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); };
   // 正多角形（inner を渡すと、内側の頂点を交互に入れた星形）。a・b を別々に使うので、縦横比に合わせて楕円状に伸びる
+  /** @type {FramePathGeom['ring']} */
   const ring = (n, rot, inner) => { const p = []; for(let i = 0; i < n * (inner ? 2 : 1); i++){ const t = rot + i * PI / (inner ? n : n / 2), k = inner && i % 2 ? inner : 1; p.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); } poly(p); };
   // もこもこ形：n 個の弧を並べる。base＝つなぎ目の半径、depth＝ふくらみの半径（どちらも a・b に対する割合）
+  /** @type {FramePathGeom['scallop']} */
   const scallop = (n, base, depth) => { for(let i = 0; i < n; i++){ const t0 = -PI / 2 + i * 2 * PI / n, t1 = t0 + 2 * PI / n, tm = (t0 + t1) / 2;
-    const p0 = [Math.cos(t0) * a * base, Math.sin(t0) * b * base], p1 = [Math.cos(t1) * a * base, Math.sin(t1) * b * base];
+    const p0 = /** @type {[number, number]} */ ([Math.cos(t0) * a * base, Math.sin(t0) * b * base]), p1 = /** @type {[number, number]} */ ([Math.cos(t1) * a * base, Math.sin(t1) * b * base]);
     if(!i) x.moveTo(...p0);
     x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); }
     x.closePath(); };
@@ -233,6 +241,7 @@ function frameCompensate(L, g0, base){
 //   over  … 画像を描いたあとに重ねる飾り（光沢・走査線・四隅の線など）。tape だけはフチ幅 0 でも描く（E >= 0）
 // 引数は framedCanvas が用意する値：x＝描画先、c＝そのキャンバス、E＝フチの太さの基準、FW・FH＝フレームの大きさ、o＝L.outline、fr＝L.frame、
 // f＝プレビュー倍率、P()＝形のパスを作る、stroke(線幅, 色)＝形のフチを描く、tw＝テープの長さ、st＝デザイン名（hud と bracket は over を共用）
+/** デザインごとの描き方。under は画像の下（フチ）、over は画像の上（飾り） @type {Record<string, {under?: (a: FrameStyleArgs) => void, over?: (a: FrameStyleArgs) => void}>} */
 const FRAME_STYLE_DRAW = {
   double: {
     // 二重線：太い線を引いてから中を destination-out で抜き、細い線を重ねる（間が透明になる）
@@ -287,7 +296,7 @@ const FRAME_STYLE_DRAW = {
   },
   bracket: {
     under({}){ },   // 形のフチは描かない（四隅の線は画像を描いたあとに重ねる）
-    over(sa){ FRAME_STYLE_DRAW.hud.over(sa); },   // hud と同じ処理（中で st を見て描き分ける）
+    over(sa){ const hud = FRAME_STYLE_DRAW.hud.over; if(hud) hud(sa); },   // hud と同じ処理（中で st を見て描き分ける）
   },
   book: {
     under({x, E, FW, FH, o, f}){ for(let i = 3; i >= 1; i--){ x.fillStyle = mixc(o.c, '#c9c2b4', i * 0.12); x.strokeStyle = 'rgba(0,0,0,.2)'; x.lineWidth = Math.max(1, f); x.beginPath(); x.rect(-FW / 2 + i * E * 0.7, -FH / 2 + i * E * 0.55, FW, FH); x.fill(); x.stroke(); } },
@@ -394,6 +403,7 @@ const FRAME_PAD = {photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bra
     const c = mk(FW + pad * 2, FH + pad * 2), x = ctx2d(c);
     x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
     const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed, fr); };
+    /** @param {number} lw @param {string|CanvasGradient|CanvasPattern} col */
     const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };
     // 画像の下：デザインごとのフチ（FRAME_STYLE_DRAW の under。無ければ単色のフチ）。表に登録されている名前だけを引く
     const SD = hasKey(FRAME_STYLE_DRAW, st) ? FRAME_STYLE_DRAW[st] : null;

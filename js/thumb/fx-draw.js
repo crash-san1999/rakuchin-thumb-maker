@@ -15,6 +15,8 @@ var {drawFx, FX_MARKS} = (() => {
 // 引数：p＝パラメータ（L.p）、R＝この種類の seed で作った乱数、bw・bh＝基準サイズ（FX_BOX）、f＝プレビュー倍率（shadowBlur を px に直すのに使う）。
 // 乱数 R() を呼ぶ順番・回数が見た目そのもの（保存済みのサムネの見た目が変わる）なので、各関数の中の順序を入れ替えないこと
 /** @type {Record<string, (ctx: CanvasRenderingContext2D, L: Layer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} */
+/** 動的エフェクトの種類ごとの描き方。p は種類ごとの設定（種類によって項目が違う）、R は種類ごとに決まった乱数、bw・bh は枠の大きさ
+ * @type {Record<string, (ctx: CanvasRenderingContext2D, L: FxLayer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} */
 const FX_DRAW = {
   lines(ctx, L, p, R, bw, bh, f){
     const rx = DOC.w / 2 * p.inner, ry = DOC.h / 2 * p.inner, step = 2 * PI / p.n, full = p.full !== false;

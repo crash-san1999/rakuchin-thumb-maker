@@ -42,7 +42,7 @@ function schedBandColor(L, d, r){
 }
 // 行・列の位置（キャンバスのピクセル）。日付の列は左、帯は日付の右から端まで。画像の列は帯の右端（16:9）。
 // 戻り値：rows[i] = {y, h（帯の高さ）, date:[x, w], time:[x, w], title:[x, w], img:[x, w] | null, band:[x, w]}
-function schedLayout(L, W, H){
+/** @param {SchedLayer} L @param {number} W @param {number} H */ function schedLayout(L, W, H){
   const rh = H / 7, bh = rh * (1 - clamp(+L.gap || 0, 0, 0.6)), dateW = W * 0.3, timeW = W * 0.16;
   const imgW = L.img ? Math.min(W * 0.24, bh * 16 / 9) : 0, bandX = dateW - W * 0.01, bandW = W - bandX;
   return [...Array(7)].map((_, i) => {
@@ -121,7 +121,7 @@ async function ensureSchedFonts(L){
 }
 // ドキュメント座標 (x, y) が予定表 L の何行目か（回転・拡大縮小を考慮）。外なら -1
 /** @param {SchedLayer} L */
-/** @param {number} x @param {number} y */ function schedRowAt(L, x, y){
+/** @param {number} x @param {number} y */ /** @param {SchedLayer} L */ function schedRowAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
   return lx < 0 || ly < 0 || lx > w || ly > h ? -1 : clamp(Math.floor(ly / (h / 7)), 0, 6);

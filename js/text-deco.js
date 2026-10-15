@@ -353,7 +353,7 @@ function drawCutLines(ctx, L){
 /* キラキラ（4方向の星） */
 // B（最終合成）の上に直接描く。位置は 75% が文字の輪郭上、残りが bbox 内のランダム。固定シードなので再描画しても位置は同じ。
 // body から輪郭を取る（B は影・光彩を含み輪郭がぼやけるため）。ワープ・残像後の body と B は同寸法
-function drawSparkles(B, body, scale){
+/** @param {HTMLCanvasElement} B @param {HTMLCanvasElement} body @param {number} scale */ function drawSparkles(B, body, scale){
   const s = RS.sparkle; if(s.count <= 0) return;
   const pts = edgePoints(body), bb = bbox(body); if(!pts.length || !bb) return;
   const R = rng(s.seed), x = ctx2d(B), base = s.size * RS.size * scale;
