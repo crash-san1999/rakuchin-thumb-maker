@@ -8,7 +8,7 @@
     「同じ階層（peers）」＝同じ gid のレイヤー。重なり順の入れ替えは peers の中だけで行う（group.js の peersOf）。
   選択の持ち方：DOC.sel（主選択）と DOC.msel（複数選択。2個以上のときだけ有効で、保存しない）。文字レイヤーを選ぶと
     DOC.textSel と、文字パネルのスタイル S（その文字レイヤーの style と同じ参照）も切り替わる。
-  依存：DOC・docChanged・syncDoc・saveDoc（doc.js）、prevCache（render.js）、groupLayers 等（group.js）、libAddImageSrc・libAddStyle（library.js）、
+  依存：DOC・saveDoc（doc.js）、docChanged・syncDoc（doc-sync.js）、prevCache（render.js）、groupLayers 等（group.js）、libAddImageSrc・libAddStyle（library.js）、
        setEdit（editmodes.js）。呼び出し元：events-layers.js・events-canvas.js（パネル・キャンバスの操作）、inspector.js・doc.js（renderLayers）。
 */
 // lpSliding：パネル内の不透明度スライダーをつかんでいる間 true。再描画でスライダー自体が作り直されて、ドラッグが途切れるのを防ぐ（renderLayers が先送りする）

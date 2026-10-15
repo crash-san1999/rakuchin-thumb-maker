@@ -4,7 +4,7 @@
         透過PNGの保存・コピー・共有、プレビュー背景の切り替え、視認性（コントラスト）表示までを担当する。
   公開：schedule()（UI から変更があったら必ずこれ）／update()（実際の再描画）／render() の呼び出し口／exportBlob()／setBg()／setSmallView()。
   関係：文字そのものの描画は text-render.js の render()。フォント読み込みは fonts.js の ensureFont()。
-        保存・レイヤー同期は thumb/doc.js（saveDoc / syncDoc）、履歴は history.js（pushHist）。
+        保存・レイヤー同期は thumb/doc.js（saveDoc）・thumb/doc-sync.js（syncDoc）、履歴は history.js（pushHist）。
         thumb モード（DOC.mode === 'thumb'）のときは描画・書き出しを thumb/ 側（drawThumb / exportThumb / thumbBlob）へ委ねる。
         colors.js の bgImg / wantBgPalette / paletteFromBg はこのファイルのイベントから参照される（読み込み順は colors.js が後だが、実行時に参照されるので問題ない）。
 */
@@ -18,7 +18,7 @@ function schedule(){
   clearTimeout(schT); schT = setTimeout(update, 40); saveDoc(); clearTimeout(histT); histT = setTimeout(pushHist, 450);
   if(DOC){ clearTimeout(schedule.lt); schedule.lt = setTimeout(() => { renderLayers(); syncDoc(); }, 200); }
 }
-// histT は schedule() より後ろで宣言しているが、呼ばれるのは読み込み完了後なので問題ない（thumb/doc.js・colors.js からも共有される）
+// histT は schedule() より後ろで宣言しているが、呼ばれるのは読み込み完了後なので問題ない（thumb/doc-sync.js・colors.js からも共有される）
 let histT;
 // プレビューを描き直す。thumb モードなら thumb/render.js の drawThumb に任せ、ここは文字素材モード専用
 async function update(){

@@ -1,7 +1,7 @@
 /* 楽ちんサムネメーカー：キャンバス上の操作 */
 /*
   役割：キャンバス上のドラッグ（移動・拡大縮小・回転・背景効果の中心・しっぽのつまみ・編集モード）、ホイール、ダブルクリック、右クリック、キー操作。
-  依存：DOC・selLayer・docChanged・syncDoc（doc.js）、dims・drag・tvCss・snapLines・livePaint（render.js）、layerGeom・fxHandleOn（overlay.js）、
+  依存：DOC・selLayer（doc.js）、docChanged・syncDoc（doc-sync.js）、dims・drag・tvCss・snapLines・livePaint（render.js）、layerGeom・fxHandleOn（overlay.js）、
        editPointerDown 等（editmodes.js）、tail 系（tailhandle.js）、selectLayer・layerAction・openLayerMenu 等（layers.js）、
        hitLayer・hitLayers・hitRanked・hitForWheel・hitMenuLayer（hit.js）、groupLayers・xformSnap・xformApply（group.js）。
   読み込み順：events-drop.js の次。読み込み時にイベントを登録する（DOM は存在済み）。

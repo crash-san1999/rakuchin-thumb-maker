@@ -7,7 +7,7 @@
            postFx・toneFilter（背景と分割フレームで共用）/ prevCache・dims / pruneLayerCaches / tvCss・snapLines・drag
   依存：DOC・ASSETS・layerSrc（assets.js）、render（text-render.js：文字を canvas に描く）、drawOne（group.js）、
        framedCanvas（frames.js）、applyFinish・finOn・drawBgPattern・posterize 等（finish.js）、drawOverlay（overlay.js）。
-  呼び出し元：preview.js（update → drawThumb）、doc.js の docChanged、export.js（compose を書き出し解像度で呼ぶ）。
+  呼び出し元：preview.js（update → drawThumb）、doc-sync.js の docChanged、export.js（compose を書き出し解像度で呼ぶ）。
   描画の前提：
     - f = 描画先の幅 / DOC.w（DOC 座標 → canvas の px への倍率）。プレビューは小さい f、書き出しは exportW / DOC.w。
     - L.x・L.y は DOC 座標でのレイヤー中心。描くときは「中心へ translate → rotate → scale」の順。

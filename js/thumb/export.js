@@ -2,7 +2,7 @@
 /*
   役割：DOC を書き出し解像度で描いて Blob にする／ファイルとして保存・共有する／DOC を丸ごと差し替える。
   主な公開：thumbBlob(fmt)（クリップボードコピーでも使う）/ exportThumb / loadDocObj / shareFile
-  依存：compose（render.js）、ensureFont・ensureCollageFonts（フォント読み込み）、normalizeDoc・syncDoc（doc.js）、
+  依存：compose（render.js）、ensureFont・ensureCollageFonts（フォント読み込み）、normalizeDoc（doc.js）・syncDoc（doc-sync.js）、
        downloadBlob・stamp・toast・mk（core.js）。
   呼び出し元：preview.js（保存ボタン・コピー）、events.js（プロジェクトを開く・新規作成から loadDocObj）。
 */
