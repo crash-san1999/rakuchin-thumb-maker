@@ -107,7 +107,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
       const EP = editPinchStart(I);
       if(EP) pinch = EP;
       else if(L && !L.locked) pinch = {kind:'layer', L, i:I, sc:L.sc, rot:L.rot || 0, x:L.x, y:L.y, snap: isGroup(L) ? xformSnap([L], L.x, L.y) : null};
-      else if(DOC.bg.type === 'image' && ASSETS[DOC.bg.asset]) pinch = {kind:'bg', i:I, zoom:DOC.bg.zoom, ox:DOC.bg.ox, oy:DOC.bg.oy};
+      else if(DOC.bg.type === 'image' && assetOf(DOC.bg.asset)) pinch = {kind:'bg', i:I, zoom:DOC.bg.zoom, ox:DOC.bg.ox, oy:DOC.bg.oy};
       return;
     }
     // 長押し：520ms 動かさず1本のまま触れていたら、その位置のレイヤーのメニューを出す（どれを選ぶかは PC の右クリックと同じ hitMenuLayer）

@@ -18,6 +18,7 @@
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {TEXT_ROWS, SECTIONS, getK, setK, buildTextControls, syncUI} = (() => {
 // 文字の基本行（サイズ・字間・縦書きなど）。縦書き時だけ「揃え」の選択肢の表示が上/中央/下に変わるので、同じ seg:'align' を2つ定義して show で出し分けている
+/** @type {PanelRow[]} */
 const TEXT_ROWS = [
   {r:'size', l:'サイズ', min:40, max:400, step:1},
   {r:'ls', l:'字間', min:-40, max:80, step:1},
@@ -31,6 +32,7 @@ const TEXT_ROWS = [
 // 装飾セクションの一覧。表示順＝パネルの上から下の順で、描画順（text-render.js の renderStyle）とは別。
 // 各キー（'bevel.size' 等）は S の構造とそのまま対応するので、名前を変える時は DEFAULT・プリセット・text-render.js と揃えること。
 // min/max/step は入力欄（スライダー・数値）の範囲。
+/** @type {{t: string, on?: string, hint?: string, strokes?: boolean, rows?: PanelRow[]}[]} */
 const SECTIONS = [
   {t:'文字の塗り', rows:[
     {seg:'fillType', l:'種類', opts:[['solid','単色'],['grad','グラデ'],['split','2色分割'],['metal','金属']]},
@@ -175,15 +177,17 @@ const SECTIONS = [
 // 文字スタイル（S）用の入力欄のつなぎ込み
 // getK/setK：'strokes.0.c' のようにドット区切りで配列の添字も辿れる。S は差し替わることがある（レイヤー切替・履歴復元）ので、
 // 値を保持せず呼ぶたびに今の S を参照する。getK は途中が無ければ undefined、setK は途中が無いと例外になる（パネル定義のキーが S に無い場合）。
-const getK = k => k.split('.').reduce((o, p) => o?.[p], S);
-function setK(k, v){ const ps = k.split('.'); const last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; }
+/** @param {string} k @returns {any} */ const getK = k => k.split('.').reduce((o, p) => o?.[p], S);
+/** @param {string} k @param {any} v */ function setK(k, v){ const ps = k.split('.'); const last = /** @type {string} */ (ps.pop()); ps.reduce((o, p) => o[p], S)[last] = v; }
+// 文字が変わったときのフォント一覧の見本の更新を、まとめて 1 回にするためのタイマー
+let sampleT = 0;
 const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:getK,
   onInput(k, v, el){
     // resetAdj：手動で色を変えたら一括調整の基準が古くなるので捨てる（colors.js）。
     // syncUI(el)：操作中の入力欄自身は上書きしない（入力途中の文字やカーソル位置が飛ぶため）。同じキーの他の欄（スライダー⇔数値）は更新される
     resetAdj(); setK(k, v); syncUI(el);
     // 文字が変わったらフォント一覧の見本（.fs）も追従させる。一覧は数が多いので 300ms デバウンス
-    if(k === 'text'){ clearTimeout(KB.st); KB.st = setTimeout(() => $$('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
+    if(k === 'text'){ clearTimeout(sampleT); sampleT = setTimeout(() => $$('.fi .fs').forEach(x => x.textContent = sampleText()), 300); }
     schedule();
   },
   onSeg(k, v){ setK(k, v); syncUI(); schedule(); },
@@ -191,11 +195,11 @@ const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:get
 });
 // 一文字囲みの「ランダム配色」用パレット行（使う色数・8色の色欄・おまかせチップ）。通常の行では表現できないので専用に HTML を作る。
 // data-pi は色欄の番号で、syncUI が「使わない色（番号 >= box.pn）」を薄くするのに使う
-const paletteRowHTML = r => `<div data-show="${r.show}"><div class="row"><label>使う色数</label><input type="range" data-k="box.pn" min="2" max="8" step="1"><input type="number" class="num" data-k="box.pn" min="2" max="8" step="1"></div>
+/** @param {PanelRow} r */ const paletteRowHTML = r => `<div data-show="${r.show}"><div class="row"><label>使う色数</label><input type="range" data-k="box.pn" min="2" max="8" step="1"><input type="number" class="num" data-k="box.pn" min="2" max="8" step="1"></div>
   <div class="row"><label>色</label><div class="palrow">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<input type="color" data-k="box.pal.${i}" data-pi="${i}">`).join('')}</div></div>
   <div class="row"><label>おまかせ</label><div class="pcats palchips">${BOX_PALETTES.map(p => `<button data-boxpal="${p[0]}">${p[1]}</button>`).join('')}</div></div></div>`;
 // KB.row の第2引数 true は「色欄にランダム・スポイトのボタンを付ける」指定
-const rowHTML = r => r.pal ? paletteRowHTML(r) : KB.row(r, true);
+/** @param {PanelRow} r */ const rowHTML = r => r.pal ? paletteRowHTML(r) : KB.row(r, true);
 // フチ i 本目の行。ON/太さ/色が横一列なので通常の行ではなく専用。キーは strokes.i.on|w|c（S.strokes 配列と対応）
 /** @param {number} i */ function strokeHTML(i){
   return `<div class="stroke-row"><label class="chk"><input type="checkbox" data-k="strokes.${i}.on"> フチ${i+1}</label>
@@ -211,7 +215,7 @@ function buildTextControls(){
       <h3>${s.on ? `<label class="sw"><input type="checkbox" data-k="${s.on}"><span></span></label>` : ''}${s.t}${s.hint ? ` <span class="hint">${s.hint}</span>` : ''}</h3>
       <div class="rows">${s.strokes ? [0,1,2].map(strokeHTML).join('') : ''}${(s.rows || []).map(rowHTML).join('')}</div>
     </section>`).join('');
-  $$('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on)) sec.classList.add('collapsed'); });
+  $$('#genSections section[data-on]').forEach(sec => { if(!getK(sec.dataset.on ?? '')) sec.classList.add('collapsed'); });
 }
 
 // S の内容を画面へ反映する（入力欄の値・ボタンの選択状態・表示条件）。S を直接書き換えた後（パレット適用・履歴復元・初期化など）は必ず呼ぶ。
@@ -219,7 +223,7 @@ function buildTextControls(){
 /** @param {HTMLElement} [except] */ function syncUI(except){
   KB.sync(except);
   $$('[data-pi]').forEach(el => { el.style.opacity = +(el.dataset.pi ?? 0) < (S.box.pn || 7) ? '' : '0.25'; });   // 使わない色は薄く
-  $$('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on)));
+  $$('section[data-on]').forEach(s => s.classList.toggle('off', !getK(s.dataset.on ?? '')));
 }
 // 見出しクリックで折りたたみ。見出し内のスイッチ（.sw）は ON/OFF 用なので除く
 document.addEventListener('click', e => {
@@ -243,10 +247,10 @@ document.addEventListener('click', e => {
   const bp = tgt(e).closest('[data-boxpal]');
   if(bp){ const p = BOX_PALETTES.find(q => q[0] === bp.dataset.boxpal); if(p){ resetAdj(); S.box.pal = p[2].slice(); S.box.pn = p[3]; syncUI(); schedule(); } return; }
   const rb = tgt(e).closest('[data-rnd]');
-  if(rb){ resetAdj(); setK(rb.dataset.rnd, randomLike(getK(rb.dataset.rnd))); syncUI(); schedule(); return; }
+  if(rb){ const k = rb.dataset.rnd ?? ''; resetAdj(); setK(k, randomLike(getK(k))); syncUI(); schedule(); return; }
   const eb = tgt(e).closest('[data-eye]');
   // EyeDropper は非対応ブラウザではボタン自体を出さない（bind.js）。キャンセル時は reject されるので catch で握りつぶす。sRGBHex は #rrggbb 形式で返る
-  if(eb){ new EyeDropper().open().then(r => { resetAdj(); setK(eb.dataset.eye, r.sRGBHex.slice(0, 7).toLowerCase()); syncUI(); schedule(); }).catch(() => {}); return; }
+  if(eb){ new EyeDropper().open().then(r => { resetAdj(); setK(eb.dataset.eye ?? '', r.sRGBHex.slice(0, 7).toLowerCase()); syncUI(); schedule(); }).catch(() => {}); return; }
 });
 $('#pcats').addEventListener('click', e => {
   const b = tgt(e).closest('[data-pcat]'); if(!b) return;

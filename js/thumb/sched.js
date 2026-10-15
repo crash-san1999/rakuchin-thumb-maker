@@ -93,7 +93,7 @@ function schedImage(x, A, ix, iw, by, bh){
     if(r.rest){ schedText(x, ts, L.restText, g.rest[0], g.rest[1], g.y, g.h, 'c', 0.95); return; }
     schedText(x, ds, schedTime(L, r), g.time[0], g.time[1], g.y, g.h, 'c', 0.95);
     schedText(x, ts, r.title, g.title[0], g.title[1], g.y, g.h, 'c', 0.9);
-    const A = ASSETS[r.asset]; if(g.img && A) schedImage(x, A, g.img[0], g.img[1], g.y, g.h);
+    const A = assetOf(r.asset); if(g.img && A) schedImage(x, A, g.img[0], g.img[1], g.y, g.h);
   });
   return c;
 }
@@ -105,7 +105,7 @@ function drawSched(ctx, L, f, live, cache){
   dims.set(L.id, {w, h});
   const ds = schedDStyle(L), ts = schedTStyle(L);
   const sk = JSON.stringify([L.bw, L.bh, L.start, L.first, L.fmt, L.paren, L.time, L.band, L.bandColor, L.bandC, L.restText, L.restC, L.gap, L.img, L.seed,
-    ds, ts, fontKey(ds), fontKey(ts), schedDays(L).map(d => schedDayLabel(L, d)), L.rows, L.rows.map(r => !!ASSETS[r.asset])]);
+    ds, ts, fontKey(ds), fontKey(ts), schedDays(L).map(d => schedDayLabel(L, d)), L.rows, L.rows.map(r => !!assetOf(r.asset))]);
   const e = cacheBySize(cache, L.id, sk, W, H, live, () => schedCanvas(L, W, H));
   ctx.save(); poseLayer(ctx, L, f);
   ctx.drawImage(e.c, -w * f / 2, -h * f / 2, w * f, h * f);
@@ -164,7 +164,7 @@ async function schedTakeFiles(files, cx, cy){
   const r = $('#tv').getBoundingClientRect(); if(cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return files;
   let i = schedRowAt(L, (cx - r.left) / r.width * DOC.w, (cy - r.top) / r.height * DOC.h); if(i < 0) return files;
   const rest = files.slice(), first = i;
-  while(rest.length && i < 7){ await schedSetImage(L, i, rest.shift()); i++; while(i < 7 && (ASSETS[L.rows[i].asset] || L.rows[i].rest)) i++; }
+  while(rest.length && i < 7){ await schedSetImage(L, i, rest.shift()); i++; while(i < 7 && (assetOf(L.rows[i].asset) || L.rows[i].rest)) i++; }
   syncDoc(); docChanged(false); toast(`${schedDayLabel(L, schedDays(L)[first])} の行に画像を入れました`);
   return rest;
 }

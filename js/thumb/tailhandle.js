@@ -42,7 +42,7 @@ function textTailInfo(L){
 // 画像レイヤー L（切り抜きフレームが吹き出し）のしっぽの情報。出せないときは null
 /** @param {ImageLayer} L */
 function frameTailInfo(L){
-  if(!L.frame || L.frame.shape !== 'bubble' || !ASSETS[L.asset]) return null;
+  if(!L.frame || L.frame.shape !== 'bubble' || !assetOf(L.asset)) return null;
   const G = frameGeom(L); if(!G) return null;
   const g = frameBubbleGeom(G.fw, G.fh, L.frame.r, L.frame), a = (L.rot || 0) * PI / 180, c = Math.cos(a), s = Math.sin(a);
   /** @param {number[]} q */

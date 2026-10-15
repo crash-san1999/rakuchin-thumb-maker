@@ -249,7 +249,7 @@ function postFx(c, b, f, cx, cy){
 // ぼかし画像を m=80px ぶん大きく描くのは、ぼかしで端が透けて黒い縁が出るのを防ぐため。
 // 画像が未読み込み（ASSETS に無い）ときは暗い単色を返す（読み込み完了後に compose のキャッシュキーが変わって描き直される）
 /** @param {number} W @param {number} H @param {number} f */ function bgImageLayer(W, H, f){
-  const b = DOC.bg, A = ASSETS[b.asset], c = mk(W, H), x = ctx2d(c);
+  const b = DOC.bg, A = assetOf(b.asset), c = mk(W, H), x = ctx2d(c);
   x.fillStyle = '#101014'; x.fillRect(0, 0, W, H);
   if(!A) return c;
   const iw = A.img.naturalWidth, ih = A.img.naturalHeight, cover = Math.max(W / iw, H / ih);
@@ -299,7 +299,7 @@ function drawBackground(ctx, W, H, f){
    仕上げ（fin）がオンのときは、いったん別 canvas T に全部描いてから applyFinish をかけて ctx に重ねる：
    仕上げは背景・全レイヤーを描き終えた1枚に対してまとめてかけるため。 */
 function compose(ctx, W, H, live, cache){
-  const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (ASSETS[DOC.bg.asset] ? 1 : 0);
+  const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (assetOf(DOC.bg.asset) ? 1 : 0);
   let b = cache.get('__bg');
   if(!b || b.key !== key){ const c = mk(W, H); drawBackground(ctx2d(c), W, H, f); b = {key, c}; cache.set('__bg', b); }
   // 仕上げの「かける対象」が背景だけ（target='bg'）なら、背景の絵にだけ仕上げをかけて（キャッシュ '__bgfin'）、レイヤーはそのまま重ねる

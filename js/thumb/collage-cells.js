@@ -102,7 +102,7 @@ function collageFillWeek(L){
   const mi = n >= 8 ? clamp(Math.round(+wk.memo) || 8, 1, n) - 1 : -1, order = [...Array(n).keys()].filter(i => i !== mi);
   days.slice(0, order.length).forEach((d, j) => {
     const c = L.cells[order[j]], k = d.getDay() === 6 ? 'sat' : d.getDay() === 0 ? 'sun' : 'wd';
-    c.tx = Object.assign(c.tx, {on:true, text:weekLabel(d, wk), pos: ASSETS[c.asset] ? 't' : 'c', sc:1, ox:0, oy:0, wk:true});
+    c.tx = Object.assign(c.tx, {on:true, text:weekLabel(d, wk), pos: assetOf(c.asset) ? 't' : 'c', sc:1, ox:0, oy:0, wk:true});
     if(wk.color) c.bg = Object.assign(c.bg, {on:true, c:WK_BG[k][0], c2:WK_BG[k][1], grad:true});
   });
   // MEMO：空のマスと、前に「1週間を入れる」で書いた日付のマスにだけ書く（自分で書いた文字・調整済みの MEMO は消さない）。
@@ -134,7 +134,7 @@ async function collageTakeFiles(files, cx, cy){
       const S0 = selLayer(), L = S0 && S0.type === 'collage' && !S0.hidden && collageCellAt(S0, x, y) >= 0 ? S0 : null;
       if(L){
         let i = collageCellAt(L, x, y); const n = collageN(L);
-        while(rest.length && i < n){ await collageSetCell(L, i, rest.shift()); L.ac = i; i++; while(i < n && ASSETS[L.cells[i].asset]) i++; }
+        while(rest.length && i < n){ await collageSetCell(L, i, rest.shift()); L.ac = i; i++; while(i < n && assetOf(L.cells[i].asset)) i++; }
         selectLayer(L.id); docChanged(false); toast('分割フレームのマスに画像を入れました');
         return rest;
       }
@@ -143,7 +143,7 @@ async function collageTakeFiles(files, cx, cy){
   const C = cx == null ? selLayer() : null;   // ドロップのときは、ここでは入れない（選んでいても、落とした位置がマスの外なら画像レイヤーにする）
   if(C && C.type === 'collage'){
     const n = collageN(C); let filled = 0;
-    for(let i = 0; i < n && rest.length; i++) if(!ASSETS[C.cells[i].asset]){ await collageSetCell(C, i, rest.shift()); C.ac = i; filled++; }
+    for(let i = 0; i < n && rest.length; i++) if(!assetOf(C.cells[i].asset)){ await collageSetCell(C, i, rest.shift()); C.ac = i; filled++; }
     if(filled){ docChanged(false); toast(`分割フレームの空いているマスに ${filled} 枚入れました`); }
   }
   return rest;

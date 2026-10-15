@@ -22,6 +22,7 @@ const CANVAS_PRESETS = [
 ];
 // ヘッダー画像の規定サイズとセーフエリア。areas は中央に置く枠（w×h）で、main が「どの端末でも必ず見える範囲」。
 // YouTube は公式の数値（TV=全体 / PC=2560×423 / タブレット=1855×423 / スマホ=1546×423）。Twitch は公式の数値がなく「中央に置く」が目安なので、中央 2/3 を目安にしている
+/** @type {Record<string, {w: number, h: number, name: string, areas: Array<{w: number, h: number, label: string, main?: boolean}>}>} */
 const HEADER_SPECS = {
   yt:{w:2560, h:1440, name:'YouTube チャンネルアート', areas:[
     {w:2560, h:423, label:'PC 2560×423'}, {w:1855, h:423, label:'タブレット 1855×423'}, {w:1546, h:423, label:'スマホ・全端末 1546×423', main:true}]},

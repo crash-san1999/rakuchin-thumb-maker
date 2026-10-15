@@ -59,11 +59,12 @@
  * @typedef {{l?: string, r?: string, seg?: string, sel?: string, c?: string, chk?: string, seed?: string, opts?: Array<[any, string]>,
  *   min?: number, max?: number, step?: number, show?: string, pg?: string, sub?: string, note?: string, btns?: Array<[string, string, string]>,
  *   cells?: boolean, week?: boolean, tonenote?: boolean, shapes?: boolean, sched?: boolean, schedStyle?: boolean, place?: boolean, layouts?: boolean,
- *   fx?: boolean, frpre?: boolean, flips?: boolean, finchips?: boolean, ctext?: boolean, cfxchips?: boolean, addfx?: boolean}} PanelRow */
+ *   fx?: boolean, frpre?: boolean, flips?: boolean, finchips?: boolean, ctext?: boolean, cfxchips?: boolean, addfx?: boolean, pal?: boolean}} PanelRow */
 /** 入力欄と値をつなぐ設定（bind.js の makeBinder に渡す）。val・seg・show・reroll は入力欄に付ける data 属性の名前、get はキーで値を読む関数
  * @typedef {{val: string, seg: string, show: string, reroll: string, get: (k: string) => any,
  *   onInput: (k: string, v: string|number|boolean, el: HTMLInputElement) => void, onSeg: (k: string, v: string|number, el: HTMLElement) => void,
  *   onReroll: (k: string) => void}} BinderOptions */
+/** 読み込んだ画像（assets.js の ASSETS の値）。img は画像、src は dataURL、thumb はレイヤーパネル用の小さい dataURL @typedef {{img: HTMLImageElement, src: string, name: string, thumb: string}} Asset */
 /** 更新履歴の 1 件（changelog.js）。d は日付、t は見出し、items は項目 @typedef {{d: string, t: string, items: string[]}} ChangeEntry */
 /** フォント一覧の 1 件（fonts.js の fonts）。src は配布元：google・fontsource・ea・url・gh（GitHub）・npm・local（PC 内）・self（同梱）。
  * id・slug・file・css・files・mb は配布元ごとに使うもの、more は「もっと見る」側の欧文、usage は用途の説明

@@ -39,7 +39,7 @@ document.addEventListener('click', e => {
   if(tgt(e).closest('#cutBrushBtn')){ const L = selLayer(); if(L && L.type === 'image' && L.btool === 'pick') L.btool = 'erase'; toggleEdit('cut'); return; }
   if(tgt(e).closest('#cutPickBtn')){ const L = selLayer(); if(L && L.type === 'image' && EDIT_MODES.cut.ok(L)){ L.btool = 'pick'; if(edit && edit.kind === 'cut') syncDoc(); else setEdit('cut', L); paintPreview(false); } else if(L) toast('切り抜きフレームを使っている画像では、色を拾うモードは使えません。「四隅から自動で拾う」か、色の欄で指定してください', true); return; }
   if(tgt(e).closest('#cutAutoBtn')){
-    const L = selLayer(), A = L && L.type === 'image' && ASSETS[L.asset]; if(!A) return;
+    const L = selLayer(), A = L && L.type === 'image' && assetOf(L.asset); if(!A) return;
     const c = cutAutoColor(cropSrc(L, A).img); if(!c){ toast('四隅が透明なので、色を拾えませんでした', true); return; }
     L.key.c = c; L.key.on = true; syncDoc(); docChanged(false); return;
   }
@@ -91,7 +91,7 @@ $('#bgimgfile').onchange = e => { const f = (inputOf(e).files || [])[0]; if(f) s
 // 使っている画像（usedAssets）の本体をここで同梱する。素材置き場のバックアップ（app:'rakuchin-thumb-maker', type:'library'）とは別形式
 function saveProject(){
   const used = usedAssets(), assets = {};
-  used.forEach(id => { if(id && ASSETS[id]) assets[id] = ASSETS[id].src; });
+  used.forEach(id => { const A = id ? assetOf(id) : undefined; if(id && A) assets[id] = A.src; });
   const blob = new Blob([JSON.stringify({app:'rakuchin-thumb', v:1, doc:DOC, assets})], {type:'application/json'});
   downloadBlob(blob, `rakuchin-thumb-project_${stamp()}.json`);
 }

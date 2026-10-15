@@ -52,9 +52,9 @@ const DOC_BASE = () => ({
   layers:[], sel:null, textSel:null, msel:[],
 });
 var {mkTextLayer, layerById, selLayer, textLayer, usedAssets, layerName, normalizeLayer, normalizeDoc, loadSavedDoc, saveDoc} = (() => {
-const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:/** @type {'text'} */ ('text'), x, y, sc, style});
+/** @param {TextStyle} style @param {number} x @param {number} y @param {number} sc */ const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:/** @type {'text'} */ ('text'), x, y, sc, style});
 // id からレイヤーを探す（無ければ null）。選択中・文字入力中のレイヤーもこれで引く
-const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
+/** @param {string|null|undefined} id @returns {Layer|null} */ const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
 const selLayer = () => layerById(DOC && DOC.sel);
 /** 文字パネルとつながっている文字レイヤー（無い・文字レイヤーでないときは null） @returns {TextLayer|null} */
 const textLayer = () => { const L = layerById(DOC && DOC.textSel); return L && L.type === 'text' ? L : null; };
@@ -69,9 +69,9 @@ function layerName(L){ return L.label || kindOf(L).name(L); }
    d が不正（null・layers なし）のときは、文字レイヤー1枚の新規ドキュメントを返す。 */
 // レイヤー 1 枚を、種類ごとの既定値と混ぜ直す（normalizeDoc から呼ぶ）。中身は種類ごとの登録（layer-kinds.js の normalize）。
 // 保存データ L に無い項目は既定値で埋まる。入れ子のオブジェクト（shadow・cells の中など）は 1 段ずつ既定値と混ぜる
-function normalizeLayer(L){ return kindOf(L).normalize(L); }
+/** 保存データ 1 枚（まだ形を確かめていない） @param {any} L @returns {Layer} */ function normalizeLayer(L){ return kindOf(L).normalize(L); }
 // 背景・仕上げ・ガイド・ヘッダー画像の設定を既定値と混ぜ、旧データの効果の中心を引き継ぐ（o は Object.assign(DOC_BASE(), d) 済みのもの）
-function normalizeDocSettings(o, d){
+/** @param {Doc} o @param {any} d */ function normalizeDocSettings(o, d){
   // Object.assign は浅いコピーなので、入れ子のオブジェクト（bg・fin・guides と、bg の中の zb など）は個別に既定値と混ぜる。
   // こうしないと、古いデータに zb などが無いとき o.bg.zb.on が未定義参照で落ちる
   const base = DOC_BASE();
@@ -85,25 +85,25 @@ function normalizeDocSettings(o, d){
   if(d.bg && d.bg.fcx == null && d.bg.zb && (d.bg.zb.cx !== 0.5 || d.bg.zb.cy !== 0.5) && d.bg.zb.cx != null){ o.bg.fcx = d.bg.zb.cx; o.bg.fcy = d.bg.zb.cy; }
 }
 // id・画像の参照・色を、安全な値にそろえる
-function sanitizeDocRefs(o){
+/** @param {Doc} o */ function sanitizeDocRefs(o){
   // セキュリティ：id・画像の参照は HTML 属性や querySelector に入るので、安全な文字だけにそろえる（細工されたプロジェクトファイル対策）。
   // 使えない id は作り直し、そのレイヤーを指す gid も同じ新しい id に付け替える
-  const idMap = {};
+  /** @type {Record<string, string>} */ const idMap = {};
   o.layers.forEach(l => { if(!okId(l.id)){ const n = uid(); idMap[l.id] = n; l.id = n; } });
   o.layers.forEach(l => { if(l.gid != null){ l.gid = idMap[l.gid] || l.gid; if(!okId(l.gid)) delete l.gid; } });
-  o.layers.forEach(l => { if(l.asset != null && !okId(l.asset)) l.asset = null; if(l.cells) l.cells.forEach(c => { if(c.asset != null && !okId(c.asset)) c.asset = null; }); });
+  o.layers.forEach(l => { if('asset' in l && l.asset != null && !okId(l.asset)) l.asset = null; if('cells' in l) l.cells.forEach(c => { if(c.asset != null && !okId(c.asset)) c.asset = null; }); });
   if(o.bg.asset != null && !okId(o.bg.asset)) o.bg.asset = null;
   fxColorsSafe(o.bg);   // 背景の効果の色（2色・2値化・グラデーションマップなど）
   o.fin.leakC = safeColor(o.fin.leakC, '#ff8a3d');
   // 色：不正な文字列だと、HTML 属性を壊すだけでなく addColorStop が例外を出して描画が止まるので、読み込み時に使える色へそろえる
   o.layers.forEach(l => {
-    if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
+    if('cells' in l) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
       c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = cellW(c); });
     kindOf(l).sanitize(l);   // 種類ごとの値（分割フレームの文字の調整・動的エフェクトの色など）
   });
 }
 // グループの整理（存在しないグループへの gid・空のグループ）と、複数選択のリセット
-function cleanupGroups(o){
+/** @param {Doc} o */ function cleanupGroups(o){
   // グループ：存在しないグループを指す gid を外し、中身のないグループを消す。複数選択は保存しない
   const gids = new Set(o.layers.filter(l => l.type === 'group').map(l => l.id));
   o.layers.forEach(l => { if(l.gid && (!gids.has(l.gid) || l.type === 'group')) delete l.gid; if(!l.gid) delete l.gid; });
@@ -111,14 +111,13 @@ function cleanupGroups(o){
   o.msel = [];
 }
 // 旧データの「背景の集中線」を動的エフェクトのレイヤーに移す
-function migrateOldLines(o, d){
+/** @param {Doc} o @param {any} d */ function migrateOldLines(o, d){
   // 旧データ互換：以前の「背景の集中線」(bg.lines) を動的エフェクトのレイヤーに移す。
   // unshift で最背面に入れるのは、旧仕様では集中線が背景の直上（他のレイヤーより奥）に描かれていたため。中心は fcx/fcy（比率）を px に直す
-  const oldLines = (d.bg || {}).lines; delete o.bg.lines;
+  const oldLines = (d.bg || {}).lines; delete /** @type {any} */ (o.bg).lines;
   if(oldLines && oldLines.on){ const l = oldLines; o.layers.unshift(mkFx('lines', {c:l.c, n:l.n, inner:l.inner, w:l.w ?? 1, len:l.len ?? 1, seed:l.seed}, {op:l.a, x:(o.bg.fcx ?? 0.5) * o.w, y:(o.bg.fcy ?? 0.5) * o.h})); }
 }
-/** @returns {Doc} */
-function normalizeDoc(d){
+/** @returns {Doc} 保存データ（localStorage・プロジェクト JSON・取り消し履歴。まだ形を確かめていない） @param {any} d */ function normalizeDoc(d){
   /** @type {Doc} */
   const b = DOC_BASE();
   if(!d || !Array.isArray(d.layers)){

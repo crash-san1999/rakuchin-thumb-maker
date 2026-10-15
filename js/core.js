@@ -238,5 +238,5 @@ const ctx2d = (c, opt) => /** @type {CanvasRenderingContext2D} */ (c.getContext(
 // スクリプトを差し込むのを防ぐ。合わなければ既定色 d を返す
 /** @param {unknown} c @param {string} [d] @returns {string} */ const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;
 // 読み込んだデータの id（レイヤー・画像）として使ってよい文字列か。HTML 属性や querySelector に入るので、英数字・_・- だけ許す
-/** @param {unknown} s @returns {s is string} */ const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // ASSETS[id] のようにオブジェクトのキーにもなるので、特別な名前も除く
+/** @param {unknown} s @returns {s is string} */ const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // assetOf(id) のようにオブジェクトのキーにもなるので、特別な名前も除く
 /** @param {unknown} s */ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => /** @type {Record<string, string>} */ ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
