@@ -4,7 +4,10 @@
    主な公開関数：drawOne（種類の登録 kindOf(L).draw で描く）／drawGroup／groupLayers・ungroupLayers・ungroupOne（作成・解除）／xformSnap・xformApply（まとめて移動・拡大縮小・回転）
    依存：DOC・dims・prevCache・mk・postFx・toneFilter・cellFxOn・CELL_FX_BASE（fx.js／frames.js 側）、drawLayer・drawFx・drawCollage（各レイヤー描画）。
    グループの x/y/sc/rot は保存値ではなく、描画のたびに中身から計算し直す値（drawGroup 参照）。 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 const GROUP_BASE = () => ({type:'group', label:'', open:true, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5}});
+var {groupKids, peersOf, isGroup, drawOne, xformSnap, xformApply, groupLayers, ungroupLayers, ungroupOne} = (() => {
 /** @param {Layer} G */
 const groupKids = G => DOC.layers.filter(l => l.gid === G.id);
 // 同じ階層（同じグループの中、またはグループに入っていないもの）のレイヤー。重なり順の入れ替えはこの中で行う
@@ -141,3 +144,5 @@ defineLayerKind('group', {
   sub: L => `${groupKids(L).length}個のレイヤー${cellFxOn(L.fx) ? ' ・ 効果あり' : ''}`,
   thumb: () => `<span class="fxth grpth">${ic('group')}</span>`,
 });
+return {groupKids, peersOf, isGroup, drawOne, xformSnap, xformApply, groupLayers, ungroupLayers, ungroupOne};
+})();

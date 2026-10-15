@@ -23,9 +23,15 @@
     pinchStart・pinch … スマホのピンチ（開始時の値を控え、倍率 k をその値に掛ける）
     overlay(ctx,L,f,dpr) … キャンバス上の補助表示（f はプレビュー倍率）
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let edit;
+let cutCursor;
+let swapTarget;
+var {r4, EDIT_MODES, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay} = (() => {
 // edit：今の編集モード。モードの種類は EDIT_MODES のキー
-let edit = null; // {kind, id}
-let cutCursor = null;   // ブラシの丸を出す位置（ドキュメント座標）
+edit = null; // {kind, id}
+cutCursor = null;   // ブラシの丸を出す位置（ドキュメント座標）
 // ブラシの跡の座標・半径を小数4桁に丸める（跡は DOC に保存されるので、JSON を小さくするため）
 const r4 = v => Math.round(v * 10000) / 10000;
 /** @type {Record<string, EditMode>} */
@@ -190,7 +196,7 @@ function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * M
 /** @param {Layer} L */
 function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
 
-let swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
+swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
 // ダブルクリックで入るモードを決める：EDIT_MODES の並び順（frame → cut → cells）で最初に ok になったもの。frame と cut は形が「なし」かどうかで排他
 /** @param {Layer} L */
 const editModeFor = L => L && Object.keys(EDIT_MODES).find(k => EDIT_MODES[k].ok(L)) || null;
@@ -240,3 +246,5 @@ function drawEditOverlay(ctx, W, H, dpr){
   const M = EDIT_MODES[edit.kind]; M.overlay(ctx, L, W / DOC.w, dpr); drawBanner(ctx, W, dpr, M.banner(L));
   return true;
 }
+return {r4, EDIT_MODES, frameLocal, editLayer, setEdit, toggleEdit, enterEditAt, editPointerDown, editPointerMove, editWheel, editPinchStart, editPinch, drawEditOverlay};
+})();

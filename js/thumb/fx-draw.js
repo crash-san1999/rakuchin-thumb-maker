@@ -6,6 +6,8 @@
   依存：FX_BOX（fx.js）、dims・DOC・rng・rgba・clamp・hasKey・PI（共通側）。読み込みは fx.js の直後。
   乱数 R() を呼ぶ順番・回数が見た目そのもの（保存済みのサムネの見た目が変わる）なので、各関数の中の順序を入れ替えないこと。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {drawFx, FX_MARKS} = (() => {
 // ctx に fx レイヤー L を描く。f＝倍率（ドキュメント座標→ピクセル）。L.x/y はドキュメント座標の中心、rot は度
 // 以降の座標は「L の中心が原点・sc=1 の局所座標」。translate→rotate→scale の順は変えない（回転・拡大の中心が中心点になる）
 /** @param {Layer} L */
@@ -412,3 +414,5 @@ function scatterShape(c, shape, r){
   else if(shape === 'drop'){ c.moveTo(0, -r); c.bezierCurveTo(r * 0.6, -r * 0.2, r * 0.75, r * 0.2, r * 0.6, r * 0.5); c.arc(0, r * 0.4, r * 0.6, 0.15, PI - 0.15); c.bezierCurveTo(-r * 0.75, r * 0.2, -r * 0.6, -r * 0.2, 0, -r); }
   else { c.moveTo(0, r * 0.85); c.bezierCurveTo(-r * 1.2, 0, -r * 0.7, -r * 1, 0, -r * 0.4); c.bezierCurveTo(r * 0.7, -r * 1, r * 1.2, 0, 0, r * 0.85); }
 }
+return {drawFx, FX_MARKS};
+})();

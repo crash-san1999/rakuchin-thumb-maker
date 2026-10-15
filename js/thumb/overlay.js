@@ -8,6 +8,8 @@
   座標系：枠・ハンドルの位置は DOC 座標（px）で計算し、描くときに f = プレビュー幅 / DOC.w を掛けてプレビュー canvas の座標に直す。
          dpr は線幅・ハンドルを画面上で同じ見た目の太さにするための係数。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {layerGeom, fxHandleOn, showFxCenterBriefly, drawOverlay} = (() => {
 // 選択枠の四隅 pts（左上から時計回り）と回転ハンドル位置 rot を DOC 座標で返す。dims が無い（まだ描かれていない）ときは null。
 // ハンドルまでの距離（30px・余白14px）は DOC 座標だと縮小プレビューで極端に小さくなるため px = DOC.w / tvCss（画面1pxあたりのDOC座標）を掛けて画面上の距離で決める
 /** @param {Layer} L */
@@ -110,3 +112,5 @@ function drawOverlay(ctx, W, H, dpr){
   }
   ctx.restore();
 }
+return {layerGeom, fxHandleOn, showFxCenterBriefly, drawOverlay};
+})();

@@ -14,6 +14,10 @@
     長さの引数に scale を掛ける必要がある（関数ごとに scale を受け取っているのはこのため）。
   【全体の流れ】renderStyle() 内のコメント 1)〜8) の順（背面→フチ→塗り→合成→光彩・影→反射・グリッチ→回転→トリミング）。順序を変えると見た目が変わる。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let RS;
+var {mctx, darken, fontStr, METALS, parse, lsx, layout, baseY, lineTop, glyphs, drawGlyphs, render} = (() => {
 // mctx：文字幅の計測専用の小さな canvas。描画用 ctx とは別にして、font / letterSpacing を計測のたびに設定し直して使う
 const mctx = mk(4, 4).getContext('2d');
 // 押し出しの奥行き用に色を暗くする（t=0 で元の色、1 で黒）
@@ -237,7 +241,7 @@ function fillStyles(ctx, L){
   return it => it.a ? acc(it) : main(it);
 }
 
-let RS = null;
+RS = null;
 // style を scale 倍で描いたキャンバスを返す（style を省略すると、文字パネルで編集中のスタイル）
 // 戻り値は透明余白をトリミング済みの canvas（文字が空なら 1x1）。同期処理で、フォントは読み込み済み前提（呼ぶ前に ensureFont を await）。
 // 前の RS を退避して finally で戻すので、入れ子で呼ばれても（サムネ側が別 style で描く間など）RS が壊れない。例外が出ても必ず戻る
@@ -442,3 +446,5 @@ function plateOnCanvas(P, rotM){
   const at = ([x, y]) => { const q = M.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };
   return {m:[M.a, M.b, M.c, M.d, M.e, M.f], tip:at(P.tip), base:at(P.base), center:at(P.lc), lc:P.lc, lbase:P.base, ltip:P.tip, rx:P.rx, ry:P.ry, kind:P.kind, size:P.size};
 }
+return {mctx, darken, fontStr, METALS, parse, lsx, layout, baseY, lineTop, glyphs, drawGlyphs, render};
+})();

@@ -2,6 +2,8 @@
    キャンバス上の位置 → どのマスか（collageCellAt・collageCellSize）／マスの文字のスタイルとフォント読み込み／1週間を自動で入れる（collageFillWeek）／
    分割フレームの追加と画像の割り当て（addCollage・collageSetCell・collageTakeFiles）／マスの入れ替え・元に戻す（swapCells・resetCell）。 */
 /* キャンバス上の位置 → どのマスか */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell} = (() => {
 // x, y はドキュメント座標。レイヤーの回転を逆に戻してレイヤー内の割合(u,v)にし、1000 幅の仮想キャンバスで多角形の内外判定をする。
 // 戻り値はマス番号、どのマスでもなければ -1。境界の加工（ギザギザ等）は無視した、元の分割線で判定する
 /** @param {Layer} L */
@@ -169,3 +171,5 @@ function swapCells(L, i, j){
 }
 /** @param {Layer} L */
 function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
+return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell};
+})();

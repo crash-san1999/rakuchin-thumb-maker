@@ -6,6 +6,8 @@
    依存：mk・clamp・rng・PI（core.js）、posterize・threshold（finish.js）。呼び出し元は render.js の postFx。
    単位：ずれ幅・網点の大きさ・筆の大きさは DOC 座標の px。描画先のピクセルに直すため、すべて f（倍率）を掛けて使う（プレビューと書き出しで見た目を揃える）。
    ピクセルを1つずつ読む処理なので、極端な値で固まらないよう、各関数の中で値の範囲を必ず丸めること。 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {EXTRA_FX_BASE, WARP_TYPES, extraFxOn, fxColorsSafe, addNoise, extraFxColor, extraFxShape} = (() => {
 const EXTRA_FX_BASE = () => ({
   posterize:{on:false, n:4}, thresh:{on:false, lvl:0.5, c1:'#111111', c2:'#ffffff'}, tilt:{on:false, pos:0.55, w:0.3, blur:14, sat:0.3},
   rgb:{on:false, d:8, angle:0},                                        // 色収差：赤と青を反対向きに d px ずらす（angle＝向き、度）
@@ -229,3 +231,5 @@ function crtImg(c, cr, f){
   }
   x.putImageData(im, 0, 0);
 }
+return {EXTRA_FX_BASE, WARP_TYPES, extraFxOn, fxColorsSafe, addNoise, extraFxColor, extraFxShape};
+})();

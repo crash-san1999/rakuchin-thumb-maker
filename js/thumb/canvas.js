@@ -6,6 +6,8 @@
   呼び出し元：doc.js の normalizeDoc（EXPORT_MAX_PX で書き出し幅を丸める）、doc-sync.js の syncDoc（refreshSizeUI）。
   単位：DOC.w/h は作業座標系の px。exportW は実際に書き出す横幅 px（縦は縦横比から計算）。描画倍率 f = exportW / DOC.w。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {HEADER_SPECS, EXPORT_MAX_PX, setCanvasSize, refreshSizeUI} = (() => {
 // キャンバス寸法のプリセット（[値 'WxH', 表示名]）
 const CANVAS_PRESETS = [
   ['1920x1080', '横 16:9（1920×1080）YouTubeサムネ・配信'],
@@ -84,3 +86,5 @@ document.addEventListener('click', e => {
   if(tgt(e).closest('#cvApply')){ if(!setCanvasSize($as('#cvW', HTMLInputElement).value, $as('#cvH', HTMLInputElement).value, $as('#cvFit', HTMLInputElement).checked)) refreshSizeUI(true); }
 });
 document.addEventListener('keydown', e => { if((tgt(e).id === 'cvW' || tgt(e).id === 'cvH') && e.key === 'Enter'){ e.preventDefault(); $('#cvApply').click(); } });
+return {HEADER_SPECS, EXPORT_MAX_PX, setCanvasSize, refreshSizeUI};
+})();

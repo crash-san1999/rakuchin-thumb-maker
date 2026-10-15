@@ -9,8 +9,14 @@
         colors.js の bgImg / wantBgPalette / paletteFromBg はこのファイルのイベントから参照される（読み込み順は colors.js が後だが、実行時に参照されるので問題ない）。
 */
 /* ============ プレビュー・書き出し ============ */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let tok;
+let schT;
+let histT;
+var {schedule, update, setBg, updateVis} = (() => {
 // tok: update() の世代番号（フォント待ちの間に新しい update が走ったら古い方を捨てる）/ schT: 再描画の遅延タイマー
-let tok = 0, schT;
+tok = 0;
 // 入力のたびに呼ばれる窓口。描画(40ms)・履歴(450ms)・レイヤー一覧(200ms)をそれぞれデバウンスし、スライダーを動かし続けても重くならないようにする
 function schedule(){
   // S（文字パネルが編集している入れ物）と選択中テキストレイヤーの style がずれていたら S 側に揃える
@@ -19,7 +25,7 @@ function schedule(){
   if(DOC){ clearTimeout(schedule.lt); schedule.lt = setTimeout(() => { renderLayers(); syncDoc(); }, 200); }
 }
 // histT は schedule() より後ろで宣言しているが、呼ばれるのは読み込み完了後なので問題ない（thumb/doc-sync.js・colors.js からも共有される）
-let histT;
+
 // プレビューを描き直す。thumb モードなら thumb/render.js の drawThumb に任せ、ここは文字素材モード専用
 async function update(){
   if(DOC && DOC.mode === 'thumb') return drawThumb();
@@ -103,3 +109,5 @@ function setSmallView(on){
   if(DOC && DOC.mode === 'thumb') paintPreview(false);   // thumb モードの表示幅は paintPreview() が 'small' クラスを見て決める（小さい時は 246px 固定）ので、クラス切替後に呼び直す
 }
 $('#smallBtn').onclick = () => setSmallView(!$('#stage').classList.contains('small'));
+return {schedule, update, setBg, updateVis};
+})();

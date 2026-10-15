@@ -6,6 +6,8 @@
   ここで呼ぶ関数はどれも先に読み込まれたファイルのもの。ファイルを足すときは main.js より前に置くこと。
   各ファイルが読み込み時点で行うこと（イベントの登録など）は、DOM がすでにある前提（<script> は body の末尾）。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+(() => {
 // サムネモード側の起動。boot() の中で、文字モード側の準備（フォント・プリセット）が済んだあとに呼ぶ
 function thumbInit(){
   $('#selBox').innerHTML = `${SEL_ROWS.map(r => drowPg(r)).join('')}`;
@@ -39,3 +41,4 @@ function boot(){
   scheduleFontListCheck(); registerFontCache(); preloadFavFonts();
 }
 boot();
+})();

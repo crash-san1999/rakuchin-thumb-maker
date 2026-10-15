@@ -6,6 +6,8 @@
   読み込み順：text-pixel.js の次（RANSOM・BOX_PALETTES は読み込み時に作るデータで、controls.js などは関数の中から参照する）。
 */
 /* 1文字ずつの位置（一文字囲み・傍点用） */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {charCells, withCell, BOX_PALETTES, drawBoxes, dotPath, drawExtrude, drawOffsetLayer, innerShadow, addReflection, displace, makeFire, drawDrips, drawHalftone, drawCutLines, drawBulbs, drawSparkles, addTrail} = (() => {
 // ゆらぎ・縦書きは glyphs() がすでに1文字単位なのでそのまま使う。通常の横書きは行の塊（セグメント）を文字ごとに分け、
 // measureText で x を進めて位置を出す（字間 ls を含む幅）。空白は囲み・傍点の対象にしない
 function charCells(items){
@@ -383,3 +385,5 @@ function addTrail(body, scale){
 }
 
 // 描画中のスタイル。render() の間だけ入り、描画用の関数はすべてこれを見る（画面の S は書き換えない）
+return {charCells, withCell, BOX_PALETTES, drawBoxes, dotPath, drawExtrude, drawOffsetLayer, innerShadow, addReflection, displace, makeFire, drawDrips, drawHalftone, drawCutLines, drawBulbs, drawSparkles, addTrail};
+})();

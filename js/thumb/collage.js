@@ -9,9 +9,26 @@
      collage-panel.js … 操作パネル（renderCells・renderCellText）・パネルのイベント登録（document への addEventListener）・レイアウトのアイコン（collageIcon）
    座標系：マスの多角形は W×H（描画先キャンバスのピクセル）。レイヤー自体の位置・大きさはドキュメント座標（L.bw×L.bh を L.sc 倍）。 */
 /* マスの画像にかける効果（色調・ぼかし・ズーム／モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット） */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 const CELL_FX_BASE = () => ({bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', duo1:'#1b1464', duo2:'#ff9d5c',
   zb:{on:false, amt:0.25}, mb:{on:false, dist:120, angle:0}, mosaic:{on:false, size:28}, dim:0, vignette:0, tint:{on:false, c:'#ff7a50', a:0.35, mode:'overlay'},
-  sil:{on:false, c:'#111111', a:1}, ...EXTRA_FX_BASE()});   // 加工エフェクト（色収差など）は imgfx.js。sil＝シルエット：絵のある部分を c で塗る（a＝濃さ。1 で完全に 1 色、下げると元の絵が透ける）
+  sil:{on:false, c:'#111111', a:1}, ...EXTRA_FX_BASE()});
+// マスの背景色と文字（画像の代わり、または画像の上に重ねる）
+const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE(),
+  bg:{on:false, c:'#ffffff', c2:'#ffd9e8', grad:false}, tx:{on:false, text:'', pos:'c', sc:1, ox:0, oy:0, fcOn:false, fc:'#ffffff', ecOn:false, ec:'#1f1b2d', wk:false},
+  w:1});
+// bw/bh は作った時点のドキュメントの大きさ（以後 DOC のサイズ変更とは独立。表示の大きさは bw/bh × sc）。DOC が未初期化のときは 1920×1080
+// cells は常に8個ぶん確保（n を増減しても画像を失わない）。ac は操作パネルで選択中のマス
+function COLLAGE_BASE(){
+  return Object.assign(LAYER_BASE(), {type:'collage',
+    bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
+    outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
+    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true, memo:8},
+    ttx:{on:false, sc:1, ox:0, oy:0},   // 全部のマスの文字にまとめて上乗せする大きさ（倍率）・左右・上下（マスの幅・高さに対する割合）。on のときだけ効く
+    cells:[...Array(8)].map(() => CELL_BASE())});
+}
+var {mergeCellFx, cellFxOn, collageFx, CELL_FX_CHIPS, CELL_FX_PRESETS, collageResizable, cellW, collageFxModeChanged, applyCellFx, COLLAGE_LAYOUTS, COLLAGE_ROWS2, COLLAGE_EDGES, COLLAGE_BSTYLES, collageN, collageLayoutOk} = (() => {   // 加工エフェクト（色収差など）は imgfx.js。sil＝シルエット：絵のある部分を c で塗る（a＝濃さ。1 で完全に 1 色、下げると元の絵が透ける）
 // 保存データの効果を既定値と合わせる（入れ子の項目も）
 // 効果の項目が増えた後でも古い保存データが壊れないよう、必ず CELL_FX_BASE にマージして使う（zb・mb などは1段だけ深くマージ）
 function mergeCellFx(o){
@@ -39,26 +56,12 @@ const CELL_FX_PRESETS = {
   wave:{warp:{type:'wave', amt:0.4, n:6}},
   crt:{crt:{on:true, curve:0.25, mask:0.4}, scan:{on:true, a:0.5, size:4}, rgb:{on:true, d:3, angle:0}, contrast:0.15, sat:0.15, vignette:0.35}, scan:{scan:{on:true, a:0.55, size:4}},
 };
-// マスの背景色と文字（画像の代わり、または画像の上に重ねる）
-const CELL_BASE = () => ({asset:null, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false, fx:CELL_FX_BASE(),
-  bg:{on:false, c:'#ffffff', c2:'#ffd9e8', grad:false}, tx:{on:false, text:'', pos:'c', sc:1, ox:0, oy:0, fcOn:false, fc:'#ffffff', ecOn:false, ec:'#1f1b2d', wk:false},
-  w:1});
 // w＝マスの幅の比率（「縦に並べる」「横に並べる」だけで使う。全部同じなら等分）。tx の fcOn・fc／ecOn・ec＝このマスだけ文字の色・フチの色を変える。
 // tx.wk＝「1週間を入れる」が書いた文字の目印（MEMO の位置を変えて入れ直すとき、日付を書いたマスは上書きしてよい）
 // マスの幅の比率を変えられる配置（縦に並べる・横に並べる）。境界線のドラッグ・つまみの表示・説明の帯で共通（設定パネルの表示条件は inspector.js の show に同じ並びで書く）
 const collageResizable = lay => lay === 'cols' || lay === 'rows';
 // マスの幅の比率。保存データの不正な値（文字・負の数・極端な値）は 0.05〜20 に収める
 const cellW = c => clamp(+(c && c.w) || 1, 0.05, 20);
-// bw/bh は作った時点のドキュメントの大きさ（以後 DOC のサイズ変更とは独立。表示の大きさは bw/bh × sc）。DOC が未初期化のときは 1920×1080
-// cells は常に8個ぶん確保（n を増減しても画像を失わない）。ac は操作パネルで選択中のマス
-function COLLAGE_BASE(){
-  return Object.assign(LAYER_BASE(), {type:'collage',
-    bw:(typeof DOC === 'object' && DOC ? DOC.w : 1920), bh:(typeof DOC === 'object' && DOC ? DOC.h : 1080), n:2, layout:'cols', slant:0, main:0.55, edge:'straight', amp:24, bstyle:'line', lw:10, lc:'#ffffff',
-    outer:false, radius:0, ac:0, fxMode:'all', fx:CELL_FX_BASE(), shadow:{on:false, blur:30, y:10, a:0.5},
-    tstyle:null, tpre:'', wk:{start:'', first:'mon', show:'both', fmt:'ja1', paren:'half', layout:'side', color:true, memo:8},
-    ttx:{on:false, sc:1, ox:0, oy:0},   // 全部のマスの文字にまとめて上乗せする大きさ（倍率）・左右・上下（マスの幅・高さに対する割合）。on のときだけ効く
-    cells:[...Array(8)].map(() => CELL_BASE())});
-}
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 /** @param {Layer} L */
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
@@ -109,3 +112,5 @@ defineLayerKind('collage', {
   // 分割フレームは枠の横幅・高さ（bw/bh）そのものが DOC 座標なので、縦横別々に伸ばす（sc は変えない）
   resize: (L, rx, ry) => { L.bw = Math.max(100, Math.round(L.bw * rx)); L.bh = Math.max(100, Math.round(L.bh * ry)); },
 });
+return {mergeCellFx, cellFxOn, collageFx, CELL_FX_CHIPS, CELL_FX_PRESETS, collageResizable, cellW, collageFxModeChanged, applyCellFx, COLLAGE_LAYOUTS, COLLAGE_ROWS2, COLLAGE_EDGES, COLLAGE_BSTYLES, collageN, collageLayoutOk};
+})();

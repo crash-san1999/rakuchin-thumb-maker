@@ -2,8 +2,12 @@
    分割のしかた → マスの多角形（collageCells）→ 境界の形（collageShape）→ マスごとに画像・背景色・文字を描いて 1 枚にする（collageCanvas）→ drawCollage。
    exporting（書き出し中の目印。export.js が切り替える）の間は、空のマスの「画像をドロップ」表示を描かない。
    依存：ASSETS・toneFilter・postFx（render.js）・render（text-render.js）・collage.js のデータ定義、collage-cells.js の cellTextStyle まわり。 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let exporting;
+var {collageCellsOf, collageCells, collagePath, cellHasText, drawCollage} = (() => {
 // 書き出し中かどうか（外部から切り替える）。true の間は空のマスの「画像をドロップ」表示を描かない。キャッシュのキーにも含める（drawCollage）
-let exporting = false;
+exporting = false;
 
 /* 分割のしかた → マスの多角形（W×H のピクセル座標） */
 // 戻り値：マスごとの頂点列の配列（マス番号の順。文字・画像の割り当て順と一致）。slant＝斜めの傾き（0〜）、main＝「大きく」系の大きいマスの幅の割合。
@@ -250,4 +254,5 @@ function drawCollage(ctx, L, f, live, cache){
   ctx.drawImage(e.c, -w * f / 2, -h * f / 2, w * f, h * f);
   ctx.restore();
 }
-
+return {collageCellsOf, collageCells, collagePath, cellHasText, drawCollage};
+})();

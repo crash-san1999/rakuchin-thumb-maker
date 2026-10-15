@@ -10,6 +10,10 @@
   行の表（SEL_ROWS・BG_ROWS）と、行オブジェクトのキーの書き方は inspector-rows.js。
 */
 /* ---------- パネル（行の表 → HTML） ---------- */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let curPage;
+var {drowPg, INS_INFO, insCtx, setPage, renderInspector, openInspector, setMode} = (() => {
 const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');
 const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
 // 行オブジェクト1つ → HTML。特殊部品（r.layouts など）を先に判定し、どれでもなければ DB.row（スライダー・色・選択など）に任せる。
@@ -47,7 +51,7 @@ function shapeIcon(k){
 /* ---------- 選んだものに合わせた設定パネル ---------- */
 // curPage：いま開いているページ id。insKey：前回パネルを組んだときの「文脈|レイヤーid」（同じなら組み直さない）。
 // pendingPage：次に開くページの予約（openInspector が指定）。lastPage：文脈ごとに最後に開いたページ（localStorage に保存。選び直したときに同じタブへ戻すため）
-let curPage = null, insKey = '', pendingPage = null;
+curPage = null; let insKey = ''; let pendingPage = null;
 const lastPage = LS.get('ttm_pages', {});
 // 文脈（insCtx）ごとのタブ [ページid, 表示名]。ページid の接頭辞が表示領域を決める：
 // txt-＝文字パネル / lay-＝選択中レイヤーの行（#selBox）/ bg-＝背景の行（#bgRows）。後半が行の pg に対応する（SEL_ROWS・BG_ROWS）
@@ -112,4 +116,5 @@ function setMode(m, silent){
   saveDoc();
   if(!silent){ clearTimeout(schT); schT = setTimeout(update, 10); }
 }
-
+return {drowPg, INS_INFO, insCtx, setPage, renderInspector, openInspector, setMode};
+})();

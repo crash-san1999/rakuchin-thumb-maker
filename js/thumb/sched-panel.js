@@ -2,6 +2,8 @@
    パネルの中身は syncDoc のたびに renderSched が更新する。入力欄は別の予定表に切り替わったときだけ作り直し、
    それ以外は値だけを入れ直す（入力中の欄＝activeElement は触らない。文字の入力中にカーソルが飛ばないように）。
    イベントは document に委譲する（パネルは作り直されるので、要素ごとには付けない）。データと描画は sched.js。 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {renderSched} = (() => {
 
 // プリセットの選択肢（分類ごと）と、フォントの選択肢（欧文と、ふだん出さない書体を除く。お気に入りを先頭に）
 const schedPresetOpts = () => Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${escapeHtml(g)}">${ns.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}</optgroup>`).join('');
@@ -134,3 +136,5 @@ document.addEventListener('click', e => {
   if(!done.length){ toast('入れられる行がありませんでした（日付がこの週に無いか、空の行だけです）', true); return; }
   toast(`${new Set(done).size}日ぶんの予定を入れました${skipped ? `（この週に無い日付・8日目以降の ${skipped} 行は使いませんでした）` : ''}`);
 });
+return {renderSched};
+})();

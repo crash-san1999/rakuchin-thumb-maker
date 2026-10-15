@@ -4,6 +4,8 @@
    依存：LAYER_BASE・DOC・dims・rng・rgba・clamp・PI・syncDoc・renderLayers・docChanged（共通側）。drawFx は group.js の drawOne から呼ばれる。
    乱数は p.seed の固定シードで毎回同じ並びになる（再描画・書き出しで形が変わらない）。描く順序を変えると乱数の消費順が変わり、保存済みの見た目が変わるので注意。 */
 /* 動的エフェクト（レイヤーとして移動・拡大縮小・回転できる効果） */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {FX_DEF, FX_NAMES, FX_GROUPS, fxChipsHtml, FX_BOX, mkFx, applyBgFx, addFx} = (() => {
 // 種類ごとの既定パラメータ。mkFx で p に上書きされる。古い保存データに無い項目は既定値が補われる（p は Object.assign でマージ）
 const FX_DEF = {
   lines:   () => ({c:'#ffffff', n:120, inner:0.55, w:1, len:1, seed:1, full:true, reach:1.8, fade:0.4}),
@@ -149,3 +151,5 @@ defineLayerKind('fx', {
   // 集中線・光は、もともとキャンバスに対する大きさなので、キャンバスの大きさを変えても sc はそのまま
   resize: (L, rx, ry, s) => { if(L.kind !== 'lines' && L.kind !== 'light') LAYER_KIND_DEFAULT.resize(L, rx, ry, s); },
 });
+return {FX_DEF, FX_NAMES, FX_GROUPS, fxChipsHtml, FX_BOX, mkFx, applyBgFx, addFx};
+})();

@@ -7,7 +7,11 @@
   自動で切り替えないのは、作業中に画面が勝手に再読み込みされて編集内容を失わないようにするため。
   依存：$ / toast（core.js）。#updBar など対応する HTML は index.html。
 */
-let pwaReg = null, pwaPrompt = null;
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let pwaReg;
+var {pwaRegister} = (() => {
+pwaReg = null; let pwaPrompt = null;
 function pwaRegister(){
   // file:// などでは Service Worker を登録できない（エラーになる）ので、http(s) のときだけ登録する
   if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
@@ -46,3 +50,5 @@ document.addEventListener('click', e => {
 // 「アプリとして追加」：ブラウザが追加できる状態になったときだけボタンを出す（iPhone は Safari の共有メニューから）
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwaPrompt = e; const b = $('#pwaInstall'); if(b) b.hidden = false; });
 window.addEventListener('appinstalled', () => { pwaPrompt = null; const b = $('#pwaInstall'); if(b) b.hidden = true; toast('アプリとして追加しました'); });
+return {pwaRegister};
+})();

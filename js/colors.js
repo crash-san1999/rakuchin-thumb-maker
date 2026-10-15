@@ -10,6 +10,11 @@
         history.js（resetAdj）、thumb/assets.js（wantBgPalette / paletteFromBg）、main.js（renderThemes）。
   色は常に "#rrggbb" の6桁小文字16進文字列で S 内に持つ（colorPaths の判定もこの形式が前提）。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let bgImg;
+let wantBgPalette;
+var {mixHex, contrast, randomLike, resetAdj, renderThemes, paletteFromBg} = (() => {
 // RGB(16進) → [色相0-360, 彩度0-100, 輝度0-100]。無彩色（mx===mn）は色相0・彩度0
 function hexToHsl(hex){
   let [r, g, b] = hex2rgb(hex).map(v => v / 255);
@@ -171,7 +176,7 @@ $('#ttabs').addEventListener('click', e => {
 /* 背景画像から配色：代表色をk-meansで抽出し、背景から浮く色を組み立てる */
 // bgImg: 配色の元にする画像（preview.js の背景選択 / thumb 側の画像で設定される）。
 // wantBgPalette: 「画像を選んでもらう → 読み込み完了後に配色する」の待ち状態フラグ。#fromBg が立て、preview.js の onload / thumb/assets.js が読み込み後に消費（false に戻す）して paletteFromBg を呼ぶ。
-let bgImg = null, wantBgPalette = false;
+bgImg = null; wantBgPalette = false;
 // 画像を 72x72 に縮小して k-means（k=6, 10回）で代表色を取る。戻り値は画素数の多い順の [{hex, n}]。
 // 縮小は速度優先（色の傾向だけ分かればよい）。rng(9) 固定シードなので同じ画像なら毎回同じ結果になる。透明に近い画素(alpha<=200)は除外。
 function extractColors(img, k = 6){
@@ -212,4 +217,5 @@ $('#fromBg').onclick = () => {
   if(!th && bgImg && bgImg.complete){ paletteFromBg(); return; }
   wantBgPalette = true; toast('サムネに使う背景画像を選んでください'); (th ? $('#bgimgfile') : $('#bgfile')).click();
 };
-
+return {mixHex, contrast, randomLike, resetAdj, renderThemes, paletteFromBg};
+})();

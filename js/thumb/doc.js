@@ -34,6 +34,8 @@
   保存先の使い分け：DOC と文字スタイル S は小さいので localStorage（'ttm_doc' / 'ttm_state'）。画像は大きいので IndexedDB。
 */
 /* ============ サムネ作成 ============ */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 // 毎回新しいオブジェクトを返す（Object.assign のベースに使うので、共有すると保存データを書き換えてしまう）
 const DOC_BASE = () => ({
   mode:'thumb', w:1920, h:1080, exportW:1920, fmt:'png', limit2mb:true,
@@ -49,6 +51,7 @@ const DOC_BASE = () => ({
   fin:FIN_BASE(),
   layers:[], sel:null, textSel:null, msel:[],
 });
+var {mkTextLayer, layerById, selLayer, textLayer, usedAssets, layerName, normalizeLayer, normalizeDoc, loadSavedDoc, saveDoc} = (() => {
 const mkTextLayer = (style, x, y, sc) => Object.assign(LAYER_BASE(), {id:uid(), type:'text', x, y, sc, style});
 // id からレイヤーを探す（無ければ null）。選択中・文字入力中のレイヤーもこれで引く
 const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
@@ -148,3 +151,5 @@ function saveDoc(){
   clearTimeout(saveDoc.t);
   saveDoc.t = setTimeout(() => { LS.set('ttm_state', S); if(DOC) LS.set('ttm_doc', DOC); }, 250);
 }
+return {mkTextLayer, layerById, selLayer, textLayer, usedAssets, layerName, normalizeLayer, normalizeDoc, loadSavedDoc, saveDoc};
+})();
