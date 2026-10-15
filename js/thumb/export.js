@@ -24,6 +24,7 @@
   while(b && DOC.limit2mb && b.size > 2e6 && q > 0.45){ q -= 0.08; b = await toB('image/jpeg', q); }
   return b;
 }
+// サムネを画像として保存する：書き出し用の大きさで描き直して、スマホなら共有（写真に保存できる）、それ以外はダウンロード
 async function exportThumb(){
   toast('書き出し中…');
   let b; try{ b = await thumbBlob(DOC.fmt); }catch(err){ console.warn(err); }

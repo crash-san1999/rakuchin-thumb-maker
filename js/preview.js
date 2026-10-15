@@ -92,6 +92,7 @@ new MutationObserver(() => { if(!$('#stage').classList.contains('img')) $('#stag
 // 金属は METALS（text-render.js）の stops のうち index 1 と 5（上下の明るい帯）の色で代表させる。中抜き・くり抜き（fillMode が normal 以外）は塗りの色で見え方が決まらないので判定しない。
 // 基準値は WCAG の 7 / 4.5 / 3（colors.js の contrast()）。update() から毎回呼ばれる。
 function updateVis(){
+  // fills＝塗りの色（金属は代表の 2 色、グラデ・分割は 2 色）、edge＝すぐ外側の色
   const mt = hasKey(METALS, S.metal) ? METALS[S.metal] : METALS.gold;
   const fills = S.fillType === 'metal' ? [mt[1][1], mt[5][1]]
     : S.fillType === 'solid' ? [S.fill1] : [S.fill1, S.fill2];
@@ -99,6 +100,7 @@ function updateVis(){
   const edge = st ? st.c : S.plate.on ? S.plate.c : S.shadow.on ? S.shadow.c : null;
   const el = $('#vis');
   if(!edge || S.fillMode !== 'normal'){ el.textContent = '視認性：—'; el.className = 'vis'; return; }
+  // いちばん見にくい組み合わせのコントラスト比で、4 段階の評価を出す
   const cr = Math.min(...fills.map(f => contrast(f, edge)));
   const [mark, cls] = cr >= 7 ? ['◎ とても読みやすい', 'good'] : cr >= 4.5 ? ['○ 読みやすい', 'ok'] : cr >= 3 ? ['△ 小さいと読みにくい', 'warn'] : ['× フチの色を変えましょう', 'bad'];
   el.textContent = `視認性 ${cr.toFixed(1)}:1 ${mark}`; el.className = 'vis ' + cls;

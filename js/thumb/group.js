@@ -25,6 +25,7 @@ function drawOne(ctx, L, f, live, cache){ kindOf(L).draw(ctx, L, f, live, cache)
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for(const k of kids){
     const d = dims.get(k.id); if(!d) continue;
+    // 回転前の大きさの四隅を、レイヤーの中心のまわりに回してドキュメント座標に直し、最小・最大を広げていく
     const a = (k.rot || 0) * PI / 180, c = Math.cos(a), s = Math.sin(a);
     for(const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){
       const lx = u * d.w / 2, ly = v * d.h / 2, px = k.x + lx * c - ly * s, py = k.y + lx * s + ly * c;
@@ -36,6 +37,8 @@ function drawOne(ctx, L, f, live, cache){ kindOf(L).draw(ctx, L, f, live, cache)
 // 不透明度・合成モード・効果・影があるときだけ、中を別キャンバスに描いてから1枚として重ねる（何もなければ直接描いて軽くする）
 /** @param {GroupLayer} G */
 const groupNeedsCanvas = G => (G.op ?? 1) < 1 || (G.blend && G.blend !== 'source-over') || cellFxOn(G.fx) || (G.shadow && G.shadow.on && G.shadow.a > 0);
+// グループを描く：中身を描き（不透明度・合成・効果・影があれば、いったん別のキャンバスに描いて 1 枚として重ねる）、
+// 描いた中身の範囲からグループの位置・大きさ（dims）を決め直す。グループ自体は回転・拡大を持たない（sc=1・rot=0）
 /** @param {CanvasRenderingContext2D} ctx @param {GroupLayer} G @param {number} f @param {boolean|undefined} live @param {DrawCache} cache */
 function drawGroup(ctx, G, f, live, cache){
   const kids = groupKids(G).filter(k => !k.hidden);
@@ -115,6 +118,7 @@ function groupLayers(ids){
   toast(`${kids.length}個のレイヤーをグループにしました。ドラッグで移動、角で拡大縮小、上の○で回転。効果はまとめてかかります`);
   return G;
 }
+// グループを解除する：中身の gid を外して、グループがあった位置にそのまま並べ、グループ本体を消す（中身は選択状態にする）
 /** @param {Layer} G */
 function ungroupLayers(G){
   if(!isGroup(G)) return;
@@ -125,6 +129,7 @@ function ungroupLayers(G){
   const rest = DOC.layers.filter(l => !kids.includes(l)), before = DOC.layers.slice(0, i).filter(l => !kids.includes(l)).length;
   DOC.layers = [...rest.slice(0, before), ...kids, ...rest.slice(before)];
   prevCache.delete(G.id); dims.delete(G.id);
+  // 中身を全部選んだ状態にし、いちばん手前のものを主選択にする
   DOC.msel = kids.map(k => k.id); DOC.sel = kids.length ? kids[kids.length - 1].id : null;
   renderLayers(); syncDoc(); docChanged(false);
   toast('グループを解除しました');

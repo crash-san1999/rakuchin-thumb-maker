@@ -25,6 +25,7 @@ const $$as = (s, type, root = document) => /** @type {any} */ (root.querySelecto
 // イベントの対象を要素として受け取る（クリック・入力などの対象は、このアプリではいつも HTML の要素）。入力欄の値・ファイルを読むときは inputOf
 /** @param {Event} e @returns {HTMLElement} */
 const tgt = e => /** @type {HTMLElement} */ (e.target);
+// イベントの対象を入力欄として受け取る（value・checked・files を読むとき。select・textarea でも value は同じように読める）
 /** @param {Event} e @returns {HTMLInputElement} */
 const inputOf = e => /** @type {HTMLInputElement} */ (e.target);
 // catch で受けた値の名前・説明。投げられるのは Error とは限らない（文字列・数値・DOMException など）ので、直接 .name / .message を読まない
@@ -32,6 +33,7 @@ const inputOf = e => /** @type {HTMLInputElement} */ (e.target);
 const errName = e => (e && typeof e === 'object' && 'name' in e) ? String(e.name) : '';
 /** @param {unknown} e @returns {string} */
 const errMsg = e => (e && typeof e === 'object' && 'message' in e) ? String(e.message) : String(e);
+// 深いコピー。JSON を通すので、関数・Map・undefined の値・Date は落ちる（保存データ・文字スタイルのような、JSON にできる素のデータ専用）
 /** @template T @param {T} o @returns {T} */ const clone = o => JSON.parse(JSON.stringify(o));
 // 辞書 o に、キー k が「自分の項目として」あるか。保存データの値で表を引く前の確認に使う
 // （o[k] だと 'toString'・'constructor' などの名前で、どのオブジェクトにもある関数を拾ってしまい、細工・破損したデータで描画が止まる）
@@ -49,8 +51,9 @@ const LS = {
   /** @param {string} k @param {any} [d] @returns {any} */ get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
   /** @param {string} k @param {any} v */ set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ saveWarn('自動保存できませんでした。ブラウザの保存容量がいっぱいか、保存が禁止されています。作業を残すには、「プロジェクト」から書き出してください'); return false; } }
 };
-// 保存の失敗を知らせる（続けて何度も出ないよう、30秒に1回まで）
+// saveWarnAt：最後に知らせた時刻（ミリ秒）
 let saveWarnAt = 0;
+// 保存の失敗を知らせる（続けて何度も出ないよう、30秒に1回まで）。toast がまだ使えない起動の途中でも落ちないよう try で囲む
 /** @param {string} msg */ function saveWarn(msg){ const t = Date.now(); if(t - saveWarnAt < 30000) return; saveWarnAt = t; try{ toast(msg, true); }catch{} console.warn(msg); }
 // 文字入力中かどうか。キーボードショートカットが入力操作を横取りしないための判定
 /** @param {Event} e */ const isTyping = e => { const t = tgt(e); return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable; };
@@ -153,12 +156,15 @@ const ICONS = {
   fxadd:'<path d="M11 3.5l1.6 4.3 4.3 1.6-4.3 1.6L11 15.3l-1.6-4.3-4.3-1.6 4.3-1.6z"/><path d="M18.5 14v6M15.5 17h6"/>',
   palette:'<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.4-1.3-1.7-1.3-3 0-.9.8-1.6 1.7-1.6h2.3a4 4 0 0 0 4-4c0-3.7-3.8-6.7-8.5-6.7z"/><circle cx="7.8" cy="11" r="1.1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.4" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.8" r="1.1" fill="currentColor" stroke="none"/>',
 };
+// アイコン名 → SVG の HTML（ICONS に無い名前なら中身が空の SVG。表示が崩れないよう、要素自体は必ず返す）
 /** @param {string} n */ const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ''}</svg>`;
 // HTML に書いた <i data-ic="名前"> をアイコンの SVG に置き換える
 const paintIcons = (root = document) => $$('[data-ic]', root).forEach(el => { el.outerHTML = ic(el.dataset.ic ?? ''); });
 // スライダーの「つまみより左」を塗るため、CSS 変数 --p に進み具合（%）を渡す。値が変わるたびに呼ぶ必要がある（下の input リスナーと bind.js の sync）
 /** @param {HTMLInputElement} el */ function paintRange(el){ const mn = +el.min || 0, mx = +el.max || 100; el.style.setProperty('--p', clamp01((+el.value - mn) / (mx - mn)) * 100 + '%'); }
+// 0〜1 に収める（数でない値・NaN は 0）
 /** @param {number} v */ function clamp01(v){ return Math.max(0, Math.min(1, v || 0)); }
+// どのスライダーを動かしても、つまみより左の塗りを追従させる（スライダーごとに登録しなくてよいよう、document でまとめて受ける）
 document.addEventListener('input', e => { if(inputOf(e).type === 'range') paintRange(inputOf(e)); });
 // サムネモードの作品データ。null の間は「まだ読み込み前」。loadSavedDoc()（thumb/doc.js）が boot() の最初で埋める。
 // 型としては「いつも中身がある」扱いにしている：起動後のすべての処理は DOC がある前提で動き、起動前に動きうる所
@@ -217,18 +223,22 @@ const DEFAULT = {
 /** @type {TextStyle} */
 let S = merged(LS.get('ttm_state', {}));
 /* ============ 配色 ============ */
+// v を a〜b の範囲に収める（a ≦ b の前提。NaN はそのまま返るので、外から来た値は先に数にしてから渡す）
 /** @param {number} v @param {number} a @param {number} b */ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 /* ============ 描画エンジン ============ */
+// 角度の計算が多いので短い名前にしている
 const PI = Math.PI;
-// 作業用キャンバスを作る。幅・高さは四捨五入し、0 以下だと描画系が例外を出すので最低 1px にする
 // canvas の 2D の描き先。getContext('2d') が null を返すのは、同じ canvas で先に別の描き方（WebGL など）を使ったときだけで、
 // このアプリは 2D しか使わないので null にならない（型の上でもそう扱う）
 /** @param {HTMLCanvasElement} c @param {CanvasRenderingContext2DSettings} [opt] @returns {CanvasRenderingContext2D} */
 const ctx2d = (c, opt) => /** @type {CanvasRenderingContext2D} */ (c.getContext('2d', opt));
+// 作業用キャンバスを作る。幅・高さは四捨五入し、0 以下だと描画系が例外を出すので最低 1px にする
 /** @param {number} w @param {number} h */ const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; };
+// "#rrggbb" → [r, g, b]（0〜255）。3 桁の #rgb は読めないので、外から来た色は先に safeColor などで確かめる（3 桁も読むのは imgfx.js の rgbOf）
 /** @param {string} h @returns {number[]} */ const hex2rgb = h => { h = h.replace('#', ''); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)); };
 // hex2rgb の逆：[r, g, b]（0-255。小数は四捨五入）→ "#rrggbb"
 /** @param {number[]} rgb */ const rgb2hex = rgb => '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+// "#rrggbb" と不透明度 a（0〜1）→ 'rgba(r,g,b,a)'。canvas の塗り・影の色に使う
 /** @param {string} h @param {number} a */ const rgba = (h, a) => { const [r, g, b] = hex2rgb(h); return `rgba(${r},${g},${b},${a})`; };
 // 種つきの乱数（mulberry32 系）。同じ seed なら毎回同じ並びになる。
 // 「別パターンにする」で seed を変えるだけで見た目が変わり、再描画しても・保存して開き直しても形が動かないようにするため Math.random は使わない。
@@ -238,10 +248,10 @@ const ctx2d = (c, opt) => /** @type {CanvasRenderingContext2D} */ (c.getContext(
   return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 }
 
-// innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " と ' も変換する（属性は "" で囲む決まりだが、' で囲んでも安全なように）
 // 色の文字列を、HTML 属性（style="…"）に入れても安全なものだけ通す（#rgb／#rrggbb(aa)／rgb()／hsl()）。細工されたプロジェクトファイルが属性を壊して
 // スクリプトを差し込むのを防ぐ。合わなければ既定色 d を返す
 /** @param {unknown} c @param {string} [d] @returns {string} */ const safeColor = (c, d = '#ffffff') => typeof c === 'string' && (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^(rgb|hsl)a?\([\d\s.,%/-]+\)$/.test(c)) ? c : d;
 // 読み込んだデータの id（レイヤー・画像）として使ってよい文字列か。HTML 属性や querySelector に入るので、英数字・_・- だけ許す
 /** @param {unknown} s @returns {s is string} */ const okId = s => typeof s === 'string' && /^[\w-]{1,64}$/.test(s) && !/^(__proto__|constructor|prototype)$/.test(s);   // assetOf(id) のようにオブジェクトのキーにもなるので、特別な名前も除く
+// innerHTML に利用者入力（フォント名など）を入れるときに通す。属性値にも使うので " と ' も変換する（属性は "" で囲む決まりだが、' で囲んでも安全なように）
 /** @param {unknown} s */ function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => /** @type {Record<string, string>} */ ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }

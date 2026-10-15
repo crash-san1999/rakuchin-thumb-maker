@@ -32,6 +32,7 @@ const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result
 // DB は1回だけ開いて使い回す（Promise ごと保持）。upgrade は assets と lib のどちらのストアも無ければ作る
 // （version 2：lib は素材置き場の追加で増えた。古い version 1 の DB でもデータを消さずに lib だけ増える）
 idbP = null;
+// 画像（assets）と素材置き場（lib）の IndexedDB を開く（2 回目からは同じ Promise を返す）。開けない環境（プライベートモードなど）では reject
 function idb(){
   return idbP || (idbP = new Promise((res, rej) => {
     try{ const r = indexedDB.open('ttm', 2); r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains('assets')) d.createObjectStore('assets'); if(!d.objectStoreNames.contains('lib')) d.createObjectStore('lib', {keyPath:'id'}); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
@@ -73,6 +74,7 @@ async function fileToSrc(file){
 async function idbRestore(){
   try{
     const db = await idb(), st = db.transaction('assets').objectStore('assets');
+    // 保存してある画像を全部読み、使っているものは（まだ無ければ）ASSETS に戻し、使っていないものは消す
     const [keys, vals] = await Promise.all([idbReq(st.getAllKeys()), idbReq(st.getAll())]);
     const used = usedAssets();
     for(let i = 0; i < keys.length; i++){
@@ -92,6 +94,7 @@ async function idbRestore(){
 async function addImageLayers(files, skipCollage){
   if(!skipCollage){ files = await collageTakeFiles(files.filter(f => /^image\//.test(f.type))); if(!files.length) return; }
   let last = null;
+  // 画像ファイルごとに、素材に入れて（大きすぎれば縮小）画像レイヤーを足す。最後に足したレイヤーを選ぶ
   for(const f of files){
     if(!/^image\//.test(f.type)) continue;
     const id = await addAsset(await fileToSrc(f), f.name);
@@ -118,6 +121,7 @@ function cropClamp(c){
 }
 /** @param {ImageLayer} L */
 const cropOf = L => cropClamp(L.crop);
+// トリミングしているか（どれかの辺を 1 つでも切っているか）
 /** @param {ImageLayer} L */
 const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 || c.r > 0; };
 // 元の画像のどこを使うか（ピクセル）。sw・sh を最低 8px にするのは、極端なトリミングで 0 幅の canvas ができるのを避けるため
@@ -130,6 +134,7 @@ const cropOn = L => { const c = cropOf(L); return c.t > 0 || c.b > 0 || c.l > 0 
 // 削除されたレイヤーの分は render.js の pruneLayerCaches で捨てる
 /** @type {Map<string, {key: string, obj: ImgSrc}>} */
 const cropCache = new Map();
+// cropCache：レイヤー id → {key（アセットと範囲）, obj（切り取った絵）}。範囲が変わらなければ使い回す
 /** @param {ImageLayer} L @param {ImgSrc} A @returns {ImgSrc} */
 function cropSrc(L, A){
   if(!cropOn(L)) return A;
@@ -152,12 +157,15 @@ function layerSrc(L){
 // トリミングを変える（change はトリミング値を書き換える関数）。見えている部分が動かないように、レイヤーの位置（フレームがあるときはフレームの中心）を補正する
 /** @param {ImageLayer} L @param {() => void} change */
 function applyCropChange(L, change){
+  // r0＝変える前の範囲（ピクセル）。フレームがあるときは、フレームの中心が指していた元の画像の点 P を覚えておく
   const A = assetOf(L.asset), iw = A ? A.img.naturalWidth : 1, ih = A ? A.img.naturalHeight : 1;
   const r0 = cropRect(L, iw, ih), fr = L.frame && L.frame.shape !== 'none' ? L.frame : null;
   const P = fr ? [r0.sx + (fr.cx ?? 0.5) * r0.sw, r0.sy + (fr.cy ?? 0.5) * r0.sh] : null;
   change(); L.crop = cropClamp(L.crop);
+  // フレームあり：同じ点 P を指すよう、フレームの中心（範囲に対する割合）を直す
   const r1 = cropRect(L, iw, ih);
   if(fr && P){ fr.cx = Math.round(clamp((P[0] - r1.sx) / r1.sw, 0, 1) * 1000) / 1000; fr.cy = Math.round(clamp((P[1] - r1.sy) / r1.sh, 0, 1) * 1000) / 1000; return; }
+  // フレームなし：範囲の中心が動いた分（反転・拡大・回転を考えて）だけ、レイヤーの位置を同じ向きへ動かす（見えている部分が画面上で止まる）
   const u = (r1.sx + r1.sw / 2 - r0.sx - r0.sw / 2) * (L.flip ? -1 : 1), v = (r1.sy + r1.sh / 2 - r0.sy - r0.sh / 2) * (L.flipV ? -1 : 1);
   const a = (L.rot || 0) * PI / 180, dx = u * L.sc, dy = v * L.sc;
   L.x += dx * Math.cos(a) - dy * Math.sin(a); L.y += dx * Math.sin(a) + dy * Math.cos(a);

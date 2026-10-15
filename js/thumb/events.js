@@ -102,6 +102,7 @@ $('#saveProj').onclick = () => { saveProject(); toast('プロジェクトを保�
   loadDocObj(Object.assign(normalizeDoc(null), keep, {mode:'thumb'}));
   toast('新規作成しました。元に戻すには Ctrl+Z（上の ↶）');
 }
+// 新規作成の確認画面を開く（開いている小窓は閉じる）／閉じる
 const openNew = () => { $$('.pop.show').forEach(p => p.classList.remove('show')); $('#newModal').classList.add('show'); };
 const closeNew = () => $('#newModal').classList.remove('show');
 document.addEventListener('click', e => { if(tgt(e).closest('#newBtn, #newBtn2')) openNew(); });

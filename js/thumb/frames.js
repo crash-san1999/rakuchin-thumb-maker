@@ -89,23 +89,32 @@ const FRAME_GROUPS = [
 // 乱数 R() を呼ぶ順番・回数が形そのもの（保存済みの seed の形が変わる）なので、各関数の中の順序を入れ替えないこと
 /** 形ごとのパスの作り方（x：描き先、g：形の値と補助） @type {Record<string, (x: CanvasPath, g: FramePathGeom) => void>} */
 const FRAME_PATHS = {
+  // 丸・楕円（縦横比に合わせて伸びる）
   circle(x, {a, b}){ x.ellipse(0, 0, a, b, 0, 0, 2 * PI); },
+  // アーチ：下は四角、上は半円（横幅いっぱいの半楕円。高さは横幅の半分まで）
   arch(x, {a, b}){ const ry = Math.min(a, b); x.moveTo(-a, b); x.lineTo(-a, -b + ry); x.ellipse(0, -b + ry, a, ry, 0, PI, 2 * PI); x.lineTo(a, b); x.closePath(); },
+  // 正多角形の形（ring：角の数・回転）。hex 六角形／oct 八角形（辺が水平になるよう 22.5° 回す）
   hex(x, {ring}){ ring(6, 0); },
   oct(x, {ring}){ ring(8, PI / 8); },
+  // 頂点を並べるだけの形（poly：時計回りの点列。原点が形の中心）
   diamond(x, {a, b, poly}){ poly([[0, -b], [a, 0], [0, b], [-a, 0]]); },
   tri(x, {a, b, poly}){ poly([[0, -b], [a, b], [-a, b]]); },
+  // 平行四辺形：上辺を右へ、下辺を左へ、幅の 14% ずらす
   slant(x, {a, b, w, poly}){ const k = w * 0.14; poly([[-a + k, -b], [a, -b], [a - k, b], [-a, b]]); },
+  // 盾：上は平ら、下は 2 本の曲線で中央の先へすぼむ
   shield(x, {a, b}){ x.moveTo(-a, -b); x.lineTo(a, -b); x.lineTo(a, -b * 0.1); x.quadraticCurveTo(a * 0.9, b * 0.7, 0, b); x.quadraticCurveTo(-a * 0.9, b * 0.7, -a, -b * 0.1); x.closePath(); },
+  // 星（5 つの角、内側の頂点は 48%）／キラッ（4 つの角、内側 30% で細いとげ）
   star(x, {ring}){ ring(5, -PI / 2, 0.48); },
   kira(x, {ring}){ ring(4, -PI / 2, 0.3); },
+  // ハート：下の先から左右の山へ 4 本のベジェ曲線で回る（左半分 → 中央のくぼみ → 右半分 → 下の先）
   heart(x, {a, b}){ x.moveTo(0, b); x.bezierCurveTo(-a * 0.2, b * 0.62, -a, b * 0.2, -a, -b * 0.36); x.bezierCurveTo(-a, -b * 0.9, -a * 0.28, -b * 1.08, 0, -b * 0.56);
       x.bezierCurveTo(a * 0.28, -b * 1.08, a, -b * 0.9, a, -b * 0.36); x.bezierCurveTo(a, b * 0.2, a * 0.2, b * 0.62, 0, b); x.closePath();
   },
+  // バクハツ：36 個の頂点を外（0.96〜1）と内（0.74〜0.82）で交互に置いたギザギザ。ゆらぎは seed から
   burst(x, {a, b, seed, poly}){ const R = rng((seed || 1) * 5), p = []; for(let i = 0; i < 36; i++){ const t = -PI / 2 + i * PI / 18, k = i % 2 ? 0.74 + R() * 0.08 : 0.96 + R() * 0.04; p.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); } poly(p); },
+  // もこもこ・花：弧の数と、つなぎ目・ふくらみの半径の違いだけ（scallop）
   cloud(x, {scallop}){ scallop(11, 0.84, 1.13); },
   flower(x, {scallop}){ scallop(8, 0.6, 1.25); },
-  // 吹き出し：本体は高さの 80%、残りの下側にしっぽ。しっぽの根元を本体に 1px 食い込ませて隙間を防ぐ
   // 吹き出し：本体＋しっぽ（形の計算は frameBubbleGeom。キャンバス上のしっぽのつまみも同じ計算を使う）
   bubble(x, {w, h, r, o}){
     const g = frameBubbleGeom(w, h, r, o);
@@ -114,19 +123,30 @@ const FRAME_PATHS = {
     else { x.lineTo(g.tip[0], g.tip[1]); x.lineTo(g.p2[0], g.p2[1]); }
     x.closePath();
   },
+  // ラフな切り口：四辺を 26 分割し、各点を内側へ少しずつ乱数でずらす（縁が細かくガタガタになる）
   torn(x, {a, b, w, h, seed, poly}){ const R = rng((seed || 1) * 11), p = [], n = 26, j = Math.min(w, h) * 0.025;
       for(let i = 0; i < n; i++) p.push([-a + w * i / n, -b + R() * j]); for(let i = 0; i < n; i++) p.push([a - R() * j, -b + h * i / n]);
       for(let i = 0; i < n; i++) p.push([a - w * i / n, b - R() * j]); for(let i = 0; i < n; i++) p.push([-a + R() * j, b - h * i / n]); poly(p);
   },
+  // サイバーカット：左上と右下の角を斜めに落とす（落とす長さは短辺の 16%）
   cut(x, {a, b, w, h, poly}){ const k = Math.min(w, h) * 0.16; poly([[-a + k, -b], [a, -b], [a, b - k], [a - k, b], [-a, b], [-a, -b + k]]); },
+  // HUD（角カット）：4 つの角すべてを斜めに落とす（短辺の 12%）
   notch(x, {a, b, w, h, poly}){ const k = Math.min(w, h) * 0.12; poly([[-a + k, -b], [a - k, -b], [a, -b + k], [a, b - k], [a - k, b], [-a + k, b], [-a, b - k], [-a, -b + k]]); },
+  // ブレード：平行四辺形を強く（幅の 28%）傾けたもの／台形：上辺を左右から 12% ずつ縮める
   blade(x, {a, b, w, poly}){ const k = w * 0.28; poly([[-a + k, -b], [a, -b], [a - k, b], [-a, b]]); },
   trap(x, {a, b, w, poly}){ poly([[-a + w * 0.12, -b], [a - w * 0.12, -b], [a, b], [-a, b]]); },
+  // クリスタル：8 個の頂点の不規則な多角形（宝石の欠片）
   shard(x, {a, b, poly}){ poly([[-a * 0.7, -b], [a * 0.35, -b * 0.92], [a, -b * 0.3], [a * 0.82, b * 0.55], [a * 0.2, b], [-a * 0.6, b * 0.82], [-a, b * 0.1], [-a * 0.92, -b * 0.55]]); },
+  // 矢印：右向きのくの字（左側を内側へへこませる）
   chevron(x, {a, b, poly}){ poly([[-a, -b], [a * 0.55, -b], [a, 0], [a * 0.55, b], [-a, b], [-a * 0.55, 0]]); },
+  // カプセル：短辺の半分の角丸＝両端が半円
   pill(x, {a, b, w, h}){ x.roundRect(-a, -b, w, h, Math.min(w, h) / 2); },
+  // ブラシ系の形（rough：四辺ごとに [点数, ゆらぎ幅, なめらかさ, トゲの強さ]）。
+  // 筆のひと塗り：上下は小さく、左右の端は大きく（幅の 20%）ゆらしてかすれた筆の端にする
   swipe(x, {w, h, rough, poly}){ poly(rough([[70, h * 0.07, 5, 0.25], [50, w * 0.2, 3, 0.85], [70, h * 0.07, 5, 0.25], [50, w * 0.2, 3, 0.85]])); },
+  // 筆の四角：四辺とも同じくらい（短辺の 7%）ゆらす
   brushbox(x, {mn, rough, poly}){ poly(rough([[70, mn * 0.07, 7, 0.6], [60, mn * 0.07, 7, 0.6], [70, mn * 0.07, 7, 0.6], [60, mn * 0.07, 7, 0.6]])); },
+  // 破れ紙：上下の辺を細かく強く（110 点・高さの 9%）、左右の辺はほぼまっすぐ
   rip(x, {w, h, rough, poly}){ poly(rough([[110, h * 0.09, 14, 0.55], [30, w * 0.012, 4, 0], [110, h * 0.09, 14, 0.55], [30, w * 0.012, 4, 0]])); },
   // かすれ筆：横長の筆跡を nb 本、縦に並べる（1本ずつ別の閉じたパス）。上下の端からはみ出さないよう hh を制限
   drybrush(x, {a, b, w, h, R, noise, poly}){ const nb = 6 + Math.floor(R() * 3), bh = h / nb;
@@ -135,25 +155,33 @@ const FRAME_PATHS = {
         top.forEach((v, j) => p.push([x0 + bw * j / 30, cy - hh + v * hh * 0.35])); rgt.forEach((v, j) => p.push([x1 - v * w * 0.1, cy - hh + 2 * hh * j / 14]));
         bot.forEach((v, j) => p.push([x1 - bw * j / 30, cy + hh - v * hh * 0.35])); lft.forEach((v, j) => p.push([x0 + v * w * 0.1, cy + hh - 2 * hh * j / 14])); poly(p); }
   },
+  // 筆の三角：三角形の 3 辺それぞれを、重心へ向かって内側にゆらした点列にする（辺ごとに別のゆらぎ）
   brushtri(x, {a, b, mn, noise, poly}){ const V = [[0, -b], [a, b], [-a, b]], C = [0, b / 3], /** @type {number[][]} */ p = [];
       for(let e = 0; e < 3; e++){ const [p0, p1] = [V[e], V[(e + 1) % 3]], nz = noise(50, 6, 0.6);
         nz.forEach((v, i) => { const t = i / 50, px = p0[0] + (p1[0] - p0[0]) * t, py = p0[1] + (p1[1] - p0[1]) * t, dx = C[0] - px, dy = C[1] - py, d = Math.hypot(dx, dy) || 1, k = v * mn * 0.06; p.push([px + dx / d * k, py + dy / d * k]); }); }
       poly(p);
   },
+  // 筆の丸：円周 140 点を、なめらかなゆらぎで内側へ最大 13% へこませる
   brushcircle(x, {a, b, noise, poly}){ const nz = noise(140, 16, 0.5), p = nz.map((v, i) => { const t = i / 140 * 2 * PI, k = 1 - v * 0.13; return [Math.cos(t) * a * k, Math.sin(t) * b * k]; }); poly(p); },
   // スクワークル：指数 0.5 の超楕円（|cos|^0.5）で、角丸四角と円の中間のなめらかな形
   squircle(x, {a, b, poly}){ const p = []; for(let i = 0; i < 72; i++){ const t = i / 72 * 2 * PI, c = Math.cos(t), sn = Math.sin(t); p.push([a * Math.sign(c) * Math.abs(c) ** 0.5, b * Math.sign(sn) * Math.abs(sn) ** 0.5]); } poly(p); },
+  // 五角形・縦六角形（頂点が真上に来るよう -90° 回す）
   penta(x, {ring}){ ring(5, -PI / 2); },
   hexv(x, {ring}){ ring(6, -PI / 2); },
+  // 十字：縦横の帯の幅は 36%
   cross(x, {a, b, poly}){ const t = 0.36; poly([[-a * t, -b], [a * t, -b], [a * t, -b * t], [a, -b * t], [a, b * t], [a * t, b * t], [a * t, b], [-a * t, b], [-a * t, b * t], [-a, b * t], [-a, -b * t], [-a * t, -b * t]]); },
+  // しずく：上の先から、右半分・左半分を 2 本ずつのベジェ曲線で回る
   drop(x, {a, b}){ x.moveTo(0, -b); x.bezierCurveTo(a * 0.35, -b * 0.55, a, -b * 0.05, a, b * 0.3); x.bezierCurveTo(a, b * 0.75, a * 0.55, b, 0, b);
       x.bezierCurveTo(-a * 0.55, b, -a, b * 0.75, -a, b * 0.3); x.bezierCurveTo(-a, -b * 0.05, -a * 0.35, -b * 0.55, 0, -b); x.closePath();
   },
+  // チケット：左右の辺の中央に半円の切り欠き（反時計回りの弧で内側へえぐる）
   ticket(x, {a, b, w, h}){ const nr = Math.min(w, h) * 0.1; x.moveTo(-a, -b); x.lineTo(a, -b); x.lineTo(a, -nr); x.arc(a, 0, nr, -PI / 2, PI / 2, true); x.lineTo(a, b); x.lineTo(-a, b); x.lineTo(-a, nr); x.arc(-a, 0, nr, PI / 2, -PI / 2, true); x.closePath(); },
+  // なみなみ：四辺を 48 点ずつ、サイン波（振幅は短辺の 3%・周期は短辺の 1/7）で内側へ波打たせる
   wave(x, {a, b, w, h, poly}){ const j = Math.min(w, h) * 0.03, per = Math.min(w, h) / 7, p = /** @type {number[][]} */ ([]), n = 48, wv = /** @param {number} t */ t => j * (1 + Math.sin(t / per * 2 * PI)) / 2;
       for(let i = 0; i < n; i++){ const t = w * i / n; p.push([-a + t, -b + wv(t)]); } for(let i = 0; i < n; i++){ const t = h * i / n; p.push([a - wv(t), -b + t]); }
       for(let i = 0; i < n; i++){ const t = w * i / n; p.push([a - t, b - wv(t)]); } for(let i = 0; i < n; i++){ const t = h * i / n; p.push([-a + wv(t), b - t]); } poly(p);
   },
+  // スプラッシュ：30 個の頂点のうち 5 個おきに外へ大きく出し、点と点の中点を通る 2 次曲線でなめらかにつなぐ（インクが飛び散った形）
   splash(x, {a, b, seed}){ const R = rng((seed || 1) * 21), n = 30, /** @type {Array<[number, number]>} */ pts = [];
       for(let i = 0; i < n; i++){ const t = i / n * 2 * PI, k = i % 5 === 2 ? 0.97 + R() * 0.03 : 0.74 + R() * 0.12; pts.push([Math.cos(t) * a * k, Math.sin(t) * b * k]); }
       /** @param {number[]} p @param {number[]} q @returns {[number, number]} */
@@ -171,7 +199,9 @@ const FRAME_PATHS = {
 function frameBubbleGeom(w, h, r, o){
   o = o || {};
   const a = w / 2, b = h / 2;
+  // side＝しっぽの辺、tp＝付け根の位置、tt＝先のずれ、tw＝太さ、tb＝曲がり（どれも辺の長さに対する割合で、範囲に収める）
   const side = ['b', 't', 'l', 'r'].includes(o.tside) ? o.tside : 'b', tp = clamp(+o.tp || 0.3, 0, 1), tt = clamp(+(o.tt ?? -0.16) || 0, -1, 1), tw = clamp(+o.tw || 0.2, 0.02, 0.9), tb = clamp(+o.tb || 0, -1, 1);
+  // vert＝しっぽが上下の辺か。len＝その辺の長さ。本体（bw×bh）はしっぽの向きだけ 80% に縮める。rr＝本体の角の丸み
   const vert = side === 'b' || side === 't', len = vert ? w : h, bw = vert ? w : w * 0.8, bh = vert ? h * 0.8 : h, rr = Math.min(bw, bh) * Math.min(0.5, r);
   const at = /** @param {number} u @param {number} depth @returns {number[]} */ (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
     : side === 'l' ? [-a + w * 0.2 + 1 - depth * (w * 0.2 + 1), -b + u] : [-a + bw - 1 + depth * (w - bw + 1), -b + u];
@@ -194,6 +224,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ご�
     const [T, Rt, B, L] = sides.map(([n, amp, knots, spike]) => noise(n, knots, spike).map(v => v * amp));
     T.forEach((v, i) => p.push([-a + w * i / T.length, -b + v])); Rt.forEach((v, i) => p.push([a - v, -b + h * i / Rt.length]));
     B.forEach((v, i) => p.push([a - w * i / B.length, b - v])); L.forEach((v, i) => p.push([-a + v, b - h * i / L.length])); return p; };
+  // 点列を順につないで閉じる（最初の点は moveTo）
   /** @type {FramePathGeom['poly']} */
   const poly = pts => { pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); };
   // 正多角形（inner を渡すと、内側の頂点を交互に入れた星形）。a・b を別々に使うので、縦横比に合わせて楕円状に伸びる
@@ -206,6 +237,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ご�
     if(!i) x.moveTo(...p0);
     x.bezierCurveTo(Math.cos(tm - 0.5 * PI / n) * a * depth, Math.sin(tm - 0.5 * PI / n) * b * depth, Math.cos(tm + 0.5 * PI / n) * a * depth, Math.sin(tm + 0.5 * PI / n) * b * depth, ...p1); }
     x.closePath(); };
+  // 形ごとの関数（FRAME_PATHS）に渡す値と小道具。o は吹き出しのしっぽの設定（L.frame）
   const g = {a, b, w, h, mn, r, seed, R, noise, rough, poly, ring, scallop, o: o || {}};
   // 表に登録されている形だけを引く（保存データに 'constructor' などの名前が入っていても、Object の関数を呼ばないように）
   (hasKey(FRAME_PATHS, shape) ? FRAME_PATHS[shape] : FRAME_PATHS.rect)(x, g);
@@ -237,32 +269,40 @@ function frameCompensate(L, g0, base){
 // フレーム付きの画像を1枚のキャンバスに描いて返す（{sk, k, c}）。f＝倍率、live＝ドラッグ中などの操作中、cache＝レイヤー id → 結果の Map
 // 座標は「フレーム中心が原点」。フチの飾りがはみ出すぶん、周りに pad の余白を付けたキャンバスにする（style ごとの係数が必要な余白の目安）。
 // 描く順序：フチ・影などの下敷き → 形でクリップして画像 → ステッカーの光沢・CRT・本の綴じなど画像の上に重ねるもの → HUD・テープなど外側の飾り
-/**
- * @param {Layer} L デザインごとの描き方。under は画像の下（フチ）、over は画像の上（飾り）
+/** デザインごとの描き方。under は画像の下（フチ）、over は画像の上（飾り）。キーは FRAME_STYLES の style
  * @type {Record<string, {under?: (a: FrameStyleArgs) => void, over?: (a: FrameStyleArgs) => void}>}
  */
 const FRAME_STYLE_DRAW = {
+  // --- デザインごとの描き方。stroke(太さ, 色) は形の線を引く（線の中心が形の縁なので、外にはみ出すのは太さの半分）。P() は形のパスを作るだけ
   double: {
     // 二重線：太い線を引いてから中を destination-out で抜き、細い線を重ねる（間が透明になる）
     under({x, E, o, stroke}){ stroke(2 * E, o.c); x.globalCompositeOperation = 'destination-out'; stroke(2 * E * 0.62, '#000'); x.globalCompositeOperation = 'source-over'; stroke(2 * E * 0.28, o.c); },
   },
+  // 2 色フチ：外側に c2 の太い線、その上に o.c の線（外側に縁取りが 1 段増える）
   pop: {
     under({E, o, fr, f, stroke}){ stroke(2 * E + 2 * Math.max(3 * f, E * 0.6), fr.c2); stroke(2 * E, o.c); },
   },
+  // グラデーション：左上 o.c → 右下 c2 の斜めのグラデで線を引く
   grad: {
     under({x, E, FW, FH, o, fr, stroke}){ const g = x.createLinearGradient(-FW / 2, -FH / 2, FW / 2, FH / 2); g.addColorStop(0, o.c); g.addColorStop(1, fr.c2); stroke(2 * E, g); },
   },
+  // ネオン：光（影のぼかし）付きの線を 2 回重ねて濃くし、中心に細い白い線（光る管の芯）
   neon: {
     under({x, E, o, stroke}){ x.shadowColor = o.c; x.shadowBlur = E * 2.6; stroke(E * 1.2, o.c); stroke(E * 1.2, o.c); x.shadowBlur = 0; stroke(E * 0.4, '#ffffff'); },
   },
+  // 点線：ほぼ長さ 0 の線（丸い端なので点になる）を、太さの 3 倍ごとに並べる
   dash: {
     under({x, E, o, stroke}){ x.setLineDash([E * 0.01, E * 3]); stroke(2 * E, o.c); x.setLineDash([]); },
   },
+  // 2 色ネオン：外側に c2 の太い光、その内側に o.c の光、中心に白い芯
   neon2: {
     under({x, E, o, fr, stroke}){ x.shadowColor = fr.c2; x.shadowBlur = E * 4; stroke(E * 2.6, fr.c2); stroke(E * 2.6, fr.c2); x.shadowColor = o.c; x.shadowBlur = E * 2; stroke(E * 1.3, o.c); x.shadowBlur = 0; stroke(E * 0.45, '#ffffff'); },
   },
+  // サイバー HUD：光る細い線のフチ（under）＋ 外側の四隅のかぎ形と目盛り・小さな点（over）。
+  // over は bracket（ファインダー）からも呼ばれ、st で描き分ける（bracket は目盛り・点なし、少し太く内側寄り）
   hud: {
     under({x, E, o, stroke}){ x.shadowColor = o.c; x.shadowBlur = E * 1.2; stroke(E * 0.55, o.c); x.shadowBlur = 0; },
+    // 外側の四隅に、かぎ形の線（hud は少し外寄り・細め・光る。さらに上下の辺の中央に目盛り、左上と右下に小さな点）
     over({x, E, FW, FH, o, st}){
     const off = st === 'hud' ? E * 1.8 : E * 0.9, lb = Math.min(FW, FH) * (st === 'hud' ? 0.13 : 0.2), X = FW / 2 + off, Y = FH / 2 + off;
     x.strokeStyle = o.c; x.lineWidth = st === 'hud' ? E * 0.9 : E; x.lineCap = 'square'; x.shadowColor = o.c; x.shadowBlur = st === 'hud' ? E : 0;
@@ -284,12 +324,14 @@ const FRAME_STYLE_DRAW = {
     x.restore();
     },
   },
+  // メタル：まず黒い影の線、次に上下の縦グラデ（明るい → 色 → 暗い → 明るい → 色 → 暗い）の線で金属の照り返し、最後に細いハイライト
   metal: {
     under({x, E, FH, o, f, stroke}){ stroke(2 * E + 3 * f, 'rgba(0,0,0,.55)'); const g = x.createLinearGradient(0, -FH / 2 - E, 0, FH / 2 + E);
       /** @type {Array<[number, string]>} */ ([[0, mixc(o.c, '#ffffff', 0.75)], [0.22, o.c], [0.48, mixc(o.c, '#000000', 0.5)], [0.52, mixc(o.c, '#ffffff', 0.45)], [0.78, o.c], [1, mixc(o.c, '#000000', 0.55)]]).forEach(([t, cc]) => g.addColorStop(t, cc));
       stroke(2 * E, g); stroke(Math.max(1, f * 1.2), 'rgba(255,255,255,.55)');
     },
   },
+  // 立体影：右下へずらした形を c2 で塗って影にし、その上に本来のフチを引く
   block: {
     under({x, E, o, fr, P, stroke}){ x.save(); x.translate(E * 2.4, E * 2.4); P(); x.fillStyle = fr.c2; x.fill(); x.lineWidth = 2 * E; x.strokeStyle = fr.c2; x.stroke(); x.restore(); stroke(2 * E, o.c); },
   },
@@ -297,29 +339,36 @@ const FRAME_STYLE_DRAW = {
     under({}){ },   // 形のフチは描かない（四隅の線は画像を描いたあとに重ねる）
     over(sa){ const hud = FRAME_STYLE_DRAW.hud.over; if(hud) hud(sa); },   // hud と同じ処理（中で st を見て描き分ける）
   },
+  // 本：下・右に紙を 3 枚ずらして重ねて厚みを出し（under）、画像の左端に綴じの影のグラデを重ねる（over）
   book: {
     under({x, E, FW, FH, o, f}){ for(let i = 3; i >= 1; i--){ x.fillStyle = mixc(o.c, '#c9c2b4', i * 0.12); x.strokeStyle = 'rgba(0,0,0,.2)'; x.lineWidth = Math.max(1, f); x.beginPath(); x.rect(-FW / 2 + i * E * 0.7, -FH / 2 + i * E * 0.55, FW, FH); x.fill(); x.stroke(); } },
     over({x, FW, FH, P}){ x.save(); P(); x.clip(); const g = x.createLinearGradient(-FW / 2, 0, -FW / 2 + FW * 0.09, 0); g.addColorStop(0, 'rgba(0,0,0,.5)'); g.addColorStop(0.35, 'rgba(0,0,0,.18)'); g.addColorStop(0.42, 'rgba(255,255,255,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW * 0.09, FH); x.restore(); },
   },
+  // ゲーミング RGB：虹色の円錐グラデ（中心から見た角度で色が回る）の線を、ぼかした光と、くっきりした線の 2 段で引き、中心に白い芯
   rgb: {
     under({x, E, stroke}){ const g = x.createConicGradient(0, 0, 0); for(let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsl(${i * 60},100%,58%)`);
       x.save(); x.filter = `blur(${Math.max(1, E * 1.2)}px)`; x.globalAlpha = 0.85; stroke(2 * E * 1.7, g); x.restore(); stroke(2 * E, g); stroke(Math.max(1, E * 0.35), 'rgba(255,255,255,.8)');
     },
   },
+  // オーラ（後光）：形を o.c で塗って、大きくぼかした影を 3 回重ねる（画像が上に描かれるので、外側の光だけが見える）
   aura: {
     under({x, E, o, P}){ x.save(); x.shadowColor = o.c; x.shadowBlur = E * 5; x.fillStyle = o.c; P(); x.fill(); x.fill(); x.shadowBlur = E * 2; x.fill(); x.restore(); },
   },
+  // 三重線：太い o.c → 中くらいの c2 → 細い o.c の順に重ねる
   triple: {
     under({E, o, fr, stroke}){ stroke(2 * E * 2.2, o.c); stroke(2 * E * 1.5, fr.c2); stroke(2 * E * 0.8, o.c); },
   },
+  // ステッカー：薄い影 → 太い白フチ（under）、画像の上に斜めの光沢のグラデ（over）
   sticker: {
     under({E, o, f, stroke}){ stroke(2 * E * 1.5 + 3 * f, 'rgba(0,0,0,.2)'); stroke(2 * E * 1.5, o.c); },
     over({x, FW, FH, P}){ x.save(); P(); x.clip(); const g = x.createLinearGradient(-FW / 2, -FH / 2, FW * 0.1, FH * 0.1); g.addColorStop(0, 'rgba(255,255,255,.38)'); g.addColorStop(0.55, 'rgba(255,255,255,.08)'); g.addColorStop(0.56, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(-FW / 2, -FH / 2, FW, FH); x.restore(); },
   },
+  // ステッチ（ワッペン）：c2 の太いフチ（under）、画像の内側に少し縮めた形の点線（縫い目。over）
   stitch: {
     under({E, fr, stroke}){ stroke(2 * E * 1.2, fr.c2); },
     over({x, E, FW, FH, o, P}){ x.save(); const sx = Math.max(0.1, (FW - E * 3.2) / FW), sy = Math.max(0.1, (FH - E * 3.2) / FH); x.scale(sx, sy); P(); x.lineWidth = E * 0.55 / Math.min(sx, sy); x.setLineDash([E * 1.5 / sx, E * 1.1 / sx]); x.strokeStyle = o.c; x.stroke(); x.restore(); },
   },
+  // アメコミドット：フチの外側の帯に、外へ行くほど小さいドットを打ってから、ふつうのフチを引く
   halftone: {
     under({x, c, E, FW, FH, o, fr, stroke}){
       // フチの帯の中だけにドット（3段階の帯で外へ向かって小さく）を打つ。判定は Path2D の isPointInPath／isPointInStroke。
@@ -335,12 +384,14 @@ const FRAME_STYLE_DRAW = {
       x.restore(); stroke(2 * E, o.c);
     },
   },
+  // 墨・筆：長さ・間隔の違う破線を、少しずつずらして 9 回重ねて、かすれた筆の線にする。最後に少し規則的な破線で輪郭を締める
   brush: {
     under({x, E, o, stroke}){ const R = rng(9);
       for(let i = 0; i < 9; i++){ x.save(); x.translate((R() - 0.5) * E * 2.2, (R() - 0.5) * E * 2.2); x.globalAlpha = 0.3 + R() * 0.5; x.setLineDash([E * (4 + R() * 10), E * (0.3 + R() * 1.6)]); x.lineDashOffset = R() * E * 20; stroke(2 * E * (0.4 + R() * 1.1), o.c); x.restore(); }
       x.setLineDash([E * 7, E * 0.7, E * 2.5, E * 0.5]); stroke(2 * E * 0.9, o.c); x.setLineDash([]);
     },
   },
+  // フィルム：画像の上下に黒い帯を足し、帯に送り穴（角丸の四角）を destination-out で抜く
   film: {
     under({x, E, FW, FH, o}){ x.fillStyle = o.c; x.beginPath(); x.roundRect(-FW / 2 - E * 0.7, -FH / 2 - E * 3.4, FW + E * 1.4, FH + E * 6.8, E * 0.4); x.fill();
       x.globalCompositeOperation = 'destination-out'; const hw = E * 1.3, hh = E * 1.1, gap = E * 2.6;
@@ -348,6 +399,7 @@ const FRAME_STYLE_DRAW = {
       x.globalCompositeOperation = 'source-over';
     },
   },
+  // ブラウン管：太い枠（under）と、画像の上に走査線・周辺の暗がり・ガラスの反射（over）
   crt: {
     under({E, o, stroke}){ stroke(2 * E * 1.6, o.c); stroke(Math.max(1, E * 0.3), 'rgba(255,255,255,.25)'); },
     over({x, FW, FH, P}){ x.save(); P(); x.clip(); const sl = Math.max(2, FH / 150); x.fillStyle = 'rgba(0,0,0,.2)'; for(let yy = -FH / 2; yy < FH / 2; yy += sl * 2) x.fillRect(-FW / 2, yy, FW, sl);
@@ -363,11 +415,13 @@ const FRAME_STYLE_DRAW = {
     // ドット絵：縮小したキャンバス(1/pz)にフチを描いて、補間なしで拡大してドット絵風にする（影は pz*1.5 ずらし）
     under({x, c, E, FW, FH, o, fr}){ const pz = Math.max(2, Math.round(E * 0.6)), tmp = mk(c.width / pz, c.height / pz), t = ctx2d(tmp);
       t.translate(tmp.width / 2, tmp.height / 2); t.scale(1 / pz, 1 / pz); t.lineJoin = 'miter';
+      // 縮小したキャンバスに形のパスを作る（太さ・位置は元の大きさのまま。scale で縮めて描く）
       const TP = () => { t.beginPath(); framePath(t, fr.shape, FW, FH, fr.r, fr.seed, fr); };
       t.save(); t.translate(pz * 1.5, pz * 1.5); TP(); t.lineWidth = 2 * E; t.strokeStyle = fr.c2; t.stroke(); t.restore(); TP(); t.lineWidth = 2 * E; t.strokeStyle = o.c; t.stroke();
       x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.imageSmoothingEnabled = false; x.drawImage(tmp, 0, 0, tmp.width * pz, tmp.height * pz); x.restore();
     },
   },
+  // ポラロイド風：白い台紙（下を広く）を敷き（under）、画像のまわりに薄い線（over）
   photo: {
     under({x, E, FW, FH, o}){ x.fillStyle = o.c; x.beginPath(); x.roundRect(-FW / 2 - E, -FH / 2 - E, FW + 2 * E, FH + E * 4.4, E * 0.18); x.fill(); },
     over({x, FW, FH, f}){ x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = Math.max(1, f); x.strokeRect(-FW / 2, -FH / 2, FW, FH); },
@@ -388,6 +442,7 @@ const FRAME_STYLE_DRAW = {
 // デザインごとの外側の余白（フチの太さ E に対する倍率）。光・影・テープなどがキャンバスの端で切れないように広げる。無いデザインは 1.4
 /** @type {Record<string, number>} */
 const FRAME_PAD = {photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4, rgb:3.2, halftone:5.4, brush:2.8, film:4, stitch:1.4, sticker:2, crt:1.8, pixel:1.8, aura:8, triple:2.4};
+// フレーム付きの画像レイヤーの絵を作る（キャッシュがあれば使う）。imageCanvas（render.js）が、フレームの形があるときにここへ任せる
 /** @param {ImageLayer} L @param {number} f @param {boolean|undefined} live @param {DrawCache} cache */ function framedCanvas(L, f, live, cache){
   const A = /** @type {ImgSrc} */ (layerSrc(L)), fr = L.frame, o = L.outline, need = L.sc * f;
   // sk：見た目が変わる要素すべての印。これが同じならキャッシュを使う。cutSig で背景透過・ブラシの変更も反映される
@@ -402,6 +457,7 @@ const FRAME_PAD = {photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bra
     const pad =Math.ceil(E * (hasKey(FRAME_PAD, st) ? FRAME_PAD[st] : 1.4) + (st === 'tape' ? tw * 0.5 : 0)) + 4;
     const c = mk(FW + pad * 2, FH + pad * 2), x = ctx2d(c);
     x.translate(c.width / 2, c.height / 2); x.lineJoin = 'round'; x.lineCap = 'round';
+    // P：形のパスを作る（塗り・線・クリップは呼んだ側）。stroke：形の線を太さ lw・色 col で引く
     const P = () => { x.beginPath(); framePath(x, fr.shape, FW, FH, fr.r, fr.seed, fr); };
     /** @param {number} lw @param {string|CanvasGradient|CanvasPattern} col */
     const stroke = (lw, col) => { P(); x.lineWidth = lw; x.strokeStyle = col; x.stroke(); };

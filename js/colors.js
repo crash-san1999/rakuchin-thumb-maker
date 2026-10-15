@@ -38,6 +38,7 @@ var {mixHex, contrast, randomLike, resetAdj, renderThemes, paletteFromBg} = (() 
 const mixHex = /** @param {string} a @param {string} b @param {number} t */ (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex(A.map((v, i) => v + (B[i] - v) * t)); };
 // 相対輝度とコントラスト比は WCAG 2.x の定義どおり（0.03928 / 2.4 は sRGB のガンマ補正の閾値・指数）。contrast は 1〜21
 /** @param {string} hex */ function lum(hex){ const c = hex2rgb(hex).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+// 2 色のコントラスト比（1〜21。WCAG の定義。4.5 以上なら読みやすい目安）
 const contrast = /** @param {string} a @param {string} b */ (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
 /* パレット = [塗り, 塗り2, 強調, 強調2, 濃い色(フチ), 明るい色(2本目フチ), 深い色(立体), 光, 背景図形] */
@@ -135,10 +136,12 @@ function colorPaths(o = S, pre = '', out = []){
 // 他の操作（パレット適用・色欄の手動変更・履歴の復元など）で色が変わったら、基準が古くなるので resetAdj() で捨てる必要がある。
 /** @type {Array<[string, string]>|null} */
 let adjBase = null;
+// 一括調整の基準を捨て、スライダーを 0 に戻す（色を直接変えたときに呼ぶ。基準が古いままだと、次に動かしたとき変える前の色に戻ってしまう）
 function resetAdj(){
   if(!adjBase) return; adjBase = null;
   ['H','S','L'].forEach(k => { $as('#adj' + k, HTMLInputElement).value = '0'; }); showAdj();
 }
+// 一括調整のスライダーの値の表示（色相は °）を更新する
 function showAdj(){ $('#oH').textContent = $as('#adjH', HTMLInputElement).value + '°'; $('#oS').textContent = $as('#adjS', HTMLInputElement).value; $('#oL').textContent = $as('#adjL', HTMLInputElement).value; ['H','S','L'].forEach(k => paintRange($as('#adj' + k, HTMLInputElement))); }
 ['H','S','L'].forEach(k => $as('#adj' + k, HTMLInputElement).addEventListener('input', () => {
   if(!adjBase) adjBase = colorPaths().map(p => /** @type {[string, string]} */ ([p, getK(p)]));
@@ -166,6 +169,7 @@ $('#shuffle').onclick = () => {
 /* パレット一覧 */
 // ttab: 表示中のタブ（'thumb'=用途別 / 'theme'=雰囲気別）。クリック時も同じ式で配列を引くので、タブを増やすときは両方直すこと
 let ttab = 'thumb';
+// 配色の一覧（今のタブの表）をボタンとして並べる。ボタンには、塗り・塗り2・強調・濃い色・光の 5 色を帯で見せる
 function renderThemes(){
   const list = ttab === 'thumb' ? THUMB_PALETTES : THEME_PALETTES;
   $('#themes').innerHTML = list.map(([n, hint, a], i) =>
@@ -188,18 +192,22 @@ bgImg = null; wantBgPalette = false;
 // 縮小は速度優先（色の傾向だけ分かればよい）。rng(9) 固定シードなので同じ画像なら毎回同じ結果になる。透明に近い画素(alpha<=200)は除外。
 /** @param {CanvasImageSource} img @param {number} [k] */
 function extractColors(img, k = 6){
+  // 縮小した絵の、ほぼ不透明な画素の色を px に集める
   const c = mk(72, 72), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, 0, 0, 72, 72);
   const d = x.getImageData(0, 0, 72, 72).data, /** @type {number[][]} */ px = [];
   for(let i = 0; i < d.length; i += 4) if(d[i + 3] > 200) px.push([d[i], d[i+1], d[i+2]]);
   if(!px.length) return [];
+  // 初めの中心（cent）は画素からランダムに k 個。asg＝画素ごとに、いちばん近い中心の番号
   const R = rng(9); let cent = [...Array(k)].map(() => px[Math.floor(R() * px.length)].slice());
   let asg = new Array(px.length).fill(0);
+  // 10 回くり返す：各画素をいちばん近い中心に割り当て → 中心をその仲間の平均色に動かす（仲間がいない中心はそのまま）
   for(let it = 0; it < 10; it++){
     px.forEach((p, i) => { let bi = 0, bd = 1e9; cent.forEach((c2, ci) => { const dd = (p[0]-c2[0])**2 + (p[1]-c2[1])**2 + (p[2]-c2[2])**2; if(dd < bd){ bd = dd; bi = ci; } }); asg[i] = bi; });
     const sum = cent.map(() => [0, 0, 0, 0]);
     px.forEach((p, i) => { const s2 = sum[asg[i]]; s2[0] += p[0]; s2[1] += p[1]; s2[2] += p[2]; s2[3]++; });
     cent = sum.map((s2, ci) => s2[3] ? [s2[0]/s2[3], s2[1]/s2[3], s2[2]/s2[3]] : cent[ci]);
   }
+  // 中心ごとの画素数を数え、0 のものを除いて多い順に並べる
   const cnt = cent.map(() => 0); asg.forEach(a => cnt[a]++);
   return cent.map((c2, i) => ({hex:rgb2hex(c2), n:cnt[i]})).filter(c2 => c2.n > 0).sort((a, b) => b.n - a.n);
 }
@@ -213,6 +221,7 @@ function paletteFromBg(){
   let [ah, as] = hexToHsl(vivid.hex);
   const hueDist = Math.min(Math.abs(ah - dh), 360 - Math.abs(ah - dh));
   if(hueDist < 35 || as < 25) ah = dh + 180;           // 背景と同じ色味なら反対色にして浮かせる
+  // 強調の色味 ah を軸に配色を作る（暗い色は背景の色味 dh で）。背景が暗いか明るいか（dl）で、2 色目の明るさを変える
   const P = {base:'#ffffff', base2:hsl(ah, 90, dl < 50 ? 82 : 72), accent:hsl(ah, Math.max(as, 85), 55), accent2:hsl(ah + 20, 90, 47),
     dark:hsl(dh, 55, 8), light:hsl(ah, 90, 55), deep:hsl(dh, 60, 15), glow:hsl(ah, 100, 60), bg:hsl(ah, 85, 55)};
   applyPalette(P);

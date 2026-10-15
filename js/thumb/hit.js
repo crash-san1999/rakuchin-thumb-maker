@@ -22,6 +22,7 @@ const layerMask = L => {
   const key = DOC.w + 'x' + DOC.h + '|' + JSON.stringify(L) + '|' + document.fonts.size + '|' + ('asset' in L && L.asset && assetOf(L.asset) ? 1 : 0) + (isGroup(L) ? groupKids(L).map(k => JSON.stringify(k)).join() : '');
   let m = maskCache.get(L.id);
   if(m && m.key === key) return m;
+  // 1/4 の大きさのキャンバスに、不透明度 1・通常の合成・影と光彩なしで、そのレイヤーだけを描いてアルファを読む
   const W = Math.round(DOC.w * MASK_K), H = Math.round(DOC.h * MASK_K), c = mk(W, H), x = ctx2d(c, {willReadFrequently:true});
   const keep = new Map(dims);   // 小さく描くと選択枠の大きさ（dims）も書き換わるので、終わったら戻す
   try{ drawOne(x, /** @type {Layer} */ ({...L, op:1, blend:'source-over', shadow:{...('shadow' in L && L.shadow || {}), on:false}, glow:{...('glow' in L && L.glow || {}), on:false}}), MASK_K, false, maskFx); }catch(err){ console.warn('当たり判定用の絵を作れませんでした', err); }

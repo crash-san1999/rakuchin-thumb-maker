@@ -17,11 +17,14 @@
    戻り値は [起点オブジェクト, 残りのパス]。起点が無い（レイヤー未選択など）ときは b が null */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {docChanged, DB, syncDocSoon, syncDoc} = (() => {
+// キーの起点を決める（上の説明のとおり。@cell. は分割フレームを選んでいるときだけ）
 /** @param {string} k @returns {[any, string]} */ function dBase(k){
   if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.type === 'collage' ? L.cells[L.ac || 0] : null, k.slice(6)]; }
   return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k];
 }
+// キーの値を読む。途中の項目が無ければ undefined（例外にしない：入力欄は、今のレイヤーに無い項目のものも並んでいるため）
 /** @param {string} k */ function dGet(k){ const [b, p] = dBase(k); return b ? p.split('.').reduce((o, q) => o?.[q], b) : undefined; }
+// キーに値を書く。途中の項目が無ければ何もしない
 /** @param {string} k @param {any} v */ function dSet(k, v){
   const [b, p] = dBase(k); if(!b) return;
   const ps = p.split('.'), last = /** @type {string} */ (ps.pop()), o = ps.reduce((o, q) => o?.[q], b);
@@ -48,7 +51,10 @@ var {docChanged, DB, syncDocSoon, syncDoc} = (() => {
   if(/^@frame\.(cx|cy|fs|ar|shape)$/.test(k)){ const L = selLayer(), g0 = L && L.type === 'image' && frameGeom(L); dSet(k, v); if(g0 && L.frame.shape !== 'none') frameCompensate(L, g0); }
   else dSet(k, v);
 }
+// サムネ用の入力欄と DOC をつなぐ（bind.js の makeBinder）。入力欄の属性：data-d＝キー、data-dseg＝選択ボタン、data-dshow＝表示条件、data-dreroll＝「別パターン」ボタン
 const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:dGet,
+  // 入力欄の値が変わったとき：トリミングは見えている部分が動かないよう位置も直し、ほかはそのまま書く。
+  // 項目によっては連動して直すものがある（背景透過を初めてオンにしたら背景色を推定する・集中線の大きさ・効果の中心の表示）
   onInput(k, v, el){
     const S0 = /^@crop\./.test(k) ? selLayer() : null, cL = S0 && S0.type === 'image' ? S0 : null;   // トリミングの入力欄は画像レイヤーにだけ出る
     if(cL) applyCropChange(cL, () => setD(k, v)); else setD(k, v);
@@ -57,15 +63,21 @@ const DB = makeBinder({val:'d', seg:'dseg', show:'dshow', reroll:'dreroll', get:
     if(/^bg\.fc[xy]$/.test(k)) showFxCenterBriefly();
     syncDoc(el); docChanged(el.type === 'range');
   },
+  // 選択ボタン（data-dseg）を押したとき：値を書いて、表示条件が変わるのでパネル全体を同期する。
+  // 背景の種類を「画像」にしたのに画像がまだ無ければ、ファイルを選ぶ画面を開く
   onSeg(k, v){
     setD(k, v); syncDoc(); docChanged(false);
     if(k === 'bg.type' && v === 'image' && !(DOC.bg.asset && assetOf(DOC.bg.asset))) $('#bgimgfile').click();
   },
+  // 「別パターンにする」：乱数の種を新しくする
   onReroll(k){ dSet(k, Math.floor(Math.random() * 1e6)); docChanged(false); },
 });
-// ドラッグ中など、何度も続けて呼ばれるときは1フレームに1回だけ同期する
+// syncRaf：予約した同期の requestAnimationFrame の番号（0 なら予約なし）
 let syncRaf = 0;
+// ドラッグ中など、何度も続けて呼ばれるときは1フレームに1回だけ同期する
 function syncDocSoon(){ if(!syncRaf) syncRaf = requestAnimationFrame(() => { syncRaf = 0; syncDoc(); }); }
+// DOC の今の値を、設定パネルの入力欄・ボタンの状態へ映す（except＝入力中の欄。打ちかけの値を上書きしないよう除く）。
+// 入力欄（DB）→ ガイドのボタン → セーフエリアのボタン → 反転のボタン → 設定パネルの組み直し（必要なときだけ）→ 分割フレーム・予定表のパネル → キャンバスの大きさの欄
 /** @param {HTMLElement} [except] */ function syncDoc(except){
   DB.sync(except);
   $$('[data-guide]').forEach(b => b.classList.toggle('on', !!/** @type {Record<string, boolean>} */ (DOC.guides)[b.dataset.guide ?? '']));

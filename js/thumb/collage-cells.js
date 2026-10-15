@@ -12,8 +12,10 @@ function collageCellAt(L, x, y){
   const w = L.bw * L.sc, h = L.bh * L.sc, u = (dx * Math.cos(a) - dy * Math.sin(a)) / w + 0.5, v = (dx * Math.sin(a) + dy * Math.cos(a)) / h + 0.5;
   if(u < 0 || u > 1 || v < 0 || v > 1) return -1;
   const cells = collageCellsOf(L, 1000, 1000 * h / w), px = u * 1000, py = v * 1000 * h / w;
+  // 点 (px,py) が多角形 poly の中か（横へ伸ばした半直線が辺と交わる回数が奇数なら中）
   const inside = /** @param {number[][]} poly */ poly => { let c = false; for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [xi, yi] = poly[i], [xj, yj] = poly[j];
     if((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; };
+  // 重なりは無いので、最初に当たったマスがそのマス
   const i = cells.findIndex(inside); return i;
 }
 /* 境界線のドラッグでマスの幅を変える（「縦に並べる」「横に並べる」だけ。マスの調整モードから使う）
@@ -46,8 +48,10 @@ function collageEdges(L){
   const b = clamp(q.u, e[j - 1] + min, e[j + 1] - min);
   L.cells[j - 1].w = r3((b - e[j - 1]) * sum); L.cells[j].w = r3((e[j + 1] - b) * sum);
 }
+// マス i の大きさ [幅, 高さ]（ドキュメント座標）。マスの多角形の外接矩形を、分割フレームの枠の中に切り詰めたもの（最低 1）。
+// マスの画像のドラッグで、移動量をマスに対する割合に直すのに使う
 /** @param {CollageLayer} L @param {number} i */
-function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標）
+function collageCellSize(L, i){
   const w = L.bw * L.sc, h = L.bh * L.sc, p = collageCellsOf(L, w, h)[i] || [[0, 0], [w, h]];
   const xs = p.map(q => clamp(q[0], 0, w)), ys = p.map(q => clamp(q[1], 0, h));
   return [Math.max(1, Math.max(...xs) - Math.min(...xs)), Math.max(1, Math.max(...ys) - Math.min(...ys))];
@@ -57,16 +61,21 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
 // フォント読み込みは、全マスの文字を連結した文字列で行う（使う字だけ読み込む方式のため。空なら 'あ' でフォント自体は読み込む）
 /** @param {CollageLayer} L */
 const collageAllText = L => L.cells.map(c => c.tx && c.tx.text || '').join('') || 'あ';
+// マスの文字の既定のスタイル（プリセット「ポップ」。無ければ最初のプリセット）。L.tstyle が null のときに使う
 function collageDefaultStyle(){ const p = PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
+// 文字スタイルをプリセット name にする（name は保存して、パネルの選択肢に出す）。無い名前なら何もしない
 /** @param {CollageLayer} L @param {string} name */ function collageSetStyle(L, name){
   const p = PRESETS.find(q => q[0] === name); if(!p) return;
   L.tpre = name; L.tstyle = merged(p[1]);
 }
+// マスの文字に使うフォントを読み込んで待つ（文字が 1 つも無い・非表示なら何もしない）。種類の登録表（collage.js）の fonts から
 /** @param {Layer} L */
 async function ensureCollageFonts(L){ if(L.type === 'collage' && !L.hidden && L.cells.some(cellHasText)) await ensureFont(Object.assign({}, L.tstyle || collageDefaultStyle(), {text: collageAllText(L)})); }
 
 /* 1週間を自動で入れる：選んだ日を含む週を、週の始まり（月／日）から7日ぶん、上のマスから順に入れる */
+// 曜日の表記（getDay() の順：日〜土）
 const WK_JA = ['日', '月', '火', '水', '木', '金', '土'], WK_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+// 「色を付ける」をオンにしたときのマスの背景（上→下の 2 色のグラデ）：平日・土曜・日曜
 const WK_BG = {wd:['#fff6dd', '#ffe9b8'], sat:['#d8ecff', '#a9d2ff'], sun:['#ffdbe3', '#ffb3c4']};
 // startStr は 'YYYY-MM-DD'（形式が違う・空なら今日）。first は 'sun' なら日曜始まり、それ以外は月曜始まり。
 // ローカル時間で日付だけを扱う（new Date('YYYY-MM-DD') は UTC 扱いで日がずれるので、年月日を分解して作る）
@@ -75,6 +84,8 @@ const WK_BG = {wd:['#fff6dd', '#ffe9b8'], sat:['#d8ecff', '#a9d2ff'], sun:['#ffd
   const back = first === 'sun' ? d0.getDay() : (d0.getDay() + 6) % 7;
   return [...Array(7)].map((_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - back + i));
 }
+// 日付 d の見出し。wk の項目：fmt＝曜日の書き方（ja1 月／ja3 月曜日／en MON）、paren＝括弧（none／full 全角／half 半角）、
+// show＝出すもの（date 日付だけ／wd 曜日だけ／それ以外は両方）、layout＝並べ方（side 横に並べる／それ以外は日付の下に改行）
 /** @param {Date} d @param {{fmt: string, paren: string, show: string, layout: string}} wk */
 function weekLabel(d, wk){
   let w = wk.fmt === 'en' ? WK_EN[d.getDay()] : wk.fmt === 'ja3' ? WK_JA[d.getDay()] + '曜日' : WK_JA[d.getDay()];
@@ -89,13 +100,13 @@ function weekLabel(d, wk){
   const head = (m ? m[0] : first).trim() || first;
   return head.length > 6 ? head.slice(0, 5) + '…' : head;
 }
-// 7日ぶんをマス0から順に入れる（マスが少なければそこまで）。画像のあるマスは文字を上寄せ('t')にして絵を隠さない。
-// 8分割のときは最後のマスを「MEMO」にする（ただし文字が入っていれば上書きしない）
 // 「1週間を入れる」が書く形の文字か（例：10/12(月)・10/12\n（月）・月曜日・MON・10/12）
 /** @param {string} s */ function isWeekText(s){
   const t = String(s || '').replace(/\s+/g, ''), wd = '(?:[日月火水木金土](?:曜日)?|SUN|MON|TUE|WED|THU|FRI|SAT)';
   return new RegExp(`^(?:\\d{1,2}/\\d{1,2}(?:[(（]?${wd}[)）]?)?|[(（]?${wd}[)）]?)$`).test(t);
 }
+// 7日ぶんをマス0から順に入れる（マスが少なければそこまで）。画像のあるマスは文字を上寄せ('t')にして絵を隠さない。
+// 8分割のときは MEMO のマス（wk.memo 番目。既定は最後）を「MEMO」にする（ただし文字が入っていれば上書きしない）
 /** @param {CollageLayer} L */
 function collageFillWeek(L){
   const wk = L.wk, days = weekDates(wk.start, wk.first), n = collageN(L);
@@ -113,6 +124,7 @@ function collageFillWeek(L){
 }
 
 /* 追加・画像の割り当て */
+// 分割フレームを追加する。いちばん奥（配列の先頭）に入れるのは、背景のように全面に敷いて、その上に文字などを重ねる使い方が多いため
 function addCollage(){
   const L = Object.assign(COLLAGE_BASE(), {id: uid()});
   DOC.layers.unshift(L); if(DOC.mode !== 'thumb') setMode('thumb');
@@ -130,12 +142,14 @@ async function collageSetCell(L, i, file){
 async function collageTakeFiles(files, cx, cy){
   let rest = files.slice();
   if(DOC.mode === 'thumb' && cx != null && cy != null){
+    // ドロップ：落とした画面上の位置が、プレビューの中なら DOC 座標に直す
     const r = $('#tv').getBoundingClientRect();
     if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom){
       const x = (cx - r.left) / r.width * DOC.w, y = (cy - r.top) / r.height * DOC.h;
       // ドロップでマスに入れるのは、いま選んでいる分割フレームの上に落としたときだけ（それ以外は、ふつうに画像レイヤーとして追加）
       const S0 = selLayer(), L = S0 && S0.type === 'collage' && !S0.hidden && collageCellAt(S0, x, y) >= 0 ? S0 : null;
       if(L){
+        // 落としたマスから順に入れる（2 枚目からは、後ろの画像の無いマスへ）
         let i = collageCellAt(L, x, y); const n = collageN(L);
         while(rest.length && i < n){ await collageSetCell(L, i, /** @type {File} */ (rest.shift())); L.ac = i; i++; while(i < n && assetOf(L.cells[i].asset)) i++; }
         selectLayer(L.id); docChanged(false); toast('分割フレームのマスに画像を入れました');
@@ -145,6 +159,7 @@ async function collageTakeFiles(files, cx, cy){
   }
   const C = cx == null ? selLayer() : null;   // ドロップのときは、ここでは入れない（選んでいても、落とした位置がマスの外なら画像レイヤーにする）
   if(C && C.type === 'collage'){
+    // ファイル選択など（位置なし）：選んでいる分割フレームの空いているマスに、前から順に入れる
     const n = collageN(C); let filled = 0;
     for(let i = 0; i < n && rest.length; i++) if(!assetOf(C.cells[i].asset)){ await collageSetCell(C, i, /** @type {File} */ (rest.shift())); C.ac = i; filled++; }
     if(filled){ docChanged(false); toast(`分割フレームの空いているマスに ${filled} 枚入れました`); }
@@ -161,12 +176,14 @@ function cellImg(x, img, cx, cy, dw, dh, cell){
 // マスの画像を入れ替える（画像・位置・大きさ・回転・反転。効果はマスに残す）
 // 入れ替えるのは画像に付随する項目だけ（背景色・文字・効果は「マスの場所」に属するので動かさない）
 const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
+// マス i と j の画像を入れ替え、入れ替え先 j を選択中にする（同じマス・範囲外なら何もしない）
 /** @param {CollageLayer} L @param {number} i @param {number} j */ function swapCells(L, i, j){
   if(i === j || i < 0 || j < 0) return;
   const a = /** @type {Record<string, any>} */ (L.cells[i]), b = /** @type {Record<string, any>} */ (L.cells[j]);
   for(const k of CELL_IMG_KEYS){ const t = a[k]; a[k] = b[k]; b[k] = t; }
   L.ac = j;
 }
+// マス i の画像の位置・大きさ・回転・反転を初期値に戻す（画像そのものは残す）
 /** @param {CollageLayer} L @param {number} i */ function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
 return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell};
 })();

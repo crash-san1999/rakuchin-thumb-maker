@@ -38,6 +38,7 @@ const libTx = (mode, fn) => idb().then(db => new Promise((res, rej) => {
   const tx = db.transaction('lib', mode), r = fn(tx.objectStore('lib'));
   tx.oncomplete = () => res(r && r.result); tx.onerror = tx.onabort = () => rej(tx.error || new Error('保存に失敗しました'));
 }));
+// dataURL → Blob（素材置き場には dataURL より小さい Blob で保存する。種類が読めなければ PNG とみなす）
 const dataUrlToBlob = /** @param {string} u */ u => { const [h, d] = u.split(','), mime = (h.match(/:(.*?);/) || [])[1] || 'image/png', bin = atob(d), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type: mime}); };
 // 縦横比を保って n px 角の中央に収めたサムネ（dataURL）。一覧表示用で、本体を毎回デコードしないため
 /** @param {NatImage} img @param {number} [n] */
@@ -57,6 +58,7 @@ function makeThumb(img, n = 96){
   try{ const e = await navigator.storage.estimate(); if(e && e.quota && e.quota - (e.usage || 0) < bytes + 20 * 1048576) return 'ブラウザの保存できる空き容量が足りません。ほかのサイトのデータを整理してください'; }catch{}
   return '';
 }
+// 保存・削除の失敗を知らせる（流れて消えるトーストと、一覧の上に残る帯の両方）
 /** @param {string | null} msg */ function libFail(msg){ toast(msg, true); libFlash(msg); }
 // 保存の順序：検査 → IndexedDB へ書き込み → 成功したら LIB（メモリ）に追加。先に LIB に入れると、保存失敗なのに画面に残ってしまう
 /** @param {LibItem} item */
@@ -69,6 +71,7 @@ async function libSave(item){
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch{}   // ブラウザに勝手に消されにくくする（許可されれば）
   return true;
 }
+// 素材を 1 つ消す。IndexedDB から消せたときだけ一覧（LIB）からも消す。文字スタイルなら「マイ」プリセットの一覧も作り直す
 /** @param {string} id */ async function libDelete(id){
   try{ await libTx('readwrite', st => st.delete(id)); }catch{ libFail('削除できませんでした'); return; }
   LIB = LIB.filter(i => i.id !== id); renderLib(); if(typeof renderPresets === 'function') renderPresets();
@@ -84,6 +87,7 @@ async function libAddImageSrc(src, name){
   const item = {id:'M' + uid(), kind:'img', name:libName(name), blob, thumb, size:blob.size, w:img.naturalWidth, h:img.naturalHeight, bytes:blob.size + thumb.length, created:Date.now()};
   return libSave(item);
 }
+// 画像ファイルをまとめて素材置き場へ登録する（画像以外は飛ばす）。容量がいっぱい・保存領域が使えないときはそこで止め、登録できた数を知らせる
 /** @param {File[]} files */ async function libAddFiles(files){
   let ok = 0;
   for(const f of files){
@@ -108,6 +112,7 @@ async function libUseImage(it){
   const id = await addAsset(await blobToDataUrl(it.blob), it.name), L = newImageLayer(id, it.name);
   DOC.layers.push(L); selectLayer(L.id); docChanged(false); toast(`「${it.name}」を追加しました`);
 }
+// 素材の文字スタイルを、いま編集中の文字に当てる（サムネモードなら、変更として保存・履歴に積む）
 /** @param {LibItem} it */
 function libUseStyle(it){
   applyPreset(it.s); if(DOC.mode === 'thumb') docChanged(false); toast(`文字スタイル「${it.name}」を適用しました`);
@@ -127,9 +132,11 @@ async function libExport(){
   let j; try{ j = JSON.parse(await file.text()); }catch{ toast('読み込めませんでした（素材置き場のバックアップではありません）', true); return; }
   if(!j || j.type !== 'library' || !Array.isArray(j.items)){ toast('素材置き場のバックアップではありません', true); return; }
   let ok = 0, dup = 0, skip = 0, reason = '';
+  // 1 件ずつ：id が安全か → 登録済みでないか → 種類ごとに形を確かめ、容量の検査を通ったら保存する
   for(const it of j.items){
     if(!it || !okId(it.id)){ skip++; reason = reason || 'バックアップの中に、読み込めない形式の素材がありました'; continue; }   // id は HTML 属性に入るので、安全な文字だけ許す
     if(LIB.some(l => l.id === it.id)){ dup++; continue; }
+    // 画像：dataURL から絵・Blob・サムネを作り直す（読めなければ保存しない）
     if(it.kind === 'img' && typeof it.src === 'string'){
       try{
         const img = await loadImg(it.src), blob = dataUrlToBlob(it.src), thumb = makeThumb(img);
@@ -137,6 +144,7 @@ async function libExport(){
         const why = await libCheck(item.bytes, 'img'); if(why){ skip++; reason = why; continue; }
         await libTx('readwrite', st => st.put(item)); LIB.push(item); ok++;
       }catch{ skip++; }
+    // 文字スタイル：設定の値をそのまま保存する（使うときに merged で整える）
     }else if(it.kind === 'style' && it.s && typeof it.s === 'object'){
       const item = {id:it.id, kind:'style', name:libName(it.name), s:it.s, bytes:JSON.stringify(it.s).length * 2 + 200, created:it.created || Date.now()};
       const why = await libCheck(item.bytes, 'style'); if(why){ skip++; reason = why; continue; }
@@ -149,26 +157,31 @@ async function libExport(){
 }
 
 /* ---------- 画面 ---------- */
-// 失敗理由を一覧の上の帯に 6 秒だけ出す（トーストは流れてしまうので、容量の理由は画面にも残す）。時間が来たら renderLib が通常表示へ戻す
+// libFlashT：帯を消すタイマー
 let libFlashT = 0;
+// 失敗理由を一覧の上の帯に 6 秒だけ出す（トーストは流れてしまうので、容量の理由は画面にも残す）。時間が来たら renderLib が通常表示へ戻す
 /** @param {string | null} msg */ function libFlash(msg){ const el = $('#libFull'); if(!el) return; el.textContent = msg; el.hidden = false; clearTimeout(libFlashT); libFlashT = setTimeout(renderLib, 6000); }
 // 一覧と容量表示を作り直す。使用率 80%（LIB_WARN）で警告、上限・個数満杯で「いっぱい」にして、追加系ボタンを無効にする
 function renderLib(){
   const el = $('#libGrid'); if(!el) return;
+  // 容量のバー・使用量・件数
   const used = libUsed(), pct = Math.min(100, used / LIB_MAX_BYTES * 100), full = used >= LIB_MAX_BYTES || LIB.length >= LIB_MAX_COUNT, warn = used / LIB_MAX_BYTES >= LIB_WARN;
   $('#libBar').style.width = pct + '%'; $('#libBar').dataset.lv = full ? 'full' : warn ? 'warn' : 'ok';
   $('#libUse').textContent = `使用 ${fmtBytes(used)} ／ 上限 ${fmtBytes(LIB_MAX_BYTES)}（${pct < 1 && used ? '1未満' : Math.round(pct)}%）`;
   $('#libCount').textContent = `画像 ${libItems('img').length}個・文字スタイル ${libItems('style').length}個（最大 ${LIB_MAX_COUNT}個）`;
+  // 一覧の上の帯：使えない／いっぱい／もうすぐいっぱい（どれでもなければ隠す）。出していた失敗の帯は、ここで通常表示に戻る
   const fl = $('#libFull'); clearTimeout(libFlashT);
   fl.hidden = !(full || warn || !libOk);
   fl.dataset.lv = full || !libOk ? 'full' : 'warn';
   fl.textContent = !libOk ? 'このブラウザでは、素材置き場の保存領域が使えません（プライベートモードなど）。' : full ? '素材置き場がいっぱいです。これ以上は保存できません。不要な素材を削除するか、バックアップを書き出して整理してください。' : `もうすぐいっぱいです（残り ${fmtBytes(LIB_MAX_BYTES - used)}）。`;
+  // タブ（画像／文字スタイル）の切り替えと、いっぱいのときに追加系のボタンを押せなくする
   $$('#libMenu [data-lt]').forEach(b => b.classList.toggle('on', b.dataset.lt === libTab));
   $$('#libMenu [data-lpane]').forEach(p => { p.hidden = p.dataset.lpane !== libTab; });
   $$as('#libAddImg, #libRegImg, #libRegStyle', HTMLButtonElement).forEach(b => { b.disabled = full || !libOk; b.title = full ? 'いっぱいで保存できません' : ''; });
   // 「選択中の画像を登録」は、画像レイヤーを選んでいるときだけ押せる
   const L = selLayer(); $as('#libRegImg', HTMLButtonElement).disabled = full || !libOk || !(L && L.type === 'image');
   const bk = LS.get('ttm_libbackup', 0); $('#libBackup').textContent = bk ? `最後のバックアップ：${new Date(bk).toLocaleDateString('ja-JP')}` : 'バックアップはまだありません';
+  // 一覧（新しい順）：画像はカード（クリックでキャンバスに追加）、文字スタイルは見本のボタン（クリックで今の文字に適用。フォントの読み込みを始める）
   if(libTab === 'img'){
     const it = libItems('img').sort((a, b) => b.created - a.created);
     el.className = 'libgrid';
@@ -199,6 +212,7 @@ async function libInit(){
   menu.addEventListener('click', e => {
     e.stopPropagation();   // 一覧を描き直しても、メニューが閉じないようにする
     const t = tgt(e), lt = t.closest('[data-lt]'), del = t.closest('[data-ldel]'), card = t.closest('[data-lid]');
+    // タブ → 削除（×）→ カード（使う）→ 各ボタン（画像を追加・選択中の画像を登録・文字スタイルを登録・書き出し・取り込み）の順に見分ける
     if(lt){ libTab = lt.dataset.lt; LS.set('ttm_libtab', libTab); renderLib(); return; }
     if(del){ const it = LIB.find(i => i.id === del.dataset.ldel); if(it && confirm(`「${it.name}」を素材置き場から削除しますか？（作成中のサムネの画像は消えません）`)) libDelete(it.id); return; }
     if(card){ const it = LIB.find(i => i.id === card.dataset.lid); if(it) it.kind === 'img' ? libUseImage(it) : libUseStyle(it); return; }

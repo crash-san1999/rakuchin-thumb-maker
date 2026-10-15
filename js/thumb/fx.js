@@ -136,6 +136,7 @@ function applyBgFx(name){
   syncDoc(); renderLayers(); docChanged(false);
   return P.fx.length > 0 || had;
 }
+// 動的エフェクトを 1 枚追加して選び、設定パネルを開く
 /** @param {string} kind */
 function addFx(kind){
   const L = mkFx(kind);

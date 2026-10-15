@@ -46,6 +46,8 @@ const EDIT_MODES = {
     ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape !== 'none' && !!assetOf(L.asset),
     hint: () => isMobile ? 'ドラッグでフレームの位置、ピンチで大きさを調整。外をタップで終了' : 'ドラッグでフレームの位置、角かホイールで大きさを調整。Esc か外をクリックで終了',
     banner: () => isMobile ? 'フレーム調整中：ドラッグで位置／ピンチで大きさ／外をタップで終了' : 'フレーム調整中：ドラッグで位置／角・ホイールで大きさ／Esc か外をクリックで終了',
+    // 押したとき：四隅のつまみの近く（画面で 14px 以内）なら大きさの変更、画像の上なら位置の移動。どちらでもなければ null（モードを終える）。
+    // 返す d：sub＝'scale'/'move'、g0＝押したときのフレームの位置、fs0・cx0・cy0＝押したときの大きさ・中心、base＝押したときのレイヤーの位置、r0＝中心から押した点までの距離
     down(L, x, y){
       // px：画面上の 1px が画像ピクセルで何個ぶんか。角ハンドルの当たり半径 14px を、画面の見た目の大きさで判定するため
       const G = /** @type {FrameGeom} */ (frameGeom(L)), [u, v] = frameLocal(L, x, y), px = DOC.w / tvCss / L.sc;
@@ -55,6 +57,7 @@ const EDIT_MODES = {
       if(!corner && !inImg) return null;
       return {sub: corner ? 'scale' : 'move', g0:G, fs0:L.frame.fs ?? 1, cx0:G.cxp / G.iw, cy0:G.cyp / G.ih, base:{x:L.x, y:L.y}, r0:Math.max(1, Math.hypot(u, v))};
     },
+    // ドラッグ中：押したときの値（d）からの差で、フレームの中心または大きさを決め直す
     move(L, x, y, d){
       const G = d.g0;
       // 開始時の状態（d.cx0・d.fs0・d.base）を基準に計算する（毎回の差分を足すと誤差が積もるため）。画像は固定、フレームだけ動く。
@@ -69,9 +72,11 @@ const EDIT_MODES = {
       }
       frameCompensate(L, G, d.base);
     },
+    // ホイール・ピンチ：フレームの大きさ fs を k 倍（10%〜100%）。大きさを変えても画像が動かないよう、レイヤーの位置を補正する
     zoom(L, k){ const g0 = /** @type {FrameGeom} */ (frameGeom(L)); L.frame.fs = r3(clamp((L.frame.fs ?? 1) * k, 0.1, 1)); frameCompensate(L, g0); },
     pinchStart: L => ({fs: L.frame.fs ?? 1}),
     pinch(L, st, k){ const g0 = /** @type {FrameGeom} */ (frameGeom(L)); L.frame.fs = r3(clamp(st.fs * k, 0.1, 1)); frameCompensate(L, g0); },
+    // 調整中の表示：画像全体を薄く、切り抜く範囲を点線の四角、形を白い線、四隅に丸いつまみ
     overlay(ctx, L, f, dpr){
       const G = /** @type {FrameGeom} */ (frameGeom(L));
       // 以降は「画像ピクセル座標」で描く（レイヤーの位置・回転・倍率を ctx に掛ける）。線幅などは画面で一定に見えるよう k=1/(sc*f) を掛ける。
@@ -94,6 +99,8 @@ const EDIT_MODES = {
     ok: /** @param {Layer} L @returns {L is ImageLayer} */ L => L.type === 'image' && L.frame && L.frame.shape === 'none' && !!assetOf(L.asset),
     hint: () => isMobile ? 'なぞって消す・戻す。外をタップで終了' : 'ドラッグで消す・戻す、ホイールで太さ。Esc か外をクリックで終了',
     banner: L => (L.btool === 'pick' ? '色を拾う：背景にしたい色の場所をクリック' : L.btool === 'restore' ? 'ブラシで戻す：なぞったところの元の絵が戻ります' : 'ブラシで消す：なぞったところが透明になります') + (isMobile ? '／外をタップで終了' : '／ホイールで太さ／Esc で終了'),
+    // 押したとき：画像の外（ブラシの半径ぶんの余裕あり）なら null（モードを終える）。
+    // 「色を拾う」なら押した場所の色で背景透過をオンにし、ブラシなら跡を 1 本増やして最初の点を入れる。返す d はドラッグ中に使う値
     down(L, x, y){
       const A = assetOf(L.asset); if(!A) return null;
       const S = cropSrc(L, A), cw = S.img.naturalWidth, ch = S.img.naturalHeight, [u, v] = frameLocal(L, x, y);
@@ -111,6 +118,7 @@ const EDIT_MODES = {
       L.strokes.push(st);
       return {sub:'brush', st, iw0, ih0, last:[px, py], rp:L.bsz / 2 / L.sc};
     },
+    // ドラッグ中：ブラシの丸の位置を更新し、跡に点を足す（色を拾うときは何もしない）。座標は元の画像に対する割合に直して保存する
     move(L, x, y, d){
       cutCursor = [x, y];
       if(d.sub !== 'brush') return;
@@ -123,9 +131,11 @@ const EDIT_MODES = {
     },
     // 色を拾えたら、その色で背景透過をオンにして通常のブラシ（消す）に戻り、モードを終える
     up(L, d){ if(d.sub === 'pick' && d.ok){ L.btool = 'erase'; setEdit(null); toast('背景色を拾いました。許容値で調整できます'); } },
+    // ホイール：ブラシの太さ（画面の px。4〜600）を k 倍。ピンチは使わない（ブラシの太さはパネルのスライダーでも変えられる）
     zoom(L, k){ L.bsz = Math.round(clamp(L.bsz * k, 4, 600)); },
     pinchStart: L => ({}),
     pinch(){},
+    // ブラシ中の表示：背景透過・ブラシをかける前の絵を薄く重ね、ポインタの位置にブラシの丸（色を拾うときは十字）を出す
     overlay(ctx, L, f, dpr){
       const A = assetOf(L.asset); if(!A) return;
       const S = cropSrc(L, A);
@@ -133,6 +143,7 @@ const EDIT_MODES = {
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(L.sc * f * (L.flip ? -1 : 1), L.sc * f * (L.flipV ? -1 : 1));
       ctx.globalAlpha = 0.28; ctx.drawImage(S.img, -S.img.naturalWidth / 2, -S.img.naturalHeight / 2); ctx.restore();
       if(cutCursor){
+        // 色を拾う：白い丸と十字。ブラシ：太さの丸（黒い縁＋白、戻すときは緑）
         const cx = cutCursor[0] * f, cy = cutCursor[1] * f; ctx.save(); ctx.lineWidth = 1.5 * dpr;
         if(L.btool === 'pick'){ ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, 9 * dpr, 0, 7); ctx.moveTo(cx - 14 * dpr, cy); ctx.lineTo(cx + 14 * dpr, cy); ctx.moveTo(cx, cy - 14 * dpr); ctx.lineTo(cx, cy + 14 * dpr); ctx.stroke(); }
         else{ const r = L.bsz / 2 * f; ctx.strokeStyle = '#111'; ctx.beginPath(); ctx.arc(cx, cy, r + dpr, 0, 7); ctx.stroke(); ctx.strokeStyle = L.btool === 'restore' ? '#5cf08a' : '#fff'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke(); }
@@ -148,6 +159,8 @@ const EDIT_MODES = {
     hint: () => isMobile ? 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ピンチで拡大縮小。外をタップで終了' : 'マスをドラッグで中の画像を移動、別のマスまで持っていくと入れ替え、ホイールで拡大縮小（Shift+ホイールで回転）。Esc か外をクリックで終了',
     banner: L => (isMobile ? `マス${L.ac + 1}：ドラッグで移動／別のマスへで入れ替え／ピンチで拡大縮小／外をタップで終了` : `マス${L.ac + 1}：ドラッグで移動／別のマスへ持っていくと入れ替え／ホイールで拡大縮小・Shift+ホイールで回転／Esc で終了`) + (collageResizable(L.layout) ? '／境界線をドラッグで幅' : ''),
     enter(L, x, y){ if(x != null && y != null){ const i = collageCellAt(L, x, y); if(i >= 0) L.ac = i; } },
+    // 押したとき：境界線の上なら境界線のドラッグ、マスの上ならそのマスを選んで画像の移動。どちらでもなければ null（モードを終える）。
+    // 返す d：i＝マスの番号、ox0・oy0＝押したときの画像の位置、size＝マスの大きさ、swap＝入れ替え先（無ければ -1）、has＝画像があるか
     down(L, x, y){
       // 「縦に並べる」「横に並べる」の境界線の近くなら、境界線のドラッグ（マスの幅を変える）
       const bj = collageBorderAt(L, x, y); if(bj > 0) return {border:bj};
@@ -155,6 +168,7 @@ const EDIT_MODES = {
       L.ac = i; const c = L.cells[i];
       return {i, ox0:c.ox || 0, oy0:c.oy || 0, size:collageCellSize(L, i), swap:-1, has:!!assetOf(c.asset)};
     },
+    // ドラッグ中：境界線を動かすか、マスの中の画像を動かす（別のマスの上なら入れ替えの予告だけ出す）
     move(L, x, y, d){
       if(d.border){ collageDragBorder(L, d.border, x, y); return; }
       const c = L.cells[d.i], j = collageCellAt(L, x, y);
@@ -165,27 +179,33 @@ const EDIT_MODES = {
       // 移動量はレイヤーの回転を戻した向きで測り（rotLocal）、マスの大きさで割って割合にする
       c.ox = r3(d.ox0 + dx / d.size[0]); c.oy = r3(d.oy0 + dy / d.size[1]);
     },
+    // 離したとき：入れ替え先があれば画像を入れ替える。境界線のドラッグなら、パネルの幅の欄を同期する
     up(L, d){
       swapTarget = null;
       if(d.border){ syncDoc(); return; }
       if(d.swap >= 0){ const j = d.swap; swapCells(L, d.i, j); toast(`マス${d.i + 1}とマス${j + 1}の画像を入れ替えました`); syncDoc(); }
     },
+    // ホイール：ポインタの下のマスの画像を k 倍に拡大縮小（20%〜800%）。Shift＋ホイールは回転。マスの外なら false（通常のホイール処理へ）
     zoom(L, k, x, y, e){
       const i = collageCellAt(L, x, y); if(i < 0) return false;
       L.ac = i; const c = L.cells[i];
       if(e && e.shiftKey){ const dv = e.deltaY || e.deltaX; if(dv) c.rot = Math.round((((c.rot || 0) + (dv > 0 ? 3 : -3)) + 540) % 360 - 180); return; }   // Shift＋ホイールで回転（Shift だと横スクロールになるブラウザもあるので両方見る）
       c.zoom = r3(clamp((c.zoom || 1) * k, 0.2, 8));
     },
+    // ピンチ：選んでいるマスの画像の拡大率を、開始時の値の k 倍にする
     pinchStart: L => ({zoom: L.cells[L.ac || 0].zoom || 1}),
     pinch(L, st, k){ const c = L.cells[L.ac || 0]; c.zoom = r3(clamp(st.zoom * k, 0.2, 8)); },
+    // 調整中の表示：全部のマスの輪郭（選んでいるマスは太く・入れ替え先は緑で塗る）と、境界線のつまみ
     overlay(ctx, L, f, dpr){
       const w = L.bw * L.sc, h = L.bh * L.sc, cells = collageCellsOf(L, w, h);
+      // レイヤーと同じ位置・回転で、左上を原点にした座標にし、レイヤーの範囲で切り抜く（線の太さは ÷f で画面の太さにそろえる）
       ctx.save(); ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180); ctx.scale(f, f); ctx.translate(-w / 2, -h / 2);
       ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
       const sw = swapTarget && swapTarget.id === L.id ? swapTarget.j : -1;
       cells.forEach((p, i) => { collagePath(ctx, p); if(i === sw){ ctx.fillStyle = 'rgba(92,240,138,.28)'; ctx.fill(); } ctx.lineWidth = (i === L.ac || i === sw ? 3 : 1.5) * dpr / f; ctx.strokeStyle = i === sw ? '#5cf08a' : i === L.ac ? '#ffb800' : 'rgba(255,255,255,.8)'; ctx.setLineDash(i === L.ac || i === sw ? [] : [6 * dpr / f, 5 * dpr / f]); ctx.stroke(); });
       // 「縦に並べる」「横に並べる」は境界線をドラッグできるので、境界線の中央につまみを出す
       if(collageResizable(L.layout)) for(let j = 1; j < cells.length; j++){
+        // 隣り合うマス（j−1 と j）が共有する点の平均＝境界線の中央
         const near = /** @param {number[]} p @param {number[]} q */ (p, q) => Math.abs(p[0] - q[0]) < 0.5 && Math.abs(p[1] - q[1]) < 0.5, sh = cells[j].filter(p => cells[j - 1].some(q => near(p, q)));
         if(sh.length < 2) continue;
         const mx = sh.reduce((a, p) => a + p[0], 0) / sh.length, my = sh.reduce((a, p) => a + p[1], 0) / sh.length, r = 7 * dpr / f;
@@ -225,6 +245,7 @@ function setEdit(kind, L, x, y){
   if(edit){ const M = modeOf(edit.kind); if(M.enter) M.enter(L, x, y); toast(M.hint()); }
   syncDoc(); paintPreview(false);
 }
+// パネルの「キャンバスで調整」ボタン：同じモードならやめる、そうでなければ選んでいるレイヤーでそのモードに入る（入れないレイヤーなら何もしない）
 /** @param {string} kind */ function toggleEdit(kind){ const L = selLayer(); if(edit && edit.kind === kind) setEdit(null); else if(L && modeOf(kind).ok(L)) setEdit(kind, L); }
 // ダブルクリック・ダブルタップで、そのレイヤーの編集モードに入る
 /** @param {Layer} L @param {number} [x] @param {number} [y] */ function enterEditAt(L, x, y){ const kind = editModeFor(L); if(!kind || edit) return false; selectLayer(L.id); setEdit(kind, L, x, y); return true; }
@@ -252,7 +273,9 @@ function editWheel(e, x, y, k){
 }
 // スマホのピンチ（mobile.js から）。開始時の値を st に控え、editPinch で倍率 k を掛ける
 /** @param {PinchPair} I @returns {Pinch|null} */ function editPinchStart(I){ const L = editLayer(); return L && edit ? {kind:/** @type {'edit'} */ ('edit'), L, i:I, st:modeOf(edit.kind).pinchStart(L)} : null; }
+// ピンチ中：開始時の値 st に倍率 k を掛ける（モードが無くなっていたら何もしない）
 /** @param {{L: Layer, st: any}} p @param {number} k */ function editPinch(p, k){ if(edit) modeOf(edit.kind).pinch(p.L, p.st, k); }
+// 編集中の補助表示とキャンバス上部の説明帯を描く（overlay.js から）。描いたら true（通常の選択枠は出さない）、編集中でなければ false
 /** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} dpr */ function drawEditOverlay(ctx, W, H, dpr){
   const L = editLayer(); if(!L) return false;
   if(!edit) return false;

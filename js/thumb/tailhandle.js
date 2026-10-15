@@ -32,6 +32,7 @@ function textTailInfo(L){
   if(st.warp && st.warp.type !== 'none' && st.warp.amt) return null;   // ワープ中は位置が合わないので出さない
   const e = prevCache.get(L.id), P = e && /** @type {TextCanvas} */ (e.c).plate; if(!P) return null;
   const k = L.sc / e.k, a = (L.rot || 0) * PI / 180, c = Math.cos(a), s = Math.sin(a), W = e.c.width, H = e.c.height;
+  // 描いた文字の絵のピクセル座標 → ドキュメント座標（レイヤーの位置・回転・倍率をかける）
   /** @param {number[]} q */
   const toDoc = q => { const [px, py] = q; const dx = (px - W / 2) * k, dy = (py - H / 2) * k; return [L.x + dx * c - dy * s, L.y + dx * s + dy * c]; };
   // DOC 座標 → 描いた吹き出しの論理座標（しっぽの角度・長さを決めるのに使う）
@@ -79,12 +80,15 @@ function tailDragMove(st, x, y, e){
 /** @param {TailDrag} st @param {number} x @param {number} y */
 function moveTextTail(st, x, y){
   const L = st.L, p = L.style.plate, P = st.t.P, [lx, ly] = st.t.toLocal(x, y), size = P.size || L.style.size || 100;
+  // r1・r2＝保存する値を小数 1 桁・2 桁に丸める
   const r1 = /** @param {number} v */ v => Math.round(v * 10) / 10, r2 = /** @param {number} v */ v => Math.round(v * 100) / 100;
   if(st.mode === 'dir'){
+    // 向き：付け根からポインタへの角度と、しっぽの位置の角度の差（±80° まで）。長さは付け根からの距離（文字の大きさを基準に 0.3〜3 倍）
     const ang = Math.atan2(ly - P.lbase[1], lx - P.lbase[0]) * 180 / PI, deg = tailDegOf(p);
     p.tdir = r1(clamp(((ang - deg + 540) % 360) - 180, -80, 80));
     p.ts = r2(clamp(Math.hypot(lx - P.lbase[0], ly - P.lbase[1]) / (size * (P.kind === 'dots' ? 1.1 : 0.62)), 0.3, 3));
   }else{
+    // 位置：中心からポインタへの角度をしっぽの位置にし（自由な向きにする）、縁の外へ出た距離を長さにする
     const vx = lx - P.lc[0], vy = ly - P.lc[1], deg = (Math.atan2(vy, vx) * 180 / PI + 360) % 360, a = deg * PI / 180, dx = Math.cos(a), dy = Math.sin(a);
     // 縁までの距離：四角は辺、それ以外は楕円で近似（叫びのギザギザも楕円で見る。長さが少し違うだけで、位置は正しい）
     const edge = P.kind === 'box' ? 1 / Math.max(Math.abs(dx) / P.rx, Math.abs(dy) / P.ry) : 1 / Math.hypot(dx / P.rx, dy / P.ry);
@@ -106,8 +110,10 @@ function keepCenter(st){
 // フレームの吹き出し：ポインタの位置がどの辺の外側かで、しっぽの辺を決め、辺に沿った位置で先（または付け根）を動かす
 /** @param {TailDrag} st @param {number} x @param {number} y */
 function moveFrameTail(st, x, y){
+  // (u, v)＝フレームの中心を原点にした座標。幅・高さで割った値の大きい方の向きで、どの辺の外側かを決める
   const L = st.L, fr = L.frame, G = st.t.G, [u, v] = frameLocal(L, x, y), a = G.fw / 2, b = G.fh / 2;
   const nx = u / a, ny = v / b, side = Math.abs(ny) >= Math.abs(nx) ? (ny > 0 ? 'b' : 't') : (nx > 0 ? 'r' : 'l');
+  // along＝その辺に沿った位置（0〜1）。向きモードは付け根の位置だけを動かす
   const along = side === 'b' || side === 't' ? (u + a) / G.fw : (v + b) / G.fh, r2 = /** @param {number} q */ q => Math.round(q * 1000) / 1000;
   if(st.mode === 'dir'){ fr.tp = r2(clamp(along, 0.05, 0.95)); return; }
   fr.tside = side;

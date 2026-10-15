@@ -34,6 +34,7 @@ var {SEL_ROWS, BG_ROWS, FX_CHIPS} = (() => {
 /** @type {(P: string, S: string, pg?: string, own?: string[]) => PanelRow[]} */
 const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
   {pg, cfxchips:true, show:S},
+  // 色調：明るさ・コントラスト・彩度・色相・ぼかし・トーン（2 色なら暗い色・明るい色）
   {pg, sub:'色調', show:S},
   {pg, r:own[0], l:'明るさ', min:-0.6, max:0.6, step:0.01, show:S},
   {pg, r:P + 'contrast', l:'コントラスト', min:-0.8, max:1, step:0.01, show:S},
@@ -42,6 +43,7 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
   {pg, r:P + 'blur', l:'ぼかし', min:0, max:40, step:0.5, show:S},
   {pg, seg:P + 'tone', l:'トーン', opts:[['none', 'なし'], ['mono', 'モノクロ'], ['sepia', 'セピア'], ['duotone', '2色']], show:S},
   {pg, c:P + 'duo1', l:'暗い色', show:S + '&' + P + 'tone=duotone'}, {pg, c:P + 'duo2', l:'明るい色', show:S + '&' + P + 'tone=duotone'},
+  // エフェクト：ズームブラー・モーションブラー・モザイク・暗く・周辺減光・色を重ねる・シルエット、続けて加工の行
   {pg, sub:'エフェクト', show:S},
   {pg, chk:P + 'zb.on', l:'ズームブラー（中心へ吸い込まれる）', show:S},
   {pg, r:P + 'zb.amt', l:'強さ', min:0.02, max:0.8, step:0.01, show:S + '&' + P + 'zb.on=true'},
@@ -64,9 +66,11 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
 // 加工エフェクト（imgfx.js）の行。背景（P='bg.'）とマス・グループ・画像レイヤー（CFX_ROWS）で共通。
 // withOld：ポスタライズ・2値化・ミニチュアの行も作るか（背景には前からあるので false で呼ぶ）
 /** @param {string} P @param {string} S @param {string} pg @param {boolean} withOld @returns {PanelRow[]} */ function EXTRA_ROWS(P, S, pg, withOld){
+  // on(k)＝「この行群の条件」かつ「P+k のチェックがオン」の表示条件（チェックの下の細かい設定の行に使う）
   const on = /** @param {string} k */ k => S + '&' + P + k + '=true';
   return [
     {pg, sub:'加工', show:S},
+    // 色を変える系：色収差・グラデーションマップ・色の置き換え（・ポスタライズ・2 値化）
     {pg, chk:P + 'rgb.on', l:'色収差（赤と青がずれる）', show:S},
     {pg, r:P + 'rgb.d', l:'ずれ幅', min:1, max:40, step:0.5, show:on('rgb.on')},
     {pg, r:P + 'rgb.angle', l:'向き', min:-180, max:180, step:1, show:on('rgb.on')},
@@ -83,6 +87,7 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
       {pg, r:P + 'thresh.lvl', l:'しきい値', min:0.05, max:0.95, step:0.01, show:on('thresh.on')},
       {pg, c:P + 'thresh.c1', l:'暗い色', show:on('thresh.on')}, {pg, c:P + 'thresh.c2', l:'明るい色', show:on('thresh.on')},
     ] : []),
+    // 線・点・質感：網点・線画・油絵風・シャープ・ノイズ・走査線・ブラウン管
     {pg, chk:P + 'half.on', l:'網点（マンガのトーン）', show:S},
     {pg, r:P + 'half.size', l:'点の大きさ', min:3, max:40, step:0.5, show:on('half.on')},
     {pg, c:P + 'half.c', l:'点の色', show:on('half.on')},
@@ -101,6 +106,7 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
     {pg, chk:P + 'crt.on', l:'ブラウン管（画面のふくらみ・RGBの点）', show:S},
     {pg, r:P + 'crt.curve', l:'ふくらみ', min:0, max:1, step:0.01, show:on('crt.on')},
     {pg, r:P + 'crt.mask', l:'RGBの点の濃さ', min:0, max:1, step:0.01, show:on('crt.on')},
+    // ゆがみ（種類を選ぶと強さ、波なら波の数）（・ミニチュア風）
     {pg, sub:'ゆがみ', show:S},
     {pg, seg:P + 'warp.type', l:'種類', opts:WARP_TYPES, show:S},
     {pg, r:P + 'warp.amt', l:'強さ', min:0, max:1, step:0.01, show:S + '&' + P + 'warp.type!=none'},

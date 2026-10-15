@@ -12,6 +12,7 @@
   const ov = $('#ddov'); let depth = 0;   // depth：dragenter/leave は子要素をまたぐたびに発火するので、入れ子の深さを数えて、本当に画面の外へ出たときだけ消す
   // 分割フレームのマス同士の入れ替えドラッグ（cellDragFrom>=0。collage-panel.js）は、ファイルのドロップとして扱わない
   const hasFiles = /** @param {DragEvent} e */ e => cellDragFrom < 0 && [...(e.dataTransfer?.types || [])].some(t => t === 'Files' || t === 'text/uri-list');
+  // ドロップ先の案内を出す／消す（消すときは、強調していた区画も戻す）
   const show = /** @param {boolean} on */ on => { ov.classList.toggle('show', on); if(!on) $$('[data-dz]', ov).forEach(z => z.classList.remove('hot')); };
   window.addEventListener('dragenter', e => { if(!hasFiles(e)) return; e.preventDefault(); depth++; show(true); });
   window.addEventListener('dragleave', e => { if(!hasFiles(e)) return; depth = Math.max(0, depth - 1); if(!depth) show(false); });

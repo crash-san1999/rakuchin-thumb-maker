@@ -34,10 +34,12 @@ function layerSubText(L){ return kindOf(L).sub(L); }
 // レイヤーパネルの 1 行（レイヤー L）の HTML。ms＝複数選択中の id の Set。サムネの canvas は描いたあと refreshThumbs が埋める
 /** @param {Layer} L @param {Set<string>} ms */
 function layerRowHTML(L, ms){
+    // sub＝名前の下の説明、mode＝合成モード（通常以外のとき）、fold＝グループの開閉ボタン
     const sub = layerSubText(L);
     const mode = L.blend && L.blend !== 'source-over' ? ' ・ ' + (BLEND_NAMES[L.blend] || L.blend) : '';
     const th = kindOf(L).thumb(L) ?? `<canvas data-th="${escapeHtml(L.id)}" width="72" height="72"></canvas>`;   // 種類ごとのアイコン・画像。無ければ描画キャッシュの絵を縮小
     const fold = isGroup(L) ? `<button data-la="fold" title="${L.open === false ? '開く' : '閉じる'}">${L.open === false ? '▸' : '▾'}</button>` : '';
+    // 行：つまみ・サムネ・名前（説明・合成モード・不透明度）・ボタン（開閉・表示・ロック・メニュー）。選択中の行だけ不透明度のスライダーを付ける
     return `<div class="ly${L.id === DOC.sel ? ' on' : ''}${ms.has(L.id) ? ' multi' : ''}${L.hidden ? ' hid' : ''}${L.locked ? ' locked' : ''}${isGroup(L) ? ' grp' : ''}${L.gid ? ' kid' : ''}" data-lid="${escapeHtml(L.id)}"${L.gid ? ` data-gid="${escapeHtml(L.gid)}"` : ''} title="ドラッグで重なり順を変更・ダブルクリックで名前を変更・Ctrl／Shift＋クリックで複数選択（スマホは長押し）">
       <span class="grip">${ic('grip')}</span>
       <span class="ly-th">${th}</span>
@@ -57,13 +59,17 @@ function bgRowHTML(){
      <span class="ly-act"><button data-bga="eye" class="${DOC.bg.hidden ? 'act' : ''}" title="背景の表示・非表示（非表示にすると透明。PNGで保存すると背景が透明になります）">${ic(DOC.bg.hidden ? 'eyeoff' : 'eye')}</button></span>
      <div class="ly-op" title="背景の不透明度"><span>不透明度</span><input type="range" min="0" max="1" step="0.01" data-d="bg.op" value="${DOC.bg.op ?? 1}"><b>${Math.round((DOC.bg.op ?? 1) * 100)}%</b></div></div>`;
 }
+// レイヤーパネルを作り直す（行の並び・選択・複数選択・非表示・ロック・グループの開閉・不透明度）。
+// 不透明度のスライダーを動かしている間（lpSliding）は、作り直すとつまみが離れてしまうので 300ms 後に先送りする
 function renderLayers(){
   const box = $('#layerList'); if(!box) return;
   if(lpSliding){ clearTimeout(renderLayers.t); renderLayers.t = setTimeout(renderLayers, 300); return; }
+  // arr＝パネルに並べる順（手前が上。閉じたグループの中身は除く）。上の数字は、グループを除いたレイヤーの枚数
   const arr = layerRowsOrder(), ms = new Set(DOC.msel || []);
   const nLay = DOC.layers.filter(l => !isGroup(l)).length;
   $('#lpCount').textContent = nLay ? `${nLay}枚` : '';
   const rows = arr.map(L => layerRowHTML(L, ms)).join('');
+  // 2 つ以上を選んでいるときは、先頭に「グループにする／選択を解除」の帯。レイヤーが無いときは説明。最後に背景の行
   const multi = ms.size >= 2 ? `<div class="lp-multi"><b>${ms.size}個を選択中</b><button class="btn sm" data-multi="group">${ic('group')}グループにする</button><button class="btn sm" data-multi="clear">選択を解除</button></div>` : '';
   box.innerHTML = multi + (rows || '<p class="note" style="padding:0 8px">文字や画像を追加すると、ここに重なり順どおりに並びます。</p>') +
     bgRowHTML();
@@ -104,6 +110,7 @@ const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スク�
   const nm = $('.nm', row), inp = document.createElement('input');
   inp.type = 'text'; inp.value = layerName(L); nm.replaceWith(inp); inp.focus(); inp.select(); setTimeout(() => { inp.focus(); inp.select(); }, 30);
   let done = false;
+  // 名前の編集を終える。ok なら入力を名前にする（既定の名前と同じ・空なら、名前を付けていない状態に戻す）。Enter と blur の二重呼び出しは done で防ぐ
   const fin = /** @param {boolean} ok */ ok => { if(done) return; done = true; if(ok){ const v = inp.value.trim(); L.label = v && v !== layerName(Object.assign({}, L, {label:''})) ? v : ''; saveDoc(); } renderLayers(); syncDoc(); };
   inp.addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') fin(true); if(e.key === 'Escape') fin(false); });
   inp.addEventListener('blur', () => fin(true));
@@ -122,11 +129,13 @@ const menuSections = /** @param {...Array<string|false|null|undefined|0|''>} sec
 /** @param {Layer} L */
 function layerMenuHtml(L){
   const ms = DOC.msel || [];
+  // 複数選択の中のレイヤー：グループにする・選択を解除・まとめて削除だけ
   if(ms.length >= 2 && ms.includes(L.id)){
     return `<div class="ttl">${ms.length}個を選択中</div>` + menuSections(
       [menuItem('group', 'group', 'グループにする', 'Ctrl+G'), menuItem('clearMulti', 'eyeoff', '選択を解除')],
       [menuItem('del', 'trash', `${ms.length}個を削除`, 'Delete', 'danger')]);
   }
+  // 1 つのレイヤー：重なり順（端では押せない）／複製・名前・ロック・表示／種類ごとの項目／グループ／削除
   const peers = peersOf(L), pi = peers.indexOf(L), top = pi === peers.length - 1, bottom = pi === 0, grp = isGroup(L);
   return `<div class="ttl">${escapeHtml(layerName(L))}</div>` + menuSections(
     [menuItem('front', 'front', '最前面へ', 'Ctrl+Shift+]', '', top), menuItem('up', 'up', '前面へ', 'Ctrl+]', '', top),
@@ -147,6 +156,7 @@ function layerMenuHtml(L){
   const y = cy + h <= innerHeight - M ? cy : upY - h >= M ? upY - h : innerHeight - M - h;
   m.style.left = Math.max(M, Math.min(cx, innerWidth - w - M)) + 'px'; m.style.top = Math.max(M, y) + 'px';
 }
+// レイヤー id の右クリックメニューを (cx, cy) に出す。下に入らないときは upY（ボタンの上端など）の上に出す（placeMenu）
 /** @param {string} id @param {number} cx @param {number} cy @param {number} [upY] */
 function showMenu(id, cx, cy, upY = cy){
   const L = layerById(id); if(!L) return;
@@ -165,12 +175,16 @@ function openLayerMenu(id, cx, cy, upY = cy){
 const hideMenu = () => $('#ctxmenu').classList.remove('show');
 // 長押しで開いたメニューは、指を離したときの click が指の下の項目に届いて実行されてしまう（メニューが指に重なって出るとき）。
 // そこで、指を離してから少しの間（350ms）は項目を押せなくする。mobile.js の長押しから呼ぶ
+// menuGuard：true の間はメニューの項目を押しても何もしない
 let menuGuard = false;
+// 長押しでメニューを出したときに呼ぶ：指を離すまで（と、その後 350ms）項目を押せなくする
 function guardMenuUntilRelease(){
   menuGuard = true;
+  // 指を離したら（キャンセルでも）、少し待ってから押せるように戻す。一度きりのリスナーなので、呼ばれたら外す
   const off = () => { window.removeEventListener('pointerup', off, true); window.removeEventListener('pointercancel', off, true); setTimeout(() => { menuGuard = false; }, 350); };
   window.addEventListener('pointerup', off, true); window.addEventListener('pointercancel', off, true);
 }
+// メニューの項目を押した：メニューを閉じてから実行する（名前の変更は、閉じたあとの次の処理で入力欄を出す）
 $('#ctxmenu').addEventListener('click', e => {
   if(menuGuard) return;
   const b = tgt(e).closest('[data-ma]'); if(!b) return;
@@ -178,6 +192,7 @@ $('#ctxmenu').addEventListener('click', e => {
   if(b.dataset.ma === 'rename'){ setTimeout(() => startRename(id), 0); return; }
   layerAction(id, b.dataset.ma ?? '');
 });
+// メニューの外を押したとき・ウィンドウから離れたときは閉じる
 document.addEventListener('pointerdown', e => { if(!tgt(e).closest('#ctxmenu')) hideMenu(); }, true);
 window.addEventListener('blur', hideMenu);
 // レイヤーを選ぶ（id=null で選択解除）。keepMulti は複数選択を保ったまま主選択だけ変えるとき（toggleMulti から）。
@@ -188,15 +203,18 @@ window.addEventListener('blur', hideMenu);
 /** @param {string|null} id @param {boolean} [keepMulti] */
 function selectLayer(id, keepMulti){
   if(edit && id !== edit.id) setEdit(null);
+  // 前に複数選択していたか（していたら行の数・見た目が変わるので作り直す）
   const hadMulti = !!(DOC.msel && DOC.msel.length);
   DOC.sel = id;
   if(!keepMulti) DOC.msel = [];
   const L = selLayer();
+  // 文字レイヤーを選んだら、文字パネルをそのレイヤーのスタイルにつなぎ替える
   if(L && L.type === 'text'){
     DOC.textSel = id;
     if(L.style !== S){ S = L.style; resetAdj(); refreshTextUI(); }
   }
   syncDoc(); saveDoc();
+  // パネルの行の「選択中」の印だけ付け替えるか、作り直す
   const rows = $$('#layerList .ly[data-lid]');
   if(rows.length === DOC.layers.length && !hadMulti && !keepMulti) rows.forEach(r => r.classList.toggle('on', r.dataset.lid === id)); else renderLayers();
   requestAnimationFrame(() => paintPreview(false));
