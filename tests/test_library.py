@@ -4,7 +4,7 @@ from helpers import *
 async def run(p):
     pg = await open_app(p)
     await pg.evaluate("localStorage.setItem('ttm_mypresets', JSON.stringify([{name:'旧マイ', s:{font:'Noto Sans JP', weight:900, fillType:'solid', fill1:'#00ff00'}}]))")
-    await pg.reload(); await settle(pg, 4500); await pg.evaluate("document.querySelector('#help').classList.remove('show')")
+    await pg.reload(); await app_ready(pg); await settle(pg, 4500); await pg.evaluate("document.querySelector('#help').classList.remove('show')")
     # 以前のマイプリセットが移る
     assert await pg.evaluate("myStyles().map(i => i.name)") == ['旧マイ'], '以前のマイプリセットが素材置き場に移らない'
     assert await pg.evaluate("JSON.parse(localStorage.getItem('ttm_mypresets') || '[]').length") == 0
@@ -58,7 +58,7 @@ async def run(p):
     await pg.set_input_files('#libImport', path); await settle(pg, 1500)
     assert await pg.evaluate("LIB.map(i => i.id).sort()") == sorted(ids), '読み込みで元に戻らない'
     # 再読み込みしても残る
-    await pg.reload(); await settle(pg, 4500)
+    await pg.reload(); await app_ready(pg); await settle(pg, 4500)
     assert await pg.evaluate("LIB.length") == len(ids), '再読み込みで素材が消えた'
     await close(pg)
     await drop_test(p)

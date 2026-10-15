@@ -24,8 +24,19 @@ async def wait_until(pg, expr, timeout=15000):
 
 OPEN_BROWSERS = []   # 開いたまま残ったブラウザを、run_all が片付けるための一覧
 
+async def app_ready(pg):
+    """アプリの起動（main.js の boot：保存データの復元・最初の描画・取り消し履歴の起点）が終わるまで待つ。ページを開いた・読み込み直した直後に呼ぶ。
+    決まった時間を待つだけだと、並列実行で重いときに起動が間に合わず、DOC が null のままテストが始まることがあった"""
+    # wait_for_function は文字列を eval するので、アプリの CSP（unsafe-eval なし）で止められる。evaluate で確かめながら待つ
+    for _ in range(900):
+        try:
+            if await pg.evaluate("typeof DOC === 'object' && DOC !== null && typeof hist !== 'undefined' && hist.length > 0"): return
+        except Exception: pass   # 読み込みの途中（ページの切り替わり中）は evaluate が失敗することがある
+        await pg.wait_for_timeout(100)
+    raise TimeoutError('アプリの起動が 90 秒たっても終わらない')
+
 async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500, viewport=None, touch=False):
-    """アプリを開いて操作ガイドを閉じた状態のページを返す。外部への通信はすべて止める（結果を安定させるため）"""
+    """アプリを開いて、起動が終わってから wait ミリ秒待ち、操作ガイドを閉じた状態のページを返す。外部への通信はすべて止める（結果を安定させるため）"""
     b = await p.chromium.launch(args=['--no-sandbox']); OPEN_BROWSERS.append(b)
     ctx = await (b.new_context(**p.devices['iPhone 13']) if mobile else b.new_context(viewport=viewport or {'width': 1440, 'height': 900}, **({'is_mobile': True, 'has_touch': True} if touch else {})))
     pg = await ctx.new_page(); pg.errors = []
@@ -37,7 +48,8 @@ async def open_app(p, mobile=False, root=ROOT, gh_font=None, wait=4500, viewport
             return await r.fulfill(path=gh_font, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'font/ttf'})
         await r.abort()
     await pg.route('**/*', route)
-    await pg.goto(app_url(root), wait_until='commit'); await pg.wait_for_timeout(wait)
+    await pg.goto(app_url(root), wait_until='commit')
+    await app_ready(pg); await pg.wait_for_timeout(wait)
     await pg.evaluate("document.querySelector('#help').classList.remove('show')")
     pg.browser_ = b
     return pg

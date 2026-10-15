@@ -17,7 +17,7 @@ async def run(p):
         async def route(r):
             await (r.continue_() if r.request.url.startswith('http://127.0.0.1') else r.abort())
         await pg.route('**/*', route)
-        await pg.goto(base + 'index.html'); await pg.wait_for_timeout(3000)
+        await pg.goto(base + 'index.html'); await app_ready(pg); await pg.wait_for_timeout(3000)
         await pg.evaluate("document.querySelector('#help').classList.remove('show')")
         await pg.evaluate("navigator.serviceWorker.ready.then(() => 1)"); await pg.wait_for_timeout(1500)
         # manifest とアイコン
@@ -33,11 +33,11 @@ async def run(p):
         assert '/index.html' in keys and any(k.endswith('events.js') for k in keys) and any(k.endswith('app.css') for k in keys), f'本体が保存されていない {keys}'
         # オフラインでも起動できる
         await ctx.set_offline(True)
-        await pg.goto(base + 'index.html'); await pg.wait_for_timeout(3000)
+        await pg.goto(base + 'index.html'); await app_ready(pg); await pg.wait_for_timeout(3000)
         assert await pg.evaluate("typeof DOC === 'object' && DOC.layers.length > 0"), 'オフラインで起動できない'
         await ctx.set_offline(False)
         # 新しいバージョン：sw.js が変わる → お知らせ → 更新
-        await pg.goto(base + 'index.html'); await pg.wait_for_timeout(2500)
+        await pg.goto(base + 'index.html'); await app_ready(pg); await pg.wait_for_timeout(2500)
         assert not await pg.evaluate("document.querySelector('#updBar').classList.contains('show')"), '更新がないのにお知らせが出ている'
         sw = (app / 'sw.js'); sw.write_text(sw.read_text().replace(f"'{ver}'", "'v-next'"))
         await pg.evaluate("pwaReg.update()"); await wait_until(pg, "document.querySelector('#updBar').classList.contains('show')", 15000)
