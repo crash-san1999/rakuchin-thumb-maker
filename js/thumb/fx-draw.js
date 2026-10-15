@@ -10,13 +10,10 @@
 var {drawFx, FX_MARKS} = (() => {
 // ctx に fx レイヤー L を描く。f＝倍率（ドキュメント座標→ピクセル）。L.x/y はドキュメント座標の中心、rot は度
 // 以降の座標は「L の中心が原点・sc=1 の局所座標」。translate→rotate→scale の順は変えない（回転・拡大の中心が中心点になる）
-/** @param {Layer} L */
-// 種類ごとの描画（drawFx から呼ぶ）。キーは FX_DEF と同じ。座標の原点はエフェクトの中心で、位置・回転・拡大・不透明度・合成は drawFx が設定済み。
-// 引数：p＝パラメータ（L.p）、R＝この種類の seed で作った乱数、bw・bh＝基準サイズ（FX_BOX）、f＝プレビュー倍率（shadowBlur を px に直すのに使う）。
-// 乱数 R() を呼ぶ順番・回数が見た目そのもの（保存済みのサムネの見た目が変わる）なので、各関数の中の順序を入れ替えないこと
-/** @type {Record<string, (ctx: CanvasRenderingContext2D, L: Layer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} */
-/** 動的エフェクトの種類ごとの描き方。p は種類ごとの設定（種類によって項目が違う）、R は種類ごとに決まった乱数、bw・bh は枠の大きさ
- * @type {Record<string, (ctx: CanvasRenderingContext2D, L: FxLayer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} */
+/**
+ * @param {Layer} L
+ * @type {Record<string, (ctx: CanvasRenderingContext2D, L: Layer, p: Record<string, any>, R: () => number, bw: number, bh: number, f: number) => void>} 動的エフェクトの種類ごとの描き方。p は種類ごとの設定（種類によって項目が違う）、R は種類ごとに決まった乱数、bw・bh は枠の大きさ
+ */
 const FX_DRAW = {
   lines(ctx, L, p, R, bw, bh, f){
     const rx = DOC.w / 2 * p.inner, ry = DOC.h / 2 * p.inner, step = 2 * PI / p.n, full = p.full !== false;

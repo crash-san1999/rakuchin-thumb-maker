@@ -31,13 +31,11 @@ function cacheBySize(cache, id, sk, W, H, live, make, k){
   return n;
 }
 // レイヤーの不透明度と描画モードを ctx に設定する（呼ぶ側で ctx.save() / restore() する）
-/** @param {Layer} L */
-/** @param {CanvasRenderingContext2D} ctx */ function layerComposite(ctx, L){
-  ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = L.blend || 'source-over';
+/** @param {Layer} L @param {CanvasRenderingContext2D} ctx */ function layerComposite(ctx, L){
+  ctx.globalAlpha = L.op ?? 1; ctx.globalCompositeOperation = /** @type {GlobalCompositeOperation} */ (L.blend || 'source-over');
 }
 // レイヤーの置き方：不透明度・描画モードを設定し、中心（DOC 座標 × f）へ移動して回転する。拡大縮小は呼ぶ側で行う
-/** @param {Layer} L */
-/** @param {CanvasRenderingContext2D} ctx @param {number} f */ /** @param {Layer} L */ /** @param {CanvasRenderingContext2D} ctx @param {number} f */ function poseLayer(ctx, L, f){
+/** @param {Layer} L @param {CanvasRenderingContext2D} ctx @param {number} f */ function poseLayer(ctx, L, f){
   layerComposite(ctx, L);
   ctx.translate(L.x * f, L.y * f); ctx.rotate((L.rot || 0) * PI / 180);
 }

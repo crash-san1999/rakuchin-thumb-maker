@@ -82,8 +82,7 @@ const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スク�
   'color-dodge':'覆い焼き', lighter:'加算', difference:'差の絶対値', luminosity:'輝度'};
 // 同じ階層のレイヤーの中で重なり順を入れ替える。ref の手前（after=true＝配列で後ろ）または奥に置く。
 // L を先に取り除いてから ref の位置を引く（取り除くと添字がずれるため、順序を入れ替えないこと）
-/** @param {Layer} L */
-/** @param {Layer} ref @param {boolean} after */ /** @param {Layer} L */ function placeLayer(L, ref, after){
+/** @param {Layer} L @param {Layer} ref @param {boolean} after */ function placeLayer(L, ref, after){
   if(!ref || ref === L) return;
   DOC.layers.splice(DOC.layers.indexOf(L), 1);
   DOC.layers.splice(DOC.layers.indexOf(ref) + (after ? 1 : 0), 0, L);
