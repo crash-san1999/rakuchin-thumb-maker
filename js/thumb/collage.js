@@ -31,20 +31,22 @@ function COLLAGE_BASE(){
 var {mergeCellFx, cellFxOn, collageFx, CELL_FX_CHIPS, CELL_FX_PRESETS, collageResizable, cellW, collageFxModeChanged, applyCellFx, COLLAGE_LAYOUTS, COLLAGE_ROWS2, COLLAGE_EDGES, COLLAGE_BSTYLES, collageN, collageLayoutOk} = (() => {   // 加工エフェクト（色収差など）は imgfx.js。sil＝シルエット：絵のある部分を c で塗る（a＝濃さ。1 で完全に 1 色、下げると元の絵が透ける）
 // 保存データの効果を既定値と合わせる（入れ子の項目も）
 // 効果の項目が増えた後でも古い保存データが壊れないよう、必ず CELL_FX_BASE にマージして使う（zb・mb などは1段だけ深くマージ）
+/** @param {any} [o] @returns {CellFx} */
 function mergeCellFx(o){
-  const b = CELL_FX_BASE(); o = o || {};
+  const b = /** @type {CellFx & Record<string, any>} */ (CELL_FX_BASE()); o = o || {};
   for(const k in b) if(o[k] != null) b[k] = b[k] && typeof b[k] === 'object' ? Object.assign(b[k], o[k]) : o[k];
   b.sil.c = safeColor(b.sil.c, '#111111'); fxColorsSafe(b);   // シルエットの色は fillStyle にそのまま入るので、使える色の文字列にそろえる
   return b;
 }
 // 何か1つでも効果が有効か。無効なら別キャンバスを作らず直接描ける（描画の軽量化に使う）
-const cellFxOn = x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x));
+const cellFxOn = /** @param {CellFx|null|undefined} x */ x => !!x && (x.bright || x.contrast || x.sat || x.hue || x.blur > 0 || x.tone !== 'none' || x.zb.on || x.mb.on || x.mosaic.on || x.dim > 0 || x.vignette > 0 || x.tint.on || !!(x.sil && x.sil.on) || extraFxOn(x));
 // マス i にかかる効果（「全部のマス」なら共通の効果、「マスごと」ならそのマスの効果）
 /** @param {CollageLayer} L */
 const collageFx = /** @param {number} i */ (L, i) => L.fxMode === 'cell' ? (L.cells[i] || {}).fx : L.fx;
 const CELL_FX_CHIPS = [['vivid', '鮮やか'], ['soft', 'ふんわり'], ['mono', 'モノクロ'], ['retro', 'レトロ'], ['duo', 'デュオトーン'], ['red', 'モノクロ＋赤'],
   ['dark', '暗く'], ['focus', '集中'], ['speed', '疾走'], ['mosaic', 'モザイク'],
   ['dot', 'ドット絵'], ['tone', 'マンガのトーン'], ['sketch', '線画'], ['paint', '油絵'], ['glitch', 'グリッチ'], ['cyber', 'サイバー'], ['popart', 'ポップアート'], ['wave', 'ゆらゆら'], ['crt', 'ブラウン管'], ['scan', '走査線'], ['reset', 'なし']];
+/** @type {Record<string, Record<string, any>>} */
 const CELL_FX_PRESETS = {
   reset:{}, vivid:{sat:0.45, contrast:0.18}, soft:{blur:6, bright:0.05, vignette:0.3}, mono:{tone:'mono', contrast:0.25, vignette:0.4},
   retro:{tone:'sepia', contrast:0.08, vignette:0.55}, duo:{tone:'duotone', contrast:0.1}, red:{tone:'mono', contrast:0.2, tint:{on:true, c:'#ff2d2d', a:0.45, mode:'multiply'}},
@@ -59,12 +61,13 @@ const CELL_FX_PRESETS = {
 // w＝マスの幅の比率（「縦に並べる」「横に並べる」だけで使う。全部同じなら等分）。tx の fcOn・fc／ecOn・ec＝このマスだけ文字の色・フチの色を変える。
 // tx.wk＝「1週間を入れる」が書いた文字の目印（MEMO の位置を変えて入れ直すとき、日付を書いたマスは上書きしてよい）
 // マスの幅の比率を変えられる配置（縦に並べる・横に並べる）。境界線のドラッグ・つまみの表示・説明の帯で共通（設定パネルの表示条件は inspector.js の show に同じ並びで書く）
-const collageResizable = lay => lay === 'cols' || lay === 'rows';
+const collageResizable = /** @param {string} lay */ lay => lay === 'cols' || lay === 'rows';
 // マスの幅の比率。保存データの不正な値（文字・負の数・極端な値）は 0.05〜20 に収める
-const cellW = c => clamp(+(c && c.w) || 1, 0.05, 20);
+const cellW = /** @param {any} c */ c => clamp(+(c && c.w) || 1, 0.05, 20);
 // 効果の対象を「マスごと」に切り替えたら、まだ効果のないマスには今の共通の効果を写す
 /** @param {CollageLayer} L */
 function collageFxModeChanged(L){ if(L.fxMode === 'cell') L.cells.forEach(c => { if(!cellFxOn(c.fx)) c.fx = mergeCellFx(JSON.parse(JSON.stringify(L.fx))); }); }
+/** @param {string} name */
 function applyCellFx(name){
   const L = selLayer(); if(!L || (L.type !== 'collage' && L.type !== 'group' && L.type !== 'image')) return;
   const fx = mergeCellFx(JSON.parse(JSON.stringify(CELL_FX_PRESETS[name] || {})));
@@ -74,6 +77,7 @@ function applyCellFx(name){
   syncDoc(); docChanged(false);
 }
 // レイアウト：[キー, 表示名, 使える分割数の条件]。キーは L.layout に保存される。条件外の組み合わせは collageLayoutOk で 'cols' に戻して描く
+/** @type {Array<[string, string, (n: number) => boolean]>} */
 /** @type {Array<[string, string, (n: number) => boolean]>} */
 const COLLAGE_LAYOUTS = [
   ['cols', '縦に並べる', n => n >= 2], ['rows', '横に並べる', n => n >= 2], ['grid', 'グリッド', n => n === 4 || n === 6 || n === 8], ['grid2', 'グリッド（縦長）', n => n === 6 || n === 8],
@@ -85,14 +89,17 @@ const COLLAGE_LAYOUTS = [
 // 2段レイアウトの [上段のマス数, 下段のマス数]
 /** @type {Record<string, number[]>} */
 const COLLAGE_ROWS2 = {wk43:[4, 3], wk34:[3, 4], wk52:[5, 2], wk25:[2, 5], wk53:[5, 3], wk35:[3, 5]};
+/** @type {Array<[string, string]>} */
 const COLLAGE_EDGES = [['straight', 'まっすぐ'], ['zigzag', 'ギザギザ'], ['wave', '波'], ['rough', 'ラフ']];
+/** @type {Array<[string, string]>} */
 const COLLAGE_BSTYLES = [['line', '線'], ['none', 'なし（ぴったり）'], ['gap', 'すき間（背景が見える）'], ['glow', '光る線'], ['blur', 'ぼかしてつなげる'], ['shadow', '影で重ねる']];
 /** @param {CollageLayer} L */
 // n は数値だが、古い・手で書き換えた保存データでは文字列のこともあるので parseInt で受ける
 const collageN = L => clamp(parseInt(/** @type {any} */ (L.n)) || 2, 2, 8);
-const collageLayoutOk = (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };
+const collageLayoutOk = /** @param {string} lay @param {number} n */ (lay, n) => { const d = COLLAGE_LAYOUTS.find(l => l[0] === lay); return !!d && d[2](n); };
 
 // 全部のマスの文字のまとめての調整：on（オン／オフ）が無い古いデータは、値を動かしていればオンとみなす（最初の版では書き出しに効いていたので、見た目を保つ）
+/** @param {CollageLayer['ttx']} base @param {any} t */
 function collageTtx(base, t){
   if(!t || typeof t !== 'object') return base;
   const o = Object.assign(base, t);

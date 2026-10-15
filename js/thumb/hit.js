@@ -31,7 +31,7 @@ const layerMask = L => {
   return m;
 };
 // その位置の「絵の濃さ」の段階：2＝絵がある（アルファ>24）／1＝すぐ近く／0＝無い。マスクを作れなかったら 0
-/** @param {Layer} L */
+/** @param {Layer} L @param {number} x @param {number} y */
 const pixelRank = (L, x, y) => {
   let m; try{ m = layerMask(L); }catch{ return 0; }
   const cx = Math.round(x * MASK_K), cy = Math.round(y * MASK_K);
@@ -41,8 +41,9 @@ const pixelRank = (L, x, y) => {
   return 0;
 };
 // 枠の中にある重なり順（手前が先）。rank 付き
+/** @param {number} x @param {number} y @param {boolean} [all] */
 const hitLayers = (x, y, all) => {
-  const out = [];
+  /** @type {Layer[]} */ const out = [];
   for(let i = DOC.layers.length - 1; i >= 0; i--){
     const L = DOC.layers[i]; if(L.hidden || (L.locked && !all)) continue;
     if(L.gid){ const G = layerById(L.gid); if(!G || G.hidden || L.id !== DOC.sel) continue; }   // グループの中身は、単独で選んでいるときだけ
@@ -54,11 +55,13 @@ const hitLayers = (x, y, all) => {
   return out;
 };
 // 実際に絵がある（または近い）レイヤーだけ。なければ枠の中のレイヤー全部
+/** @param {number} x @param {number} y @param {boolean} [all] */
 const hitRanked = (x, y, all) => {
   const hs = hitLayers(x, y, all), r = new Map(hs.map(l => [l.id, pixelRank(l, x, y)]));
   return {hs, r};
 };
 // クリック位置で掴むレイヤー 1 つを決める。枠の中のレイヤーが複数あるときの優先順位は、コード内のコメントのとおり
+/** @param {number} x @param {number} y @returns {Layer|null} */
 const hitLayer = (x, y) => {
   const {hs, r} = hitRanked(x, y);
   if(hs.length < 2) return hs[0] || null;
@@ -71,11 +74,12 @@ const hitLayer = (x, y) => {
   return hs.find(l => r.get(l.id) === 1) || (cur || hs[0]);
 };
 // ホイールの拡大縮小は、選択中のレイヤーの絵の上（または近く）なら、手前に別のレイヤーがあっても選択中のほうを優先
+/** @param {number} x @param {number} y */
 const hitForWheel = (x, y) => {
   const {hs, r} = hitRanked(x, y), cur = hs.find(l => l.id === DOC.sel);
   return cur && (r.get(cur.id) || 0) > 0 ? cur : hitLayer(x, y);
 };
 // メニュー（PC の右クリック・スマホの長押し）を出すレイヤー：ロック中も含め、枠の中のいちばん手前。無ければ null
-const hitMenuLayer = (x, y) => hitLayers(x, y, true)[0] || null;
+const hitMenuLayer = /** @param {number} x @param {number} y */ (x, y) => hitLayers(x, y, true)[0] || null;
 return {pruneMasks, pixelRank, hitRanked, hitLayer, hitForWheel, hitMenuLayer};
 })();

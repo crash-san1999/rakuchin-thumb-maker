@@ -148,8 +148,7 @@ python3 -m playwright install chromium   # Chromium が入っていない場合
 | コマンド | 内容 |
 |---|---|
 | `python3 tests/run_all.py` | 自動テストをすべて実行（`run_all.py fonts -v` のように名前で絞り込み・詳細表示も可。1件ごとの制限時間は既定150秒で、`--timeout=秒` で変更可。止まったテストは失敗扱いにして次へ進み、残ったブラウザも自動で片付けます）。テストは別々のプロセスで**並列**に動きます（既定は CPU の数の 2 倍・最大 6。`-j 1` で 1 件ずつ、`-j 4` や環境変数 `TEST_JOBS` で数を指定）。並列のときだけ失敗したテストは最後に単独で動かし直し、「並列のときだけ失敗」と表示します |
-| `npx -p typescript@6.0.3 tsc -p .` | 型チェックだけを実行（設定は `tsconfig.json`、型の定義は `types/`）。`run_all.py` にも `test_typecheck` として入っていて、Node.js が無い環境では「省略」と表示されます |
-| `python3 tests/test_strict_budget.py --update` | 型の厳しい設定（strictNullChecks・noImplicitAny）の指摘を減らしたあと、ファイルごとの上限（`tests/strict-budget.json`）を今の件数まで下げる。`test_strict_budget` は件数が上限を超えると失敗するので、新しく書くコードには最初から JSDoc の型と null の扱いを書く |
+| `npx -p typescript@6.0.3 tsc -p .` | 型チェックだけを実行（設定は `tsconfig.json` で `strict: true`、型の定義は `types/`）。新しく書くコードにも、最初から JSDoc の型と null の扱いを書きます。`run_all.py` にも `test_typecheck` として入っていて、Node.js が無い環境では「省略」と表示されます |
 | `python3 tests/compare_render.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、動的エフェクト全種類・切り抜きフレームの全形状×全デザイン・分割フレーム・文字の全装飾（文字パネルの定義から自動で作る）の描画結果を**ピクセル単位**で、レイヤーパネルの HTML と保存データの読み込み（normalizeDoc）の結果を**1 文字単位**で比べる（1ピクセルの違いも検出。描き方を整理するリファクタリングの確認用） |
 | `python3 tests/compare.py [比較先]` | 指定したコミット（省略時は直前のコミット）と、画面・全プリセットの描画・設定パネルの中身を比べ、見た目が変わっていないか確認 |
 | `python3 tools/docs-screenshots.py` | 説明書の画像を今の画面で撮り直す |

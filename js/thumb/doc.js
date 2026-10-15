@@ -77,7 +77,7 @@ function layerName(L){ return L.label || kindOf(L).name(L); }
   const base = DOC_BASE();
   o.bg = Object.assign(base.bg, d.bg || {});
   o.fin = Object.assign(FIN_BASE(), d.fin || {}); if(!FIN_LOOKS[o.fin.look]) o.fin.look = 'none'; if(o.fin.target !== 'bg') o.fin.target = 'all';
-  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat', 'rgb', 'gmap', 'rep', 'half', 'edge', 'paint', 'warp', 'scan', 'crt']) o.bg[k] = Object.assign(DOC_BASE().bg[k], (d.bg || {})[k] || {});
+  for(const k of ['zb', 'mb', 'mosaic', 'tint', 'shade', 'posterize', 'thresh', 'tilt', 'pat', 'rgb', 'gmap', 'rep', 'half', 'edge', 'paint', 'warp', 'scan', 'crt']) /** @type {Record<string, any>} */ (o.bg)[k] = Object.assign(/** @type {Record<string, any>} */ (DOC_BASE().bg)[k], (d.bg || {})[k] || {});
   o.guides = Object.assign(base.guides, d.guides || {});
   // ヘッダー画像の種類は、キャンバスの大きさがその規定サイズと同じときだけ有効（食い違う保存データは無効にする）
   const hs = HEADER_SPECS[d.hdr]; o.hdr = hs && hs.w === o.w && hs.h === o.h ? d.hdr : ''; if(!o.hdr) o.guides.safe = false;
@@ -124,7 +124,7 @@ function layerName(L){ return L.label || kindOf(L).name(L); }
     const L = mkTextLayer(S, b.w / 2, b.h / 2, 1.5);
     b.layers = [L]; b.sel = L.id; b.textSel = L.id; return b;
   }
-  const o = Object.assign(b, d);
+  /** @type {Doc} */ const o = Object.assign(b, d);
   o.w = clamp(Math.round(d.w) || 1920, 200, 5000); o.h = clamp(Math.round(d.h) || 1080, 200, 5000);
   // 書き出しの横幅：数でなければ等倍、大きすぎるときは面積の上限に収まるまで小さくする
   let ex = Math.round(+d.exportW); if(!(ex >= 100)) ex = o.w;
@@ -132,7 +132,7 @@ function layerName(L){ return L.label || kindOf(L).name(L); }
   o.exportW = ex;
   normalizeDocSettings(o, d);
   // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、種類の keep が false のもの（未対応の動的エフェクトの種類など。バージョン違いの保存データ）は捨てる
-  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => kindOf(L).keep(L)).map(L => normalizeLayer(L));
+  o.layers = d.layers.filter(/** @param {any} L */ L => L && typeof L === 'object').filter(/** @param {any} L */ L => kindOf(L).keep(L)).map(/** @param {any} L */ L => normalizeLayer(L));
   sanitizeDocRefs(o);
   cleanupGroups(o);
   migrateOldLines(o, d);

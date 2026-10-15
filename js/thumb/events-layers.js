@@ -11,7 +11,10 @@
    スマホは長押し（480ms）で複数選択、ドラッグは同じ階層の行どうしだけで入れ替える。 */
 {
   const list = $('#layerList');
-  let ld = null, suppressClick = false, lpT = 0, lpFired = false;
+  // ld：行のドラッグの状態（つかんだ行・最初の位置・同じ階層の行とその位置・入れ替え先など）。押していないときは null
+  /** @type {{row: HTMLElement, id: string, y0: number, s0: number, y: number, started: boolean, rows: HTMLElement[], rects: DOMRect[], from: number, to: number, pid: number, raf?: number}|null} */
+  let ld = null;
+  let suppressClick = false, lpT = 0, lpFired = false;
   list.addEventListener('pointerdown', e => {
     if(e.button !== 0) return;
     lpFired = false;
@@ -19,12 +22,13 @@
     // 入れ替えできるのは同じ階層（同じグループの中、またはグループの外）のレイヤーどうし
     // 同じ階層の行だけを入れ替え対象にする（グループの中身は中身どうし、グループの外は外どうし）
     const rows = [...$$('.ly[data-lid]', list)].filter(r => (r.dataset.gid || '') === (row.dataset.gid || '')), from = rows.indexOf(row);
-    ld = {row, id:row.dataset.lid, y0:e.clientY, s0:list.scrollTop, y:e.clientY, started:false, rows, rects:null, from, to:from, pid:e.pointerId};
+    ld = {row, id:row.dataset.lid ?? '', y0:e.clientY, s0:list.scrollTop, y:e.clientY, started:false, rows, rects:[], from, to:from, pid:e.pointerId};
     clearTimeout(lpT);
-    if(e.pointerType !== 'mouse') lpT = setTimeout(() => { if(ld && !ld.started){ ld = null; lpFired = true; toggleMulti(row.dataset.lid); if(navigator.vibrate) navigator.vibrate(12); } }, 480);
+    if(e.pointerType !== 'mouse') lpT = setTimeout(() => { if(ld && !ld.started){ ld = null; lpFired = true; toggleMulti(row.dataset.lid ?? ''); if(navigator.vibrate) navigator.vibrate(12); } }, 480);
   });
   // ドラッグ中の見た目と入れ替え先を決める。リストが自動スクロールしたぶんも数える
   const dragUpdate = () => {
+    if(!ld) return;
     const {rects, from, rows} = ld, R = rects[from], lo = rects[0].top - R.top, hi = rects[rects.length - 1].bottom - R.bottom, lr = list.getBoundingClientRect();
     let d = clamp(ld.y - ld.y0 + (list.scrollTop - ld.s0), lo, hi);
     if(ld.y <= lr.top + 10) d = lo; else if(ld.y >= lr.bottom - 10) d = hi;   // リストの端まで持っていったら、端に置く
@@ -62,7 +66,7 @@
   });
   const endDrag = () => {
     if(!ld) return;
-    clearTimeout(lpT); cancelAnimationFrame(ld.raf);
+    clearTimeout(lpT); cancelAnimationFrame(ld.raf ?? 0);
     const {started, from, to, id, rows} = ld; ld = null;
     list.classList.remove('dragunits');
     if(!started) return;
@@ -91,13 +95,13 @@
     const row = tgt(e).closest('[data-lid]'); if(!row) return;
     const act = tgt(e).closest('[data-la]');
     if(act){
-      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(), id = row.dataset.lid; if(!isSelected(id)) selectLayer(id); setTimeout(() => showMenu(id, r.left - 150, r.bottom + 4, r.top - 4), 0); return; }
-      layerAction(row.dataset.lid, act.dataset.la); return;
+      if(act.dataset.la === 'menu'){ const r = act.getBoundingClientRect(), id = row.dataset.lid ?? ''; if(!isSelected(id)) selectLayer(id); setTimeout(() => showMenu(id, r.left - 150, r.bottom + 4, r.top - 4), 0); return; }
+      layerAction(row.dataset.lid ?? '', act.dataset.la ?? ''); return;
     }
     if(tgt(e).closest('input')) return;
     // Ctrl／Shift＋クリック（スマホは、選択中にタップ）で複数選択
-    if(e.ctrlKey || e.metaKey || e.shiftKey || (isMobile && DOC.msel && DOC.msel.length)){ toggleMulti(row.dataset.lid); return; }
-    selectLayer(row.dataset.lid);
+    if(e.ctrlKey || e.metaKey || e.shiftKey || (isMobile && DOC.msel && DOC.msel.length)){ toggleMulti(row.dataset.lid ?? ''); return; }
+    selectLayer(row.dataset.lid ?? null);
   });
   list.addEventListener('dblclick', e => {
     const row = tgt(e).closest('[data-lid]'); if(!row || tgt(e).closest('[data-la]')) return;
@@ -105,6 +109,6 @@
   });
   list.addEventListener('contextmenu', e => {
     const row = tgt(e).closest('[data-lid]'); if(!row) return;
-    e.preventDefault(); openLayerMenu(row.dataset.lid, e.clientX, e.clientY);
+    e.preventDefault(); openLayerMenu(row.dataset.lid ?? '', e.clientX, e.clientY);
   });
 }

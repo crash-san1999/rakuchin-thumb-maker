@@ -51,7 +51,7 @@ function layerRowHTML(L, ms){
 // レイヤーパネルの一番下にある背景の行の HTML（並べ替え・選択の対象外で、クリックで背景の設定を開く）
 function bgRowHTML(){
   // 未知の種類は、描画側（drawBackground）と同じく画像として扱う
-  const BG_NAMES = {image:'背景画像', grad:'グラデーション', color:'単色'}, bgName = hasKey(BG_NAMES, DOC.bg.type) ? BG_NAMES[DOC.bg.type] : '背景画像';
+  const BG_NAMES = /** @type {Record<string, string>} */ ({image:'背景画像', grad:'グラデーション', color:'単色'}), bgName = hasKey(BG_NAMES, DOC.bg.type) ? BG_NAMES[DOC.bg.type] : '背景画像';
   return `<div class="ly bgrow${DOC.bg.hidden ? ' hid' : ''}" data-bgrow="1" title="クリックで背景の設定を開く"><span class="grip">${ic('grip')}</span><span class="ly-th"><canvas data-th="__bg" width="72" height="72"></canvas></span>
      <span class="ly-name"><span class="nm">背景</span><small>${DOC.bg.hidden ? '非表示（透明）' : bgName}${(DOC.bg.op ?? 1) < 1 && !DOC.bg.hidden ? ` ・ ${Math.round(DOC.bg.op * 100)}%` : ''} ・ 固定</small></span>
      <span class="ly-act"><button data-bga="eye" class="${DOC.bg.hidden ? 'act' : ''}" title="背景の表示・非表示（非表示にすると透明。PNGで保存すると背景が透明になります）">${ic(DOC.bg.hidden ? 'eyeoff' : 'eye')}</button></span>
@@ -78,6 +78,7 @@ function refreshThumbs(){
     x.drawImage(src, (cv.width - src.width * k) / 2, (cv.height - src.height * k) / 2, src.width * k, src.height * k);
   });
 }
+/** @type {Record<string, string>} */
 const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スクリーン', overlay:'オーバーレイ', 'soft-light':'ソフトライト', 'hard-light':'ハードライト',
   'color-dodge':'覆い焼き', lighter:'加算', difference:'差の絶対値', luminosity:'輝度'};
 // 同じ階層のレイヤーの中で重なり順を入れ替える。ref の手前（after=true＝配列で後ろ）または奥に置く。
@@ -103,7 +104,7 @@ const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スク�
   const nm = $('.nm', row), inp = document.createElement('input');
   inp.type = 'text'; inp.value = layerName(L); nm.replaceWith(inp); inp.focus(); inp.select(); setTimeout(() => { inp.focus(); inp.select(); }, 30);
   let done = false;
-  const fin = ok => { if(done) return; done = true; if(ok){ const v = inp.value.trim(); L.label = v && v !== layerName(Object.assign({}, L, {label:''})) ? v : ''; saveDoc(); } renderLayers(); syncDoc(); };
+  const fin = /** @param {boolean} ok */ ok => { if(done) return; done = true; if(ok){ const v = inp.value.trim(); L.label = v && v !== layerName(Object.assign({}, L, {label:''})) ? v : ''; saveDoc(); } renderLayers(); syncDoc(); };
   inp.addEventListener('keydown', e => { e.stopPropagation(); if(e.key === 'Enter') fin(true); if(e.key === 'Escape') fin(false); });
   inp.addEventListener('blur', () => fin(true));
   inp.addEventListener('pointerdown', e => e.stopPropagation());
@@ -112,11 +113,13 @@ const BLEND_NAMES = {'source-over':'通常', multiply:'乗算', screen:'スク�
 // 複数選択中のレイヤーを右クリックしたときは、まとめて操作するメニュー。重なり順の端（最前面・最背面）では該当項目を無効にする。
 // メニューは画面外にはみ出さないよう、位置を画面内に収める（下に入らなければ上に出す。画面より高ければスクロール）
 // メニューの1項目。dis＝押せない（見た目は CSS の :disabled）
+/** @param {string} act @param {string} icn @param {string} t @param {string} [kbd] @param {string} [cls] @param {boolean} [dis] */
 const menuItem = (act, icn, t, kbd = '', cls = '', dis = false) =>
   `<button data-ma="${act}" class="${cls}"${dis ? ' disabled' : ''}>${ic(icn)}${t}${kbd ? `<kbd>${kbd}</kbd>` : ''}</button>`;
 // 項目のまとまり（区切り線で分ける）。空のまとまりは出さない
-const menuSections = (...secs) => secs.map(s => s.filter(Boolean).join('')).filter(Boolean).join('<hr>');
+const menuSections = /** @param {...Array<string|false|null|undefined|0|''>} secs */ (...secs) => secs.map(s => s.filter(Boolean).join('')).filter(Boolean).join('<hr>');
 // メニューの中身（HTML）。複数選択の中のレイヤーなら、まとめて操作する項目
+/** @param {Layer} L */
 function layerMenuHtml(L){
   const ms = DOC.msel || [];
   if(ms.length >= 2 && ms.includes(L.id)){
@@ -144,6 +147,7 @@ function layerMenuHtml(L){
   const y = cy + h <= innerHeight - M ? cy : upY - h >= M ? upY - h : innerHeight - M - h;
   m.style.left = Math.max(M, Math.min(cx, innerWidth - w - M)) + 'px'; m.style.top = Math.max(M, y) + 'px';
 }
+/** @param {string} id @param {number} cx @param {number} cy @param {number} [upY] */
 function showMenu(id, cx, cy, upY = cy){
   const L = layerById(id); if(!L) return;
   const m = $('#ctxmenu');
@@ -151,8 +155,9 @@ function showMenu(id, cx, cy, upY = cy){
   placeMenu(m, cx, cy, upY);
 }
 // 選択中（主選択か複数選択の中）か
-const isSelected = id => id === DOC.sel || (DOC.msel || []).includes(id);
+const isSelected = /** @param {string} id */ id => id === DOC.sel || (DOC.msel || []).includes(id);
 // レイヤーのメニューを開く（右クリック・「…」ボタン・スマホの長押し共通）。選ばれていないレイヤーなら先に選ぶ（複数選択の中なら選択はそのまま）
+/** @param {string} id @param {number} cx @param {number} cy @param {number} [upY] */
 function openLayerMenu(id, cx, cy, upY = cy){
   if(!isSelected(id)) selectLayer(id);
   showMenu(id, cx, cy, upY);
@@ -169,9 +174,9 @@ function guardMenuUntilRelease(){
 $('#ctxmenu').addEventListener('click', e => {
   if(menuGuard) return;
   const b = tgt(e).closest('[data-ma]'); if(!b) return;
-  const id = $('#ctxmenu').dataset.lid; hideMenu();
+  const id = $('#ctxmenu').dataset.lid ?? ''; hideMenu();
   if(b.dataset.ma === 'rename'){ setTimeout(() => startRename(id), 0); return; }
-  layerAction(id, b.dataset.ma);
+  layerAction(id, b.dataset.ma ?? '');
 });
 document.addEventListener('pointerdown', e => { if(!tgt(e).closest('#ctxmenu')) hideMenu(); }, true);
 window.addEventListener('blur', hideMenu);
@@ -180,6 +185,7 @@ window.addEventListener('blur', hideMenu);
 // 行の見た目だけ更新すれば済む場合（行数が DOC.layers と同じ＝折りたたまれたグループが無く、複数選択の表示も無い）は
 // パネルを作り直さない（無駄な再生成を避ける）。
 // paintPreview は次のフレームに回し、パネル・入力欄の更新を先に済ませる
+/** @param {string|null} id @param {boolean} [keepMulti] */
 function selectLayer(id, keepMulti){
   if(edit && id !== edit.id) setEdit(null);
   const hadMulti = !!(DOC.msel && DOC.msel.length);
@@ -197,6 +203,7 @@ function selectLayer(id, keepMulti){
 }
 // 複数選択に入れる／外す（Ctrl・Shift＋クリック、スマホは長押し）。単独のレイヤーを選んでいる状態から始めたときは、そのレイヤーも仲間に数える。
 // 残りが1個以下になったら通常の単独選択に戻す
+/** @param {string} id */
 function toggleMulti(id){
   let m = (DOC.msel && DOC.msel.length ? DOC.msel : DOC.sel ? [DOC.sel] : []).slice();
   const i = m.indexOf(id); if(i >= 0) m.splice(i, 1); else m.push(id);
@@ -205,14 +212,15 @@ function toggleMulti(id){
 }
 // 指定したレイヤー（と、グループなら中身）を消す。表示・保存の更新は呼び出し側（layerAction）が行う。
 // 描画キャッシュ・大きさの記録も、ここで消す（残ると選択枠や当たり判定に古い値が出る）
+/** @param {string[]} ids */
 function removeLayers(ids){
-  const gone = new Set();
+  /** @type {Set<string>} */ const gone = new Set();
   ids.forEach(/** @param {string} id */ id => { const L = layerById(id); if(!L) return; gone.add(id); if(isGroup(L)) groupKids(L).forEach(k => gone.add(k.id)); });
   DOC.layers = DOC.layers.filter(l => !gone.has(l.id));
   gone.forEach(id => { prevCache.delete(id); dims.delete(id); });
   // 中身がなくなったグループも消す（グループだけ残ると、描画・選択ができない空の行になる）
   DOC.layers = DOC.layers.filter(l => !isGroup(l) || groupKids(l).length);
-  if(gone.has(DOC.sel) || !layerById(DOC.sel)) DOC.sel = null;
+  if((DOC.sel != null && gone.has(DOC.sel)) || !layerById(DOC.sel)) DOC.sel = null;
   DOC.msel = [];
   // 文字パネルとつながっていた文字レイヤーが消えたら、残りの文字レイヤーのうち一番手前のものにつなぎ直す
   if(!layerById(DOC.textSel)){
@@ -223,6 +231,7 @@ function removeLayers(ids){
 }
 // レイヤー操作の入口（右クリックメニュー・行のボタン・ショートカットから共通で呼ぶ）。act は menu の data-ma / 行の data-la の値。
 // 重なり順・表示・ロックなどの単純な操作は、最後にまとめて同期・再描画・保存する。複雑な操作（group など）は専用関数に任せて早期 return する
+/** @param {string} id @param {string} act */
 function layerAction(id, act){
   const L = layerById(id); if(!L) return;
   const peers = peersOf(L), pi = peers.indexOf(L);
@@ -244,7 +253,7 @@ function layerAction(id, act){
   else if(act === 'dup'){
     // 複製：位置を 36px ずらし、名前に「のコピー」を付ける。auto（ワンクリック背景エフェクトが作った印）は外す：
     // 残すと、次にワンクリック効果を適用したとき、コピーまで入れ替え対象として消えてしまう
-    const cp = l => { const c = JSON.parse(JSON.stringify(l)); c.id = uid(); delete c.auto; c.x += 36; c.y += 36; if(c.label) c.label += ' のコピー'; return c; };
+    const cp = /** @param {Layer} l @returns {any} */ l => { const c = JSON.parse(JSON.stringify(l)); c.id = uid(); delete c.auto; c.x += 36; c.y += 36; if(c.label) c.label += ' のコピー'; return c; };
     if(isGroup(L)){
       // グループは、中身を複製して新しいグループの gid に付け替える（配列では「中身 → グループ本体」の順。groupLayers と同じ並び）
       const G = cp(L), kids = groupKids(L).map(k => { const c = cp(k); c.gid = G.id; return c; });
@@ -257,8 +266,8 @@ function layerAction(id, act){
 }
 
 // 画像の反転（key = 'flip' 左右／'flipV' 上下）。切り抜きフレームがあるときは、フレームの中の絵がその場で反転する
-/** @param {Layer} L */
-function flipLayer(L, key){ L[key] = !L[key]; }
+/** @param {ImageLayer} L @param {string|undefined} key */
+function flipLayer(L, key){ if(key === 'flip' || key === 'flipV') L[key] = !L[key]; }
 document.addEventListener('click', e => {
   const b = tgt(e).closest('[data-flip]'); const L = selLayer(); if(!b || !L || L.type !== 'image') return;
   flipLayer(L, b.dataset.flip); syncDoc(); docChanged(false);

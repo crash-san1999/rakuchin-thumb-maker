@@ -19,7 +19,9 @@ function SCHED_BASE(){
 }
 var {SCHED_BANDS, SCHED_COLORS, isSched, schedPreset, schedDStyle, schedTStyle, schedDays, schedDayLabel, ensureSchedFonts, addSched, schedSetImage, schedTakeFiles, schedApplyText, schedShiftWeek} = (() => {
 // 帯の形・帯の色の選択肢（設定パネルとキャッシュのテストが使う）
+/** @type {Array<[string, string]>} */
 const SCHED_BANDS = [['brush', '筆'], ['tape', 'テープ'], ['round', '角丸'], ['flat', '四角'], ['none', 'なし']];
+/** @type {Array<[string, string]>} */
 const SCHED_COLORS = [['rainbow', '曜日ごと'], ['week', '平日・土・日'], ['one', '1色']];
 // 曜日ごとの帯の色（getDay() の順：日〜土）。平日・土・日の3色は WK3
 const SCHED_RAINBOW = ['#f490bd', '#f5b93a', '#e8453c', '#3d9be0', '#2fb457', '#f2cf37', '#2f5bd3'];

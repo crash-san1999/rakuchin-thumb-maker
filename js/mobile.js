@@ -48,6 +48,7 @@ function detectMobile(){
 // name = 'layers'（レイヤー）| 'ins'（インスペクター）| null（閉じる）。
 // 開いているシートと同じ名前を渡すと閉じる（下バーのボタンが開閉トグルになる）。force=true はトグルせず必ず開く（背景選択からの呼び出し用）。
 // PC では常に閉じる扱い（シートは存在しない）
+/** @param {string|null} name @param {boolean} [force] */
 function openSheet(name, force){
   if(!isMobile) name = null;
   if(!force && name && sheet === name) name = null;
@@ -64,7 +65,7 @@ function openSheet(name, force){
 $('#mbar').addEventListener('click', e => { const b = tgt(e).closest('[data-sheet]'); if(!b) return; const n = b.dataset.sheet;
   if(n === 'add'){ openSheet(null); togglePop('addMenu', b); return; }
   if(n === 'bg'){ selectLayer(null); openSheet('ins', true); return; }
-  openSheet(n); });
+  openSheet(n ?? null); });
 document.addEventListener('click', e => {
   if(tgt(e).closest('button[data-close-sheet]')){ openSheet(null); return; }
   const vb = tgt(e).closest('#viewSeg [data-view]');
@@ -78,7 +79,7 @@ $$('.sheet-grip').forEach(g => {
   /** @type {number | null} */ let y0 = null;
   g.addEventListener('pointerdown', (/** @type {PointerEvent} */ e) => { if(tgt(e).closest('button')) return; y0 = e.clientY; g.setPointerCapture(e.pointerId); });
   g.addEventListener('pointermove', (/** @type {PointerEvent} */ e) => { if(y0 == null) return; const dy = Math.max(0, e.clientY - y0), el = g.parentElement; if(!el) return; el.style.transform = `translateY(${dy}px)`; el.style.transition = 'none'; });
-  const up = e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; if(!el) return; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
+  const up = /** @param {PointerEvent} e */ e => { if(y0 == null) return; const dy = e.clientY - y0; y0 = null; const el = g.parentElement; if(!el) return; el.style.transform = ''; el.style.transition = ''; if(dy > 70 || Math.abs(dy) < 4) openSheet(null); };
   g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
 });
 // 画面の回転・ウィンドウ変更で判定し直す（連続イベントは 150ms にまとめる）。固定設定のときは detectMobile が同じ結果を返すので何も変わらない
@@ -91,7 +92,9 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
    kind：'edit'（編集モード中の部品）／'layer'（選択レイヤー。ロック中は対象外）／'bg'（背景画像）の優先順で決まる */
 {
   const tv = $('#tv'), pts = new Map();
-  let pinch = null, lp = null, lastTap = {t:0, x:0, y:0};
+  // pinch：2本指の操作の開始時の状態（レイヤー・背景・編集モードで中身が違う）。lp：長押しのタイマー
+  /** @type {any} */ let pinch = null;
+  let lp = 0, lastTap = {t:0, x:0, y:0};
   // 画面座標 → ドキュメント座標（DOC.w×DOC.h の px）。表示サイズは CSS で縮んでいるため、表示幅に対する比で換算する
   const toDoc = /** @param {number} cx @param {number} cy */ (cx, cy) => { const r = tv.getBoundingClientRect(); return [(cx - r.left) / r.width * DOC.w, (cy - r.top) / r.height * DOC.h]; };
   // 2本指の距離 d・角度 a（ラジアン）・中心 cx,cy。pts の先頭2本だけを見る（3本目以降は無視）
@@ -163,7 +166,7 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
     // 動かしている間は軽い描画（livePaint）だけ。値の確定・履歴への記録は、指を離したとき（下の up の docChanged）にまとめて行う
     syncDocSoon(); livePaint();
   }, true);
-  const up = e => {
+  const up = /** @param {PointerEvent} e */ e => {
     if(!pts.has(e.pointerId)) return;
     pts.delete(e.pointerId); clearTimeout(lp);
     if(pinch && pts.size < 2){ pinch = null; drag = null; docChanged(false); }

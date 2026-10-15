@@ -38,7 +38,7 @@ function strokesNormalize(a){
   if(!Array.isArray(a)) return [];
   const f = /** @param {any} v */ v => clamp(+v || 0, -0.5, 1.5);
   return a.filter(s => s && (s.m === 'e' || s.m === 'r') && Array.isArray(s.p) && s.p.length).slice(0, 2000)
-    .map(s => ({id:String(s.id || uid()), m:s.m, r:clamp(+s.r || 0.01, 0.0005, 1), p:s.p.slice(0, 20000).filter(q => Array.isArray(q) && q.length >= 2).map(q => [f(q[0]), f(q[1])])}))
+    .map(s => ({id:String(s.id || uid()), m:s.m, r:clamp(+s.r || 0.01, 0.0005, 1), p:s.p.slice(0, 20000).filter(/** @param {any} q */ q => Array.isArray(q) && q.length >= 2).map(/** @param {any} q */ q => [f(q[0]), f(q[1])])}))
     .filter(s => s.p.length);
 }
 // 絵が変わったかを見分ける印（キャッシュのキーに使う）
@@ -87,7 +87,7 @@ function keyCanvas(img, k){
     if(d[p + 3] < 8){ dist[i] = 0; continue; }
     const dr = d[p] - kr, dg = d[p + 1] - kg, db = d[p + 2] - kb; dist[i] = Math.sqrt(dr * dr + dg * dg + db * db) * SCALE;
   }
-  const ramp = v => v <= T ? 0 : (S > 0 ? (v >= TS ? 1 : (v - T) / S) : 1);
+  const ramp = /** @param {number} v */ v => v <= T ? 0 : (S > 0 ? (v >= TS ? 1 : (v - T) / S) : 1);
   let a = new Float32Array(n).fill(1);
   // 2) 透明にする範囲：「外側から」は画像の縁につながっている背景だけ、「全体」は同じ色すべて
   if(k.mode === 'all'){ for(let i = 0; i < n; i++) a[i] = ramp(dist[i]); }

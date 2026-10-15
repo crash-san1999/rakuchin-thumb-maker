@@ -29,7 +29,7 @@ const HEADER_SPECS = {
   tw:{w:1200, h:480, name:'Twitch バナー', areas:[{w:800, h:480, label:'中央の目安 800×480', main:true}]},
 };
 // プリセットの値（'yt-header' など）から、ヘッダーの種類を取り出す（ふつうのサイズなら ''）
-const headerOfPreset = v => String(v).endsWith('-header') ? String(v).slice(0, -7) : '';
+const headerOfPreset = /** @param {string} v */ v => String(v).endsWith('-header') ? String(v).slice(0, -7) : '';
 // EXPORT_MAX_PX は書き出しキャンバスの面積上限（36MP）。ブラウザの canvas 面積の上限を超えると書き出しに失敗するため、
 // normalizeDoc と setCanvasSize の両方で、超える書き出し幅は 0.9 倍ずつ縮めて収める
 const CANVAS_MIN = 200, CANVAS_MAX = 5000, EXPORT_MAX_PX = 36e6;
@@ -61,6 +61,7 @@ const exportSizes = () => [...new Set([2 / 3, 1, 4 / 3, 2].map(k => Math.round(D
 // sizeUiKey：前回UIを組んだときの「寸法の組」。syncDoc のたびに呼ばれるが、変わっていなければ選択肢の再生成（select の選択が飛ぶ）を避ける
 let sizeUiKey = '';
 // 入力欄（#cvW / #cvH）は、入力中（フォーカス中）なら上書きしない。打ちかけの数字が消えるため
+/** @param {boolean} [force] */
 function refreshSizeUI(force){
   if(!DOC) return;
   const key = `${DOC.w}x${DOC.h}|${DOC.exportW}|${DOC.hdr}`; if(key === sizeUiKey && !force) return; sizeUiKey = key;

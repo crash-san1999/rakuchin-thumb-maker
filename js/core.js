@@ -200,12 +200,12 @@ const DEFAULT = {
 // DEFAULT に p を重ねた新しいスタイルを返す（p も DEFAULT も書き換えない）。
 // オブジェクト値（shadow など）は 1 階層だけキーごとに上書きするので、p が一部のキーしか持たなくても残りは既定値になる。配列（strokes・pal）は丸ごと置き換え
 /** @param {Record<string, any>} p @returns {TextStyle} */ function merged(p){
-  const o = clone(DEFAULT);
+  const o = /** @type {Record<string, any>} */ (clone(DEFAULT));
   for(const k in p){
     const v = clone(p[k]);
     o[k] = (v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k])) ? Object.assign(o[k], v) : v;
   }
-  return o;
+  return /** @type {TextStyle} */ (o);
 }
 // いま編集中の文字スタイル（グローバル）。applyPreset などで代入し直されるため、S を別変数に保持し続けないこと。
 // 自動保存は preview.js の schedule() → saveDoc()（thumb/doc.js）が ttm_state に書く

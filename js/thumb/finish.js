@@ -30,6 +30,7 @@ const FIN_LOOKS = {
   pastel: ['くすみパステル', 'saturate(.65) brightness(1.1) contrast(.85)', [['screen', '#5a4a6a', 0.25], ['soft-light', '#ffd6e8', 0.4]]],
 };
 // プリセットは FIN_BASE に上書きする差分だけを書く（書かなかった項目は既定値に戻る）
+/** @type {Record<string, [string, Partial<DocFin>]>} */
 const FIN_PRESETS = {
   cinema: ['シネマ', {look:'cinema', vig:0.35, grain:0.15}],
   emo:    ['エモい', {look:'emo', bloom:0.35, leak:0.4, grain:0.12}],
@@ -51,9 +52,9 @@ const FIN_PRESETS = {
   reset:  ['なし', {}],
 };
 // 無効なときに applyFinish を丸ごと飛ばすための判定（コピー用キャンバスを何枚も作るので重い）。applyFinish の各分岐の条件と合わせること
-const finOn = F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0) || F.bloom > 0 || F.leak > 0 || F.vig > 0 || F.grain > 0 || F.rgb > 0 || F.scan > 0 || F.half > 0 || F.paper > 0 || F.dust > 0);
+const finOn = /** @param {DocFin|null|undefined} F */ F => !!F && ((F.look !== 'none' && FIN_LOOKS[F.look] && F.amt > 0) || F.bloom > 0 || F.leak > 0 || F.vig > 0 || F.grain > 0 || F.rgb > 0 || F.scan > 0 || F.half > 0 || F.paper > 0 || F.dust > 0);
 // プリセットを当てても「かける対象」（全体／背景だけ）は今の選択のまま（プリセットは見た目だけを決める）
-function applyFinPreset(name){ const t = DOC.fin.target; DOC.fin = Object.assign(FIN_BASE(), (FIN_PRESETS[name] || FIN_PRESETS.reset)[1], {target: t === 'bg' ? 'bg' : 'all'}); syncDoc(); docChanged(false); }
+/** @param {string} name */ function applyFinPreset(name){ const t = DOC.fin.target; DOC.fin = Object.assign(FIN_BASE(), (FIN_PRESETS[name] || FIN_PRESETS.reset)[1], {target: t === 'bg' ? 'bg' : 'all'}); syncDoc(); docChanged(false); }
 
 // 粒子の柄は 256px の1枚をキャッシュして繰り返す。乱数は固定シード(7)なので、書き出しのたびにノイズが変わらない（プレビューと出力が一致）
 /** @type {HTMLCanvasElement | null} */ let grainTile = null;
@@ -65,9 +66,10 @@ function applyFinPreset(name){ const t = DOC.fin.target; DOC.fin = Object.assign
 // 仕上げ：c（描き終えたサムネ）をそのまま書き換える。透明な部分は透明のまま
 // f：キャンバスの倍率（ドキュメント座標→ピクセル）。ぼかし・ずれ・粒などのピクセル量は f を掛けて、プレビューと書き出しで見た目を揃える
 // 順序依存：ルック→網点→ブルーム→光漏れ→RGBずれ→走査線→粒子→紙の質感→傷・ほこり→ビネット。最後に元の透明部分で切り抜く（mask は処理前のコピー）
+/** @param {HTMLCanvasElement} c @param {DocFin} F @param {number} f */
 function applyFinish(c, F, f){
   const W = c.width, H = c.height, x = ctx2d(c), mask = mk(W, H); ctx2d(mask).drawImage(c, 0, 0);
-  const copy = (filter) => { const t = mk(W, H), tx = ctx2d(t); if(filter) tx.filter = filter; tx.drawImage(c, 0, 0); tx.filter = 'none'; return t; };
+  const copy = /** @param {string} [filter] */ (filter) => { const t = mk(W, H), tx = ctx2d(t); if(filter) tx.filter = filter; tx.drawImage(c, 0, 0); tx.filter = 'none'; return t; };
   x.save();
   const L = FIN_LOOKS[F.look];
   if(L && L[1] !== undefined && F.amt > 0){
@@ -84,9 +86,9 @@ function applyFinish(c, F, f){
   }
   if(F.leak > 0){
     // 光漏れ：P は光源の位置（画面に対する割合）。2つ目の光はずらした位置に、色を赤みへ寄せて重ねる
-    const LP = {tl:[0, 0], tr:[1, 0], bl:[0, 1], br:[1, 1], l:[0, 0.5], r:[1, 0.5]}, P = hasKey(LP, F.leakPos) ? LP[F.leakPos] : [1, 0], M = Math.max(W, H);
+    const LP = /** @type {Record<string, number[]>} */ ({tl:[0, 0], tr:[1, 0], bl:[0, 1], br:[1, 1], l:[0, 0.5], r:[1, 0.5]}), P = hasKey(LP, F.leakPos) ? LP[F.leakPos] : [1, 0], M = Math.max(W, H);
     x.globalCompositeOperation = 'screen'; x.globalAlpha = clamp(F.leak, 0, 1);
-    for(const [k, col, rr] of [[0, F.leakC, 0.8], [0.12, mixHex(F.leakC, '#ff2d6e', 0.5), 0.45]]){
+    for(const [k, col, rr] of /** @type {Array<[number, string, number]>} */ ([[0, F.leakC, 0.8], [0.12, mixHex(F.leakC, '#ff2d6e', 0.5), 0.45]])){
       const px = (P[0] + (P[0] < 0.5 ? k : -k)) * W, py = P[1] * H, g = x.createRadialGradient(px, py, 0, px, py, M * rr);
       g.addColorStop(0, rgba(col, 1)); g.addColorStop(0.35, rgba(col, 0.55)); g.addColorStop(1, rgba(col, 0)); x.fillStyle = g; x.fillRect(0, 0, W, H);
     }
@@ -121,7 +123,7 @@ function applyFinish(c, F, f){
 }
 // 紙の質感：生成りの色を乗算でうっすら重ね、むらの柄（低い周波数のノイズ＋細かい繊維）をオーバーレイで重ねる。柄は 512px を1枚作って繰り返す（固定シード）
 /** @type {HTMLCanvasElement | null} */ let paperTile = null;
-function paperOver(x, W, H, a, f){
+/** @param {CanvasRenderingContext2D} x @param {number} W @param {number} H @param {number} a @param {number} f */ function paperOver(x, W, H, a, f){
   if(!paperTile){ paperTile = mk(512, 512); const g = ctx2d(paperTile), R = rng(29);
     g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
     // むら：ぼんやりした明暗の丸。端をまたぐ丸は反対側にも描いて、つなぎ目のない柄にする
@@ -131,7 +133,8 @@ function paperOver(x, W, H, a, f){
     // 繊維：短い細い線
     g.lineWidth = 0.8; for(let i = 0; i < 900; i++){ const px = R() * 512, py = R() * 512, l = 4 + R() * 14, an = R() * PI; g.strokeStyle = R() < 0.5 ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(an) * l, py + Math.sin(an) * l); g.stroke(); } }
   x.save(); x.globalCompositeOperation = 'multiply'; x.globalAlpha = a * 0.35; x.fillStyle = '#f2e6cf'; x.fillRect(0, 0, W, H);
-  x.globalCompositeOperation = 'overlay'; x.globalAlpha = a * 0.7; const s = Math.max(0.5, f * 1.5); x.scale(s, s); x.fillStyle = x.createPattern(paperTile, 'repeat'); x.fillRect(0, 0, W / s, H / s); x.restore();
+  x.globalCompositeOperation = 'overlay'; x.globalAlpha = a * 0.7; const s = Math.max(0.5, f * 1.5); x.scale(s, s); x.fillStyle = /** @type {CanvasPattern} */ (x.createPattern(paperTile, 'repeat'));   // 512px 角の絵なので null にならない
+  x.fillRect(0, 0, W / s, H / s); x.restore();
 }
 // 傷・ほこり：細い縦の傷と、小さな点（白と黒）を散らす（固定シードなので、書き出すたびに位置は変わらない）。大きさは f で画面に合わせる
 /** @param {CanvasRenderingContext2D} x @param {number} W @param {number} H @param {number} a @param {number} f */ function dustOver(x, W, H, a, f){
@@ -145,6 +148,7 @@ function paperOver(x, W, H, a, f){
 }
 // アメコミ風の網点：マスごとの色で、暗いほど大きい点を打つ
 // 縮小して読み取った1ピクセル＝1マスの色を使う（全画素を読むより速い）。奇数行は半マスずらして千鳥配置。半径 0.4px 未満の点は打たない
+/** @param {HTMLCanvasElement} c @param {CanvasRenderingContext2D} x @param {DocFin} F @param {number} f */
 function halftoneOver(c, x, F, f){
   const W = c.width, H = c.height, s = Math.max(3, F.halfSize * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
   const sm = mk(gw, gh), sx = ctx2d(sm, {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
@@ -168,6 +172,7 @@ function halftoneOver(c, x, F, f){
   x.putImageData(im, 0, 0);
 }
 // 2値化：明るさ（輝度）が t.lvl（0〜1）を超えたら c2、以下なら c1 の単色にする。アルファは触らない
+/** @param {HTMLCanvasElement} c @param {ExtraFx['thresh']} t */
 function threshold(c, t){
   const x = ctx2d(c, {willReadFrequently:true}), im = x.getImageData(0, 0, c.width, c.height), d = im.data, A = hex2rgb(t.c1), B = hex2rgb(t.c2), lv = t.lvl * 255;
   for(let i = 0; i < d.length; i += 4){ const C = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) > lv ? B : A; d[i] = C[0]; d[i + 1] = C[1]; d[i + 2] = C[2]; }
@@ -175,6 +180,7 @@ function threshold(c, t){
 }
 // ミニチュア風：上下をぼかして色を濃く
 // t.pos：ピントを合わせる帯の中心（高さの割合）、t.w：帯の幅（割合）。ぼかした絵の帯の部分を透明に抜いて、くっきりした元絵の上に重ねる
+/** @param {HTMLCanvasElement} c @param {ExtraFx['tilt']} t @param {number} f */
 function tiltShift(c, t, f){
   const W = c.width, H = c.height, x = ctx2d(c);
   const base = mk(W, H), bx0 = ctx2d(base); bx0.filter = `saturate(${1 + t.sat}) contrast(1.06)`; bx0.drawImage(c, 0, 0);
@@ -184,9 +190,11 @@ function tiltShift(c, t, f){
   bx.globalCompositeOperation = 'destination-in'; bx.fillStyle = g; bx.fillRect(0, 0, W, H);
   x.clearRect(0, 0, W, H); x.drawImage(base, 0, 0); x.drawImage(B, 0, 0);
 }
+/** @type {Array<[string, string]>} */
 const BG_PATTERNS = [['dot', 'ドット'], ['stripe', 'ストライプ'], ['check', 'チェック'], ['grid', '方眼'], ['sunburst', '放射ライン'], ['hline', '横じま']];
 // 柄を1枚のキャンバスに単色で描いてから、不透明度・合成モードを付けて重ねる（柄の重なりで濃さがムラにならないように）。
 // cx, cy は放射ラインの中心（ピクセル座標）。他の柄では使わない。size は柄の大きさ（放射ラインだけは本数）
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} f @param {DocBg['pat']} p @param {number} cx @param {number} cy */
 function drawBgPattern(ctx, W, H, f, p, cx, cy){
   const s = Math.max(3, p.size * f), t = mk(W, H), x = ctx2d(t); x.fillStyle = x.strokeStyle = p.c;
   if(p.type === 'dot'){ for(let j = 0, y = s / 2; y < H + s; y += s, j++) for(let X = (j % 2) * s / 2; X < W + s; X += s){ x.beginPath(); x.arc(X, y, s * 0.28, 0, 7); x.fill(); } }
@@ -197,7 +205,7 @@ function drawBgPattern(ctx, W, H, f, p, cx, cy){
   else if(p.type === 'sunburst'){ const n = Math.max(6, Math.round(p.size)), R = Math.hypot(W, H) * 2; x.beginPath();
     for(let i = 0; i < n; i++){ const a0 = i / n * 2 * PI, a1 = a0 + PI / n; x.moveTo(cx, cy); x.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); x.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); x.closePath(); }
     x.fill(); }
-  ctx.save(); ctx.globalAlpha = clamp(p.a, 0, 1); ctx.globalCompositeOperation = p.mode || 'source-over'; ctx.drawImage(t, 0, 0); ctx.restore();
+  ctx.save(); ctx.globalAlpha = clamp(p.a, 0, 1); ctx.globalCompositeOperation = /** @type {GlobalCompositeOperation} */ (p.mode || 'source-over'); ctx.drawImage(t, 0, 0); ctx.restore();
 }
 return {FIN_LOOKS, FIN_PRESETS, finOn, applyFinPreset, applyFinish, posterize, threshold, tiltShift, BG_PATTERNS, drawBgPattern};
 })();

@@ -104,6 +104,7 @@ const FX_DRAW = {
   // 稲妻：上から下へジグザグに折れる線＋枝分かれ
   bolt(ctx, L, p, R, bw, bh, f){
     // 中点変位法：線分の中点を横にずらして再帰的に折る（depth 回）。ずれ幅 dev は再帰ごとに半分
+    /** @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 @param {number} dev @param {number} depth @param {number[][]} out */
     const path = (x0, y0, x1, y1, dev, depth, out) => {
       if(depth <= 0){ out.push([x1, y1]); return; }
       const mx = (x0 + x1) / 2 + (R() - 0.5) * dev, my = (y0 + y1) / 2 + (R() - 0.5) * dev * 0.3;
@@ -174,7 +175,7 @@ const FX_DRAW = {
   // 怒りマーク：角を中心に向けた L 字のカーブを4つ。フチ（c2）を太く描いてから本体（c）を重ねる
   anger(ctx, L, p, R, bw, bh, f){
     const r = Math.min(bw, bh) / 2 * 0.9, T = r * 0.22;
-    const arms = () => { ctx.beginPath(); for(let q = 0; q < 4; q++){ const c = Math.cos(q * PI / 2), s = Math.sin(q * PI / 2), P = (x, y) => [x * c - y * s, x * s + y * c];
+    const arms = () => { ctx.beginPath(); for(let q = 0; q < 4; q++){ const c = Math.cos(q * PI / 2), s = Math.sin(q * PI / 2), P = /** @param {number} x @param {number} y */ (x, y) => [x * c - y * s, x * s + y * c];
       const [ax, ay] = P(r * 0.2, r * 0.95), [bx, by] = P(r * 0.2, r * 0.2), [cx, cy] = P(r * 0.95, r * 0.2); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(bx, by, cx, cy); } };
     ctx.lineCap = ctx.lineJoin = 'round';
     if(p.sw > 0){ arms(); ctx.lineWidth = T + p.sw * 2; ctx.strokeStyle = p.c2; ctx.stroke(); }
@@ -263,6 +264,7 @@ const FX_DRAW = {
   // 炎：下の端から燃え上がる舌を横に並べる。奥に長い赤い炎、手前に短い黄色い芯
   fire(ctx, L, p, R, bw, bh, f){
     const n = clamp(Math.round(p.n), 3, 60), base = bh / 2;
+    /** @param {number} x @param {number} wd @param {number} H @param {number} sway @param {string} c0 @param {string} c1 */
     const tongue = (x, wd, H, sway, c0, c1) => {
       const g = ctx.createLinearGradient(0, base, 0, base - H); g.addColorStop(0, rgba(c0, 1)); g.addColorStop(0.55, rgba(c1, 0.85)); g.addColorStop(1, rgba(c1, 0));
       ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x - wd / 2, base);
@@ -287,13 +289,13 @@ const FX_DRAW = {
   },
   // ヒビ割れ：中心から外へ折れ曲がりながら伸びる線と、それをつなぐ輪の線。黒い影を少しずらして描き、ガラスの割れ目らしくする
   crack(ctx, L, p, R, bw, bh, f){
-    const n = clamp(Math.round(p.n), 3, 40), Rx = bw / 2 * 0.95, Ry = bh / 2 * 0.95, rays = [];
+    const n = clamp(Math.round(p.n), 3, 40), Rx = bw / 2 * 0.95, Ry = bh / 2 * 0.95, /** @type {number[][][]} */ rays = [];
     for(let i = 0; i < n; i++){
       const a0 = (i + R() * 0.6) / n * 2 * PI, k = 0.6 + R() * 0.4, pts = [[0, 0]]; let a = a0;
       for(let s = 1; s <= 8; s++){ a += (R() - 0.5) * 0.35; const t = s / 8 * k; pts.push([Math.cos(a) * Rx * t, Math.sin(a) * Ry * t]); }
       rays.push(pts);
     }
-    const segs = [];
+    /** @type {Array<[number[], number[], number]>} */ const segs = [];
     rays.forEach(pts => { for(let s = 1; s < pts.length; s++) segs.push([pts[s - 1], pts[s], (1 - s / pts.length) * 3 + 0.8]); });
     // 輪：ring の割合の半径あたりで、となりの線どうしを（ときどき途切れさせて）つなぐ
     for(const t of [0.25, 0.5, 0.8].map(v => Math.round(v * 8 * clamp(p.ring, 0.1, 1.2)))) if(t >= 1 && t <= 8)
@@ -318,7 +320,7 @@ const FX_DRAW = {
   },
   // 桜の花びら・葉っぱ・もみじ：ひらひら（横に縮めて裏返り）しながら散らばる
   petals(ctx, L, p, R, bw, bh, f){
-    const pals = {sakura:['#ffc2d6', '#ffb0cb', '#ffd9e6', '#ff9ec0'], leaf:['#7bd66a', '#4fbf5a', '#a9e36b', '#3fa66a'], momiji:['#ff5a2e', '#ff8a2a', '#ffc23d', '#e8322a']};
+    const pals = /** @type {Record<string, string[]>} */ ({sakura:['#ffc2d6', '#ffb0cb', '#ffd9e6', '#ff9ec0'], leaf:['#7bd66a', '#4fbf5a', '#a9e36b', '#3fa66a'], momiji:['#ff5a2e', '#ff8a2a', '#ffc23d', '#e8322a']});
     const shape = hasKey(pals, p.shape) ? p.shape : 'sakura', pal = pals[shape];
     for(let i = 0; i < clamp(Math.round(p.n), 1, 300); i++){
       const x = (R() - 0.5) * bw, y = (R() - 0.5) * bh, r = (22 + R() * 24) * p.size;
@@ -388,6 +390,7 @@ const FX_DRAW = {
       ctx.quadraticCurveTo(x - k, y + k, x - r, y); ctx.quadraticCurveTo(x - k, y - k, x, y - r); ctx.fill(); }
   },
 };
+/** @param {CanvasRenderingContext2D} ctx @param {FxLayer} L @param {number} f */
 function drawFx(ctx, L, f){
   const p = L.p, [bw, bh] = FX_BOX(L);
   // 選択枠・グループの範囲計算のため、描画のたびに大きさを登録する
@@ -399,6 +402,7 @@ function drawFx(ctx, L, f){
   ctx.restore();
 }
 // ！？マークで選べる文字（[値, 表示]）。描くのはこの中の文字だけ（保存データの細工で長い文字列を描かせないため）
+/** @type {Array<[string, string]>} */
 const FX_MARKS = [['!?', '！？'], ['!', '！'], ['?', '？'], ['!!', '！！'], ['?!', '？！'], ['…', '…'], ['♪', '♪']];
 // 花びら・葉っぱ・もみじの輪郭パス（beginPath／fill は呼び出し側）。原点中心、r が大きさ
 /** @param {CanvasRenderingContext2D} c @param {string} shape @param {number} r */ function petalShape(c, shape, r){

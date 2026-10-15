@@ -17,7 +17,7 @@ const peersOf = L => DOC.layers.filter(l => (l.gid || '') === (L.gid || ''));
 const isGroup = /** @param {Layer|null|undefined} L @returns {L is GroupLayer} */ L => !!L && L.type === 'group';
 
 // 1枚のレイヤーを種別で振り分けて描く。グループの中身の描画と、通常の描画ループの両方から使う（グループは入れ子の描画もここを通る）
-/** @param {Layer} L */
+/** @param {CanvasRenderingContext2D} ctx @param {Layer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
 function drawOne(ctx, L, f, live, cache){ kindOf(L).draw(ctx, L, f, live, cache); }
 // 中のレイヤーをすべて含む四角（ドキュメント座標）。回転しているレイヤーはその角で数える
 // dims（各レイヤーの描画後の大きさ）が未登録のレイヤーは数えない＝先に描画してから呼ぶ前提。1枚も数えられなければ null
@@ -36,7 +36,7 @@ function drawOne(ctx, L, f, live, cache){ kindOf(L).draw(ctx, L, f, live, cache)
 // 不透明度・合成モード・効果・影があるときだけ、中を別キャンバスに描いてから1枚として重ねる（何もなければ直接描いて軽くする）
 /** @param {GroupLayer} G */
 const groupNeedsCanvas = G => (G.op ?? 1) < 1 || (G.blend && G.blend !== 'source-over') || cellFxOn(G.fx) || (G.shadow && G.shadow.on && G.shadow.a > 0);
-/** @param {GroupLayer} G */
+/** @param {CanvasRenderingContext2D} ctx @param {GroupLayer} G @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
 function drawGroup(ctx, G, f, live, cache){
   const kids = groupKids(G).filter(k => !k.hidden);
   const W = Math.round(DOC.w * f), H = Math.round(DOC.h * f);
@@ -82,6 +82,7 @@ function xformSnap(ls, cx, cy){
   return {cx, cy, kids: [...new Set(kids)].filter(L => !L.locked).map(L => ({L, x:L.x, y:L.y, sc:L.sc, rot:L.rot || 0}))};
 }
 // 中心 (cx, cy) を基準に、dx, dy だけ動かし・k 倍にし・dr 度回す
+/** @param {ReturnType<typeof xformSnap>} s @param {number} dx @param {number} dy @param {number} [k] @param {number} [dr] */
 function xformApply(s, dx, dy, k = 1, dr = 0){
   const a = dr * PI / 180, c = Math.cos(a), sn = Math.sin(a);
   s.kids.forEach(o => {
@@ -95,6 +96,7 @@ function xformApply(s, dx, dy, k = 1, dr = 0){
 
 /* ---------- グループの作成・解除 ---------- */
 // ids：まとめたいレイヤーの id。グループは入れ子にしない（グループを選んだ場合は中身を取り出して1つに作り直す）。作れなければ null
+/** @param {string[]} ids */
 function groupLayers(ids){
   const set = new Set(ids), src = DOC.layers.filter(l => set.has(l.id));
   if(src.length === 1 && isGroup(src[0])){ toast('すでにグループです。ほかのレイヤーも選んでから、まとめてください', true); return null; }

@@ -25,7 +25,7 @@ function renderCellText(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   L.ac = clamp(L.ac || 0, 0, collageN(L) - 1);
   const c = L.cells[L.ac], today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
-  const opts = (arr, v) => arr.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('');
+  const opts = /** @param {string[][]} arr @param {string} v */ (arr, v) => arr.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('');
   $$('.ctBox').forEach(box => {
     // 入力欄は別レイヤーに切り替わったときだけ作り直す（入力中のフォーカスや選択を壊さないため）。以降の値の反映は、編集中の欄(activeElement)を避けて行う
     if(box.dataset.lid !== L.id){
@@ -39,7 +39,7 @@ function renderCellText(){
     ta.dataset.cell = String(L.ac); $as('#ctPre', HTMLSelectElement, box).value = L.tpre || '';
     const st = L.tstyle || collageDefaultStyle(), fs = $as('#ctFont', HTMLSelectElement, box), wsel = $as('#ctWeight', HTMLSelectElement, box);
     if(fs.dataset.built !== '1'){   // フォント一覧（欧文と、ふだん出さない書体を除く）。お気に入りを先頭に
-      const ok = f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === st.font), grp = {};
+      const ok = /** @param {FontEntry} f */ f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === st.font), /** @type {Record<string, FontEntry[]>} */ grp = {};
       fonts.filter(ok).forEach(f => (grp[favs.has(f.family) ? 'お気に入り' : f.cat] = grp[favs.has(f.family) ? 'お気に入り' : f.cat] || []).push(f));
       const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
       fs.innerHTML = keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
@@ -86,14 +86,14 @@ document.addEventListener('change', e => {
     } else ts.weight = +t.value;
     syncDoc(); docChanged(false);
   }
-  else if(t.dataset && t.dataset.wk){ L.wk[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.dataset.wk === 'memo' ? +t.value : t.value; }
+  else if(t.dataset && t.dataset.wk){ /** @type {Record<string, any>} */ (L.wk)[t.dataset.wk] = t.type === 'checkbox' ? t.checked : t.dataset.wk === 'memo' ? +t.value : t.value; }
 });
 document.addEventListener('click', e => {
   const b = tgt(e).closest && tgt(e).closest('#wkGo'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
   const wb = b.closest('.wkBox'), st = wb && $as('#wkStart', HTMLInputElement, wb); if(st && st.value) L.wk.start = st.value;
   collageFillWeek(L); syncDoc(); docChanged(false); toast('1週間を入れました。マスをクリックして、文字や色を直せます');
 });
-document.addEventListener('click', e => { const b = tgt(e).closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx); });
+document.addEventListener('click', e => { const b = tgt(e).closest('[data-cfx]'); if(b) applyCellFx(b.dataset.cfx ?? ''); });
 // 幅をそろえる／文字の色を全部のマスに／まとめての調整を戻す
 document.addEventListener('click', e => {
   const b = tgt(e).closest && tgt(e).closest('#cwReset, #ctColorAll, #ttxReset'), L = selLayer(); if(!b || !L || L.type !== 'collage') return;
@@ -129,13 +129,14 @@ document.addEventListener('click', e => {
   inp.onchange = async () => {
     const L = selLayer(), files = [...(inp.files || [])]; inp.value = ''; if(!L || L.type !== 'collage' || !files.length) return;
     const n = collageN(L); let i = L.ac || 0;
-    await collageSetCell(L, i, files.shift());
+    await collageSetCell(L, i, /** @type {File} */ (files.shift()));   // 上で 1 枚以上あることを確かめている
     for(const f of files){ i++; while(i < n && assetOf(L.cells[i].asset)) i++; if(i >= n) break; await collageSetCell(L, i, f); }
     syncDoc(); docChanged(false);
   };
 }
 
 // レイアウト選択ボタン用の小さなアイコン（48×28 の data URL）。キー＝レイアウト名＋分割数でキャッシュ。傾き・境界の形は付けない
+/** @type {Record<string, string>} */
 const collageIconCache = {};
 /** @param {string} lay @param {number} n */ function collageIcon(lay, n){
   const k = lay + n; if(collageIconCache[k]) return collageIconCache[k];

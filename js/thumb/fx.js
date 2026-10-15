@@ -7,6 +7,7 @@
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {FX_DEF, FX_NAMES, FX_GROUPS, fxChipsHtml, FX_BOX, mkFx, applyBgFx, addFx} = (() => {
 // 種類ごとの既定パラメータ。mkFx で p に上書きされる。古い保存データに無い項目は既定値が補われる（p は Object.assign でマージ）
+/** @type {Record<string, () => Record<string, any>>} */
 const FX_DEF = {
   lines:   () => ({c:'#ffffff', n:120, inner:0.55, w:1, len:1, seed:1, full:true, reach:1.8, fade:0.4}),
   light:   () => ({c:'#fff1a8', amt:0.9, r:0.45}),
@@ -42,9 +43,11 @@ const FX_DEF = {
   hit:     () => ({c:'#ffd400', c2:'#ff3d00', n:14, size:1, seed:22}),                    // ヒットエフェクト
   shine:   () => ({c:'#ffffff', angle:-30, w:1, n:2, seed:23}),                           // ピカピカ（光沢の帯）
 };
+/** @type {Record<string, string>} */
 const FX_NAMES = {lines:'集中線', light:'光（スポット）', sparkle:'キラキラ', burst:'爆発（ギザギザ）', rays:'放射光', speed:'スピード線', gaan:'効果線（ガーン）', confetti:'紙吹雪', snow:'雪・雨', bolt:'稲妻', bokeh:'ボケの光', scatter:'ハート・星',
   uni:'ウニフラ・ベタフラ', anger:'怒りマーク', sweat:'汗', gloom:'どんより', mark:'！？マーク', flare:'レンズフレア', cross:'十字の光', aura:'オーラ',
   fire:'炎', smoke:'煙', crack:'ヒビ割れ', glitch:'グリッチ', petals:'桜・葉っぱ', bubbles:'泡・しぶき', shock:'衝撃波', hit:'ヒット', shine:'ピカピカ'};
+/** @type {Record<string, string>} */
 const FX_ICONS = {lines:'burst', light:'sun', sparkle:'sparkle', burst:'boom', rays:'rays', speed:'speed', gaan:'gaan', confetti:'confetti', snow:'snow', bolt:'bolt', bokeh:'bokeh', scatter:'heart',
   uni:'uni', anger:'anger', sweat:'sweat', gloom:'gloom', mark:'mark', flare:'flare', cross:'cross', aura:'aura', fire:'fire', smoke:'smoke', crack:'crack',
   glitch:'glitch', petals:'petal', bubbles:'bubbles', shock:'shock', hit:'boom', shine:'shine'};
@@ -54,22 +57,25 @@ const FX_GROUPS = [['定番', ['lines', 'light', 'sparkle', 'burst', 'rays', 'sp
   ['マンガ', ['uni', 'anger', 'sweat', 'gloom', 'mark']], ['光', ['flare', 'cross', 'aura']],
   ['演出', ['fire', 'smoke', 'crack', 'glitch', 'petals', 'bubbles']], ['ゲーム・配信', ['shock', 'hit', 'shine']]];
 // 追加ボタンの HTML（cls＝ボタンの class）。見出しごとに1行にまとめる
-const fxChipsHtml = cls => FX_GROUPS.map(([t, ks]) => `<div class="fxgrp"><span class="fxgrp-t">${t}</span>${ks.map(k => `<button class="${cls}" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`).join('');
+const fxChipsHtml = /** @param {string} cls */ cls => FX_GROUPS.map(([t, ks]) => `<div class="fxgrp"><span class="fxgrp-t">${t}</span>${ks.map(k => `<button class="${cls}" data-addfx="${k}">${ic(FX_ICONS[k])}${FX_NAMES[k]}</button>`).join('')}</div>`).join('');
 // 種類ごとのレイヤー側の既定値（不透明度・合成・拡大率）。LAYER_BASE より優先して mkFx で重ねる
+/** @type {Record<string, Partial<LayerBase>>} */
 const FX_LAYER_DEF ={lines:{op:0.55}, light:{blend:'screen'}, burst:{sc:0.8}, rays:{op:0.4}, speed:{op:0.75}, gaan:{op:0.8}, bokeh:{blend:'screen'}, bolt:{sc:0.9},
   flare:{blend:'screen'}, aura:{blend:'screen'}, smoke:{op:0.85}, glitch:{op:0.8}, shine:{blend:'screen', op:0.8}, gloom:{op:0.9}, shock:{op:0.9}};
 // 種類ごとの「描画の基準サイズ [幅, 高さ]」（sc=1 のときのドキュメント座標）。選択枠(dims)と、粒を散らす範囲の両方の基準になる
 // 全面系は DOC のサイズ、局所系（キラキラ・爆発・稲妻など）は固定サイズ。集中線は中心の空き(inner)と届く範囲(reach)から決まる
 /** @param {FxLayer} L */
-const FX_BOX = L => { const p = L.p, W = DOC.w, H = DOC.h, M = Math.max(W, H); return {lines:p.full === false ? [W * p.inner * p.reach, H * p.inner * p.reach] : [W * p.inner, H * p.inner], light:[M * p.r * 1.1, M * p.r * 1.1], sparkle:[640, 400], burst:[780, 500], rays:[M * p.r * 1.2, M * p.r * 1.2], speed:[W, H], gaan:[W, H], confetti:[W, H], snow:[W, H], bolt:[420, 860], bokeh:[W, H], scatter:[1100, 640],
+const FX_BOX = /** @param {FxLayer} L @returns {number[]} */ L => { const p = L.p, W = DOC.w, H = DOC.h, M = Math.max(W, H); return /** @type {Record<string, number[]>} */ ({lines:p.full === false ? [W * p.inner * p.reach, H * p.inner * p.reach] : [W * p.inner, H * p.inner], light:[M * p.r * 1.1, M * p.r * 1.1], sparkle:[640, 400], burst:[780, 500], rays:[M * p.r * 1.2, M * p.r * 1.2], speed:[W, H], gaan:[W, H], confetti:[W, H], snow:[W, H], bolt:[420, 860], bokeh:[W, H], scatter:[1100, 640],
   uni:[W, H], anger:[260, 260], sweat:[320, 320], gloom:[800, 500], mark:[300, 380], flare:[W, H], cross:[640, 400], aura:[700, 900],
-  fire:[W, 560], smoke:[900, 700], crack:[1000, 700], glitch:[W, H], petals:[W, H], bubbles:p.type === 'splash' ? [900, 600] : [W, H], shock:[900, 560], hit:[520, 520], shine:[800, 450]}[L.kind] || [400, 400]; };
+  fire:[W, 560], smoke:[900, 700], crack:[1000, 700], glitch:[W, H], petals:[W, H], bubbles:p.type === 'splash' ? [900, 600] : [W, H], shock:[900, 560], hit:[520, 520], shine:[800, 450]})[L.kind] || [400, 400]; };
 // 引数：kind＝種類、p＝パラメータの上書き、ex＝レイヤー側の上書き（位置など）
 // 初期位置：ライト・レンズフレアは右上寄り、炎は下の端（画面の下から燃え上がる）。それ以外は LAYER_BASE の中央
 const FX_START = /** @param {string} kind */ kind => kind === 'light' || kind === 'flare' ? {x:Math.round(DOC.w * 0.72), y:Math.round(DOC.h * 0.3)} : kind === 'fire' ? {x:Math.round(DOC.w / 2), y:Math.round(DOC.h - 280)} : {};
+/** @param {string} kind @param {Record<string, any>} [p] @param {Record<string, any>} [ex] @returns {FxLayer} */
 const mkFx = (kind, p = {}, ex = {}) => Object.assign(LAYER_BASE(), {id:uid(), type:/** @type {'fx'} */ ('fx'), kind}, FX_LAYER_DEF[kind] || {}, FX_START(kind), ex, {p:Object.assign(FX_DEF[kind](), p)});
 // ワンクリック背景エフェクトの定義：bg＝DOC.bg に当てる差分、fx＝一緒に入れる動的エフェクト [種類, パラメータ, レイヤー上書き]
 // bg の値がオブジェクトのものは DOC.bg の既存オブジェクトにマージ、それ以外は代入（applyBgFx）
+/** @type {Record<string, {bg: Record<string, any>, fx: Array<[string, Record<string, any>, Record<string, any>?]>}>} */
 const BG_FX = {
   reset:  {bg:{}, fx:[]},
   focus:  {bg:{zb:{on:true, amt:0.28}, contrast:0.1, vignette:0.5}, fx:[]},
@@ -113,8 +119,9 @@ const BG_FX = {
   fire:   {bg:{dim:0.2, contrast:0.15, tint:{on:true, c:'#ff5a1f', a:0.35, mode:'overlay'}}, fx:[['fire', {}]]},
 };
 // 戻り値：動的エフェクトが入った、または前回分を消したか（呼び出し側の通知・表示更新の判断用）
+/** @param {string} name */
 function applyBgFx(name){
-  const b = DOC.bg, P = BG_FX[name] || BG_FX.reset;
+  const b = /** @type {DocBg & Record<string, any>} */ (DOC.bg), P = BG_FX[name] || BG_FX.reset;
   // まず対象の項目を全部初期値に戻してから差分を当てる（前のエフェクトが残らないように）。on のオブジェクトは中身の設定値は残して on だけ切る
   Object.assign(b, {bright:0, contrast:0, sat:0, hue:0, blur:0, tone:'none', dim:0, vignette:0});
   b.zb.on = b.mb.on = b.mosaic.on = b.tint.on = b.shade.on = b.posterize.on = b.thresh.on = b.tilt.on = b.pat.on = false;
@@ -129,6 +136,7 @@ function applyBgFx(name){
   syncDoc(); renderLayers(); docChanged(false);
   return P.fx.length > 0 || had;
 }
+/** @param {string} kind */
 function addFx(kind){
   const L = mkFx(kind);
   // 選択中のレイヤーのすぐ下（なければ背景のすぐ上）に入れる

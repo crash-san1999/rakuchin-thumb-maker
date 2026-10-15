@@ -131,11 +131,11 @@ const FRAME_PATHS = {
   // かすれ筆：横長の筆跡を nb 本、縦に並べる（1本ずつ別の閉じたパス）。上下の端からはみ出さないよう hh を制限
   drybrush(x, {a, b, w, h, R, noise, poly}){ const nb = 6 + Math.floor(R() * 3), bh = h / nb;
       for(let i = 0; i < nb; i++){ const cy = -b + (i + 0.5) * bh, hh = Math.min(bh * (0.38 + R() * 0.34), b - Math.abs(cy)), x0 = -a + w * R() * 0.16, x1 = a - w * R() * 0.18, bw = x1 - x0;
-        const top = noise(30, 4, 0.2), bot = noise(30, 4, 0.2), lft = noise(14, 2, 0.9), rgt = noise(14, 2, 0.9), p = [];
+        const top = noise(30, 4, 0.2), bot = noise(30, 4, 0.2), lft = noise(14, 2, 0.9), rgt = noise(14, 2, 0.9), /** @type {number[][]} */ p = [];
         top.forEach((v, j) => p.push([x0 + bw * j / 30, cy - hh + v * hh * 0.35])); rgt.forEach((v, j) => p.push([x1 - v * w * 0.1, cy - hh + 2 * hh * j / 14]));
         bot.forEach((v, j) => p.push([x1 - bw * j / 30, cy + hh - v * hh * 0.35])); lft.forEach((v, j) => p.push([x0 + v * w * 0.1, cy + hh - 2 * hh * j / 14])); poly(p); }
   },
-  brushtri(x, {a, b, mn, noise, poly}){ const V = [[0, -b], [a, b], [-a, b]], C = [0, b / 3], p = [];
+  brushtri(x, {a, b, mn, noise, poly}){ const V = [[0, -b], [a, b], [-a, b]], C = [0, b / 3], /** @type {number[][]} */ p = [];
       for(let e = 0; e < 3; e++){ const [p0, p1] = [V[e], V[(e + 1) % 3]], nz = noise(50, 6, 0.6);
         nz.forEach((v, i) => { const t = i / 50, px = p0[0] + (p1[0] - p0[0]) * t, py = p0[1] + (p1[1] - p0[1]) * t, dx = C[0] - px, dy = C[1] - py, d = Math.hypot(dx, dy) || 1, k = v * mn * 0.06; p.push([px + dx / d * k, py + dy / d * k]); }); }
       poly(p);
@@ -150,7 +150,7 @@ const FRAME_PATHS = {
       x.bezierCurveTo(-a * 0.55, b, -a, b * 0.75, -a, b * 0.3); x.bezierCurveTo(-a, -b * 0.05, -a * 0.35, -b * 0.55, 0, -b); x.closePath();
   },
   ticket(x, {a, b, w, h}){ const nr = Math.min(w, h) * 0.1; x.moveTo(-a, -b); x.lineTo(a, -b); x.lineTo(a, -nr); x.arc(a, 0, nr, -PI / 2, PI / 2, true); x.lineTo(a, b); x.lineTo(-a, b); x.lineTo(-a, nr); x.arc(-a, 0, nr, PI / 2, -PI / 2, true); x.closePath(); },
-  wave(x, {a, b, w, h, poly}){ const j = Math.min(w, h) * 0.03, per = Math.min(w, h) / 7, p = [], n = 48, wv = t => j * (1 + Math.sin(t / per * 2 * PI)) / 2;
+  wave(x, {a, b, w, h, poly}){ const j = Math.min(w, h) * 0.03, per = Math.min(w, h) / 7, p = /** @type {number[][]} */ ([]), n = 48, wv = /** @param {number} t */ t => j * (1 + Math.sin(t / per * 2 * PI)) / 2;
       for(let i = 0; i < n; i++){ const t = w * i / n; p.push([-a + t, -b + wv(t)]); } for(let i = 0; i < n; i++){ const t = h * i / n; p.push([a - wv(t), -b + t]); }
       for(let i = 0; i < n; i++){ const t = w * i / n; p.push([a - t, b - wv(t)]); } for(let i = 0; i < n; i++){ const t = h * i / n; p.push([-a + wv(t), b - t]); } poly(p);
   },
@@ -167,12 +167,13 @@ const FRAME_PATHS = {
    しっぽの根元は本体に 1px 食い込ませて隙間を防ぐ。下の辺・位置 0.3・先 −0.16・太さ 0.2・曲がり 0（初期値）は、以前の固定のしっぽと同じ座標になる。
    戻り値：rect＝本体の roundRect の引数、p1・p2＝しっぽの付け根の両端、tip＝先、mid＝曲がりの制御点（曲がり 0 なら null）、side・tp・tt（丸めたあとの値）、
    at(u, depth)＝辺に沿った位置 u と辺からの深さ（本体の縁 0〜しっぽの先 1）を座標に直す関数、len＝しっぽの辺の長さ */
+/** @param {number} w @param {number} h @param {number} r @param {any} [o] フレームの設定（保存データの値なので、範囲を確かめながら読む） */
 function frameBubbleGeom(w, h, r, o){
   o = o || {};
   const a = w / 2, b = h / 2;
   const side = ['b', 't', 'l', 'r'].includes(o.tside) ? o.tside : 'b', tp = clamp(+o.tp || 0.3, 0, 1), tt = clamp(+(o.tt ?? -0.16) || 0, -1, 1), tw = clamp(+o.tw || 0.2, 0.02, 0.9), tb = clamp(+o.tb || 0, -1, 1);
   const vert = side === 'b' || side === 't', len = vert ? w : h, bw = vert ? w : w * 0.8, bh = vert ? h * 0.8 : h, rr = Math.min(bw, bh) * Math.min(0.5, r);
-  const at = (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
+  const at = /** @param {number} u @param {number} depth @returns {number[]} */ (u, depth) => side === 'b' ? [-a + u, -b + bh - 1 + depth * (h - bh + 1)] : side === 't' ? [-a + u, -b + h * 0.2 + 1 - depth * (h * 0.2 + 1)]
     : side === 'l' ? [-a + w * 0.2 + 1 - depth * (w * 0.2 + 1), -b + u] : [-a + bw - 1 + depth * (w - bw + 1), -b + u];
   return {side, tp, tt, len, at, rect:/** @type {[number, number, number, number, number]} */ ([side === 'l' ? -a + w * 0.2 : -a, side === 't' ? -b + h * 0.2 : -b, bw, bh, rr]),
     p1:at(len * (tp - tw / 2), 0), tip:at(len * (tp + tt), 1), p2:at(len * (tp + tw / 2), 0), mid:tb ? at(len * (tp + tt / 2 + tb * 0.15), 0.5) : null};
@@ -189,7 +190,8 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ご�
     const sm = k[j] * (1 - f) + k[j + 1] * f; return Math.min(1, sm * (1 - spike) + (spike ? R() ** 2.2 * spike * 1.7 : 0)); }); };
   // 四辺（上・右・下・左の順）それぞれ [点数, 内側へのゆらぎ幅, knots, spike] を渡すと、時計回りの粗い縁の点列を返す
   /** @type {FramePathGeom['rough']} */
-  const rough = (sides) => { const p = [], [T, Rt, B, L] = sides.map(([n, amp, knots, spike]) => noise(n, knots, spike).map(v => v * amp));
+  const rough = (sides) => { const p = /** @type {number[][]} */ ([]);
+    const [T, Rt, B, L] = sides.map(([n, amp, knots, spike]) => noise(n, knots, spike).map(v => v * amp));
     T.forEach((v, i) => p.push([-a + w * i / T.length, -b + v])); Rt.forEach((v, i) => p.push([a - v, -b + h * i / Rt.length]));
     B.forEach((v, i) => p.push([a - w * i / B.length, b - v])); L.forEach((v, i) => p.push([-a + v, b - h * i / L.length])); return p; };
   /** @type {FramePathGeom['poly']} */
@@ -209,7 +211,7 @@ function framePath(x, shape, w, h, r = 0.12, seed = 1, o = {}){   // o＝形ご�
   (hasKey(FRAME_PATHS, shape) ? FRAME_PATHS[shape] : FRAME_PATHS.rect)(x, g);
 }
 // 2色の混色（t=0 で h1、1 で h2）を 'rgb(...)' で返す。グラデーションの色止めに使う
-function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; }
+/** @param {string} h1 @param {string} h2 @param {number} t */ function mixc(h1, h2, t){ const A = hex2rgb(h1), B = hex2rgb(h2); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; }
 /* フレームの形の位置（画像のピクセル座標）：fs=大きさ、cx/cy=画像のどこを中心に切り抜くか */
 // 単位は layerSrc(L) の絵（トリミング・背景透過後）のピクセル。fw0＝fs=1 のとき画像に収まる最大幅、fw/fh＝実際の切り抜き幅・高さ、
 // cxp/cyp＝切り抜き中心（枠が画像からはみ出さないよう clamp 済み）。画像が無ければ null
@@ -384,6 +386,7 @@ const FRAME_STYLE_DRAW = {
   },
 };
 // デザインごとの外側の余白（フチの太さ E に対する倍率）。光・影・テープなどがキャンバスの端で切れないように広げる。無いデザインは 1.4
+/** @type {Record<string, number>} */
 const FRAME_PAD = {photo:4.6, neon:3.4, book:2.8, neon2:5.5, pop:2, hud:3.4, bracket:2.6, glitch:2.4, metal:1.6, block:4, rgb:3.2, halftone:5.4, brush:2.8, film:4, stitch:1.4, sticker:2, crt:1.8, pixel:1.8, aura:8, triple:2.4};
 /** @param {ImageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */ function framedCanvas(L, f, live, cache){
   const A = /** @type {ImgSrc} */ (layerSrc(L)), fr = L.frame, o = L.outline, need = L.sc * f;

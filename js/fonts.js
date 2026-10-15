@@ -460,7 +460,8 @@ function restoreLocalFonts(){
   if(names.length) addLocalFonts(names);
 }
 $('#loadLocal').onclick = async () => {
-  let names = [], why = '';
+  /** @type {string[]} */ let names = [];
+  let why = '';
   const qlf = window.queryLocalFonts;
   if(qlf){
     try{

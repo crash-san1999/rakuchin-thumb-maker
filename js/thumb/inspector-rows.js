@@ -31,6 +31,7 @@ var {SEL_ROWS, BG_ROWS, FX_CHIPS} = (() => {
 // 分割フレームの「効果」ページ。共通（@fx.）とマスごと（@cell.fx.）で同じ行を作り、切り替えで出し分ける。
 // P：キーの前置き（'@fx.' か '@cell.fx.'）、S：その行群を出す条件（show の先頭部分）。条件の後ろに '&' で行ごとの条件を足す
 // pg：置くタブ（画像レイヤーは 'color'）。own：明るさ・彩度のキー（画像レイヤーは L.bright / L.sat に持つので '@bright'・'@sat' を渡す）
+/** @type {(P: string, S: string, pg?: string, own?: string[]) => PanelRow[]} */
 const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
   {pg, cfxchips:true, show:S},
   {pg, sub:'色調', show:S},
@@ -62,8 +63,8 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
 ];
 // 加工エフェクト（imgfx.js）の行。背景（P='bg.'）とマス・グループ・画像レイヤー（CFX_ROWS）で共通。
 // withOld：ポスタライズ・2値化・ミニチュアの行も作るか（背景には前からあるので false で呼ぶ）
-/** @param {string} P @param {string} S @param {string} pg @param {boolean} withOld */ function EXTRA_ROWS(P, S, pg, withOld){
-  const on = k => S + '&' + P + k + '=true';
+/** @param {string} P @param {string} S @param {string} pg @param {boolean} withOld @returns {PanelRow[]} */ function EXTRA_ROWS(P, S, pg, withOld){
+  const on = /** @param {string} k */ k => S + '&' + P + k + '=true';
   return [
     {pg, sub:'加工', show:S},
     {pg, chk:P + 'rgb.on', l:'色収差（赤と青がずれる）', show:S},
@@ -116,6 +117,7 @@ const CFX_ROWS = (P, S, pg = 'cfx', own = [P + 'bright', P + 'sat']) => [
 // 選択中のレイヤー用の行。pg ごとにだいたい次の順で並ぶ：グループ → 配置（大きさ・回転・不透明度・描画モード・ロック・配置）→
 // 動的エフェクト（fx）→ 分割フレーム（split / cells / ctext / cfx）→ 画像（frame / color / edge / cut）。
 // 配置（base）と効果（cfx）には、種類（@type）ごとに出す行・出さない行がある
+/** @type {PanelRow[]} */
 const SEL_ROWS = [
   {pg:'base', sub:'グループ', note:'中のレイヤーをまとめて動かします。ダブルクリックで中のレイヤーを1つだけ選べます。効果は「効果」タブから', show:'@type=group'},
   {pg:'base', btns:[['ungroupBtn', 'ungroup', 'グループを解除']], show:'@type=group'},
@@ -342,6 +344,7 @@ const SEL_ROWS = [
 ];
 // 背景・仕上げの行（キーは 'bg.' や 'fin.' で DOC から）。ページは main（背景の種類・位置）/ tone（色調）/ fx（効果・柄・動的エフェクト追加）/ fin（仕上げ）。
 // 色調・画像向けの効果は背景が「画像」のときだけ表示（show:'bg.type=image'）。min/max は表示上の範囲で、中心 fcx/fcy は画面外（-0.2〜1.2）も指定できる
+/** @type {PanelRow[]} */
 const BG_ROWS = [
   {pg:'tone', sub:'色調は、背景が「画像」のときに使えます', tonenote:true, show:'bg.type=grad|color'},
   {pg:'main', chk:'bg.hidden', l:'背景を非表示にする（PNGで保存すると透明に）'},

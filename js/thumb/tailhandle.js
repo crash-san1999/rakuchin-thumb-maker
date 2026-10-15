@@ -22,6 +22,9 @@
 var {tailInfo, tailHandleAt, tailDragStart, tailDragMove, drawTailHandle} = (() => {
 const BUBBLE_SHAPES = ['bubble', 'sbubble', 'obubble', 'cloud', 'shout'];
 const TAIL_HIT_PX = 14;          // つまみの当たり半径（画面上の px）
+/** しっぽのドラッグの状態（tailDragStart が作る）。L は文字レイヤーか画像レイヤー、t は tailInfo の戻り値（L の種類で中身が違うので any）。
+ * mode は最初に動かしたときに決まる（'pos' 位置／'dir' 向き）。x0,y0 は押したときの先、center は吹き出しの中心（DOC 座標）
+ * @typedef {{L: any, t: any, mode: string|null, t0: number, touch: boolean, x0: number, y0: number, center: number[]}} TailDrag */
 const TAIL_LONG_PRESS = 400;     // スマホで「向きを変える」に切り替わる長押しの時間（ms）
 
 // 文字レイヤー L のしっぽの情報（DOC 座標の先・付け根・吹き出しの中心と、変換に使う値）。出せないときは null
@@ -35,7 +38,7 @@ function textTailInfo(L){
   /** @param {number[]} q */
   const toDoc = q => { const [px, py] = q; const dx = (px - W / 2) * k, dy = (py - H / 2) * k; return [L.x + dx * c - dy * s, L.y + dx * s + dy * c]; };
   // DOC 座標 → 描いた吹き出しの論理座標（しっぽの角度・長さを決めるのに使う）
-  const toLocal = (x, y) => { const dx = x - L.x, dy = y - L.y, u = (dx * c + dy * s) / k + W / 2, v = (-dx * s + dy * c) / k + H / 2;
+  const toLocal = /** @param {number} x @param {number} y */ (x, y) => { const dx = x - L.x, dy = y - L.y, u = (dx * c + dy * s) / k + W / 2, v = (-dx * s + dy * c) / k + H / 2;
     const q = new DOMMatrix(P.m).inverse().transformPoint(new DOMPoint(u, v)); return [q.x, q.y]; };
   return {type:'text', tip:toDoc(P.tip), base:toDoc(P.base), center:toDoc(P.center), P, toLocal};
 }
@@ -61,12 +64,12 @@ function tailInfo(){
   return Math.hypot(x - t.tip[0], y - t.tip[1]) < TAIL_HIT_PX * DOC.w / tvCss ? t : null;
 }
 // ドラッグの開始。戻り値はドラッグ中の状態（events-canvas.js の drag.st に入る）
-/** @param {Layer} L @param {PointerEvent} e */
+/** @param {Layer} L @param {any} t @param {PointerEvent} e @returns {TailDrag} */
 function tailDragStart(L, t, e){
   return {L, t, mode:null, t0:performance.now(), touch:e.pointerType === 'touch', x0:t.tip[0], y0:t.tip[1], center:t.center};
 }
 // ドラッグ中。x,y はポインタの DOC 座標。最初に 4px 以上動いたときに「位置」か「向き」かを決める（Shift か、スマホの長押し）
-/** @param {PointerEvent} e */
+/** @param {TailDrag} st @param {number} x @param {number} y @param {PointerEvent} e */
 function tailDragMove(st, x, y, e){
   if(!st.mode){
     if(Math.hypot(x - st.x0, y - st.y0) < 4 * DOC.w / tvCss) return;
@@ -76,9 +79,10 @@ function tailDragMove(st, x, y, e){
 }
 // 文字の吹き出し：ポインタの位置を吹き出しの論理座標に直し、中心からの角度＝しっぽの位置、縁からの距離＝長さにする。
 // 「向き」モードは付け根からの角度を、位置の角度との差（先の向きのずれ）にする
+/** @param {TailDrag} st @param {number} x @param {number} y */
 function moveTextTail(st, x, y){
   const L = st.L, p = L.style.plate, P = st.t.P, [lx, ly] = st.t.toLocal(x, y), size = P.size || L.style.size || 100;
-  const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
+  const r1 = /** @param {number} v */ v => Math.round(v * 10) / 10, r2 = /** @param {number} v */ v => Math.round(v * 100) / 100;
   if(st.mode === 'dir'){
     const ang = Math.atan2(ly - P.lbase[1], lx - P.lbase[0]) * 180 / PI, deg = tailDegOf(p);
     p.tdir = r1(clamp(((ang - deg + 540) % 360) - 180, -80, 80));
@@ -93,8 +97,9 @@ function moveTextTail(st, x, y){
   keepCenter(st);
 }
 // しっぽの位置の角度（自由なら tpos、それ以外は決まった向き）
-const tailDegOf = p => (p.tail || 'left') === 'free' ? +p.tpos || 0 : (TAIL_ANGLE[p.tail || 'left'] ?? 115);
+const tailDegOf = /** @param {TextStyle['plate']} p */ p => (p.tail || 'left') === 'free' ? +p.tpos || 0 : (TAIL_ANGLE[p.tail || 'left'] ?? 115);
 // 文字の絵を描き直し、吹き出しの中心がドラッグ前と同じ DOC 座標に来るようにレイヤーを動かす（しっぽで絵の大きさが変わっても文字が動かない）
+/** @param {TailDrag} st */
 function keepCenter(st){
   const L = st.L, e = prevCache.get(L.id); if(!e) return;
   textCanvas(L, e.k, false, prevCache);
@@ -102,10 +107,11 @@ function keepCenter(st){
   L.x = Math.round((L.x + st.center[0] - t.center[0]) * 100) / 100; L.y = Math.round((L.y + st.center[1] - t.center[1]) * 100) / 100;
 }
 // フレームの吹き出し：ポインタの位置がどの辺の外側かで、しっぽの辺を決め、辺に沿った位置で先（または付け根）を動かす
+/** @param {TailDrag} st @param {number} x @param {number} y */
 function moveFrameTail(st, x, y){
   const L = st.L, fr = L.frame, G = st.t.G, [u, v] = frameLocal(L, x, y), a = G.fw / 2, b = G.fh / 2;
   const nx = u / a, ny = v / b, side = Math.abs(ny) >= Math.abs(nx) ? (ny > 0 ? 'b' : 't') : (nx > 0 ? 'r' : 'l');
-  const along = side === 'b' || side === 't' ? (u + a) / G.fw : (v + b) / G.fh, r2 = q => Math.round(q * 1000) / 1000;
+  const along = side === 'b' || side === 't' ? (u + a) / G.fw : (v + b) / G.fh, r2 = /** @param {number} q */ q => Math.round(q * 1000) / 1000;
   if(st.mode === 'dir'){ fr.tp = r2(clamp(along, 0.05, 0.95)); return; }
   fr.tside = side;
   const tp = clamp(fr.tp ?? 0.3, 0.05, 0.95), tt = along - tp;
