@@ -18,7 +18,7 @@ function pwaRegister(){
   navigator.serviceWorker.register('sw.js').then(reg => {
     pwaReg = reg;
     // controller がある＝すでに旧版で動いている。初回インストール（controller なし）のときは「更新」ではないので知らせない
-    const watch = w => w && w.addEventListener('statechange', () => { if(w.state === 'installed' && navigator.serviceWorker.controller) pwaShowUpdate(); });
+    /** @param {ServiceWorker|null} w */ const watch = w => w && w.addEventListener('statechange', () => { if(w.state === 'installed' && navigator.serviceWorker.controller) pwaShowUpdate(); });
     if(reg.waiting && navigator.serviceWorker.controller) pwaShowUpdate();   // すでに待機中の新しい版がある
     reg.addEventListener('updatefound', () => watch(reg.installing));
     // 開きっぱなしでも気づけるように、画面に戻ったときと30分ごとに確認する

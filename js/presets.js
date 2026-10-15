@@ -287,6 +287,7 @@ const PRESETS = [
 ];
 // 分類タブ → そこに出すプリセット名の一覧（PRESETS の表示名と完全一致で参照）。順番がそのまま表示順。
 // 「すべて」「マイ」は固定のタブなのでここには置かない（renderPresets が足す）
+/** @type {Record<string, string[]>} */
 const PCATS = {
   '定番':   ['対戦格闘','白フチ','激辛','クール','ポップ','2色分割','ステッカー','スピード'],
   '金属':   ['メタル金','クローム','シルバー','ガンメタ','ホログラム','鏡面','アウトラン','キラキラ'],
@@ -306,7 +307,7 @@ let pcat = LS.get('ttm_pcat', 'すべて');
 // プリセットボタン自体に付ける見た目（インラインの CSS 文字列）。そのスタイルの塗り色・フォント・最初の有効なフチ色で「文字の見本」にする。
 // 金属塗りは単色がないので、金属定義 METALS の2番目の色停止（明るい側）を代表色にする。
 // 文字色が暗い（輝度 < 90）のにフチがないと、暗いタイルで読めなくなるので明るいフチを足す。輝度は一般的な 0.299R+0.587G+0.114B
-function presetStyle(p){
+/** @param {Record<string, any>} p */ function presetStyle(p){
   const q = merged(p);
   const st = q.strokes.find(s => s.on);
   const col = q.fillType === 'metal' ? (METALS[q.metal] || METALS.gold)[1][1] : q.fill1;
@@ -338,7 +339,7 @@ function renderPresets(){
 }
 // スタイルを適用する。文字内容・サイズ・余白・書き出し倍率・英数字フォントは「内容」側の設定なので、プリセットで消さずに引き継ぐ。
 // S を丸ごと差し替える（Object.assign で新しいオブジェクトを作る）ため、S を保持している箇所があれば古いままになる点に注意
-function applyPreset(p){
+/** @param {Record<string, any>} p */ function applyPreset(p){
   const keep = {text:S.text, size:S.size, pad:S.pad, scale:S.scale, fontLatin:S.fontLatin};
   for(const k of ['vertical', 'vlat', 'vtcy']) if(!(k in p)) keep[k] = S[k];   // 縦書きの指定がないスタイルでは今の向きを保つ
   S = Object.assign(merged(p), keep); resetAdj();

@@ -16,15 +16,32 @@
                   確定時は幅・高さが完全に一致するときだけ使う。
   make() は作り直すときだけ呼ばれ、描いた canvas を返す。
 */
-/** 倍率で判定する描画キャッシュ。@returns {{sk:string, k:number, c:HTMLCanvasElement}} */
-function cacheByScale(cache, id, sk, need, live, make){
+/**
+ * 倍率で判定する描画キャッシュ。
+ * @returns {{sk:string, k:number, c:HTMLCanvasElement}}
+ * @param {Map<string, any>} cache
+ * @param {string} id
+ * @param {string} sk
+ * @param {number} need
+ * @param {boolean|undefined} live
+ * @param {() => HTMLCanvasElement} make
+ */ function cacheByScale(cache, id, sk, need, live, make){
   const e = cache.get(id);
   if(e && e.sk === sk && (live || Math.abs(e.k - need) / need < 0.02)) return e;
   const n = {sk, k:need, c:make()}; cache.set(id, n);
   return n;
 }
-/** ピクセル寸法（W×H）で判定する描画キャッシュ。k を渡したときだけ記録する（分割フレームは k を使う）。 */
-function cacheBySize(cache, id, sk, W, H, live, make, k){
+/**
+ * ピクセル寸法（W×H）で判定する描画キャッシュ。k を渡したときだけ記録する（分割フレームは k を使う）。
+ * @param {Map<string, any>} cache
+ * @param {string} id
+ * @param {string} sk
+ * @param {number} W
+ * @param {number} H
+ * @param {boolean|undefined} live
+ * @param {() => HTMLCanvasElement} make
+ * @param {number} [k]
+ */ function cacheBySize(cache, id, sk, W, H, live, make, k){
   const e = cache.get(id);
   if(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H)) return e;
   const n = k === undefined ? {sk, c:make()} : {sk, k, c:make()}; cache.set(id, n);
