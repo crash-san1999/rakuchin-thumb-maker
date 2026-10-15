@@ -57,7 +57,7 @@
 
 /** @typedef {{x: number, y: number, w: number, h: number}} Rect */
 /** 設定パネルの行（inspector-rows.js・controls.js の行の表の 1 行。書き方は inspector-rows.js の先頭）
- * @typedef {{l?: string, r?: string, seg?: string, sel?: string, c?: string, chk?: string, seed?: string, opts?: Array<[any, string]>,
+ * @typedef {{l?: string, r?: string, seg?: string, sel?: string, c?: string, chk?: string, seed?: string, opts?: any[][],
  *   min?: number, max?: number, step?: number, show?: string, pg?: string, sub?: string, note?: string, btns?: Array<[string, string, string]>,
  *   cells?: boolean, week?: boolean, tonenote?: boolean, shapes?: boolean, sched?: boolean, schedStyle?: boolean, place?: boolean, layouts?: boolean,
  *   fx?: boolean, frpre?: boolean, flips?: boolean, finchips?: boolean, ctext?: boolean, cfxchips?: boolean, addfx?: boolean, pal?: boolean}} PanelRow */

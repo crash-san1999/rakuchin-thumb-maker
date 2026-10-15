@@ -11,7 +11,8 @@
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
 /** @type {ServiceWorkerRegistration | null} */ let pwaReg;
 var {pwaRegister} = (() => {
-pwaReg = null; /** @type {BeforeInstallPromptEvent | null} */ let pwaPrompt = null;
+pwaReg = null;
+/** @type {BeforeInstallPromptEvent | null} */ let pwaPrompt = null;
 function pwaRegister(){
   // file:// などでは Service Worker を登録できない（エラーになる）ので、http(s) のときだけ登録する
   if(!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
@@ -48,7 +49,7 @@ document.addEventListener('click', e => {
   else if(tgt(e).closest('#pwaInstall') && pwaPrompt){ pwaPrompt.prompt(); pwaPrompt.userChoice.finally(() => { pwaPrompt = null; $('#pwaInstall').hidden = true; }); }
 });
 // 「アプリとして追加」：ブラウザが追加できる状態になったときだけボタンを出す（iPhone は Safari の共有メニューから）
-window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwaPrompt = e; const b = $('#pwaInstall'); if(b) b.hidden = false; });
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwaPrompt = /** @type {BeforeInstallPromptEvent} */ (e); const b = $('#pwaInstall'); if(b) b.hidden = false; });
 window.addEventListener('appinstalled', () => { pwaPrompt = null; const b = $('#pwaInstall'); if(b) b.hidden = true; toast('アプリとして追加しました'); });
 return {pwaRegister};
 })();

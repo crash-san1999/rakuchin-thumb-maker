@@ -7,8 +7,9 @@ var {renderSched} = (() => {
 
 // プリセットの選択肢（分類ごと）と、フォントの選択肢（欧文と、ふだん出さない書体を除く。お気に入りを先頭に）
 const schedPresetOpts = () => Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${escapeHtml(g)}">${ns.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}</optgroup>`).join('');
+/** @param {string} cur */
 function schedFontOpts(cur){
-  const ok = f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === cur), grp = {};
+  const ok = /** @param {FontEntry} f */ f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === cur), /** @type {Record<string, FontEntry[]>} */ grp = {};
   fonts.filter(ok).forEach(f => { const g = favs.has(f.family) ? 'お気に入り' : f.cat; (grp[g] = grp[g] || []).push(f); });
   const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
   return keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
@@ -22,12 +23,12 @@ const schedRowHtml = /** @param {number} i */ i => `<div class="schRow" data-sro
   <span class="schImg"><button class="schThumb" data-simg="${i}" title="画像を選ぶ（キャンバスの行にドロップでも入ります）"></button><button class="schClr" data-sclr="${i}" title="画像を外す">${ic('close')}</button></span>
 </div>`;
 // 文字スタイルの1グループ（k＝'d' 日付・時刻／'t' タイトル・おやすみ）
-const schedStyleHtml = (k, title) => `<div class="schSt" data-sst="${k}"><div class="frgrp">${title}</div>
+const schedStyleHtml = /** @param {string} k @param {string} title */ (k, title) => `<div class="schSt" data-sst="${k}"><div class="frgrp">${title}</div>
   <div class="row"><label>スタイル</label><select data-ssp="${k}">${schedPresetOpts()}</select></div>
   <div class="row"><label>フォント</label><select data-ssf="${k}"></select></div>
   <div class="row"><label>太さ</label><select data-ssw="${k}"></select></div></div>`;
 // 値を入れる（入力中の欄は除く）
-const setVal = (el, v) => { if(el && document.activeElement !== el && el.value !== v) el.value = v; };
+const setVal = /** @param {HTMLElement|null} el @param {string} v */ (el, v) => { const f = /** @type {HTMLInputElement|null} */ (el); if(f && document.activeElement !== f && f.value !== v) f.value = v; };
 function renderSched(){
   const L = selLayer(); if(!isSched(L)) return;
   const days = schedDays(L);

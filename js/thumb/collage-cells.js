@@ -6,13 +6,13 @@
 var {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell} = (() => {
 // x, y はドキュメント座標。レイヤーの回転を逆に戻してレイヤー内の割合(u,v)にし、1000 幅の仮想キャンバスで多角形の内外判定をする。
 // 戻り値はマス番号、どのマスでもなければ -1。境界の加工（ギザギザ等）は無視した、元の分割線で判定する
-/** @param {CollageLayer} L */
+/** @param {CollageLayer} L @param {number} x @param {number} y */
 function collageCellAt(L, x, y){
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y;
   const w = L.bw * L.sc, h = L.bh * L.sc, u = (dx * Math.cos(a) - dy * Math.sin(a)) / w + 0.5, v = (dx * Math.sin(a) + dy * Math.cos(a)) / h + 0.5;
   if(u < 0 || u > 1 || v < 0 || v > 1) return -1;
   const cells = collageCellsOf(L, 1000, 1000 * h / w), px = u * 1000, py = v * 1000 * h / w;
-  const inside = poly => { let c = false; for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [xi, yi] = poly[i], [xj, yj] = poly[j];
+  const inside = /** @param {number[][]} poly */ poly => { let c = false; for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){ const [xi, yi] = poly[i], [xj, yj] = poly[j];
     if((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; };
   const i = cells.findIndex(inside); return i;
 }
@@ -46,6 +46,7 @@ function collageEdges(L){
   const b = clamp(q.u, e[j - 1] + min, e[j + 1] - min);
   L.cells[j - 1].w = r3((b - e[j - 1]) * sum); L.cells[j].w = r3((e[j + 1] - b) * sum);
 }
+/** @param {CollageLayer} L @param {number} i */
 function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標）
   const w = L.bw * L.sc, h = L.bh * L.sc, p = collageCellsOf(L, w, h)[i] || [[0, 0], [w, h]];
   const xs = p.map(q => clamp(q[0], 0, w)), ys = p.map(q => clamp(q[1], 0, h));
@@ -74,6 +75,7 @@ const WK_BG = {wd:['#fff6dd', '#ffe9b8'], sat:['#d8ecff', '#a9d2ff'], sun:['#ffd
   const back = first === 'sun' ? d0.getDay() : (d0.getDay() + 6) % 7;
   return [...Array(7)].map((_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() - back + i));
 }
+/** @param {Date} d @param {{fmt: string, paren: string, show: string, layout: string}} wk */
 function weekLabel(d, wk){
   let w = wk.fmt === 'en' ? WK_EN[d.getDay()] : wk.fmt === 'ja3' ? WK_JA[d.getDay()] + '曜日' : WK_JA[d.getDay()];
   const dt = `${d.getMonth() + 1}/${d.getDate()}`;
@@ -118,15 +120,16 @@ function addCollage(){
   toast('分割フレームを追加しました。マスに画像をドロップするか、左の「マスの画像」から選んでください');
 }
 // マスに画像を入れる。位置・大きさ・回転・反転は初期化し、背景・文字・効果は残す（古い保存データのマスに fx が無くても補う）
-/** @param {CollageLayer} L */
+/** @param {CollageLayer} L @param {number} i @param {File} file */
 async function collageSetCell(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
   L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false});
 }
 // ドロップ位置のマス、なければ選択中の分割フレームの空いているマスに順に入れる。残りを返す
+/** @param {File[]} files @param {number|null} [cx] @param {number} [cy] @returns {Promise<File[]>} */
 async function collageTakeFiles(files, cx, cy){
   let rest = files.slice();
-  if(DOC.mode === 'thumb' && cx != null){
+  if(DOC.mode === 'thumb' && cx != null && cy != null){
     const r = $('#tv').getBoundingClientRect();
     if(cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom){
       const x = (cx - r.left) / r.width * DOC.w, y = (cy - r.top) / r.height * DOC.h;
@@ -134,7 +137,7 @@ async function collageTakeFiles(files, cx, cy){
       const S0 = selLayer(), L = S0 && S0.type === 'collage' && !S0.hidden && collageCellAt(S0, x, y) >= 0 ? S0 : null;
       if(L){
         let i = collageCellAt(L, x, y); const n = collageN(L);
-        while(rest.length && i < n){ await collageSetCell(L, i, rest.shift()); L.ac = i; i++; while(i < n && assetOf(L.cells[i].asset)) i++; }
+        while(rest.length && i < n){ await collageSetCell(L, i, /** @type {File} */ (rest.shift())); L.ac = i; i++; while(i < n && assetOf(L.cells[i].asset)) i++; }
         selectLayer(L.id); docChanged(false); toast('分割フレームのマスに画像を入れました');
         return rest;
       }
@@ -143,13 +146,14 @@ async function collageTakeFiles(files, cx, cy){
   const C = cx == null ? selLayer() : null;   // ドロップのときは、ここでは入れない（選んでいても、落とした位置がマスの外なら画像レイヤーにする）
   if(C && C.type === 'collage'){
     const n = collageN(C); let filled = 0;
-    for(let i = 0; i < n && rest.length; i++) if(!assetOf(C.cells[i].asset)){ await collageSetCell(C, i, rest.shift()); C.ac = i; filled++; }
+    for(let i = 0; i < n && rest.length; i++) if(!assetOf(C.cells[i].asset)){ await collageSetCell(C, i, /** @type {File} */ (rest.shift())); C.ac = i; filled++; }
     if(filled){ docChanged(false); toast(`分割フレームの空いているマスに ${filled} 枚入れました`); }
   }
   return rest;
 }
 
 // マスの中の画像を、回転・反転して描く
+/** @param {CanvasRenderingContext2D} x @param {CanvasImageSource} img @param {number} cx @param {number} cy @param {number} dw @param {number} dh @param {CollageCell} cell */
 function cellImg(x, img, cx, cy, dw, dh, cell){
   if(!cell.rot && !cell.flip && !cell.flipV){ x.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh); return; }
   x.save(); x.translate(cx, cy); x.rotate((cell.rot || 0) * PI / 180); x.scale(cell.flip ? -1 : 1, cell.flipV ? -1 : 1); x.drawImage(img, -dw / 2, -dh / 2, dw, dh); x.restore();
@@ -159,10 +163,10 @@ function cellImg(x, img, cx, cy, dw, dh, cell){
 const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
 /** @param {CollageLayer} L @param {number} i @param {number} j */ function swapCells(L, i, j){
   if(i === j || i < 0 || j < 0) return;
-  const a = L.cells[i], b = L.cells[j];
+  const a = /** @type {Record<string, any>} */ (L.cells[i]), b = /** @type {Record<string, any>} */ (L.cells[j]);
   for(const k of CELL_IMG_KEYS){ const t = a[k]; a[k] = b[k]; b[k] = t; }
   L.ac = j;
 }
-/** @param {CollageLayer} L @param {string | number} i */ function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
+/** @param {CollageLayer} L @param {number} i */ function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
 return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell};
 })();

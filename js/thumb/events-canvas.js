@@ -14,10 +14,10 @@
    Shift/Ctrl+クリックで複数選択 → 通常のヒット判定 → 何も無ければ背景。pointermove が drag.mode ごとに値を更新し、pointerup（end）で確定する。 */
 {
   const tv = $('#tv');
-  const toDoc = e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };
+  const toDoc = /** @param {{clientX: number, clientY: number}} e */ e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };
   // 選択中レイヤーのハンドルの上か。'rot'（回転）／'scale'（四隅）／null。当たり半径は画面上の 11px・10px（描画サイズより少し大きく、掴みやすくしている）。
   // 複数選択・ロック中は出さない
-  const handleAt = (x, y) => {
+  const handleAt = /** @param {number} x @param {number} y */ (x, y) => {
     if(DOC.msel && DOC.msel.length >= 2) return null;
     const L = selLayer(), g = L && !L.hidden && !L.locked && layerGeom(L); if(!g) return null;
     const px = DOC.w / tvCss;
@@ -122,6 +122,7 @@
   tv.addEventListener('pointerup', end); tv.addEventListener('pointercancel', end);
   // wheelGrp：グループをホイールで拡大縮小している間の基準（開始時の状態 s と累積倍率 k）。
   // 位置を整数に丸めて保存するので、毎回の差分を掛けると誤差が積もる。500ms 以内の連続ホイールは最初の状態から数える
+  /** @type {{id: string, t: number, k: number, s: ReturnType<typeof xformSnap>}|null} */
   let wheelGrp = null;
   // ホイール：優先順位は 編集モード → グループ → レイヤー → 背景画像。k = exp(-deltaY×0.0015) で、トラックパッドの細かい値でもなめらかに拡大縮小する
   tv.addEventListener('wheel', e => {
@@ -130,8 +131,8 @@
     if(editWheel(e, x, y, k)) return;
     if(L && isGroup(L)){   // 位置を整数に丸めるので、ホイールの間は最初の状態から数えて拡大縮小する
       if(L.id !== DOC.sel) selectLayer(L.id);
-      const now = performance.now(), w = wheelGrp; if(!w || w.id !== L.id || now - w.t > 500) wheelGrp = {id:L.id, t:now, k:1, s:xformSnap([L], L.x, L.y)};
-      wheelGrp.t = now; wheelGrp.k = clamp(wheelGrp.k * k, 0.2, 5); xformApply(wheelGrp.s, 0, 0, wheelGrp.k, 0);
+      const now = performance.now(); let w = wheelGrp; if(!w || w.id !== L.id || now - w.t > 500) w = wheelGrp = {id:L.id, t:now, k:1, s:xformSnap([L], L.x, L.y)};
+      w.t = now; w.k = clamp(w.k * k, 0.2, 5); xformApply(w.s, 0, 0, w.k, 0);
     }
     else if(L){ if(L.id !== DOC.sel) selectLayer(L.id); L.sc = Math.round(clamp(L.sc * k, 0.05, 10) * 1000) / 1000; }
     else if(DOC.bg.type === 'image' && assetOf(DOC.bg.asset)){

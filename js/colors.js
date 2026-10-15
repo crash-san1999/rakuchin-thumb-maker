@@ -35,14 +35,15 @@ var {mixHex, contrast, randomLike, resetAdj, renderThemes, paletteFromBg} = (() 
   return rgb2hex([f(0), f(8), f(4)]);
 }
 // 2色の線形補間（t=0 で a、t=1 で b）。RGB 空間での単純な混色
-const mixHex = (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex(A.map((v, i) => v + (B[i] - v) * t)); };
+const mixHex = /** @param {string} a @param {string} b @param {number} t */ (a, b, t) => { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex(A.map((v, i) => v + (B[i] - v) * t)); };
 // 相対輝度とコントラスト比は WCAG 2.x の定義どおり（0.03928 / 2.4 は sRGB のガンマ補正の閾値・指数）。contrast は 1〜21
 /** @param {string} hex */ function lum(hex){ const c = hex2rgb(hex).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
-const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const contrast = /** @param {string} a @param {string} b */ (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
 /* パレット = [塗り, 塗り2, 強調, 強調2, 濃い色(フチ), 明るい色(2本目フチ), 深い色(立体), 光, 背景図形] */
 // ↑この9色の並びは toP()／applyPalette() の P.base〜P.bg と対応している。並びを変えるときは toP・renderThemes（バーに使う添字 0,1,2,4,7）も合わせて直すこと
 // THUMB_PALETTES は用途別（説明文つき）、THEME_PALETTES は雰囲気別（説明は空文字。renderThemes は説明が空だと <small> を出さず、title に名前を使う）。[名前, 説明, 9色]
+/** @type {Array<[string, string, string[]]>} */
 const THUMB_PALETTES = [
   ['注目度MAX', 'どんな背景でも目立つ黄×黒', ['#ffe600','#ffc400','#ffffff','#fff3a0','#111111','#ffffff','#2a2a2a','#ffe600','#111111']],
   ['警告・緊急', '事件・注意喚起・ヤバい', ['#ffffff','#ffe0e0','#ff1f3d','#ff6a00','#111111','#ff1f3d','#5a0010','#ff1f3d','#ff1f3d']],
@@ -57,6 +58,7 @@ const THUMB_PALETTES = [
   ['初見歓迎', '初心者向け・爽やか', ['#ffffff','#c9ffe9','#00c897','#ffd166','#004d40','#ffffff','#00695c','#55efc4','#00c897']],
   ['高級・限定', 'プレミア・特別回', ['#fff6c2','#d4a017','#ffffff','#ffe9a0','#0b0b0b','#d4a017','#1a1200','#ffd24d','#0b0b0b']],
 ];
+/** @type {Array<[string, string, string[]]>} */
 const THEME_PALETTES = [
   ['格ゲー熱血', '', ['#ffffff','#ffe14d','#ff3b3b','#ffb000','#141414','#ff2d55','#6a0018','#ff6a00','#ffe600']],
   ['クールブルー', '', ['#ffffff','#6fcbff','#ffe066','#ffb700','#0a2a5c','#ffffff','#06183a','#4fc3ff','#1e7bd6']],
@@ -76,15 +78,15 @@ const THEME_PALETTES = [
   ['スモーキー', '', ['#f2ede4','#c9b8a6','#8fa3a6','#d9a5a0','#3b3a38','#ffffff','#55504a','#e6d5c3','#8fa3a6']],
 ];
 // 配列形式のパレットを applyPalette が読む名前つきオブジェクトに変換
-const toP = a => ({base:a[0], base2:a[1], accent:a[2], accent2:a[3], dark:a[4], light:a[5], deep:a[6], glow:a[7], bg:a[8]});
+const toP = /** @param {string[]} a */ a => ({base:a[0], base2:a[1], accent:a[2], accent2:a[3], dark:a[4], light:a[5], deep:a[6], glow:a[7], bg:a[8]});
 
 // ランダム配色。mode は色相の関係（comp=補色 / analog=類似 / triad=3色 / mono=同系 / vivid・pastel・dark・mono_accent）。'auto' は重み付きで抽選（comp と vivid を2回入れて出やすくしている）。
 // 戻り値は toP() と同じ形のオブジェクト。シードを使わず Math.random なので再現性はない（やり直したい時は履歴 history.js から戻す）。
 /** @param {string} mode */ function genPalette(mode){
-  const R = Math.random, j = a => (R() * 2 - 1) * a;   // j(a): ±a の揺らぎ
+  const R = Math.random, j = /** @param {number} a */ a => (R() * 2 - 1) * a;   // j(a): ±a の揺らぎ
   if(mode === 'auto'){ const ms = ['comp','analog','triad','mono','vivid','pastel','dark','mono_accent','comp','vivid']; mode = ms[Math.floor(R() * ms.length)]; }
   const h = R() * 360;
-  const hA = {comp:h + 180, analog:h + 35, triad:h + 120, mono:h, vivid:h + 150 + j(40), pastel:h + 180 + j(40), dark:h + 160 + j(40), mono_accent:h}[mode];
+  const hA = /** @type {Record<string, number>} */ ({comp:h + 180, analog:h + 35, triad:h + 120, mono:h, vivid:h + 150 + j(40), pastel:h + 180 + j(40), dark:h + 160 + j(40), mono_accent:h})[mode];
   const s = 85 + j(10);   // 彩度は高め固定（サムネは目立つ色が前提）
   // pastel / dark / mono_accent は明るさの設計が全く違うので、共通式に入る前に個別に返す
   if(mode === 'pastel') return {base:hsl(h,70,88), base2:hsl(h+20,75,74), accent:hsl(hA,85,68), accent2:hsl(hA+20,85,58), dark:hsl(h,55,28), light:'#ffffff', deep:hsl(h,50,40), glow:hsl(hA,90,75), bg:hsl(hA,80,85)};
@@ -100,6 +102,7 @@ const toP = a => ({base:a[0], base2:a[1], accent:a[2], accent2:a[3], dark:a[4], 
 }
 // パレット P を S（文字スタイル）の各色欄へ割り当てる。「塗りを固定」(#lockFill) が入っていれば塗り・強調色は触らない。
 // 色欄の対応はここが唯一の定義。新しい装飾の色欄を足したらここにも足さないとパレット適用で色が変わらない。
+/** @param {ReturnType<typeof toP>} P */
 function applyPalette(P){
   resetAdj();   // 一括調整のスライダーは新しい色を基準に取り直すので、先に 0 に戻す
   if(!$as('#lockFill', HTMLInputElement).checked){ S.fill1 = P.base; S.fill2 = P.base2; S.fill3 = mixHex(P.base, '#ffffff', 0.5); S.accent1 = P.accent; S.accent2 = P.accent2; }
@@ -118,6 +121,7 @@ function applyPalette(P){
 }
 // S を再帰的にたどり、"#rrggbb" 形式の文字列を持つキーのパス（例 'shadow.c'、'strokes.0.c'）を全部集める。
 // 色欄の追加時に登録漏れが起きないよう、色欄の一覧は持たず値の形で判定している（そのため色以外の文字列は #rrggbb にしないこと）
+/** @param {Record<string, any>} [o] @param {string} [pre] @param {string[]} [out] @returns {string[]} */
 function colorPaths(o = S, pre = '', out = []){
   for(const k in o){
     const v = o[k], p = pre ? pre + '.' + k : k;
@@ -129,6 +133,7 @@ function colorPaths(o = S, pre = '', out = []){
 /* 色相・彩度・明るさの一括調整（動かし始めた時点の色を基準にする） */
 // adjBase: 調整を始めた時点の [パス, 色] の一覧。毎回この基準から計算し直すことで、スライダーを往復しても色が劣化・累積しない。
 // 他の操作（パレット適用・色欄の手動変更・履歴の復元など）で色が変わったら、基準が古くなるので resetAdj() で捨てる必要がある。
+/** @type {Array<[string, string]>|null} */
 let adjBase = null;
 function resetAdj(){
   if(!adjBase) return; adjBase = null;
@@ -136,7 +141,7 @@ function resetAdj(){
 }
 function showAdj(){ $('#oH').textContent = $as('#adjH', HTMLInputElement).value + '°'; $('#oS').textContent = $as('#adjS', HTMLInputElement).value; $('#oL').textContent = $as('#adjL', HTMLInputElement).value; ['H','S','L'].forEach(k => paintRange($as('#adj' + k, HTMLInputElement))); }
 ['H','S','L'].forEach(k => $as('#adj' + k, HTMLInputElement).addEventListener('input', () => {
-  if(!adjBase) adjBase = colorPaths().map(p => [p, getK(p)]);
+  if(!adjBase) adjBase = colorPaths().map(p => /** @type {[string, string]} */ ([p, getK(p)]));
   const dh = +$as('#adjH', HTMLInputElement).value, ds = +$as('#adjS', HTMLInputElement).value, dl = +$as('#adjL', HTMLInputElement).value;
   // 彩度は「残りの余地」に対する割合で増減（+側は 100-s、-側は s）。これで 0〜100 を超えず、すでに鮮やかな色が飽和しきらない
   adjBase.forEach(([p, c]) => { const [h, s, l] = hexToHsl(c); setK(p, hsl(h + dh, s + ds * (ds > 0 ? (100 - s) / 100 : s / 100), l + dl)); });
@@ -155,7 +160,7 @@ $('#shuffle').onclick = () => {
     if(sc > bestScore){ best = P; bestScore = sc; }
     if(sc >= 5) break;
   }
-  applyPalette(best);
+  if(best) applyPalette(best);
 };
 
 /* パレット一覧 */
@@ -181,9 +186,10 @@ $('#ttabs').addEventListener('click', e => {
 bgImg = null; wantBgPalette = false;
 // 画像を 72x72 に縮小して k-means（k=6, 10回）で代表色を取る。戻り値は画素数の多い順の [{hex, n}]。
 // 縮小は速度優先（色の傾向だけ分かればよい）。rng(9) 固定シードなので同じ画像なら毎回同じ結果になる。透明に近い画素(alpha<=200)は除外。
+/** @param {CanvasImageSource} img @param {number} [k] */
 function extractColors(img, k = 6){
   const c = mk(72, 72), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, 0, 0, 72, 72);
-  const d = x.getImageData(0, 0, 72, 72).data, px = [];
+  const d = x.getImageData(0, 0, 72, 72).data, /** @type {number[][]} */ px = [];
   for(let i = 0; i < d.length; i += 4) if(d[i + 3] > 200) px.push([d[i], d[i+1], d[i+2]]);
   if(!px.length) return [];
   const R = rng(9); let cent = [...Array(k)].map(() => px[Math.floor(R() * px.length)].slice());
@@ -200,6 +206,7 @@ function extractColors(img, k = 6){
 // 前提：bgImg が読み込み済みであること（呼び出し側が onload 後に呼ぶ）。
 // 支配色(dh, dl)＝最も多い色。強調候補は「彩度 × √画素数」が最大の色（鮮やかさと面積のバランス。面積だけだと灰色の広い面が勝つため）
 function paletteFromBg(){
+  if(!bgImg) return;
   const cl = extractColors(bgImg); if(!cl.length) return;
   const [dh, , dl] = hexToHsl(cl[0].hex);
   const vivid =cl.slice().sort((a, b) => hexToHsl(b.hex)[1] * Math.sqrt(b.n) - hexToHsl(a.hex)[1] * Math.sqrt(a.n))[0];

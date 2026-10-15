@@ -17,7 +17,7 @@
   // 書き出し用の描画：live=false（高品質）、キャッシュは使い捨ての new Map()（プレビュー用 prevCache と倍率が違うので混ぜない）。
   // exporting は書き出し中だけ true にする目印（collage-draw.js が、画像の無い空きマスの目印表示を書き出しには出さないために見る）。例外でも必ず戻す
   exporting = true; try{ compose(ctx2d(c), W, H, false, new Map()); } finally { exporting = false; }
-  const toB = (t, q) => new Promise(r => c.toBlob(r, t, q));
+  const toB = /** @param {string} t @param {number} [q] @returns {Promise<Blob|null>} */ (t, q) => new Promise(r => c.toBlob(r, t, q));
   if(fmt === 'png') return toB('image/png');
   // YouTube のサムネ上限は 2MB。limit2mb のときは、品質を 0.08 ずつ下げて収まるまで再圧縮する（下限 0.45。それ以下は画質劣化が目立つので諦める）
   let q = 0.93, b = await toB('image/jpeg', q);
@@ -37,6 +37,7 @@ async function exportThumb(){
 
 // DOC を丸ごと差し替える（プロジェクトを開く・新規作成）。呼ぶ前に、DOC が参照する画像アセットは addAsset 済みであること。
 // 描画キャッシュ・寸法記録は前の DOC のレイヤーid のものなので捨て、最後に履歴へ積む（取り消しで元の DOC に戻せる）
+/** @param {any} d */
 function loadDocObj(d){
   DOC = normalizeDoc(d);
   const T = textLayer(); if(T) S = T.style;
@@ -45,6 +46,7 @@ function loadDocObj(d){
 }
 /* 共有（スマホ：写真アプリに保存できる） */
 // 戻り値 true＝共有で処理済み（共有をキャンセルした場合も true：ユーザーの意思なのでダウンロードに回さない）。false＝非対応・失敗なので呼び出し側でダウンロードする
+/** @param {Blob} blob @param {string} name */
 async function shareFile(blob, name){
   if(!isMobile || !navigator.canShare) return false;
   const file = new File([blob], name, {type: blob.type});

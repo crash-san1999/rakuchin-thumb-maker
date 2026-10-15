@@ -20,7 +20,7 @@ $('#helpBtn').onclick = openHelp;
 const logLatest = () => CHANGELOG[0].d + '|' + CHANGELOG[0].t;
 // 履歴の文は HTML として差し込むので、< > & だけは変換してから入れる（履歴の本文にタグを書いても表示が崩れない）。開いた時点で既読にする
 function openLog(){
-  $('#logBody').innerHTML = CHANGELOG.map(e => `<h4>${e.d.replace(/-/g, '/')}　${e.t}</h4><ul class="loglist">${e.items.map(i => `<li>${i.replace(/[<>&]/g, c => ({'<':'&lt;', '>':'&gt;', '&':'&amp;'}[c]))}</li>`).join('')}</ul>`).join('');
+  $('#logBody').innerHTML = CHANGELOG.map(e => `<h4>${e.d.replace(/-/g, '/')}　${e.t}</h4><ul class="loglist">${e.items.map(i => `<li>${i.replace(/[<>&]/g, c => /** @type {Record<string, string>} */ ({'<':'&lt;', '>':'&gt;', '&':'&amp;'})[c])}</li>`).join('')}</ul>`).join('');
   $('#logModal').classList.add('show'); LS.set('ttm_seenLog', logLatest()); $('#helpBtn').classList.remove('has-new');
 }
 const closeLog = () => $('#logModal').classList.remove('show');

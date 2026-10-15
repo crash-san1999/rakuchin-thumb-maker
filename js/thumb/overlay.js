@@ -20,21 +20,21 @@ function layerGeom(L){
   const px = DOC.w / tvCss, off = d.h / 2 + 30 * px, m = 14 * px;
   let rot = [L.x + off * s, L.y - off * c];
   // 回転ハンドルは通常レイヤーの「上側」だが、キャンバスの端からはみ出して掴めなくなるときは反対側へ、それも無理なら端に寄せる
-  const inside = q => q[0] > m && q[0] < DOC.w - m && q[1] > m && q[1] < DOC.h - m;
+  const inside = /** @param {number[]} q */ q => q[0] > m && q[0] < DOC.w - m && q[1] > m && q[1] < DOC.h - m;
   if(!inside(rot)){ const alt = [L.x - off * s, L.y + off * c]; rot = inside(alt) ? alt : [clamp(rot[0], m, DOC.w - m), clamp(rot[1], m, DOC.h - m)]; }
   return {pts, d, a, rot};
 }
 // 背景効果の中心 ◎ を出す条件：DOC.guides.fx がオン、かつ中心を使う効果（ズームブラー・周辺減光）が有効、
 // かつレイヤー未選択か、中心スライダー操作中（fxEditing）。レイヤー操作の邪魔をしないため
 const fxHandleOn = () => DOC.guides.fx && (((DOC.bg.type === 'image' && DOC.bg.zb.on) || DOC.bg.vignette > 0) && (!DOC.sel || fxEditing));
-let fxEditing = false, fxEditT = null;
+let fxEditing = false, fxEditT = 0;
 // 中心のスライダーを動かしている間だけ、背景効果の中心 ◎ を表示する
 function showFxCenterBriefly(){ fxEditing = true; clearTimeout(fxEditT); fxEditT = setTimeout(() => { fxEditing = false; paintPreview(false); }, 1500); }
 // ヘッダー画像のセーフエリア：どの端末でも見える中央の枠の外を暗くし、端末ごとの見える範囲を枠で示す（プレビューだけ。書き出しには入らない）
 /** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} dpr @param {number} f */ function drawSafeArea(ctx, W, H, dpr, f){
   const sp = HEADER_SPECS[DOC.hdr]; if(!sp) return;
-  const box = a => [(W - a.w * f) / 2, (H - a.h * f) / 2, a.w * f, a.h * f];
-  const main = sp.areas.find(a => a.main), [mx, my, mw, mh] = box(main);
+  const box = /** @param {{w: number, h: number}} a */ a => [(W - a.w * f) / 2, (H - a.h * f) / 2, a.w * f, a.h * f];
+  const main = /** @type {{w: number, h: number}} */ (sp.areas.find(a => a.main)), [mx, my, mw, mh] = box(main);   // どの機種の表にも main が 1 つある
   ctx.save();
   ctx.fillStyle = 'rgba(20,16,40,.45)'; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.rect(mx, my, mw, mh); ctx.fill('evenodd');   // 外側を暗く
   ctx.font = `800 ${11 * dpr}px "M PLUS Rounded 1c", sans-serif`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -88,7 +88,7 @@ function showFxCenterBriefly(){ fxEditing = true; clearTimeout(fxEditT); fxEditT
   }
   if(drawEditOverlay(ctx, W, H, dpr)){ ctx.restore(); return; }
   // outline：レイヤー1枚の回転込みの輪郭を点線などでなぞる（枠だけ。ハンドルは付けない）
-  const outline = (l, col, dash) => { const q = l && !l.hidden && layerGeom(l); if(!q) return; ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash(dash.map(v => v * dpr)); ctx.beginPath(); q.pts.forEach(([x, y], i) => i ? ctx.lineTo(x * f, y * f) : ctx.moveTo(x * f, y * f)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); };
+  const outline = /** @param {Layer|null|undefined} l @param {string} col @param {number[]} dash */ (l, col, dash) => { const q = l && !l.hidden && layerGeom(l); if(!q) return; ctx.strokeStyle = col; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash(dash.map(v => v * dpr)); ctx.beginPath(); q.pts.forEach(([x, y], i) => i ? ctx.lineTo(x * f, y * f) : ctx.moveTo(x * f, y * f)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); };
   if((DOC.msel || []).length >= 2){   // 複数選択：選んだレイヤーそれぞれに枠（動かすだけ。まとめて拡大縮小するにはグループにする）
     DOC.msel.forEach(id => outline(layerById(id), '#ff4f8b', [6, 4]));
     ctx.restore(); return;

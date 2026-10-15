@@ -58,17 +58,17 @@ document.addEventListener('click', e => {
     syncDoc(); docChanged(false); return;
   }
   const afb = tgt(e).closest('[data-addfx]');
-  if(afb){ addFx(afb.dataset.addfx); return; }
+  if(afb){ addFx(afb.dataset.addfx ?? ''); return; }
   const fx = tgt(e).closest('[data-bgfx]');
-  if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
+  if(fx){ const withLayers = applyBgFx(fx.dataset.bgfx ?? ''); toast(fx.dataset.bgfx === 'reset' ? '背景エフェクトをリセットしました（自分で追加した動的エフェクトはそのまま）' : `「${fx.textContent}」を適用しました` + (withLayers ? '（集中線や光はレイヤーとして追加。ドラッグで動かせます）' : '')); return; }
   const ffx = tgt(e).closest('[data-finfx]');
-  if(ffx){ applyFinPreset(ffx.dataset.finfx); toast(ffx.dataset.finfx === 'reset' ? '仕上げエフェクトを外しました' : `仕上げ「${ffx.textContent}」をかけました（「仕上げ」タブで調整できます）`); return; }
+  if(ffx){ applyFinPreset(ffx.dataset.finfx ?? ''); toast(ffx.dataset.finfx === 'reset' ? '仕上げエフェクトを外しました' : `仕上げ「${ffx.textContent}」をかけました（「仕上げ」タブで調整できます）`); return; }
   const gb = tgt(e).closest('[data-guide]');
-  if(gb){ DOC.guides[gb.dataset.guide] = !DOC.guides[gb.dataset.guide]; syncDoc(); saveDoc(); paintPreview(false); return; }
+  if(gb){ const G = /** @type {Record<string, boolean>} */ (DOC.guides), k = gb.dataset.guide ?? ''; G[k] = !G[k]; syncDoc(); saveDoc(); paintPreview(false); return; }
   const mb = tgt(e).closest('[data-mode]');
-  if(mb){ setMode(mb.dataset.mode); return; }
+  if(mb){ setMode(mb.dataset.mode ?? ''); return; }
   const tb = tgt(e).closest('#tabs [data-page]');
-  if(tb){ setPage(tb.dataset.page); return; }
+  if(tb){ setPage(tb.dataset.page ?? ''); return; }
   if(tgt(e).closest('#insDesel')){ selectLayer(null); return; }
 });
 // レイヤーの追加・設定パネルのボタン（元はレイヤーパネルのブロックの中にあったもの）
@@ -90,7 +90,7 @@ $('#bgimgfile').onchange = e => { const f = (inputOf(e).files || [])[0]; if(f) s
 // 形式：{app:'rakuchin-thumb', v:1, doc:DOC, assets:{アセットid: dataURL}}。DOC は画像本体を持たない（id だけ）ので、
 // 使っている画像（usedAssets）の本体をここで同梱する。素材置き場のバックアップ（app:'rakuchin-thumb-maker', type:'library'）とは別形式
 function saveProject(){
-  const used = usedAssets(), assets = {};
+  const used = usedAssets(), /** @type {Record<string, string>} */ assets = {};
   used.forEach(id => { const A = id ? assetOf(id) : undefined; if(id && A) assets[id] = A.src; });
   const blob = new Blob([JSON.stringify({app:'rakuchin-thumb', v:1, doc:DOC, assets})], {type:'application/json'});
   downloadBlob(blob, `rakuchin-thumb-project_${stamp()}.json`);

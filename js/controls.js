@@ -177,8 +177,8 @@ const SECTIONS = [
 // 文字スタイル（S）用の入力欄のつなぎ込み
 // getK/setK：'strokes.0.c' のようにドット区切りで配列の添字も辿れる。S は差し替わることがある（レイヤー切替・履歴復元）ので、
 // 値を保持せず呼ぶたびに今の S を参照する。getK は途中が無ければ undefined、setK は途中が無いと例外になる（パネル定義のキーが S に無い場合）。
-/** @param {string} k @returns {any} */ const getK = k => k.split('.').reduce((o, p) => o?.[p], S);
-/** @param {string} k @param {any} v */ function setK(k, v){ const ps = k.split('.'); const last = /** @type {string} */ (ps.pop()); ps.reduce((o, p) => o[p], S)[last] = v; }
+/** @param {string} k @returns {any} */ const getK = k => k.split('.').reduce((/** @type {any} */ o, p) => o?.[p], S);
+/** @param {string} k @param {any} v */ function setK(k, v){ const ps = k.split('.'); const last = /** @type {string} */ (ps.pop()); ps.reduce((/** @type {any} */ o, p) => o[p], S)[last] = v; }
 // 文字が変わったときのフォント一覧の見本の更新を、まとめて 1 回にするためのタイマー
 let sampleT = 0;
 const KB = makeBinder({val:'k', seg:'seg', show:'show', reroll:'reroll', get:getK,
@@ -265,7 +265,7 @@ $('#savePreset').onclick = () => {
 $('#resetAll').onclick = () => {
   if(!confirm('スタイルを初期状態に戻しますか？（文字はそのまま）')) return;
   // S 自体を新しいオブジェクトに替えず、キーを全部消して DEFAULT のコピーを入れ直す（レイヤーの style と同一参照を保つため）
-  const text = S.text; for(const k of Object.keys(S)) delete S[k]; Object.assign(S, clone(DEFAULT), {text});
+  const text = S.text; for(const k of Object.keys(S)) delete /** @type {Record<string, any>} */ (S)[k]; Object.assign(S, clone(DEFAULT), {text});
   resetAdj(); refreshTextUI(); schedule(); if(DOC.mode === 'thumb') docChanged(false);
 };
 return {TEXT_ROWS, SECTIONS, getK, setK, buildTextControls, syncUI};

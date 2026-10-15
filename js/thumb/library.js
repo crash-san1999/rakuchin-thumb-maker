@@ -26,20 +26,23 @@ var {LIB_MAX_BYTES, LIB_MAX_ITEM, fmtBytes, libUsed, libItems, myStyles, libChec
 const LIB_MAX_BYTES = 200 * 1048576, LIB_MAX_ITEM = 12 * 1048576, LIB_MAX_COUNT = 500, LIB_WARN = 0.8, LIB_NAME_MAX = 24;
 // libOk：IndexedDB が使えるか（プライベートモードなどで false。false の間は保存系をすべて断る）
 LIB = []; let libTab = LS.get('ttm_libtab', 'img'); let libOk = true;
-const fmtBytes = b => b >= 1048576 ? (b / 1048576).toFixed(b >= 10 * 1048576 ? 0 : 1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';
+const fmtBytes = /** @param {number} b */ b => b >= 1048576 ? (b / 1048576).toFixed(b >= 10 * 1048576 ? 0 : 1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';
 const libUsed = () => LIB.reduce((a, i) => a + (i.bytes || 0), 0);
 const libItems = /** @param {string} kind */ kind => LIB.filter(i => i.kind === kind);
 // 保存済みの文字スタイル（「プリセット」の「マイ」に出るもの）
 const myStyles = () => libItems('style');
 
 // 'lib' ストアへのトランザクション。fn(store) の結果は「トランザクションが完了してから」返す（書き込みが確定する前に成功扱いにしない）
+/** @param {IDBTransactionMode} mode @param {(st: IDBObjectStore) => IDBRequest|void} fn @returns {Promise<any>} */
 const libTx = (mode, fn) => idb().then(db => new Promise((res, rej) => {
   const tx = db.transaction('lib', mode), r = fn(tx.objectStore('lib'));
   tx.oncomplete = () => res(r && r.result); tx.onerror = tx.onabort = () => rej(tx.error || new Error('保存に失敗しました'));
 }));
-const blobToDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
-const dataUrlToBlob = u => { const [h, d] = u.split(','), mime = (h.match(/:(.*?);/) || [])[1] || 'image/png', bin = atob(d), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type: mime}); };
+/** @param {Blob} b @returns {Promise<string>} */
+const blobToDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(/** @type {string} */ (r.result)); r.onerror = rej; r.readAsDataURL(b); });
+const dataUrlToBlob = /** @param {string} u */ u => { const [h, d] = u.split(','), mime = (h.match(/:(.*?);/) || [])[1] || 'image/png', bin = atob(d), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type: mime}); };
 // 縦横比を保って n px 角の中央に収めたサムネ（dataURL）。一覧表示用で、本体を毎回デコードしないため
+/** @param {NatImage} img @param {number} [n] */
 function makeThumb(img, n = 96){
   const c = mk(n, n), x = ctx2d(c), s = Math.min(n / img.naturalWidth, n / img.naturalHeight);
   x.drawImage(img, (n - img.naturalWidth * s) / 2, (n - img.naturalHeight * s) / 2, img.naturalWidth * s, img.naturalHeight * s);
@@ -58,6 +61,7 @@ function makeThumb(img, n = 96){
 }
 /** @param {string | null} msg */ function libFail(msg){ toast(msg, true); libFlash(msg); }
 // 保存の順序：検査 → IndexedDB へ書き込み → 成功したら LIB（メモリ）に追加。先に LIB に入れると、保存失敗なのに画面に残ってしまう
+/** @param {LibItem} item */
 async function libSave(item){
   const why = await libCheck(item.bytes, item.kind); if(why){ libFail(why); return false; }
   try{ await libTx('readwrite', st => st.put(item)); }
@@ -72,9 +76,10 @@ async function libSave(item){
   LIB = LIB.filter(i => i.id !== id); renderLib(); if(typeof renderPresets === 'function') renderPresets();
 }
 // 表示名：拡張子を除き、24 文字までに切る。空なら「無題」
-const libName = s => String(s || '').replace(/\.[^.]+$/, '').trim().slice(0, LIB_NAME_MAX) || '無題';
+const libName = /** @param {any} s */ s => String(s || '').replace(/\.[^.]+$/, '').trim().slice(0, LIB_NAME_MAX) || '無題';
 
 // 同じ名前・同じバイト数の画像は重複とみなして登録しない（簡易判定。中身のハッシュは取らない）
+/** @param {string} src @param {string} name */
 async function libAddImageSrc(src, name){
   const img = await loadImg(src), blob = dataUrlToBlob(src), thumb = makeThumb(img);
   if(LIB.some(i => i.kind === 'img' && i.name === libName(name) && i.size === blob.size)){ toast('同じ画像がすでに登録されています', true); return false; }
@@ -90,8 +95,9 @@ async function libAddImageSrc(src, name){
   if(ok) toast(`${ok}枚を素材に登録しました（使用 ${fmtBytes(libUsed())} ／ ${fmtBytes(LIB_MAX_BYTES)}）`);
 }
 // 文字スタイルの登録。文字内容（text）・余白・大きさ（scale/size）は、適用先ごとに違うので保存しない（スタイルだけを移す）
+/** @param {string} name @param {TextStyle} style */
 async function libAddStyle(name, style){
-  const s = clone(style); for(const k of ['text', 'pad', 'scale', 'size']) delete s[k];
+  const s = /** @type {Record<string, any>} */ (clone(style)); for(const k of ['text', 'pad', 'scale', 'size']) delete s[k];
   if(!s.vertical) for(const k of ['vertical', 'vlat', 'vtcy']) delete s[k];   // 横書きのスタイルは向きを持たない（適用先の向きを変えない）
   const json = JSON.stringify(s);
   const item = {id:'M' + uid(), kind:'style', name:libName(name) || 'マイ設定', s, bytes:json.length * 2 + 200, created:Date.now()};
@@ -99,10 +105,12 @@ async function libAddStyle(name, style){
   return false;
 }
 // 素材の画像をキャンバスに追加。素材置き場の Blob を dataURL にして新しいアセットとして登録する（DOC のアセットは素材置き場とは独立。素材を削除しても作成中のサムネの画像は消えない）
+/** @param {LibItem} it */
 async function libUseImage(it){
   const id = await addAsset(await blobToDataUrl(it.blob), it.name), L = newImageLayer(id, it.name);
   DOC.layers.push(L); selectLayer(L.id); docChanged(false); toast(`「${it.name}」を追加しました`);
 }
+/** @param {LibItem} it */
 function libUseStyle(it){
   applyPreset(it.s); if(DOC.mode === 'thumb') docChanged(false); toast(`文字スタイル「${it.name}」を適用しました`);
 }
@@ -166,7 +174,7 @@ function renderLib(){
   if(libTab === 'img'){
     const it = libItems('img').sort((a, b) => b.created - a.created);
     el.className = 'libgrid';
-    el.innerHTML = it.length ? it.map(i => `<div class="libcard" data-lid="${escapeHtml(i.id)}" title="クリックでキャンバスに追加"><span class="th"><img src="${i.thumb}" alt=""></span><b>${escapeHtml(i.name)}</b><small>${fmtBytes(i.size)}</small><span class="x" data-ldel="${escapeHtml(i.id)}" title="削除">×</span></div>`).join('') : '<p class="libempty">まだ画像がありません。「画像を追加」か、レイヤーを右クリック →「素材に登録」で入れられます。</p>';
+    el.innerHTML = it.length ? it.map(i => `<div class="libcard" data-lid="${escapeHtml(i.id)}" title="クリックでキャンバスに追加"><span class="th"><img src="${i.thumb}" alt=""></span><b>${escapeHtml(i.name)}</b><small>${fmtBytes(i.size ?? 0)}</small><span class="x" data-ldel="${escapeHtml(i.id)}" title="削除">×</span></div>`).join('') : '<p class="libempty">まだ画像がありません。「画像を追加」か、レイヤーを右クリック →「素材に登録」で入れられます。</p>';
   }else{
     const it = libItems('style').sort((a, b) => b.created - a.created);
     el.className = 'libstyles';

@@ -1,14 +1,12 @@
 {
-  "//": "型チェック専用（出力なし）。実行：npx -p typescript tsc -p .  ／ 厳しさは段階的に上げて strict: true を目指す。まだ有効にしていない設定の指摘は tests/strict-budget.json の件数より増やさない（tests/test_strict_budget.py）",
+  "//": "型チェック専用（出力なし）。実行：npx -p typescript tsc -p .  ／ strict: true（null の扱い・引数の型・catch の値など、厳しい設定をすべて有効）。個別にゆるめる設定は足さない（tests/test_typecheck.py が確かめる）",
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
     "target": "es2022",
     "lib": ["es2023", "dom", "dom.iterable"],
-    "strict": false,
-    "useUnknownInCatchVariables": true,
-    "strictNullChecks": true,
+    "strict": true,
     "skipLibCheck": true
   },
   "include": ["js/**/*.js", "types/**/*.js", "types/**/*.d.ts"]

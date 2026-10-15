@@ -12,12 +12,14 @@
 /* ---------- パネル（行の表 → HTML） ---------- */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 // 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {string|null} */
 let curPage;
 var {drowPg, INS_INFO, insCtx, setPage, renderInspector, openInspector, setMode} = (() => {
-const rowPg = (r, bg) => r.pg || (bg ? 'main' : 'base');
-const drowPg = (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
+const rowPg = /** @param {PanelRow} r @param {boolean} [bg] */ (r, bg) => r.pg || (bg ? 'main' : 'base');
+const drowPg = /** @param {PanelRow} r @param {boolean} [bg] */ (r, bg) => `<div data-pg="${rowPg(r, bg)}">${drow(r)}</div>`;
 // 行オブジェクト1つ → HTML。特殊部品（r.layouts など）を先に判定し、どれでもなければ DB.row（スライダー・色・選択など）に任せる。
 // sa は表示条件の属性。部品の外側の枠にも付けて、条件で行ごと隠せるようにする
+/** @param {PanelRow} r */
 function drow(r){
   const sa = r.show ? ` data-dshow="${r.show}"` : '';
   if(r.layouts) return `<div class="row"${sa}><label>${r.l}</label><div class="seg shapes lays" data-dseg="@layout">${[2, 3, 4, 5, 6, 7, 8].flatMap(n => COLLAGE_LAYOUTS.filter(l => l[2](n)).map(([k, t]) => `<button data-v="${k}" data-dshow="@n=${n}" title="${t}"><img src="${collageIcon(k, n)}" alt="${t}"></button>`)).join('')}</div></div>`;
@@ -41,6 +43,7 @@ function drow(r){
 }
 
 // フレーム形状のアイコン（44px の canvas から作る dataURL）。形ごとに1回だけ作って使い回す
+/** @type {Record<string, string>} */
 const shapeIconCache = {};
 /** @param {string} k */ function shapeIcon(k){
   if(shapeIconCache[k]) return shapeIconCache[k];
@@ -51,7 +54,8 @@ const shapeIconCache = {};
 /* ---------- 選んだものに合わせた設定パネル ---------- */
 // curPage：いま開いているページ id。insKey：前回パネルを組んだときの「文脈|レイヤーid」（同じなら組み直さない）。
 // pendingPage：次に開くページの予約（openInspector が指定）。lastPage：文脈ごとに最後に開いたページ（localStorage に保存。選び直したときに同じタブへ戻すため）
-curPage = null; let insKey = ''; let pendingPage = null;
+curPage = null; let insKey = '';
+/** @type {string|null} */ let pendingPage = null;
 const lastPage = LS.get('ttm_pages', {});
 // 文脈（insCtx）ごとのタブ [ページid, 表示名]。ページid の接頭辞が表示領域を決める：
 // txt-＝文字パネル / lay-＝選択中レイヤーの行（#selBox）/ bg-＝背景の行（#bgRows）。後半が行の pg に対応する（SEL_ROWS・BG_ROWS）
@@ -71,9 +75,10 @@ const INS_INFO = {textmode:['text', '文字素材'], text:['text', '文字'], im
 function insCtx(){ if(!DOC || DOC.mode === 'text') return 'textmode'; const L = selLayer(); return L ? L.type : 'bg'; }
 // ページを切り替える。文字パネルは3つのペイン（text / style / design）と、text ペイン内の2つの節（テキスト・フォント）の出し分け、
 // それ以外は #selBox・#bgRows の中の行を pg で出し分ける。切り替えのたびにパネルの先頭へスクロールする
+/** @param {string} page */
 function setPage(page){
   const ctx = insCtx(); curPage = page; lastPage[ctx] = page; LS.set('ttm_pages', lastPage);
-  const pane = {'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'}[page] || 'thumb';
+  const pane = /** @type {Record<string, string>} */ ({'txt-text':'text', 'txt-font':'text', 'txt-style':'style', 'txt-deco':'design'})[page] || 'thumb';
   $$('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === pane));
   const tp = $('.pane[data-pane=text]'), [ts, fs] = $$(':scope > section', tp);
   ts.classList.toggle('secoff', page !== 'txt-text'); fs.classList.toggle('secoff', page !== 'txt-font');
@@ -86,6 +91,7 @@ function setPage(page){
 // パネルの組み直し。選択が変わったとき（insKey が変わったとき）だけタブを作り直す。force=true で必ず作り直す。
 // 見出しの名前は毎回更新する（レイヤー名の変更・文字の編集に追従するため）が、内容が同じなら DOM を触らない。
 // 開くページの優先順：予約（pendingPage）→ 前回その文脈で開いたページ → 先頭のタブ（どれも存在するときだけ）
+/** @param {boolean} [force] */
 function renderInspector(force){
   if(!DOC || !$('#insHead')) return;
   const ctx = insCtx(), L = selLayer(), key = ctx + '|' + (L ? L.id : ''), [icn, typ] = INS_INFO[ctx];
@@ -96,15 +102,17 @@ function renderInspector(force){
   insKey = key;
   const pages = INS_PAGES[ctx];
   $('#tabs').innerHTML = pages.map(([p, t]) => `<button data-page="${p}">${t}</button>`).join('');
-  const has = p => p && pages.some(q => q[0] === p);
+  const has = /** @param {string|null|undefined} p */ p => p && pages.some(q => q[0] === p);
   const want = has(pendingPage) ? pendingPage : has(lastPage[ctx]) ? lastPage[ctx] : pages[0][0];
   pendingPage = null; setPage(want);
   if(isMobile && sheet === 'ins') $('#sheetTitle').textContent = typ;
 }
 // ページを指定して設定パネルを開く（page 省略で、選んだものの既定のページ）
+/** @param {string} [page] */
 function openInspector(page){ pendingPage = page || null; renderInspector(true); if(isMobile) openSheet('ins', true); }
 // モード（'thumb' サムネ作成／'text' 文字だけ透過PNG）の切り替え。silent=true は起動時用で、再描画の予約をしない（直後に初回描画があるため）。
 // 文字モードに入るとき、スマホのシート（レイヤー・追加）は閉じる。ステージが画像背景表示のままサムネモードへ戻る場合は、背景を市松（checker）に戻す
+/** @param {string} m @param {boolean} [silent] */
 function setMode(m, silent){
   DOC.mode = m;
   document.body.classList.toggle('mode-thumb', m === 'thumb'); document.body.classList.toggle('mode-text', m === 'text');

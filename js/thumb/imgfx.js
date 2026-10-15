@@ -21,6 +21,7 @@ const EXTRA_FX_BASE = () => ({
   scan:{on:false, a:0.5, size:4},                                      // 走査線：横の暗い縞（a＝濃さ、size＝縞の間隔 px）
   crt:{on:false, curve:0.25, mask:0.4},                                // ブラウン管：画面のふくらみ（四隅が丸く黒くなる）と RGB の細かい縦じま（mask＝濃さ）                                    // ゆがみ：none / wave（波）/ swirl（渦巻き）/ fisheye（魚眼）/ pinch（すぼめる）。n＝波の数
 });
+/** @type {Array<[string, string]>} */
 const WARP_TYPES = [['none', 'なし'], ['wave', '波'], ['swirl', '渦巻き'], ['fisheye', '魚眼'], ['pinch', 'すぼめる']];
 // どれか1つでも有効か（マス・画像レイヤーで、別キャンバスを作るかどうかの判定に使う）。古いデータで項目が無くても落ちないように ?. で見る
 const extraFxOn = /** @param {any} x */ x => !!x && !!(x.posterize?.on || x.thresh?.on || x.tilt?.on || x.rgb?.on || x.gmap?.on || x.rep?.on || x.sharp > 0 || x.noise > 0 ||
