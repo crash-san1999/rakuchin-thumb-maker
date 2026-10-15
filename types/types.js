@@ -46,6 +46,7 @@
 /** @typedef {ReturnType<typeof DOC_BASE>['bg']} DocBg */
 /** @typedef {ReturnType<typeof FIN_BASE>} DocFin */
 /** @typedef {ReturnType<typeof CELL_FX_BASE>} CellFx */
+/** 画像の追加の効果（imgfx.js の EXTRA_FX_BASE。背景・分割フレームのマス・画像レイヤーの効果に含まれる） @typedef {ReturnType<typeof EXTRA_FX_BASE>} ExtraFx */
 /** @typedef {ReturnType<typeof FRAME_BASE>} Frame */
 /** @typedef {ReturnType<typeof KEY_BASE>} ChromaKey */
 
@@ -99,3 +100,29 @@
  *   pinchStart: (L: T) => any,
  *   pinch: (L: T, st: any, k: number) => void,
  *   overlay: (ctx: CanvasRenderingContext2D, L: T, f: number, dpr: number) => void}} EditMode */
+
+/* 文字の描画エンジン（text-render.js・text-deco.js ほか）の値 */
+/** 文字の一続き（text-render.js の parse）：t＝文字、a＝{ } で囲んだ強調部分か、w＝描いたときの幅（layout が後から入れる） @typedef {{t: string, a: boolean, w?: number}} TextSeg */
+/** 縦書きの 1 マス（vCells の戻り値の 1 つ。各項目は vCells の上の説明）
+ * @typedef {{t: string, a: boolean, w: number, adv: number, ox: number, oy: number, k: number, r90: boolean, gx: number, gy: number, noCenter?: boolean}} VCell */
+/** 横書きの 1 行 @typedef {{segs: TextSeg[], w: number}} HLine */
+/** 縦書きの 1 列（cx＝列の中心x、x0＝列の左端、y0＝列の上端） @typedef {{cells: VCell[], len: number, w: number, segs: VCell[], cx: number, x0: number, y0: number}} VLine */
+/** 文字の並び（layout の戻り値）。v は縦書きの目印
+ * @typedef {{v: true, lines: VLine[], w: number, h: number, lineH: number, ty0: number, ty1: number}
+ *   | {v?: undefined, lines: HLine[], w: number, h: number, lineH: number, ty0: number, ty1: number}} TextLayout */
+/** 描く文字 1 つ（横書きでゆらぎ OFF なら一続きの文字）。glyphs の戻り値。rot・dy・sc はゆらぎ。
+ * 縦書き（vt）は bx,by＝マスの中心、cx,cy＝補正後の描く位置、cw＝字幅、r90＝90度回す、k＝縮小率、gx,gy＝字面中央合わせの補正
+ * @typedef {{t: string, a: boolean, line: number, x: number, y: number, rot?: number, dy?: number, sc?: number} & (
+ *   {vt: true, cw: number, bx: number, by: number, cx: number, cy: number, r90: boolean, k: number, gx: number, gy: number} | {vt?: undefined, cw?: number})} Glyph */
+/** フチ 1 本（w＝内側から累積した太さ、c＝色） @typedef {{w: number, c: string}} StrokeLayer */
+/** renderStyle の段階ごとの関数に渡す値（各項目は renderStyle の中の説明）
+ * @typedef {{scale: number, L: TextLayout, items: Glyph[], cells: Glyph[], dotCells: Glyph[], layers: StrokeLayer[], outer: number, ex: number,
+ *   W: number, H: number, prep: (c: HTMLCanvasElement) => CanvasRenderingContext2D}} StyleVars */
+/** 吹き出しのしっぽの位置（text-plate.js。論理座標）：lc＝吹き出しの中心、rx・ry＝半径、kind＝縁の形、base＝付け根、tip＝先
+ * @typedef {{lc: number[], rx: number, ry: number, kind: string, base: number[], tip: number[]}} TailPts */
+/** 直前に描いた吹き出しの位置（TailPts に、論理座標→背面の絵の変換 m と文字の大きさ size を足したもの） @typedef {TailPts & {m: DOMMatrix, size: number}} PlatePlace */
+/* 画像の絵 */
+/** naturalWidth・naturalHeight を持つ絵（<img>、または同じ名前の値を足した canvas） @typedef {CanvasImageSource & {naturalWidth: number, naturalHeight: number}} NatImage */
+/** 描く画像の入れ物（ASSETS の値、またはトリミング・背景透過・ブラシをかけた絵）。tintColor・tintCanvas はフチ用に色を塗った絵（render.js の tinted）
+ * @typedef {{img: NatImage, name: string, tintColor?: string, tintCanvas?: HTMLCanvasElement}} ImgSrc */
+/** 描画キャッシュの 1 件（layer-paint.js の cacheByScale）。halo は影・光彩の絵（render.js の haloCanvas） @typedef {{sk: string, k: number, c: HTMLCanvasElement, halo?: Map<string, HTMLCanvasElement>}} CacheEntry */

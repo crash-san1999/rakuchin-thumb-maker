@@ -17,12 +17,15 @@ var {cutOn, cutCache, keyNormalize, strokesNormalize, cutSig, cutAutoColor, cutP
 const cutKeyOn = L => !!(L.key && L.key.on);
 /** @param {ImageLayer} L */
 const cutOn = L => cutKeyOn(L) || !!(L.strokes && L.strokes.length);
+/** 背景透過・ブラシの絵（レイヤー id ごと）。bk・sig は作り直すかの印、base は背景透過だけ、fin はブラシまで、applied は描き足した跡
+ * @type {Map<string, {bk: string, base: HTMLCanvasElement|null, fin: HTMLCanvasElement|null, applied: {id: string, n: number}[], obj: ImgSrc|null, sig: string}>} */
 const cutCache = new Map();
 
 // 保存データの読み込み：範囲外・型違いの値を直す
 // KEY_BASE とマージするので、項目が増える前の古い保存データでも既定値で補われる
+/** @param {any} k @returns {ChromaKey} */
 function keyNormalize(k){
-  const o = Object.assign(KEY_BASE(), k && typeof k === 'object' ? k : {}), n = (v, a, b, d) => clamp(isFinite(+v) ? +v : d, a, b);
+  const o = Object.assign(KEY_BASE(), k && typeof k === 'object' ? k : {}), n = /** @param {any} v @param {number} a @param {number} b @param {number} d */ (v, a, b, d) => clamp(isFinite(+v) ? +v : d, a, b);
   o.on = !!o.on; o.c = /^#[0-9a-f]{6}$/i.test(o.c) ? o.c.toLowerCase() : '#00b140';
   o.tol = n(o.tol, 0, 100, 25); o.soft = n(o.soft, 0, 100, 10); o.shrink = n(o.shrink, 0, 8, 0); o.smooth = n(o.smooth, 0, 6, 1);
   o.mode = o.mode === 'all' ? 'all' : 'edge'; o.fringe = o.fringe !== false;
@@ -30,9 +33,10 @@ function keyNormalize(k){
 }
 // 跡の形：{id, m:'e'(消す)|'r'(戻す), r:半径(画像幅比), p:[[x,y]…](画像幅・高さ比)}。
 // 壊れたデータや肥大化への備えで、本数 2000・1本あたり 20000 点まで。座標は画像の少し外（-0.5〜1.5）まで許す（縁をはみ出して塗るため）
+/** @param {any} a @returns {Stroke[]} */
 function strokesNormalize(a){
   if(!Array.isArray(a)) return [];
-  const f = v => clamp(+v || 0, -0.5, 1.5);
+  const f = /** @param {any} v */ v => clamp(+v || 0, -0.5, 1.5);
   return a.filter(s => s && (s.m === 'e' || s.m === 'r') && Array.isArray(s.p) && s.p.length).slice(0, 2000)
     .map(s => ({id:String(s.id || uid()), m:s.m, r:clamp(+s.r || 0.01, 0.0005, 1), p:s.p.slice(0, 20000).filter(q => Array.isArray(q) && q.length >= 2).map(q => [f(q[0]), f(q[1])])}))
     .filter(s => s.p.length);
@@ -48,6 +52,7 @@ function cutSig(L){
 
 /* ---------- 背景色を透明にする ---------- */
 // 画像の四隅から背景色を推定する（中央値）
+/** @param {NatImage} img */
 function cutAutoColor(img){
   const w = img.naturalWidth, h = img.naturalHeight, c = mk(w, h), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, 0, 0);
   const s = Math.max(1, Math.min(6, Math.floor(Math.min(w, h) / 20))), ch = /** @type {number[][]} */ ([[], [], []]);
@@ -56,10 +61,11 @@ function cutAutoColor(img){
     for(let i = 0; i < d.length; i += 4){ if(d[i + 3] < 128) continue; ch[0].push(d[i]); ch[1].push(d[i + 1]); ch[2].push(d[i + 2]); }
   }
   if(!ch[0].length) return null;
-  const med = a => { a.sort((p, q) => p - q); return a[a.length >> 1]; };
+  const med = /** @param {number[]} a */ a => { a.sort((p, q) => p - q); return a[a.length >> 1]; };
   return rgb2hex(ch.map(med));
 }
 // 画像上の1点の色（元の絵のまま）
+/** @param {NatImage} img @param {number} px @param {number} py */
 function cutPixelColor(img, px, py){
   const w = img.naturalWidth, h = img.naturalHeight, X = clamp(Math.round(px), 0, w - 1), Y = clamp(Math.round(py), 0, h - 1);
   const c = mk(1, 1), x = ctx2d(c, {willReadFrequently:true}); x.drawImage(img, X, Y, 1, 1, 0, 0, 1, 1);
@@ -67,6 +73,7 @@ function cutPixelColor(img, px, py){
 }
 // 色指定の透過だけをかけた絵（キャンバス）を作る。img は元の絵を変えず、読み出し専用で使う
 // 処理の順：色の近さ → 透明にする範囲 → 縁を削る → ぼかす → にじみ除去 → アルファ反映。1 画素ずつの処理なので大きい画像では重い（結果は cutSrc でキャッシュ）
+/** @param {NatImage} img @param {ChromaKey} k */
 function keyCanvas(img, k){
   const w = img.naturalWidth, h = img.naturalHeight, n = w * h, c = mk(w, h), x = ctx2d(c, {willReadFrequently:true});
   x.drawImage(img, 0, 0);
@@ -125,15 +132,16 @@ function keyCanvas(img, k){
 
 /* ---------- ブラシ（消す／戻す） ---------- */
 // 1本分の跡を、まだ描いていない点から先だけ描き足す。src は元の絵（戻すとき用）、geo は元の画像のどこを使っているか
+/** @param {HTMLCanvasElement} F @param {NatImage} src @param {Stroke} st @param {number} from @param {{sx: number, sy: number, iw0: number, ih0: number}} geo */
 function strokeApply(F, src, st, from, geo){
   // from-1 から始めるのは、前回の最後の点と線をつなぐため（続きの線が途切れない）
   const pts = from > 0 ? st.p.slice(from - 1) : st.p; if(!pts.length) return;
   const r = Math.max(0.5, st.r * geo.iw0), P = pts.map(q => [q[0] * geo.iw0 - geo.sx, q[1] * geo.ih0 - geo.sy]);
-  const path = c => {
+  const path = /** @param {CanvasRenderingContext2D} c */ c => {
     c.lineCap = c.lineJoin = 'round'; c.lineWidth = r * 2; c.beginPath();
     if(P.length === 1) c.arc(P[0][0], P[0][1], r, 0, 7); else { c.moveTo(P[0][0], P[0][1]); for(let i = 1; i < P.length; i++) c.lineTo(P[i][0], P[i][1]); }
   };
-  const paint = c => { path(c); if(P.length === 1) c.fill(); else c.stroke(); };
+  const paint = /** @param {CanvasRenderingContext2D} c */ c => { path(c); if(P.length === 1) c.fill(); else c.stroke(); };
   const x = ctx2d(F);
   if(st.m === 'e'){ x.save(); x.globalCompositeOperation = 'destination-out'; x.fillStyle = x.strokeStyle = '#000'; paint(x); x.restore(); return; }
   // 戻す：跡の範囲だけ、元の絵を取り出して重ねる
@@ -149,7 +157,7 @@ function strokeApply(F, src, st, from, geo){
 
 /* ---------- 切り取り・背景透過・ブラシをかけた絵 ---------- */
 // S：トリミング済みの絵（{img}）、A：元の画像。トリミングの位置は元の画像の座標に直して使う
-/** @param {ImageLayer} L */
+/** @param {ImageLayer} L @param {ImgSrc} S @param {ImgSrc} A @returns {ImgSrc} */
 function cutSrc(L, S, A){
   const iw = S.img.naturalWidth, ih = S.img.naturalHeight, iw0 = A.img.naturalWidth, ih0 = A.img.naturalHeight;
   const rc = cropOn(L) ? cropRect(L, iw0, ih0) : {sx:0, sy:0}, geo = {sx:rc.sx, sy:rc.sy, iw0, ih0};
@@ -163,18 +171,20 @@ function cutSrc(L, S, A){
   if(strokes.length){
     // これまでの続きから描き足せるか（先頭から同じ跡で、点が増えただけなら描き足す）
     const ok = e.fin && e.applied.length <= strokes.length && e.applied.every((q, i) => strokes[i].id === q.id && strokes[i].p.length >= q.n);
-    if(!ok){ const c = mk(iw, ih); ctx2d(c).drawImage(e.base || S.img, 0, 0); e.fin = c; e.applied = []; }
+    let F = e.fin;
+    if(!ok || !F){ F = mk(iw, ih); ctx2d(F).drawImage(e.base || S.img, 0, 0); e.fin = F; e.applied = []; }
+    const ent = e, dst = F;
     strokes.forEach((st, i) => {
-      const done = e.applied[i] ? e.applied[i].n : 0;
-      if(done < st.p.length){ strokeApply(e.fin, S.img, st, done, geo); e.applied[i] = {id:st.id, n:st.p.length}; }
+      const done = ent.applied[i] ? ent.applied[i].n : 0;
+      if(done < st.p.length){ strokeApply(dst, S.img, st, done, geo); ent.applied[i] = {id:st.id, n:st.p.length}; }
     });
-    fin = e.fin;
+    fin = F;
   }else{ e.fin = null; e.applied = []; }
   // キャンバスに naturalWidth/Height を生やして、<img> と同じ形で扱えるようにする（後続の描画コードは img.naturalWidth を読むため）
   // 注意：fin は e.base／e.fin そのもの（コピーしない）ので、返した絵を呼び出し側で書き換えないこと
-  const cv = fin; cv.naturalWidth = iw; cv.naturalHeight = ih;
-  e.sig = sig; e.obj = {img:cv, name:A.name};
-  return e.obj;
+  const cv = Object.assign(/** @type {HTMLCanvasElement} */ (fin), {naturalWidth: iw, naturalHeight: ih});
+  e.sig = sig; const obj = {img:cv, name:A.name}; e.obj = obj;
+  return obj;
 }
 return {cutOn, cutCache, keyNormalize, strokesNormalize, cutSig, cutAutoColor, cutPixelColor, cutSrc};
 })();

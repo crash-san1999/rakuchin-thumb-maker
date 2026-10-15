@@ -10,9 +10,10 @@
 var {charCells, withCell, BOX_PALETTES, drawBoxes, dotPath, drawExtrude, drawOffsetLayer, innerShadow, addReflection, displace, makeFire, drawDrips, drawHalftone, drawCutLines, drawBulbs, drawSparkles, addTrail} = (() => {
 // ゆらぎ・縦書きは glyphs() がすでに1文字単位なのでそのまま使う。通常の横書きは行の塊（セグメント）を文字ごとに分け、
 // measureText で x を進めて位置を出す（字間 ls を含む幅）。空白は囲み・傍点の対象にしない
+/** @param {Glyph[]} items @returns {Glyph[]} */
 function charCells(items){
   if(RS.jitter.on || RS.vertical) return items.filter(it => it.t.trim());
-  const out = []; mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
+  /** @type {Glyph[]} */ const out = []; mctx.font = fontStr(); mctx.letterSpacing = lsx() + 'px';
   items.forEach(it => {
     let x = it.x;
     for(const ch of it.t){ const cw = mctx.measureText(ch).width; if(ch.trim()) out.push({t:ch, x, y:it.y, a:it.a, line:it.line, cw}); x += cw; }
@@ -21,9 +22,10 @@ function charCells(items){
 }
 // 1文字ぶんの局所座標（原点＝その文字のマス中心、回転・拡大はゆらぎ分）に切り替えて fn を実行する。囲み・傍点がゆらぎや縦書きの文字に追従するための共通処理。
 // 横書きの x に (cw - ls)/2 を使うのは、cw に字間 ls が含まれるため字面の中心に合わせるときに差し引く
+/** @param {CanvasRenderingContext2D} ctx @param {Glyph} c @param {() => void} fn */
 function withCell(ctx, c, fn){
   if(c.vt){ ctx.save(); ctx.translate(c.bx, c.by + (c.dy || 0)); if(c.rot) ctx.rotate(c.rot); if(c.sc) ctx.scale(c.sc, c.sc); fn(); ctx.restore(); return; }
-  ctx.save(); ctx.translate(c.x + (c.cw - RS.ls) / 2, c.y - RS.size * 0.38 + (c.dy || 0));
+  ctx.save(); ctx.translate(c.x + ((c.cw ?? 0) - RS.ls) / 2, c.y - RS.size * 0.38 + (c.dy || 0));
   if(c.rot) ctx.rotate(c.rot); if(c.sc) ctx.scale(c.sc, c.sc);
   fn(); ctx.restore();
 }
@@ -44,6 +46,7 @@ const BOX_PALETTES = [
   ['wa', '和風', ['#b7282e', '#1b1b1b', '#2b5d8a', '#d9a521', '#4f7a3a', '#f3e9d2', '#6b3a8f', '#8a6a4b'], 6],
 ];
 // 使う色（色数ぶん）。壊れた値は脅迫状の色に戻す
+/** @param {TextStyle['box']} b @returns {string[]} */
 function boxPal(b){
   const n = clamp(Math.round(b.pn) || 7, 2, 8), a = (Array.isArray(b.pal) ? b.pal : []).slice(0, n).filter(c => /^#[0-9a-f]{6}$/i.test(c));
   return a.length ? a : RANSOM;
@@ -58,6 +61,7 @@ function boxPal(b){
 }
 // 色の決め方：rand ON＝パレットから（seq なら順番、そうでなければ文字の番号 i と seed から決まる乱数で固定）／OFF＝単色（alt なら交互）。
 // 乱数は呼ぶたびに作り直す rng(i*97+5+seed*13) で、文字の並びが変わっても他の文字の色が連動して変わらない。枠線は塗りより先に描き、太さ×2 で内側が塗りに隠れて外側だけ残る
+/** @param {CanvasRenderingContext2D} ctx @param {Glyph[]} cells */
 function drawBoxes(ctx, cells){
   const b = RS.box, h = RS.size * (0.5 + b.pad), pal = boxPal(b);
   cells.forEach((c, i) => withCell(ctx, c, () => {
@@ -84,10 +88,11 @@ function drawBoxes(ctx, cells){
 // step は 1/scale（実ピクセルで約1px。最小0.25）。1px 刻みなので隙間なく見え、描画回数はおおよそ 厚み×scale 回になるため厚みが大きいほど重い。
 // fade（奥を透明に）は別キャンバス D に距離を灰色の濃淡で描き、最後に E の alpha へ掛けて消す（ピクセル処理なので E/D は実ピクセル）。
 // prep は renderStyle の変換付き ctx 生成関数を受け取る（同じ座標系で描くため）。戻り値 E は A に blit される
+/** @param {StyleVars['prep']} prep @param {number} W @param {number} H @param {Glyph[]} items @param {number} outer @param {number} scale */
 function drawExtrude(prep, W, H, items, outer, scale){
   const e = RS.extrude, ex = e.depth, a = e.angle * PI / 180, step = Math.max(0.25, 1 / scale);
   const E = mk(W, H), x = prep(E), D = e.fade > 0 ? mk(W, H) : null, dx = D ? prep(D) : null;
-  const pass = (c, col, d) => {
+  const pass = /** @param {CanvasRenderingContext2D} c @param {string} col @param {number} d */ (c, col, d) => {
     c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.fillStyle = c.strokeStyle = col; c.lineWidth = outer * 2;
     drawGlyphs(c, items, (it, px, py) => { if(outer > 0) c.strokeText(it.t, px, py); c.fillText(it.t, px, py); });
     c.restore();
@@ -108,10 +113,11 @@ function drawExtrude(prep, W, H, items, outer, scale){
 /* 板ずれ（ずらした影。中抜きにもできる） */
 // ベタ色の文字（＋フチぶんの太り）を (o.x, o.y) ずらして描いたレイヤーを返す。hollow は「太らせた形」から「元の太さの形」を destination-out で抜いて線だけ残す。
 // 背面側に置かれるので、実際の文字・フチは後から上に重なる
+/** @param {StyleVars['prep']} prep @param {number} W @param {number} H @param {Glyph[]} items @param {number} outer */
 function drawOffsetLayer(prep, W, H, items, outer){
   const o = RS.offset, O = mk(W, H), x = prep(O);
   x.translate(o.x, o.y); x.fillStyle = x.strokeStyle = o.c;
-  const sil = lw => { x.lineWidth = lw; drawGlyphs(x, items, (it, px, py) => { if(lw > 0) x.strokeText(it.t, px, py); x.fillText(it.t, px, py); }); };
+  const sil = /** @param {number} lw */ lw => { x.lineWidth = lw; drawGlyphs(x, items, (it, px, py) => { if(lw > 0) x.strokeText(it.t, px, py); x.fillText(it.t, px, py); }); };
   if(o.hollow){ sil((outer + o.w) * 2); x.globalCompositeOperation = 'destination-out'; sil(outer * 2); }
   else sil(outer * 2);
   return O;
@@ -119,6 +125,7 @@ function drawOffsetLayer(prep, W, H, items, outer){
 /* インナーシャドウ（文字の内側に落ちる影） */
 // F（塗りのキャンバス）を直接書き換える。「文字の外側（反転）」に影を落とし、それを source-atop で文字の内側にだけ重ねる、という反転トリック。
 // 実ピクセルで処理（setTransform を単位行列にして貼る）
+/** @param {HTMLCanvasElement} F @param {number} scale */
 function innerShadow(F, scale){
   const s = RS.inner, W = F.width, H = F.height, inv = mk(W, H), ix = ctx2d(inv);
   ix.fillStyle = '#000'; ix.fillRect(0, 0, W, H); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(F, 0, 0);
@@ -128,6 +135,7 @@ function innerShadow(F, scale){
 /* 鏡面反射（下に反転して映す） */
 // B（光彩・影込みの合成結果）の下に body の下端を上下反転して貼り足し、新しいキャンバスを返す（高さが伸びる）。
 // 反転部分は destination-in のグラデで下へ向かって透明にする。反射元は影なしの body を使う（影・光彩まで反射しないため）。gap は scale 倍して実ピクセルに
+/** @param {HTMLCanvasElement} B @param {HTMLCanvasElement} body @param {number} scale */
 function addReflection(B, body, scale){
   const r = RS.reflect, bb = bbox(body); if(!bb) return B;
   const ch = bb.b - bb.t + 1, len = Math.max(1, Math.round(ch * r.len)), gap = Math.round(r.gap * scale), W = B.width;
@@ -148,18 +156,19 @@ function addReflection(B, body, scale){
 /** @param {number} seed */ function makeNoise(seed){
   const R = rng(seed), N = 256, tab = new Float32Array(N * N);
   for(let i = 0; i < tab.length; i++) tab[i] = R();
-  const v = (x, y) => tab[((y & 255) << 8) + (x & 255)];
-  const sm = t => t * t * (3 - 2 * t);
-  const n = (x, y) => {
+  const v = /** @param {number} x @param {number} y */ (x, y) => tab[((y & 255) << 8) + (x & 255)];
+  const sm = /** @param {number} t */ t => t * t * (3 - 2 * t);
+  const n = /** @param {number} x @param {number} y */ (x, y) => {
     const xi = Math.floor(x), yi = Math.floor(y), xf = sm(x - xi), yf = sm(y - yi);
     const a = v(xi, yi), b = v(xi + 1, yi), c = v(xi, yi + 1), d = v(xi + 1, yi + 1);
     return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
   };
-  return (x, y) => (n(x, y) * 0.6 + n(x * 2.1 + 5.2, y * 2.1 + 1.3) * 0.3 + n(x * 4.3 + 9.1, y * 4.3 + 7.7) * 0.1) * 2 - 1;
+  return /** @param {number} x @param {number} y */ (x, y) => (n(x, y) * 0.6 + n(x * 2.1 + 5.2, y * 2.1 + 1.3) * 0.3 + n(x * 4.3 + 9.1, y * 4.3 + 7.7) * 0.1) * 2 - 1;
 }
 /* ノイズでピクセルをずらす（ゆがみ・炎） */
 // c を直接書き換える。amp=ずらす最大量(px)、sc=ノイズの細かさ(px。大きいほどなだらか)、stretchY=縦方向にノイズを伸ばす倍率。いずれも実ピクセル（呼び出し側が scale 倍する）。
 // 各出力画素は「ノイズでずらした位置の元画素」を取る逆引き方式（穴が空かない）。bbox ± (amp+2) の範囲だけ処理して速度を確保
+/** @param {HTMLCanvasElement} c @param {number} amp @param {number} sc @param {number} seed @param {number} [stretchY] */
 function displace(c, amp, sc, seed, stretchY){
   const bb = bbox(c); if(!bb || amp <= 0) return;
   const W = c.width, H = c.height, pad = Math.ceil(amp) + 2;
@@ -182,11 +191,12 @@ function displace(c, amp, sc, seed, stretchY){
 // 戻り値は炎だけを描いた同寸法のキャンバス（本体は含まない。呼び出し側が body より先に B へ重ねる）。
 // 文字の「上側が空いている画素」（alpha>128 の真上が透明）を走査して炎の根元を探す。同じ根元の連続を避けるため、見つけたら size×0.25 だけ飛ばす。
 // 外炎（c2→c3）と内炎＝芯（c1→c2）の2層を 'lighter' 合成で重ね、最後に軽くぼかして炎らしく馴染ませる。乱数は固定シード f.seed
+/** @param {HTMLCanvasElement} body @param {number} scale */
 function makeFire(body, scale){
   const f = RS.fire, W = body.width, H = body.height, bb = bbox(body), out = mk(W, H);
   if(!bb) return out;
   const d = ctx2d(body, {willReadFrequently:true}).getImageData(0, 0, W, H).data;
-  const R = rng(f.seed), sp = Math.max(3, RS.size * 0.09 * scale), tops = [];
+  const R = rng(f.seed), sp = Math.max(3, RS.size * 0.09 * scale), /** @type {number[][]} */ tops = [];
   for(let x = bb.l; x <= bb.r; x += sp){
     const xi = Math.round(x + (R() - 0.5) * sp * 0.6);
     for(let y = Math.max(1, bb.t); y <= bb.b; y++){
@@ -200,6 +210,7 @@ function makeFire(body, scale){
   sx.drawImage(body, 0, 0); sx.globalCompositeOperation = 'source-in'; sx.fillStyle = f.c3; sx.fillRect(0, 0, W, H);
   o.filter = `blur(${Math.max(2, RS.size * 0.08 * scale)}px)`; o.globalAlpha = 0.9; o.drawImage(sil, 0, -RS.size * 0.05 * scale); o.filter = 'none'; o.globalAlpha = 1;
   const T = mk(W, H), t = ctx2d(T);
+  /** @param {number} x @param {number} y @param {number} h @param {number} w @param {number} sway @param {string} c0 @param {string} c1 @param {string} c2 @param {number} a */
   const tongue = (x, y, h, w, sway, c0, c1, c2, a) => {
     const o = t, g = o.createLinearGradient(0, y, 0, y - h);
     g.addColorStop(0, rgba(c0, a)); g.addColorStop(0.45, rgba(c1, a * 0.9)); g.addColorStop(1, rgba(c2, 0));
@@ -226,12 +237,13 @@ function makeFire(body, scale){
 // F（塗り）と K（フチ）を直接書き換える。下端（alpha>160 の真下が透明）を走査して垂らす位置を決め、下に gapPx 以上の空きがある所だけ採用
 // （他の文字・行に被さらないように）。色は sample ON なら根元の少し上(y-3)の画素色を拾う。外側にフチがあれば、K に同じ形を太らせて描いてフチの続きにする。
 // 実ピクセル処理のため setTransform を単位行列に戻している。outerPx は呼び出し側で scale 掛け済みの最外フチ幅
+/** @param {HTMLCanvasElement} F @param {HTMLCanvasElement} K @param {number} outerPx @param {string|null} strokeColor @param {number} scale */
 function drawDrips(F, K, outerPx, strokeColor, scale){
   const dr = RS.drip, bb = bbox(F); if(!bb) return;
   const W = F.width, R = rng(dr.seed), fctx = ctx2d(F, {willReadFrequently:true});
   const d = fctx.getImageData(0, 0, W, F.height).data;
   const wPx = Math.max(3, dr.w * RS.size * scale), step = Math.max(2, Math.round(wPx * 1.4)), gapPx = RS.size * 0.22 * scale;
-  const list = [];
+  /** @type {{x: number, y: number, len: number, w: number, col: string}[]} */ const list = [];
   for(let x = bb.l + step; x < bb.r - step; x += step){
     for(let y = bb.t; y < bb.b; y++){
       const i = (y * W + x) * 4 + 3;
@@ -244,7 +256,7 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
       }
     }
   }
-  const path = (c, q) => {
+  const path = /** @param {CanvasRenderingContext2D} c @param {typeof list[number]} q */ (c, q) => {
     const w2 = q.w / 2, x = q.x, y = q.y; c.beginPath();
     if(dr.style === 'icicle'){ c.moveTo(x - w2, y - 2); c.lineTo(x, y + q.len); c.lineTo(x + w2, y - 2); c.closePath(); return; }
     c.moveTo(x - w2 * 1.6, y - 2); c.quadraticCurveTo(x - w2 * 0.8, y, x - w2 * 0.8, y + q.len * 0.5);
@@ -281,18 +293,20 @@ function drawDrips(F, K, outerPx, strokeColor, scale){
 /* 80年代のラインカット（下半分に切れ込み） */
 // fx（論理座標）に destination-out で細い横帯を刻む。下に行くほど帯が太くなる。n（本数）は p.size、太さの強さは p.a から決まる。
 // パターン種別 'cutlines' のとき drawPattern の代わりに呼ばれる。縦書きは1マスごとに刻む
+/** @param {CanvasRenderingContext2D} ctx @param {TextLayout} L */
 function drawCutLines(ctx, L){
   const p = RS.pattern, n = Math.max(2, Math.round(p.size / 3));
   ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = '#000';
   L.lines.forEach((ln, i) => {
     if(L.v){   // 縦書き：1マスごとに下半分へ切れ込み
-      let y = ln.y0;
-      ln.cells.forEach(c => {
+      const vl = /** @type {VLine} */ (ln);
+      let y = vl.y0;
+      vl.cells.forEach(c => {
         const by = y + c.adv / 2; y += c.adv + RS.ls;
         const top = by - RS.size * 0.04, bot = by + RS.size * 0.41, band = (bot - top) / n;
         for(let k = 0; k < n; k++){
           const th = band * (0.12 + 0.55 * (k / n)) * Math.max(0.2, p.a * 1.6);
-          ctx.fillRect(ln.x0 - RS.size * 0.5, top + band * k + (band - th), RS.size * 2, th);
+          ctx.fillRect(vl.x0 - RS.size * 0.5, top + band * k + (band - th), RS.size * 2, th);
         }
       });
       return;
@@ -309,7 +323,7 @@ function drawCutLines(ctx, L){
 // alpha>128 で、上下左右のどれかが透明な画素＝輪郭の画素を全部返す（実ピクセル座標の [x,y] 配列）。キラキラの置き場所の候補用。画像が大きいと配列も大きくなる
 /** @param {HTMLCanvasElement} c */ function edgePoints(c){
   const bb = bbox(c); if(!bb) return [];
-  const W = c.width, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, W, c.height).data, pts = [];
+  const W = c.width, d = ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, W, c.height).data, /** @type {number[][]} */ pts = [];
   for(let y = Math.max(1, bb.t); y <= Math.min(c.height - 2, bb.b); y++) for(let x = Math.max(1, bb.l); x <= Math.min(W - 2, bb.r); x++){
     const i = (y * W + x) * 4 + 3;
     if(d[i] > 128 && (d[i - 4] <= 128 || d[i + 4] <= 128 || d[i - W * 4] <= 128 || d[i + W * 4] <= 128)) pts.push([x, y]);
@@ -326,13 +340,13 @@ function drawCutLines(ctx, L){
   const l = Math.max(0, bb.l - pad), t = Math.max(0, bb.t - pad), w = Math.min(W, bb.r + pad) - l, h = Math.min(H, bb.b + pad) - t;
   const ctx = ctx2d(F, {willReadFrequently:true}), d = ctx.getImageData(l, t, w, h).data;
   const a = new Float32Array(w * h); for(let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] / 255;
-  const rr = Math.max(1, Math.round(r * 0.6)), hm = boxBlur(boxBlur(a, w, h, rr), w, h, rr), T = 0.62, pts = [];
+  const rr = Math.max(1, Math.round(r * 0.6)), hm = boxBlur(boxBlur(a, w, h, rr), w, h, rr), T = 0.62, /** @type {number[][]} */ pts = [];
   for(let y = 1; y < h - 1; y++) for(let x = 1; x < w - 1; x++){
     const i = y * w + x;
     if(hm[i] >= T && (hm[i - 1] < T || hm[i + 1] < T || hm[i - w] < T || hm[i + w] < T)) pts.push([x + l, y + t]);
   }
   const R = rng(5); for(let i = pts.length - 1; i > 0; i--){ const j = Math.floor(R() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; }
-  const cell = gap / Math.SQRT2, grid = new Map(), ok = [];
+  const cell = gap / Math.SQRT2, /** @type {Map<number, number[]>} */ grid = new Map(), /** @type {number[][]} */ ok = [];
   const key = /** @param {number} i @param {number} j */ (i, j) => i * 100003 + j;
   for(const [x, y] of pts){
     const gi = Math.floor(x / cell), gj = Math.floor(y / cell); let near = false;
@@ -374,6 +388,7 @@ function drawCutLines(ctx, L){
 /* 残像（スピード感） */
 // body を角度 t.angle の向きに少しずつずらして count 枚重ね、遠いものほど薄くして、最後に本体を重ねた新キャンバスを返す。
 // t.tint ON なら残像だけ単色にする（本体は元の色のまま最後に重ねる）。余白は renderStyle の xtra（trail.len）で確保済み
+/** @param {HTMLCanvasElement} body @param {number} scale */
 function addTrail(body, scale){
   const t = RS.trail, W = body.width, H = body.height, a = t.angle * PI / 180, Lp = t.len * RS.size * scale;
   let src = body;

@@ -23,11 +23,12 @@ const EXTRA_FX_BASE = () => ({
 });
 const WARP_TYPES = [['none', 'なし'], ['wave', '波'], ['swirl', '渦巻き'], ['fisheye', '魚眼'], ['pinch', 'すぼめる']];
 // どれか1つでも有効か（マス・画像レイヤーで、別キャンバスを作るかどうかの判定に使う）。古いデータで項目が無くても落ちないように ?. で見る
-const extraFxOn = x => !!x && !!(x.posterize?.on || x.thresh?.on || x.tilt?.on || x.rgb?.on || x.gmap?.on || x.rep?.on || x.sharp > 0 || x.noise > 0 ||
+const extraFxOn = /** @param {any} x */ x => !!x && !!(x.posterize?.on || x.thresh?.on || x.tilt?.on || x.rgb?.on || x.gmap?.on || x.rep?.on || x.sharp > 0 || x.noise > 0 ||
   x.half?.on || x.edge?.on || x.paint?.on || (x.warp && x.warp.type !== 'none' && x.warp.amt > 0) || x.scan?.on || x.crt?.on);
 // 効果の中の色を、使える色の文字列にそろえる（細工された保存データ対策。不正な色は描画を止めたり HTML 属性を壊したりする）。x をその場で書き換えて返す
+/** @template T @param {T & Record<string, any>} x @returns {T} */
 function fxColorsSafe(x){
-  const fix = (o, k, d) => { if(o && typeof o === 'object') o[k] = safeColor(o[k], d); };
+  const fix = /** @param {any} o @param {string} k @param {string} d */ (o, k, d) => { if(o && typeof o === 'object') o[k] = safeColor(o[k], d); };
   fix(x, 'duo1', '#1b1464'); fix(x, 'duo2', '#ff9d5c'); fix(x.tint, 'c', '#ff7a50');
   fix(x.thresh, 'c1', '#111111'); fix(x.thresh, 'c2', '#ffffff');
   fix(x.gmap, 'c1', '#1b0b3a'); fix(x.gmap, 'c2', '#ff3d7f'); fix(x.gmap, 'c3', '#ffe66b');
@@ -36,15 +37,17 @@ function fxColorsSafe(x){
   return x;
 }
 // 色の文字列 → [r, g, b]。#rgb と #rrggbb に対応（それ以外は黒）。hex2rgb は #rgb を読めないため、ここでは別に用意する
+/** @param {string} c @returns {[number, number, number]} */
 function rgbOf(c){
   let h = String(c || '').replace('#', '');
   if(/^[0-9a-f]{3,4}$/i.test(h)) h = h.split('').map(v => v + v).join('');
-  return /^[0-9a-f]{6}/i.test(h) ? [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16)) : [0, 0, 0];
+  return /^[0-9a-f]{6}/i.test(h) ? [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)] : [0, 0, 0];
 }
-const fxLum = (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-const fxImgData = c => ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, c.width, c.height);
+const fxLum = /** @param {Uint8ClampedArray} d @param {number} i */ (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+const fxImgData = /** @param {HTMLCanvasElement} c */ c => ctx2d(c, {willReadFrequently:true}).getImageData(0, 0, c.width, c.height);
 
 // グラデーションマップ：明るさで c1→c2→c3 の色に置き換え、a の割合で元の色と混ぜる（アルファはそのまま）
+/** @param {HTMLCanvasElement} c @param {ExtraFx['gmap']} g */
 function gradMap(c, g){
   const im = fxImgData(c), d = im.data, A = rgbOf(g.c1), B = rgbOf(g.c2), C = rgbOf(g.c3), a = clamp(+g.a || 0, 0, 1);
   for(let i = 0; i < d.length; i += 4){
@@ -54,8 +57,10 @@ function gradMap(c, g){
   ctx2d(c).putImageData(im, 0, 0);
 }
 // 色の置き換え：色相が from に近い（tol の範囲。端はなめらかに弱める）画素の色相を、to の色相へ回す。鮮やかさ・明るさは元のまま
+/** @param {number} r @param {number} g @param {number} b */
 function hueOf(r, g, b){ const mx = Math.max(r, g, b), mn = Math.min(r, g, b), dd = mx - mn; if(!dd) return 0;
   const h = mx === r ? (g - b) / dd % 6 : mx === g ? (b - r) / dd + 2 : (r - g) / dd + 4; return (h * 60 + 360) % 360; }
+/** @param {HTMLCanvasElement} c @param {ExtraFx['rep']} r */
 function colorReplace(c, r){
   const im = fxImgData(c), d = im.data, F = rgbOf(r.from), T = rgbOf(r.to), hf = hueOf(...F), ht = hueOf(...T), tol = clamp(+r.tol || 0, 0.01, 0.5) * 360;
   // 回す量（度）を、回転行列（色相の回転）で RGB に直接かける。重み w で元の色と混ぜる
@@ -90,6 +95,7 @@ function colorReplace(c, r){
   ctx2d(c).putImageData(im, 0, 0);
 }
 // 網点：縮小して読んだ1マスの明るさで点の大きさを決め、紙（白と元の絵を mix で混ぜたもの）に c の点を打つ。透明な部分は透明のまま
+/** @param {HTMLCanvasElement} c @param {ExtraFx['half']} h @param {number} f */
 function halftoneImg(c, h, f){
   const W = c.width, H = c.height, s = Math.max(3, clamp(+h.size || 10, 2, 80) * f), gw = Math.ceil(W / s), gh = Math.ceil(H / s);
   const sm = mk(gw, gh), sx = ctx2d(sm, {willReadFrequently:true}); sx.drawImage(c, 0, 0, gw, gh);
@@ -107,6 +113,7 @@ function halftoneImg(c, h, f){
   const x = ctx2d(c); x.clearRect(0, 0, W, H); x.drawImage(t, 0, 0);
 }
 // 線画：明るさの勾配（ソーベル）が強い所を線にする。少しぼかしてから見るのは、細かいざらつきを線にしないため
+/** @param {HTMLCanvasElement} c @param {ExtraFx['edge']} e @param {number} f */
 function edgeLines(c, e, f){
   const W = c.width, H = c.height, b = mk(W, H), bx = ctx2d(b, {willReadFrequently:true});
   bx.filter = `blur(${Math.max(0.5, 0.8 * f)}px)`; bx.drawImage(c, 0, 0); bx.filter = 'none';
@@ -125,6 +132,7 @@ function edgeLines(c, e, f){
 }
 // 油絵風（Kuwahara フィルター）：各画素のまわり4つの四角のうち、色のばらつきが一番小さい四角の平均色にする（筆で塗ったような平らな面になる）。
 // 四角の合計は積分画像（累積和）で O(1) に求める。大きい画像は 2.1MP 以下に縮めて処理してから戻す（メモリと時間を抑えるため）
+/** @param {HTMLCanvasElement} c @param {ExtraFx['paint']} p @param {number} f */
 function paintify(c, p, f){
   const W0 = c.width, H0 = c.height, sc = Math.min(1, Math.sqrt(2.1e6 / (W0 * H0)));
   const W = Math.max(1, Math.round(W0 * sc)), H = Math.max(1, Math.round(H0 * sc)), r = clamp(Math.round(clamp(+p.r || 4, 1, 16) * f * sc), 1, 24);
@@ -135,7 +143,7 @@ function paintify(c, p, f){
     for(let k = 0; k < 3; k++) S[k][a] = d[i + k] + S[k][b] + S[k][cc] - S[k][dd];
     Q[a] = d[i] * d[i] + d[i + 1] * d[i + 1] + d[i + 2] * d[i + 2] + Q[b] + Q[cc] - Q[dd];
   }
-  const box = (A, x0, y0, x1, y1) => A[y1 * W1 + x1] - A[y0 * W1 + x1] - A[y1 * W1 + x0] + A[y0 * W1 + x0];
+  const box = /** @param {Float64Array} A @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 */ (A, x0, y0, x1, y1) => A[y1 * W1 + x1] - A[y0 * W1 + x1] - A[y1 * W1 + x0] + A[y0 * W1 + x0];
   const out = new Uint8ClampedArray(d);
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     let best = Infinity, m0 = 0, m1 = 0, m2 = 0;
@@ -153,10 +161,11 @@ function paintify(c, p, f){
   x.save(); x.clearRect(0, 0, W0, H0); x.drawImage(t, 0, 0, W0, H0); x.globalCompositeOperation = 'destination-in'; x.drawImage(mask, 0, 0); x.restore();
 }
 // ゆがみ：出来上がりの各画素が、元の絵のどこから来るかを計算して拾う（逆写像・双線形補間）。中心 (cx,cy) は渦巻き・魚眼・すぼめるの中心
+/** @param {HTMLCanvasElement} c @param {ExtraFx['warp']} w @param {number} cx @param {number} cy */
 function warpImg(c, w, cx, cy){
   const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const amt = clamp(+w.amt || 0, 0, 1), R = Math.min(W, H) / 2, n = clamp(+w.n || 6, 1, 40), A = amt * Math.min(W, H) * 0.05, lam = Math.min(W, H) / n * 2;
-  const sample = (sx, sy, o) => {
+  const sample = /** @param {number} sx @param {number} sy @param {number} o */ (sx, sy, o) => {
     sx = clamp(sx, 0, W - 1); sy = clamp(sy, 0, H - 1);   // 外側は端の色で埋める（透明の隙間が出ないように）
     const x0 = sx | 0, y0 = sy | 0, x1 = Math.min(W - 1, x0 + 1), y1 = Math.min(H - 1, y0 + 1), fx = sx - x0, fy = sy - y0;
     const a = (y0 * W + x0) * 4, b = (y0 * W + x1) * 4, cc = (y1 * W + x0) * 4, dd = (y1 * W + x1) * 4;
@@ -178,10 +187,11 @@ function warpImg(c, w, cx, cy){
   x.putImageData(im, 0, 0);
 }
 // 色収差：赤を +d、青を −d ずらす（緑はそのまま）。アルファは3色のずらした位置の最大値
+/** @param {HTMLCanvasElement} c @param {ExtraFx['rgb']} s @param {number} f */
 function rgbShift(c, s, f){
   const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const a = (+s.angle || 0) * PI / 180, dist = clamp(+s.d || 0, 0, 80) * f, ox = Math.round(Math.cos(a) * dist), oy = Math.round(Math.sin(a) * dist);
-  const at = (X, Y) => (X < 0 || Y < 0 || X >= W || Y >= H) ? -1 : (Y * W + X) * 4;
+  const at = /** @param {number} X @param {number} Y */ (X, Y) => (X < 0 || Y < 0 || X >= W || Y >= H) ? -1 : (Y * W + X) * 4;
   for(let y = 0; y < H; y++) for(let X = 0; X < W; X++){
     const o = (y * W + X) * 4, r = at(X - ox, y - oy), b = at(X + ox, y + oy);
     const ar = r < 0 ? 0 : src[r + 3], ab = b < 0 ? 0 : src[b + 3], ag = src[o + 3], al = Math.max(ar, ag, ab);
@@ -192,6 +202,7 @@ function rgbShift(c, s, f){
   x.putImageData(im, 0, 0);
 }
 // postFx から呼ぶ：色を変える系（形は変えない）。c をその場で書き換える。順番：色を置き換える → 塗りを平らに → 階調を減らす → 線・点 → くっきり
+/** @param {HTMLCanvasElement} c @param {ExtraFx} b @param {number} f */
 function extraFxColor(c, b, f){
   if(b.gmap?.on) gradMap(c, b.gmap);
   if(b.rep?.on) colorReplace(c, b.rep);
@@ -203,6 +214,7 @@ function extraFxColor(c, b, f){
   if(b.sharp > 0) sharpen(c, b.sharp);
 }
 // postFx から呼ぶ：形を動かす系（モザイクのあと、ブラーの前）。c をその場で書き換える
+/** @param {HTMLCanvasElement} c @param {ExtraFx} b @param {number} f @param {number} cx @param {number} cy */
 function extraFxShape(c, b, f, cx, cy){
   if(b.warp && b.warp.type !== 'none' && b.warp.amt > 0) warpImg(c, b.warp, cx, cy);
   if(b.crt?.on) crtImg(c, b.crt, f);
@@ -210,6 +222,7 @@ function extraFxShape(c, b, f, cx, cy){
   if(b.scan?.on && b.scan.a > 0) scanLines(c, b.scan, f);
 }
 // 走査線：size px ごとに、上半分を暗くする縞を、絵のある部分にだけ重ねる（透明な部分は透明のまま）
+/** @param {HTMLCanvasElement} c @param {ExtraFx['scan']} s @param {number} f */
 function scanLines(c, s, f){
   const per = Math.max(2, Math.round(clamp(+s.size || 4, 1, 40) * f * 2)), t = mk(1, per), tx = ctx2d(t);
   tx.fillStyle = '#000'; tx.fillRect(0, 0, 1, Math.max(1, Math.round(per / 2)));
@@ -218,6 +231,7 @@ function scanLines(c, s, f){
 }
 // ブラウン管：①画面のふくらみ（中心から外ほど引き伸ばす樽型のゆがみ。はみ出した四隅は黒くなり、丸い角の画面になる）
 // ②RGB の細かい縦じま（3px ごとに赤・緑・青だけを残す光り方。mask で濃さ）。透明な部分は透明のまま
+/** @param {HTMLCanvasElement} c @param {ExtraFx['crt']} cr @param {number} f */
 function crtImg(c, cr, f){
   const W = c.width, H = c.height, src = fxImgData(c).data, x = ctx2d(c), im = x.createImageData(W, H), d = im.data;
   const k = clamp(+cr.curve || 0, 0, 1) * 0.5, m = clamp(+cr.mask || 0, 0, 1) * 0.55, step = Math.max(3, Math.round(3 * f)) / 3;

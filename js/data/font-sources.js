@@ -61,6 +61,7 @@ const LATIN = [
   ['Newsreader','解説・ニュース・物語','200,300,400,500,600,700,800'],
 ].map(([family, usage, w]) => ({family, cat:'欧文', usage, weights:w.split(',').map(Number), src:'google'}));
 // フォント名 → 用途の説明（一覧のタグ表示と、検索・用途絞り込みの対象）。日本語フォント用。後ろの Object.assign で追加分を足している
+/** @type {Record<string, string>} */
 const USAGE_JP = {
   'Dela Gothic One':'ゲーム・インパクト（極太）', 'Noto Sans JP':'解説・読みやすい・万能', 'M PLUS 1p':'解説・読みやすい',
   'M PLUS Rounded 1c':'かわいい・やさしい（丸ゴ）', 'Zen Maru Gothic':'かわいい・やさしい（丸ゴ）', 'Kosugi Maru':'やさしい・かわいい',
@@ -77,6 +78,7 @@ const USAGE_JP = {
   'Zen Kurenaido':'手書き・ホラー', 'Slackside One':'手書き・ゆるい', 'Tsukimi Rounded':'やさしい・かわいい',
 };
 // 「用途」プルダウンの選択肢 → 用途文に含まれていればヒットとするキーワード（部分一致）。表記ゆれを吸収するための表
+/** @type {Record<string, string[]>} */
 const USE_KEYS = {
   'ゲーム・インパクト':['ゲーム','インパクト','スポーツ','コミック','漫画'], '解説・読みやすい':['解説','読みやすい','万能','ニュース','テック'],
   'かわいい・ポップ':['かわいい','ポップ','やさしい','元気'], '和風・筆':['和風','筆'], '高級・エモ':['高級','エモ','物語','エレガント'],
@@ -85,10 +87,14 @@ const USE_KEYS = {
 
 // 外部 API・一覧データの分類名 → このアプリの分類名。
 // CAT_MAP は Fontsource API の category 用、GC は font-list.js の1文字コード（s/e/d/h/m）用、GC_USE は欧文の用途の既定文
+/** @type {Record<string, string>} */
 const CAT_MAP = {'sans-serif':'ゴシック', serif:'明朝', display:'デザイン', handwriting:'手書き', monospace:'等幅'};
+/** @type {Record<string, string>} */
 const GC = {s:'ゴシック', e:'明朝', d:'デザイン', h:'手書き', m:'等幅'};
+/** @type {Record<string, string>} */
 const GC_USE = {s:'モダン', e:'セリフ・高級', d:'デザイン・インパクト', h:'手書き', m:'等幅・テック'};
 // Google の一覧の分類が実態と合わないもの（デザイン書体なのにゴシック扱い等）の上書き
+/** @type {Record<string, string>} */
 const JP_CAT_OVR = {'Aoboshi One':'デザイン', 'Kapakana':'手書き', 'M PLUS 1 Code':'等幅', 'Rock 3D':'デザイン', 'Shizuru':'デザイン', 'Monomaniac One':'デザイン', 'WDXL Lubrifont JP N':'デザイン', 'LINE Seed JP':'ゴシック', 'M PLUS U':'ゴシック', 'Yuji Hentaigana Akari':'手書き', 'Yuji Hentaigana Akebono':'手書き'};
 Object.assign(USAGE_JP, {
   'Aoboshi One':'和風・レトロ・高級', 'BIZ UDGothic':'解説・読みやすい', 'BIZ UDMincho':'解説・物語', 'BIZ UDPMincho':'解説・物語',
@@ -136,7 +142,7 @@ const FS_FONTS = /** @type {Array<[string, string, string, string, string, numbe
    要素：[family, 分類, 用途（配布元・ライセンス名を含む）, files, mb]。パスの「@」のあとはコミットの ID で、
    配布元が更新・改名しても同じファイルを取れるよう固定している（差し替えるときは ID ごと更新する） */
 const GH = 'https://cdn.jsdelivr.net/gh/';
-const GH_FONTS = [
+const GH_FONTS = /** @type {Array<[string, string, string, Record<string, string>, number]>} */ ([
   ['PixelMplus12','デザイン','ゲーム・レトロ（ドット・漢字入り）PixelMplus／M+ FONT LICENSE',
     {400:'itouhiro/PixelMplus@d89b95f04eeb95bf98bb09cb9234a2f99d186df5/PixelMplus12-Regular.ttf', 700:'itouhiro/PixelMplus@d89b95f04eeb95bf98bb09cb9234a2f99d186df5/PixelMplus12-Bold.ttf'}, 1.3],
   ['PixelMplus10','デザイン','ゲーム・レトロ（ドット・漢字入り）PixelMplus／M+ FONT LICENSE',
@@ -161,7 +167,7 @@ const GH_FONTS = [
     {200:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-EL.otf', 300:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-L.otf', 400:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-R.otf', 500:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-M.otf', 600:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-SB.otf', 700:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-B.otf', 900:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenYoMin2PJP-H.otf'}, 15.5],
   ['GenKiMin 2 PJP','明朝','高級・物語・エモ（源起明朝・かなが比例幅）',
     {200:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-EL.otf', 300:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-L.otf', 400:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-R.otf', 500:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-M.otf', 600:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-SB.otf', 700:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-B.otf', 900:'ButTaiwan/genyo-font@880b7c9721b62ae813b737cdeca23fccba7d665b/otf/PJP/GenKiMin2PJP-H.otf'}, 12.8],
-].map(([family, cat, usage, files, mb]) => ({family, cat, usage, files, weights: Object.keys(files).map(Number), src:'gh', mb}));
+]).map(([family, cat, usage, files, mb]) => ({family, cat, usage, files, weights: Object.keys(files).map(Number), src:'gh', mb}));
 /* npm 配布の日本語フォント（jsDelivr）。文字ごとに分割された woff2 を必要な分だけ読み込むので軽い。{w} は太さごとのCSS */
 const NPM = 'https://cdn.jsdelivr.net/npm/';
 const NPM_FONTS = [
@@ -171,7 +177,7 @@ const NPM_FONTS = [
   ['TJ Plus Sans','ゴシック','ポップ・モダン・解説（丸みのある欧文＋M PLUS/Noto Sans JP）','tj-plus-sans@0.2.1/index.css','300,400,500,600,700,800'],
 ].map(([family, cat, usage, css, w]) => ({family, cat, usage, css: NPM + css, weights: w.split(',').map(Number), src:'npm'}));
 /* このリポジトリに同梱しているフォント（fonts/ 内・ライセンスも同梱）。読み込み方は URL 追加フォントと同じ */
-const SELF_FONTS = [
+const SELF_FONTS = /** @type {Array<[string, string, string, string, number]>} */ ([
   ['にくまるフォント','デザイン','かわいい・ポップ・やさしい（丸ゴシック／フロップデザイン・M+ FONT LICENSE）','nikumaru/Nikumaru.otf',3.1],
   ['ラノベPOPv2','デザイン','ポップ・ゲーム・元気（ラノベ風POP体／フロップデザイン・M+ FONT LICENSE）','lanobe-pop/LightNovelPOPv2.woff',1.6],
   ['07やさしさゴシック','ゴシック','やさしい・かわいい・解説（丸みのあるゴシック／フォントな・M+ FONT／IPA LICENSE）','yasashisa/Yasashisa.woff',2.9],
@@ -182,4 +188,4 @@ const SELF_FONTS = [
   ['異世明','明朝','ファンタジー・物語・エモ（源ノ明朝派生／フロップデザイン・SIL OFL 1.1）','isemin/Isemin.woff',5.3],
   ['装甲明朝','明朝','ゲーム・ダーク・インパクト（源ノ明朝派生／フロップデザイン・SIL OFL 1.1）','soukou/SoukouMincho.woff',5.7],
   ['瞬きノ明朝','明朝','繊細・物語・エモ（源ノ明朝派生／フロップデザイン・SIL OFL 1.1）','matataki/MatatakiMincho.woff',26.4],
-].map(([family, cat, usage, file, mb]) => ({family, cat, usage, weights:[400], src:'url', file:'fonts/' + file, mb}));
+]).map(([family, cat, usage, file, mb]) => ({family, cat, usage, weights:[400], src:'url', file:'fonts/' + file, mb}));

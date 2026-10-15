@@ -115,7 +115,7 @@ document.addEventListener('click', e => {
   // 複数選んだときは、選んだ行から下へ、画像の無い（おやすみでない）行に順に入れる
   inp.onchange = async () => {
     const L = schedLayer(), files = [...(inp.files || [])].filter(f => /^image\//.test(f.type)); inp.value = ''; if(!L || !files.length || schedPickRow < 0) return;
-    let i = schedPickRow; await schedSetImage(L, i, files.shift());
+    let i = schedPickRow; await schedSetImage(L, i, /** @type {File} */ (files.shift()));   // 上で 1 枚以上あることを確かめている
     for(const f of files){ i++; while(i < 7 && (assetOf(L.rows[i].asset) || L.rows[i].rest)) i++; if(i >= 7) break; await schedSetImage(L, i, f); }
     syncDoc(); docChanged(false);
   };
