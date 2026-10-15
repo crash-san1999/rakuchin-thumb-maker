@@ -121,15 +121,20 @@ function collageShape(cells, W, H, edge, A){
 }
 
 /** @param {CanvasRenderingContext2D} x @param {number[][]} poly */ function collagePath(x, poly){ x.beginPath(); poly.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); }
+// マスの範囲：多角形 poly の外接矩形を、キャンバス（W×H）の中に切り詰めたもの。cw・ch は幅・高さ（最低 1px）
+/** @param {number[][]} poly @param {number} W @param {number} H */
+function cellBox(poly, W, H){
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
+  bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(W, bx1); by1 = Math.min(H, by1);
+  return {bx0, by0, bx1, by1, cw: Math.max(1, bx1 - bx0), ch: Math.max(1, by1 - by0)};
+}
 // マスの画像（背景・文字・効果は別）を描く。poly の外接矩形をマスの範囲とし、画面外にはみ出す分は切る。
 // showEmpty：画像のないマスにプレースホルダー（番号と「画像をドロップ」）を描くか。書き出し時は false
 /** @param {CanvasRenderingContext2D} x @param {CollageLayer} L @param {number} i @param {number[][]} poly @param {number} W @param {number} H @param {boolean} showEmpty */
 function collageCellPicture(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = assetOf(cell.asset);
-  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
-  poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
-  bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(W, bx1); by1 = Math.min(H, by1);
-  const cw = Math.max(1, bx1 - bx0), ch = Math.max(1, by1 - by0);
+  const {bx0, by0, by1, cw, ch} = cellBox(poly, W, H);
   if(!A){
     if(!showEmpty) return;
     x.fillStyle = i % 2 ? '#e4e0ef' : '#ece9f5'; x.fillRect(bx0, by0, cw, ch);
@@ -196,10 +201,7 @@ function drawCellText(x, L, cell, bx0, by0, cw, ch){
 function collageCellImage(x, L, i, poly, W, H, showEmpty){
   const cell = L.cells[i] || /** @type {CollageCell} */ ({}), A = assetOf(cell.asset), bg = cell.bg, hasBg = !!(bg && bg.on), hasTx = cellHasText(cell);
   if(!hasBg && !hasTx){ collageCellPicture(x, L, i, poly, W, H, showEmpty); return; }
-  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
-  poly.forEach(([px, py]) => { bx0 = Math.min(bx0, px); by0 = Math.min(by0, py); bx1 = Math.max(bx1, px); by1 = Math.max(by1, py); });
-  bx0 = Math.max(0, bx0); by0 = Math.max(0, by0); bx1 = Math.min(W, bx1); by1 = Math.min(H, by1);
-  const cw = Math.max(1, bx1 - bx0), ch = Math.max(1, by1 - by0);
+  const {bx0, by0, by1, cw, ch} = cellBox(poly, W, H);
   if(hasBg){
     if(bg.grad){ const g = x.createLinearGradient(0, by0, 0, by1); g.addColorStop(0, bg.c); g.addColorStop(1, bg.c2); x.fillStyle = g; } else x.fillStyle = bg.c;
     x.fillRect(bx0 - 1, by0 - 1, cw + 2, ch + 2);

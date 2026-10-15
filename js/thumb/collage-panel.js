@@ -24,7 +24,7 @@ function renderCells(){
 function renderCellText(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   L.ac = clamp(L.ac || 0, 0, collageN(L) - 1);
-  const c = L.cells[L.ac], today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+  const c = L.cells[L.ac];
   const opts = /** @param {string[][]} arr @param {string} v */ (arr, v) => arr.map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('');
   $$('.ctBox').forEach(box => {
     // 入力欄は別レイヤーに切り替わったときだけ作り直す（入力中のフォーカスや選択を壊さないため）。以降の値の反映は、編集中の欄(activeElement)を避けて行う
@@ -39,10 +39,7 @@ function renderCellText(){
     ta.dataset.cell = String(L.ac); $as('#ctPre', HTMLSelectElement, box).value = L.tpre || '';
     const st = L.tstyle || collageDefaultStyle(), fs = $as('#ctFont', HTMLSelectElement, box), wsel = $as('#ctWeight', HTMLSelectElement, box);
     if(fs.dataset.built !== '1'){   // フォント一覧（欧文と、ふだん出さない書体を除く）。お気に入りを先頭に
-      const ok = /** @param {FontEntry} f */ f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === st.font), /** @type {Record<string, FontEntry[]>} */ grp = {};
-      fonts.filter(ok).forEach(f => (grp[favs.has(f.family) ? 'お気に入り' : f.cat] = grp[favs.has(f.family) ? 'お気に入り' : f.cat] || []).push(f));
-      const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
-      fs.innerHTML = keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
+      fs.innerHTML = jpFontOptsHtml(st.font);
       fs.dataset.built = '1';
     }
     if(![...fs.options].some(o => o.value === st.font)) fs.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(st.font)}">${escapeHtml(st.font)}</option>`);
@@ -64,7 +61,7 @@ function renderCellText(){
         <div class="row"><label class="chk"><input type="checkbox" data-wk="color"> 平日・土・日で背景色を分ける</label></div>
         <div class="crow"><button class="btn sm" id="wkGo">${ic('grid')}1週間を入れる</button></div>`;
     }
-    const st = $as('#wkStart', HTMLInputElement, box); if(document.activeElement !== st) st.value = L.wk.start || today;
+    const st = $as('#wkStart', HTMLInputElement, box); if(document.activeElement !== st) st.value = L.wk.start || ymd(new Date());
     $as('[data-wk="color"]', HTMLInputElement, box).checked = !!L.wk.color;
     $('[data-wkmemo]', box).hidden = collageN(L) < 8; $as('[data-wk="memo"]', HTMLSelectElement, box).value = String(L.wk.memo || 8);
   });

@@ -219,7 +219,7 @@ function schedApplyText(L, text){
 /** @param {SchedLayer} L @param {number} dw @param {boolean} [clear] */
 function schedShiftWeek(L, dw, clear){
   const d0 = schedDays(L)[0], d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 7 * dw);
-  L.start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  L.start = ymd(d);
   if(clear) L.rows = L.rows.map(() => SCHED_ROW());
 }
 

@@ -38,8 +38,6 @@ const libTx = (mode, fn) => idb().then(db => new Promise((res, rej) => {
   const tx = db.transaction('lib', mode), r = fn(tx.objectStore('lib'));
   tx.oncomplete = () => res(r && r.result); tx.onerror = tx.onabort = () => rej(tx.error || new Error('保存に失敗しました'));
 }));
-/** @param {Blob} b @returns {Promise<string>} */
-const blobToDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(/** @type {string} */ (r.result)); r.onerror = rej; r.readAsDataURL(b); });
 const dataUrlToBlob = /** @param {string} u */ u => { const [h, d] = u.split(','), mime = (h.match(/:(.*?);/) || [])[1] || 'image/png', bin = atob(d), a = new Uint8Array(bin.length); for(let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return new Blob([a], {type: mime}); };
 // 縦横比を保って n px 角の中央に収めたサムネ（dataURL）。一覧表示用で、本体を毎回デコードしないため
 /** @param {NatImage} img @param {number} [n] */

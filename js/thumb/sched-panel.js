@@ -5,15 +5,8 @@
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
 var {renderSched} = (() => {
 
-// プリセットの選択肢（分類ごと）と、フォントの選択肢（欧文と、ふだん出さない書体を除く。お気に入りを先頭に）
+// プリセットの選択肢（分類ごと）。フォントの選択肢は fonts.js の jpFontOptsHtml
 const schedPresetOpts = () => Object.entries(PCATS).map(([g, ns]) => `<optgroup label="${escapeHtml(g)}">${ns.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')}</optgroup>`).join('');
-/** @param {string} cur */
-function schedFontOpts(cur){
-  const ok = /** @param {FontEntry} f */ f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === cur), /** @type {Record<string, FontEntry[]>} */ grp = {};
-  fonts.filter(ok).forEach(f => { const g = favs.has(f.family) ? 'お気に入り' : f.cat; (grp[g] = grp[g] || []).push(f); });
-  const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
-  return keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
-}
 // 1行ぶんの入力欄（i＝行番号）。見出し（日付）と値は renderSched が入れる
 const schedRowHtml = /** @param {number} i */ i => `<div class="schRow" data-srow="${i}">
   <b class="schDay"></b>
@@ -48,8 +41,7 @@ function renderSched(){
         <div class="subhead" style="margin-top:20px">1週間の予定<span class="subnote">時刻が空の日は「いつもの時刻」になります。画像は右の□か、キャンバスの行にドロップ</span></div>
         <div class="schRows">${[...Array(7).keys()].map(schedRowHtml).join('')}</div>`;
     }
-    const today = (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)(new Date());
-    setVal($('#schStart', box), L.start || today); setVal($('#schFirst', box), L.first); setVal($('#schTime', box), L.time);
+    setVal($('#schStart', box), L.start || ymd(new Date())); setVal($('#schFirst', box), L.first); setVal($('#schTime', box), L.time);
     $$('.schRow', box).forEach(el => {
       const i = +(el.dataset.srow ?? 0), r = L.rows[i], A = assetOf(r.asset);
       const day = schedDayLabel(L, days[i]); if($('.schDay', el).textContent !== day) $('.schDay', el).textContent = day;
@@ -68,7 +60,7 @@ function renderSched(){
       const st = k === 'd' ? schedDStyle(L) : schedTStyle(L), pre = k === 'd' ? L.dpre : L.tpre;
       setVal($(`[data-ssp="${k}"]`, box), pre);
       const fs = $as(`[data-ssf="${k}"]`, HTMLSelectElement, box), ws = $as(`[data-ssw="${k}"]`, HTMLSelectElement, box);
-      if(fs.dataset.built !== '1'){ fs.innerHTML = schedFontOpts(st.font); fs.dataset.built = '1'; }
+      if(fs.dataset.built !== '1'){ fs.innerHTML = jpFontOptsHtml(st.font); fs.dataset.built = '1'; }
       if(![...fs.options].some(o => o.value === st.font)) fs.insertAdjacentHTML('afterbegin', `<option value="${escapeHtml(st.font)}">${escapeHtml(st.font)}</option>`);
       fs.value = st.font;
       if(ws.dataset.f !== st.font){ ws.dataset.f = st.font; ws.innerHTML = weightsOf(findFont(st.font)).map(w => `<option value="${w}">${w}</option>`).join(''); }

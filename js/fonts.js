@@ -20,7 +20,7 @@
 let fonts;
 /** @type {Set<string>} */
 let favs;
-var {WEB_SRC, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop} = (() => {
+var {WEB_SRC, jpFontOptsHtml, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop} = (() => {
 // 一覧のデータ（FEATURED_JP・USAGE_JP・EA_FONTS・FS_FONTS・GH_FONTS・NPM_FONTS・SELF_FONTS など）は data/font-sources.js
 // フォントの用途の説明（一覧にあればそれ、無ければ USAGE_JP）
 const usageOf = /** @param {FontEntry} f */ f => f.usage || USAGE_JP[f.family] || '';
@@ -185,6 +185,15 @@ async function ensureFont(st = S){
   clearTimeout(t); $('#loading').classList.remove('show');
 }
 
+// 文字の選び直し用の <select> の中身（分割フレームのマスの文字・週間予定表）：日本語の書体を、お気に入りを先頭に分類ごとの <optgroup> で並べる。
+// 欧文と、ふだん出さない書体（more）は除く。ただし cur（今使っている書体）とお気に入りは、more でも出す
+/** @param {string} cur */
+function jpFontOptsHtml(cur){
+  const ok = /** @param {FontEntry} f */ f => f.cat !== '欧文' && (!f.more || favs.has(f.family) || f.family === cur), /** @type {Record<string, FontEntry[]>} */ grp = {};
+  fonts.filter(ok).forEach(f => { const g = favs.has(f.family) ? 'お気に入り' : f.cat; (grp[g] = grp[g] || []).push(f); });
+  const keys = Object.keys(grp).sort((a, b) => (a === 'お気に入り' ? -1 : b === 'お気に入り' ? 1 : 0));
+  return keys.map(g => `<optgroup label="${escapeHtml(g)}">${grp[g].map(f => `<option value="${escapeHtml(f.family)}">${escapeHtml(f.family)}</option>`).join('')}</optgroup>`).join('');
+}
 /* フォント一覧 */
 // 一覧の見本を、画面に近づいた（上下 200px）ものから順に読み込む。数千書体を一度に読み込まないための遅延読み込み。読み込みを始めたら監視をやめる
 const io = new IntersectionObserver(ents => {
@@ -512,5 +521,5 @@ const drop = $('#drop');
 drop.onclick = () => $('#ffile').click();
 $('#ffile').onchange = e => { addFontFiles(inputOf(e).files); inputOf(e).value = ''; };
 // ドロップは画面全体のドロップ処理（thumb/events-drop.js）が受け取る
-return {WEB_SRC, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop};
+return {WEB_SRC, jpFontOptsHtml, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop};
 })();
