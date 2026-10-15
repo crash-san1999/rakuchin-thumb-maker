@@ -39,7 +39,7 @@ function makeBinder(o){
     cond,
     // 値 → 画面。except は今まさに入力中の欄（値を書き戻すとカーソルや入力途中の文字が壊れるので飛ばす）。
     // get が undefined/null を返すキーは触らない（その欄は別の仕組みで管理されている）
-    sync(except){
+    /** @param {HTMLElement} [except] */ sync(except){
       $$as(sel(o.val), HTMLInputElement).forEach(el => {
         if(el === except) return;
         const v = o.get(el.dataset[o.val]);

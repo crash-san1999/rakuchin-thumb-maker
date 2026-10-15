@@ -207,7 +207,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 // 描く順序：全体を角丸でクリップ → 各マスを自分の多角形でクリップして描く → 境界線（bstyle ごと）→ 外枠。
 // 境界の太さ lw・振幅 A は f 倍してピクセルにする。radius は s（キャンバス1pxあたりのドキュメント倍率）で換算
 /** @param {CollageLayer} L */
-/** @param {number} W @param {number} H @param {number} f @param {string} [lay] */ function collageCanvas(L, W, H, f, lay){
+/** @param {number} W @param {number} H @param {number} f @param {string} [lay] */ /** @param {CollageLayer} L */ function collageCanvas(L, W, H, f, lay){
   const n = collageN(L), c = mk(W, H), x = ctx2d(c), s = W / L.bw; // s = キャンバス1px あたりのドキュメント倍率
   const cells = collageCellsOf(L, W, H, lay), A = Math.max(2, (L.amp || 20) * f);
   const {polys, lines} = collageShape(cells, W, H, L.edge || 'straight', A);

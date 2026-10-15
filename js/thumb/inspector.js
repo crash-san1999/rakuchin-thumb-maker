@@ -42,7 +42,7 @@ function drow(r){
 
 // フレーム形状のアイコン（44px の canvas から作る dataURL）。形ごとに1回だけ作って使い回す
 const shapeIconCache = {};
-function shapeIcon(k){
+/** @param {string} k */ function shapeIcon(k){
   if(shapeIconCache[k]) return shapeIconCache[k];
   const c = mk(44, 44), x = ctx2d(c); x.translate(22, 22); x.beginPath(); framePath(x, k, 32, 32, 0.2); x.fillStyle = '#1f1b2d'; x.fill();
   return shapeIconCache[k] = c.toDataURL();

@@ -181,6 +181,7 @@ function warp(src){
     return o;
   }
   const U = /** @param {number} px */ px => Math.min(1, Math.max(0, (px - bb.l) / cw)), amp = A * ch;
+  /** ワープの種類ごとに、横位置 u（0〜1）での [縦のずれ, 縦の倍率] を返す @type {Record<string, (u: number) => number[]>} */
   const WARPS = {
     arch:  u => [-amp * 0.6 * (1 - (2*u - 1) ** 2), 1],
     wave:  u => [amp * 0.35 * Math.sin(2 * PI * w.freq * u), 1],

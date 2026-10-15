@@ -194,10 +194,10 @@ const EDIT_MODES = {
 };
 // レイヤーの回転を打ち消した向きでの移動量（ドキュメント座標）。回転したレイヤー上でも、ドラッグの向きがレイヤー自身の縦横に沿うようにする
 /** @param {Layer} L */
-/** @param {number} dx @param {number} dy */ function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)]; }
+/** @param {number} dx @param {number} dy */ /** @param {ImageLayer | CollageLayer} L */ function rotLocal(L, dx, dy){ const a = -(L.rot || 0) * PI / 180; return [dx * Math.cos(a) - dy * Math.sin(a), dx * Math.sin(a) + dy * Math.cos(a)]; }
 // 画像上の点（ドキュメント座標）→ フレーム基準のローカル座標（画像ピクセル）
 /** @param {Layer} L */
-/** @param {number} x @param {number} y */ function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
+/** @param {number} x @param {number} y */ /** @param {ImageLayer} L */ function frameLocal(L, x, y){ const [u, v] = rotLocal(L, x - L.x, y - L.y); return [u / L.sc, v / L.sc]; }
 
 swapTarget = null;   // マスの入れ替え先（ドラッグ中だけ）
 // 編集モードの定義を名前（edit.kind など）で引く。モードごとに扱うレイヤーの種類（画像・分割フレーム）が違うので、名前で引いたものは

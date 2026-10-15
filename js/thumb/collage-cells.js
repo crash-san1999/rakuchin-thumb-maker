@@ -20,7 +20,7 @@ function collageCellAt(L, x, y){
    座標はレイヤーの回転を戻したローカル座標。傾き（slant）があると境界線は斜めなので、押した高さ（横に並べるなら横位置）での線の位置で比べる */
 // ドキュメント座標 (x,y) → 並べる向きに沿った位置 u（0〜1）と、その向きの長さ len。並べる向き以外のレイアウトは null
 /** @param {CollageLayer} L */
-/** @param {number} x @param {number} y */ function collageAxisPos(L, x, y){
+/** @param {number} x @param {number} y */ /** @param {CollageLayer} L */ function collageAxisPos(L, x, y){
   if(!collageResizable(L.layout)) return null;
   const a = -(L.rot || 0) * PI / 180, dx = x - L.x, dy = y - L.y, w = L.bw * L.sc, h = L.bh * L.sc;
   const lx = dx * Math.cos(a) - dy * Math.sin(a) + w / 2, ly = dx * Math.sin(a) + dy * Math.cos(a) + h / 2;
@@ -35,7 +35,7 @@ function collageEdges(L){
 }
 // (x,y) の近くにある境界線の番号 j（マス j-1 と j の間。1〜n-1）。無ければ 0
 /** @param {CollageLayer} L */
-function collageBorderAt(L, x, y){
+/** @param {number} x @param {number} y */ function collageBorderAt(L, x, y){
   const q = collageAxisPos(L, x, y); if(!q || q.cross < 0 || q.cross > 1) return 0;
   const {e} = collageEdges(L), tol = Math.max(10, q.len * 0.012) / q.len;
   let best = 0, bd = tol; for(let j = 1; j < e.length - 1; j++){ const dd = Math.abs(q.u - e[j]); if(dd < bd){ bd = dd; best = j; } }
@@ -43,7 +43,7 @@ function collageBorderAt(L, x, y){
 }
 // 境界線 j を (x,y) の位置まで動かす。両隣のマス（j-1 と j）の幅だけを変え、比率の合計は変えない（ほかのマスの幅は動かない）
 /** @param {CollageLayer} L */
-function collageDragBorder(L, j, x, y){
+/** @param {number} j @param {number} x @param {number} y */ function collageDragBorder(L, j, x, y){
   const q = collageAxisPos(L, x, y); if(!q) return;
   const {sum, e} = collageEdges(L), min = Math.min(0.04, (e[j + 1] - e[j - 1]) / 3);
   const b = clamp(q.u, e[j - 1] + min, e[j + 1] - min);
@@ -61,7 +61,7 @@ function collageCellSize(L, i){ // マスの大きさ（ドキュメント座標
 const collageAllText = L => L.cells.map(c => c.tx && c.tx.text || '').join('') || 'あ';
 function collageDefaultStyle(){ const p = PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
 /** @param {CollageLayer} L */
-/** @param {string} name */ function collageSetStyle(L, name){
+/** @param {string} name */ /** @param {CollageLayer} L */ function collageSetStyle(L, name){
   const p = PRESETS.find(q => q[0] === name); if(!p) return;
   L.tpre = name; L.tstyle = merged(p[1]);
 }

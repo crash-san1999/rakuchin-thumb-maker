@@ -62,6 +62,15 @@
 /** 素材置き場の 1 件（library.js の LIB。形は library.js の先頭の説明のとおり）。画像は blob・thumb・size・w・h、文字スタイルは s を持つ
  * @typedef {{id: string, kind: string, name: string, bytes: number, created: number, blob?: any, thumb?: string, size?: number, w?: number, h?: number, s?: any}} LibItem */
 /** 背景透過のブラシの跡 1 本（m:'e' 消す／'r' 戻す、r：半径、p：点の列。座標・半径は元の画像に対する 0〜1 の割合） @typedef {{id: string, m: string, r: number, p: number[][]}} Stroke */
+/** 切り抜きフレームの形を描く関数（FRAME_PATHS）に渡す値。a・b は半幅・半高さ、mn は短い辺、R は形ごとに決まった乱数。
+ * noise・rough・poly・ring・scallop は形を作る補助（frames.js の framePath の中で作る）。o は L.frame（吹き出しのしっぽの設定など）
+ * @typedef {{a: number, b: number, w: number, h: number, mn: number, r: number, seed: number, R: () => number,
+ *   noise: (n: number, knots: number, spike: number) => number[], rough: (sides: number[][]) => number[][], poly: (pts: number[][]) => void,
+ *   ring: (n: number, rot: number, inner?: number) => void, scallop: (n: number, base: number, depth: number) => void, o: Record<string, any>}} FramePathGeom */
+/** 切り抜きフレームのデザインの描き方（FRAME_STYLE_DRAW の under・over）に渡す値。x は描き先、c はその canvas、E はフチの太さの基準、
+ * FW・FH は枠の大きさ、o は L.outline、fr は L.frame、f は倍率、P は形のパスを作る、stroke は形に沿って線を引く、tw はテープの長さ、st はデザイン名
+ * @typedef {{x: CanvasRenderingContext2D, c: HTMLCanvasElement, E: number, FW: number, FH: number, o: Record<string, any>, fr: Frame, f: number,
+ *   P: () => void, stroke: (lw: number, col: string|CanvasGradient|CanvasPattern) => void, tw: number, st: string}} FrameStyleArgs */
 /** 切り抜きフレームの形の計算結果（frames.js の frameGeom。画像が読み込めていないときは null を返すので、使う前に確かめる） @typedef {NonNullable<ReturnType<typeof frameGeom>>} FrameGeom */
 
 /** 編集モード（フレーム調整・背景透過のブラシ・マスの調整）の定義。editmodes.js の EDIT_MODES の各値。
