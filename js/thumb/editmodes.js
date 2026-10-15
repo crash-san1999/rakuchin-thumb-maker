@@ -238,11 +238,11 @@ function editPointerDown(e, x, y, tv){
   if(!edit) return false;
   const d = modeOf(edit.kind).down(L, x, y);
   if(!d){ setEdit(null); return false; }  // 外をクリックしたら終わり、ふだんの操作へ
-  drag = Object.assign({mode:'edit', L, x0:x, y0:y}, d);
+  drag = Object.assign({mode:/** @type {'edit'} */ ('edit'), L, x0:x, y0:y}, d);
   tv.setPointerCapture(e.pointerId); e.preventDefault(); syncDoc(); return true;
 }
 // ドラッグ中。syncDocSoon は入力欄の同期を 1 フレーム 1 回に間引く（毎回の同期は重いため）
-/** @param {number} x @param {number} y */ function editPointerMove(x, y){ if(!edit) return; cutCursor = edit.kind === 'cut' ? [x, y] : null; modeOf(edit.kind).move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
+/** @param {number} x @param {number} y */ function editPointerMove(x, y){ if(!edit || !drag || drag.mode !== 'edit') return; cutCursor = edit.kind === 'cut' ? [x, y] : null; modeOf(edit.kind).move(drag.L, x, y, drag); syncDocSoon(); livePaint(); }
 // ホイール。モードが「使わない」(false) と答えたら通常のホイール処理（レイヤーの拡大縮小）に任せる
 /** @param {WheelEvent} e @param {number} x @param {number} y @param {number} k */
 function editWheel(e, x, y, k){
@@ -251,7 +251,7 @@ function editWheel(e, x, y, k){
   e.preventDefault(); syncDoc(); docChanged(true); return true;
 }
 // スマホのピンチ（mobile.js から）。開始時の値を st に控え、editPinch で倍率 k を掛ける
-/** @param {any} I */ function editPinchStart(I){ const L = editLayer(); return L && edit ? {kind:'edit', L, i:I, st:modeOf(edit.kind).pinchStart(L)} : null; }
+/** @param {PinchPair} I @returns {Pinch|null} */ function editPinchStart(I){ const L = editLayer(); return L && edit ? {kind:/** @type {'edit'} */ ('edit'), L, i:I, st:modeOf(edit.kind).pinchStart(L)} : null; }
 /** @param {{L: Layer, st: any}} p @param {number} k */ function editPinch(p, k){ if(edit) modeOf(edit.kind).pinch(p.L, p.st, k); }
 /** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {number} dpr */ function drawEditOverlay(ctx, W, H, dpr){
   const L = editLayer(); if(!L) return false;

@@ -27,7 +27,7 @@
 */
 /** 種類の振る舞い。T はその種類のレイヤーの型（登録した関数には、その種類のレイヤーだけが渡る）
  * @template {Layer} [T=Layer]
- * @typedef {{normalize: (L: any) => T, draw: (ctx: CanvasRenderingContext2D, L: T, f: number, live: boolean|undefined, cache: Map<string, any>) => void,
+ * @typedef {{normalize: (L: any) => T, draw: (ctx: CanvasRenderingContext2D, L: T, f: number, live: boolean|undefined, cache: DrawCache) => void,
  *   keep: (L: any) => boolean, sanitize: (L: T) => void, fonts: (L: T) => Promise<void>|void, assets: (L: T) => (string|null)[],
  *   name: (L: T) => string, sub: (L: T) => string, thumb: (L: T) => string|null, menu: (L: T) => string[],
  *   resize: (L: T, rx: number, ry: number, s: number) => void}} LayerKind */

@@ -22,18 +22,15 @@
 var {tailInfo, tailHandleAt, tailDragStart, tailDragMove, drawTailHandle} = (() => {
 const BUBBLE_SHAPES = ['bubble', 'sbubble', 'obubble', 'cloud', 'shout'];
 const TAIL_HIT_PX = 14;          // つまみの当たり半径（画面上の px）
-/** しっぽのドラッグの状態（tailDragStart が作る）。L は文字レイヤーか画像レイヤー、t は tailInfo の戻り値（L の種類で中身が違うので any）。
- * mode は最初に動かしたときに決まる（'pos' 位置／'dir' 向き）。x0,y0 は押したときの先、center は吹き出しの中心（DOC 座標）
- * @typedef {{L: any, t: any, mode: string|null, t0: number, touch: boolean, x0: number, y0: number, center: number[]}} TailDrag */
 const TAIL_LONG_PRESS = 400;     // スマホで「向きを変える」に切り替わる長押しの時間（ms）
 
 // 文字レイヤー L のしっぽの情報（DOC 座標の先・付け根・吹き出しの中心と、変換に使う値）。出せないときは null
 /** @param {TextLayer} L */
 function textTailInfo(L){
-  const st = /** @type {any} */ (L.style || {}), p = st.plate;
+  const st = L.style, p = st && st.plate;
   if(!p || !p.on || !BUBBLE_SHAPES.includes(p.shape) || (p.tail || 'left') === 'none') return null;
   if(st.warp && st.warp.type !== 'none' && st.warp.amt) return null;   // ワープ中は位置が合わないので出さない
-  const e = prevCache.get(L.id), P = e && e.c && /** @type {any} */ (e.c).plate; if(!P) return null;
+  const e = prevCache.get(L.id), P = e && /** @type {TextCanvas} */ (e.c).plate; if(!P) return null;
   const k = L.sc / e.k, a = (L.rot || 0) * PI / 180, c = Math.cos(a), s = Math.sin(a), W = e.c.width, H = e.c.height;
   /** @param {number[]} q */
   const toDoc = q => { const [px, py] = q; const dx = (px - W / 2) * k, dy = (py - H / 2) * k; return [L.x + dx * c - dy * s, L.y + dx * s + dy * c]; };

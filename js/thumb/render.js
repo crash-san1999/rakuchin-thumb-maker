@@ -22,13 +22,14 @@
 let tvCss;
 /** @type {{x: number|null, y: number|null}} */
 let snapLines;
-/** @type {any} */
+/** @type {CanvasDrag|null} */
 let drag;
 var {prevCache, dims, pruneLayerCaches, fontKey, textCanvas, imgFxOn, tintAtop, imgPicture, drawLayer, duotone, mosaic, toneFilter, postFx, compose, paintPreview, livePaint, drawThumb} = (() => {
 // prevCache：プレビュー用の描画キャッシュ（'__bg' に背景も入る）。dims：レイヤーid → 描画した絵の大きさ（DOC 座標。フチ込み・回転前）。
 // dims は「描画のたびに」更新され、選択枠（overlay.js）・当たり判定（events-canvas.js）・グループの外枠（group.js）が読む。
 // そのため、まだ描かれていないレイヤーや、キャンバス寸法を変えた直後は未登録・古い値になりうる（canvas.js で clear している）
-const prevCache = new Map(), dims = new Map();
+/** @type {DrawCache} */ const prevCache = new Map();
+/** @type {Map<string, {w: number, h: number}>} */ const dims = new Map();
 // 消えたレイヤーの描画キャッシュ・大きさの記録を捨てる（取り消し・削除のあと）。キャッシュは画像1枚ぶんの canvas を持つのでメモリ解放が目的。
 // '__bg'・'__bgfin' はレイヤーではなく背景のキャッシュ（仕上げを背景だけにかけたもの）なので残す
 function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(!k.startsWith('__') && !ids.has(k)) m.delete(k); }
@@ -47,7 +48,7 @@ function fontKey(st){
 }
 // 文字レイヤーの絵（{sk, k, c}）。実際の描画は text-render.js の render(倍率, スタイル)。
 // pad:2 は、描いた文字を外接矩形に切り詰めたあとに残す余白（px）。レイヤーの絵が文字ぴったりになるので、dims（選択枠）もそのサイズになる
-/** @param {TextLayer} L @param {number} need @param {boolean|undefined} live @param {Map<string, any>} cache */
+/** @param {TextLayer} L @param {number} need @param {boolean|undefined} live @param {DrawCache} cache */
 function textCanvas(L, need, live, cache){
   const sk = JSON.stringify(L.style) + fontKey(L.style);
   return cacheByScale(cache, L.id, sk, need, live, () => render(need, Object.assign({}, L.style, {pad: 2})));
@@ -107,7 +108,7 @@ function imgPicture(x, A, L, f, dx, dy, dw, dh){
    フレーム形状があるときは framedCanvas（frames.js）に任せる。
    sk の中身が、この絵の見た目に効く値の全部（トリミング・フチ・反転・明度彩度・背景透過/ブラシ）。ここに無い値を変えても再描画されない。
    明度・彩度（imgFilter）は絵だけにかけて、フチ・影にはかけない。 */
-/** @param {ImageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache @returns {CacheEntry|null} */
+/** @param {ImageLayer} L @param {number} f @param {boolean|undefined} live @param {DrawCache} cache @returns {CacheEntry|null} */
 function imageCanvas(L, f, live, cache){
   const A = layerSrc(L); if(!A) return null;
   if(L.frame && L.frame.shape && L.frame.shape !== 'none') return framedCanvas(L, f, live, cache);
@@ -162,7 +163,7 @@ function haloCanvas(e, q, col, blur, spread, str){
 // need = 今の描画先で必要な倍率、e.k = キャッシュ絵を描いたときの倍率。差があれば s = need / e.k で拡大縮小して貼る（live 中のごまかし）。
 // dims には「回転前・DOC 座標」の大きさを記録する（e.c の寸法 ÷ e.k = 倍率1のときの寸法、× L.sc = DOC 座標）
 /** 文字・画像レイヤー（と、画像として扱う未知の種類）を描く
- * @param {CanvasRenderingContext2D} ctx @param {TextLayer|ImageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
+ * @param {CanvasRenderingContext2D} ctx @param {TextLayer|ImageLayer} L @param {number} f @param {boolean|undefined} live @param {DrawCache} cache */
 function drawLayer(ctx, L, f, live, cache){
   const need = L.sc * f;
   const e = L.type === 'text' ? textCanvas(L, need, live, cache) : imageCanvas(L, f, live, cache);
@@ -310,16 +311,16 @@ function drawBackground(ctx, W, H, f){
    gid 付きのレイヤー（グループの中身）は、ここでは描かずグループが自分の位置で描く。
    仕上げ（fin）がオンのときは、いったん別 canvas T に全部描いてから applyFinish をかけて ctx に重ねる：
    仕上げは背景・全レイヤーを描き終えた1枚に対してまとめてかけるため。 */
-/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {boolean|undefined} live @param {Map<string, any>} cache */
+/** @param {CanvasRenderingContext2D} ctx @param {number} W @param {number} H @param {boolean|undefined} live @param {DrawCache} cache */
 function compose(ctx, W, H, live, cache){
   const f = W / DOC.w, key = JSON.stringify(DOC.bg) + '|' + W + 'x' + H + '|' + DOC.w + 'x' + DOC.h + '|' + (assetOf(DOC.bg.asset) ? 1 : 0);
   let b = cache.get('__bg');
-  if(!b || b.key !== key){ const c = mk(W, H); drawBackground(ctx2d(c), W, H, f); b = {key, c}; cache.set('__bg', b); }
+  if(!b || b.sk !== key){ const c = mk(W, H); drawBackground(ctx2d(c), W, H, f); b = {sk:key, k:1, c}; cache.set('__bg', b); }
   // 仕上げの「かける対象」が背景だけ（target='bg'）なら、背景の絵にだけ仕上げをかけて（キャッシュ '__bgfin'）、レイヤーはそのまま重ねる
   const on = finOn(DOC.fin), bgOnly = on && DOC.fin.target === 'bg', fo = on && !bgOnly, T = fo ? mk(W, H) : null, x = T ? ctx2d(T) : ctx;
   let bc = b.c;
   if(bgOnly){ const k2 = key + '|' + JSON.stringify(DOC.fin); let bf = cache.get('__bgfin');
-    if(!bf || bf.key !== k2){ const c = mk(W, H); ctx2d(c).drawImage(b.c, 0, 0); applyFinish(c, DOC.fin, f); bf = {key:k2, c}; cache.set('__bgfin', bf); }
+    if(!bf || bf.sk !== k2){ const c = mk(W, H); ctx2d(c).drawImage(b.c, 0, 0); applyFinish(c, DOC.fin, f); bf = {sk:k2, k:1, c}; cache.set('__bgfin', bf); }
     bc = bf.c; }
   if(!DOC.bg.hidden){ x.save(); x.globalAlpha = clamp(DOC.bg.op ?? 1, 0, 1); x.drawImage(bc, 0, 0); x.restore(); }
   for(const L of DOC.layers) if(!L.hidden && !L.gid) drawOne(x, L, f, live, cache);

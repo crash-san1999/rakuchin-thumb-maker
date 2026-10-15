@@ -459,7 +459,7 @@ function renderStyle(scale){
   // 8) 自動トリミング（余白 RS.pad は論理 px なので scale 倍。サムネ側の thumb/render.js は pad:2 を渡す）
   const out = trim(B, Math.round(RS.pad * scale));
   // 吹き出しのしっぽの位置を、この絵のピクセル座標に直して付ける（thumb/tailhandle.js のつまみ用）。ワープ・残像・反射・グリッチは絵の原点を動かさない
-  if(platePlace) /** @type {any} */ (out).plate = plateOnCanvas(platePlace, rotM);
+  if(platePlace) /** @type {TextCanvas} */ (out).plate = plateOnCanvas(platePlace, rotM);
   return out;
 }
 // 回転（styleRotate）で、回転前の絵のピクセル → 回転後のピクセルへの変換
@@ -469,7 +469,7 @@ function renderStyle(scale){
   return new DOMMatrix().translate(RW / 2, RH / 2).rotate(RS.rotate).translate(-cw / 2, -chh / 2);
 }
 // platePlace（論理座標と、論理→背面の絵の変換 m）を、最終の絵（回転・トリミング後）のピクセル座標にまとめる
-/** @param {PlatePlace} P @param {DOMMatrix|null} rotM */
+/** @param {PlatePlace} P @param {DOMMatrix|null} rotM @returns {PlateInfo} */
 function plateOnCanvas(P, rotM){
   let M = new DOMMatrix().translate(trimShift[0], trimShift[1]);
   if(rotM) M = M.multiply(rotM);
