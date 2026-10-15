@@ -3,15 +3,10 @@
    日付は保存せず、L.start（その週の任意の日）と L.first（週の始まり）から毎回計算する（weekDates・weekLabel は collage-cells.js と共通）。
    操作パネルは sched-panel.js。描画は分割フレームと同じく、レイヤー全体を1枚のキャンバスに描いてキャッシュし、drawSched が位置・回転を付けて貼る。
    座標系：行・列の位置は W×H（描画先キャンバスのピクセル）。レイヤー自体の位置・大きさはドキュメント座標（L.bw×L.bh を L.sc 倍）。 */
-
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 // 1日ぶん。time が空なら共通の時刻（L.time）を使う。rest＝おやすみ（時刻・画像を出さず、おやすみの文字と色にする）。asset＝右端の画像（ASSETS の id）
 const SCHED_ROW = () => ({time:'', title:'', asset:null, rest:false});
-// 帯の形・帯の色の選択肢（設定パネルとキャッシュのテストが使う）
-const SCHED_BANDS = [['brush', '筆'], ['tape', 'テープ'], ['round', '角丸'], ['flat', '四角'], ['none', 'なし']];
-const SCHED_COLORS = [['rainbow', '曜日ごと'], ['week', '平日・土・日'], ['one', '1色']];
-// 曜日ごとの帯の色（getDay() の順：日〜土）。平日・土・日の3色は WK3
-const SCHED_RAINBOW = ['#f490bd', '#f5b93a', '#e8453c', '#3d9be0', '#2fb457', '#f2cf37', '#2f5bd3'];
-const SCHED_WK3 = {wd:'#f5c33b', sat:'#3d7be0', sun:'#f06b8f'};
 // bw/bh は作った時点の大きさ（以後 DOC のサイズ変更とは独立。表示の大きさは bw/bh × sc）。
 // dstyle＝日付・時刻の文字スタイル、tstyle＝タイトル・おやすみの文字スタイル（null なら dpre/tpre の名前のプリセット）
 function SCHED_BASE(){
@@ -22,6 +17,13 @@ function SCHED_BASE(){
     dpre:'白フチ', dstyle:null, tpre:'白フチ', tstyle:null,
     rows:[...Array(7)].map(() => SCHED_ROW())});
 }
+var {SCHED_BANDS, SCHED_COLORS, isSched, schedPreset, schedDStyle, schedTStyle, schedDays, schedDayLabel, ensureSchedFonts, addSched, schedSetImage, schedTakeFiles, schedApplyText, schedShiftWeek} = (() => {
+// 帯の形・帯の色の選択肢（設定パネルとキャッシュのテストが使う）
+const SCHED_BANDS = [['brush', '筆'], ['tape', 'テープ'], ['round', '角丸'], ['flat', '四角'], ['none', 'なし']];
+const SCHED_COLORS = [['rainbow', '曜日ごと'], ['week', '平日・土・日'], ['one', '1色']];
+// 曜日ごとの帯の色（getDay() の順：日〜土）。平日・土・日の3色は WK3
+const SCHED_RAINBOW = ['#f490bd', '#f5b93a', '#e8453c', '#3d9be0', '#2fb457', '#f2cf37', '#2f5bd3'];
+const SCHED_WK3 = {wd:'#f5c33b', sat:'#3d7be0', sun:'#f06b8f'};
 const isSched = L => !!L && L.type === 'sched';
 // プリセット名 → 文字スタイル（見つからなければ「ポップ」）
 function schedPreset(name){ const p = PRESETS.find(q => q[0] === name) || PRESETS.find(q => q[0] === 'ポップ') || PRESETS[0]; return merged(p[1]); }
@@ -221,3 +223,5 @@ defineLayerKind('sched', {
   name: () => '週間予定表',
   sub: L => `${schedDays(L).map(d => `${d.getMonth() + 1}/${d.getDate()}`).filter((_, i) => i === 0 || i === 6).join('〜')}`,
 });
+return {SCHED_BANDS, SCHED_COLORS, isSched, schedPreset, schedDStyle, schedTStyle, schedDays, schedDayLabel, ensureSchedFonts, addSched, schedSetImage, schedTakeFiles, schedApplyText, schedShiftWeek};
+})();

@@ -2,6 +2,10 @@
    マスの一覧（renderCells）・「背景色・文字」タブ（renderCellText）と、そのイベント（document に委譲）、マスへの画像の読み込み用 input、
    レイアウト選択ボタンのアイコン（collageIcon。inspector.js から使う）。このファイルは読み込み時に document へイベントを登録する。 */
 /* マスの一覧（操作パネル） */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let cellDragFrom;
+var {renderCells, renderCellText, collageIcon} = (() => {
 function renderCells(){
   const L = selLayer(); if(!L || L.type !== 'collage') return;
   const n = collageN(L); L.ac = clamp(L.ac || 0, 0, n - 1);
@@ -99,7 +103,7 @@ document.addEventListener('click', e => {
 });
 // 一覧のマスをドラッグして、別のマスに落とすと入れ替え
 // dragover／drop はキャプチャ段階で受けて stopPropagation する（ファイルのドロップで画像を追加する側の処理に渡さないため）。cellDragFrom<0 のときは何もしない
-let cellDragFrom = -1;
+cellDragFrom = -1;
 document.addEventListener('dragstart', e => { const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(!b) return; cellDragFrom = +b.dataset.cell; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'cell'); });
 document.addEventListener('dragover', e => { if(cellDragFrom < 0) return; const b = tgt(e).closest && tgt(e).closest('.cellbtn[data-cell]'); if(b){ e.preventDefault(); e.stopPropagation(); $$('.cellbtn.dropto').forEach(x => x.classList.toggle('dropto', x === b)); b.classList.add('dropto'); } }, true);
 document.addEventListener('drop', e => {
@@ -137,3 +141,5 @@ function collageIcon(lay, n){
   collageCells(lay, n, 48, 28, 0, 0.55).forEach((p, i) => { collagePath(x, p); x.fillStyle = cols[i % 8]; x.fill(); x.lineWidth = 1.5; x.strokeStyle = '#1f1b2d'; x.stroke(); });
   return collageIconCache[k] = c.toDataURL();
 }
+return {renderCells, renderCellText, collageIcon};
+})();

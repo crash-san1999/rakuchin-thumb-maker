@@ -14,6 +14,11 @@
   localStorage：ttm_favs（お気に入り）/ ttm_fsupd（取得した新フォントと時刻）/ ttm_webfonts（URL追加）/ ttm_localfonts（検出したPC内フォント名）。
 */
 /* ============ フォント管理 ============ */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let fonts;
+let favs;
+var {WEB_SRC, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop} = (() => {
 // 一覧のデータ（FEATURED_JP・USAGE_JP・EA_FONTS・FS_FONTS・GH_FONTS・NPM_FONTS・SELF_FONTS など）は data/font-sources.js
 // フォントの用途の説明（一覧にあればそれ、無ければ USAGE_JP）
 const usageOf = f => f.usage || USAGE_JP[f.family] || '';
@@ -37,8 +42,8 @@ function ensureGh(f, w = 400){
 }
 
 // fonts：一覧の全体（下の initFonts が作る）。URL 追加・PC内・ファイルのフォントは実行中にここへ足される。favs：お気に入りの family 名
-let fonts = [];
-let favs = new Set(LS.get('ttm_favs', []));
+fonts = [];
+favs = new Set(LS.get('ttm_favs', []));
 // 一覧の並び＝表示順。日本語（厳選 → Google の残り → 追加分 → Webフリー各種）→ 欧文（厳選 → Fontsource の欧文）→ 残りの Google 欧文（more）。
 // push は family で重複を弾く（先に入れたものが勝つ＝厳選の分類・用途が一覧由来のものより優先）。
 // extraJp は updateFontList が見つけて保存しておいた新しい日本語フォント
@@ -489,3 +494,5 @@ const drop = $('#drop');
 drop.onclick = () => $('#ffile').click();
 $('#ffile').onchange = e => { addFontFiles(inputOf(e).files); inputOf(e).value = ''; };
 // ドロップは画面全体のドロップ処理（thumb/events-drop.js）が受け取る
+return {WEB_SRC, initFonts, findFont, cssState, ensureCss, plainText, ensureFont, io, sampleText, renderFontList, updateTextTip, weightsOf, refreshTextUI, fixWeight, buildWeight, updateFontList, preloadFavFonts, registerFontCache, scheduleFontListCheck, addWebFontUrl, restoreLocalFonts, addFontFiles, drop};
+})();

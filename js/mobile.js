@@ -8,8 +8,13 @@
   マウス操作はここでは扱わない（thumb/events-canvas.js）。タッチは capture 段階で先に受け、2本指のときだけ events-canvas.js 側へ渡さない。
 */
 /* ============ PC／スマホの自動判定 ============ */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let isMobile;
+let sheet;
+var {applyView, sheetTitle, openSheet} = (() => {
 // isMobile：今スマホ表示か。sheet：開いているシート名（'layers' | 'ins' | null）
-let isMobile = false, sheet = null;
+isMobile = false; sheet = null;
 // 表示の決め方：利用者が固定した設定（ttm_view = 'pc' | 'mobile'）を最優先し、'auto' のときだけ端末から推測する。
 // 推測は誤判定しやすい（折りたたみ・タブレット・PCの狭いウィンドウ）ので、UA・タッチ主体（粗いポインタでホバー不可）・画面の狭さを組み合わせる。
 // 狭い PC ウィンドウは 600px 未満だけスマホ扱いにし、それ以上は PC 表示のまま
@@ -163,3 +168,5 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
   };
   tv.addEventListener('pointerup', up, true); tv.addEventListener('pointercancel', up, true);
 }
+return {applyView, sheetTitle, openSheet};
+})();

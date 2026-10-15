@@ -11,15 +11,20 @@
   呼び出し元：main.js（起動時 idbRestore）、events-drop.js（ドロップ・貼り付け）・events.js（プロジェクトを開く）、library.js、render.js（layerSrc）。
 */
 /* ---------- 画像アセット（IndexedDBに保存） ---------- */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）
 const IMAGE_BASE = () => ({crop:{t:0, b:0, l:0, r:0}, key:KEY_BASE(), strokes:[], btool:'erase', bsz:60, flip:false, flipV:false, bright:0, sat:0, fx:CELL_FX_BASE(), outline:{on:false, w:10, c:'#ffffff', style:'solid', c2:'#ffd400', w2:6, blur:0}, glow:{on:false, c:'#00e5ff', blur:24, a:0.9, str:1}, frame:FRAME_BASE(), shadow:{on:false, blur:30, y:14, a:0.45, x:0, c:'#000000', sp:0}});
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let idbP;
+var {ASSETS, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange} = (() => {
 // ASSETS：アセットid → 読み込み済み画像。画面上の全画像の実体で、DOC.layers / bg から id で引く
 const ASSETS = {};
 const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 const idbReq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 // DB は1回だけ開いて使い回す（Promise ごと保持）。upgrade は assets と lib のどちらのストアも無ければ作る
 // （version 2：lib は素材置き場の追加で増えた。古い version 1 の DB でもデータを消さずに lib だけ増える）
-let idbP = null;
+idbP = null;
 function idb(){
   return idbP || (idbP = new Promise((res, rej) => {
     try{ const r = indexedDB.open('ttm', 2); r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains('assets')) d.createObjectStore('assets'); if(!d.objectStoreNames.contains('lib')) d.createObjectStore('lib', {keyPath:'id'}); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }
@@ -164,3 +169,5 @@ defineLayerKind('image', {
   thumb: L => ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : null,
   menu: () => [menuItem('flip', 'fliph', '左右反転', 'H'), menuItem('flipV', 'flipv', '上下反転', 'V'), menuItem('toLib', 'star', '素材置き場に登録')],
 });
+return {ASSETS, loadImg, idb, idbPut, addAsset, fileToSrc, idbRestore, newImageLayer, addImageLayers, setBgFromFile, cropOf, cropOn, cropRect, cropCache, cropSrc, layerSrc, applyCropChange};
+})();

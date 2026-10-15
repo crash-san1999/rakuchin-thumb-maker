@@ -16,6 +16,12 @@
       sk が同じで k のずれが 2% 未満なら使い回し、c は拡大縮小して描く（s = need / k）。判定は layer-paint.js の cacheByScale。
 */
 /* ---------- 描画 ---------- */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let tvCss;
+let snapLines;
+let drag;
+var {prevCache, dims, pruneLayerCaches, fontKey, textCanvas, imgFxOn, tintAtop, imgPicture, drawLayer, duotone, mosaic, toneFilter, postFx, compose, paintPreview, livePaint, drawThumb} = (() => {
 // prevCache：プレビュー用の描画キャッシュ（'__bg' に背景も入る）。dims：レイヤーid → 描画した絵の大きさ（DOC 座標。フチ込み・回転前）。
 // dims は「描画のたびに」更新され、選択枠（overlay.js）・当たり判定（events-canvas.js）・グループの外枠（group.js）が読む。
 // そのため、まだ描かれていないレイヤーや、キャンバス寸法を変えた直後は未登録・古い値になりうる（canvas.js で clear している）
@@ -25,7 +31,7 @@ const prevCache = new Map(), dims = new Map();
 function pruneLayerCaches(){ const ids = new Set(DOC.layers.map(l => l.id)); pruneMasks(ids); for(const m of [prevCache, dims, cropCache, cutCache]) for(const k of [...m.keys()]) if(!k.startsWith('__') && !ids.has(k)) m.delete(k); }
 // tvCss：プレビュー canvas の画面上の表示幅（CSS px）。画面上の px を DOC 座標に直す（DOC.w / tvCss）ときに使う。
 // snapLines：ドラッグ中のスナップ線（DOC 座標）。drag：キャンバス上のドラッグ状態（events-canvas.js が設定）
-let tvCss = 800, snapLines = {x:null, y:null}, drag = null;
+tvCss = 800; snapLines = {x:null, y:null}; drag = null;
 // 文字キャッシュの印に使う「フォントが読み込み済みか」。Web フォントは後から読み込み完了するので、
 // これを印に含めないと、代替フォントで描いた古い絵がキャッシュに残ったままになる（読み込み前後で '0'→'1' に変わる）。
 // 先頭の1文字は日本語フォント、2文字目は英数字用フォント（fontLatin があるとき）の状態
@@ -351,3 +357,5 @@ defineLayerKind('text', {
   sub: () => '文字',
   menu: () => [menuItem('toLib', 'star', '文字スタイルを素材置き場に登録')],
 });
+return {prevCache, dims, pruneLayerCaches, fontKey, textCanvas, imgFxOn, tintAtop, imgPicture, drawLayer, duotone, mosaic, toneFilter, postFx, compose, paintPreview, livePaint, drawThumb};
+})();

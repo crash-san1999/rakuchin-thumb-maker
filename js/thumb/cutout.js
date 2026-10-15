@@ -9,7 +9,10 @@
   依存：mk・clamp・hex2rgb・boxBlur・uid・cropOn・cropRect（共通側）。frames.js の framedCanvas は cutSig をキャッシュキーに含める。
   ブラシの座標 L.strokes[].p は「元の画像（トリミング前）の幅に対する割合」。半径 r も元画像の幅に対する割合（strokeApply で iw0 を掛ける）。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
 const KEY_BASE = () => ({on:false, c:'#00b140', tol:25, soft:10, shrink:0, smooth:1, mode:'edge', fringe:true});
+var {cutOn, cutCache, keyNormalize, strokesNormalize, cutSig, cutAutoColor, cutPixelColor, cutSrc} = (() => {
 /** @param {Layer} L */
 const cutKeyOn = L => !!(L.key && L.key.on);
 /** @param {Layer} L */
@@ -173,3 +176,5 @@ function cutSrc(L, S, A){
   e.sig = sig; e.obj = {img:cv, name:A.name};
   return e.obj;
 }
+return {cutOn, cutCache, keyNormalize, strokesNormalize, cutSig, cutAutoColor, cutPixelColor, cutSrc};
+})();

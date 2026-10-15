@@ -35,12 +35,11 @@ CHECK = r"""(async () => {
   out.missing = err(() => defineLayerKind('kind_test_missing', {normalize: L => L, draw: () => {}, name: () => ''}));
   out.leaked = hasKey(LAYER_KINDS, 'kind_test_missing');
   // 書き出し（thumbBlob）も、プレビューと同じく全種類のフォントを待つ（以前は週間予定表のフォントを待っていなかった）
-  const called = [];
-  const keep = {t: ensureFont, c: ensureCollageFonts, s: ensureSchedFonts};
-  ensureFont = async st => { called.push('text'); };
-  ensureCollageFonts = async L => { called.push('collage'); };
-  ensureSchedFonts = async L => { called.push('sched'); };
-  try{ await thumbBlob('png'); } finally { ensureFont = keep.t; ensureCollageFonts = keep.c; ensureSchedFonts = keep.s; }
+  // 種類の登録表の fonts を記録用に差し替えて数える（各ファイルは中身を関数で包んでいるので、ensureSchedFonts などを外から差し替えても、
+  // 同じファイルの中からの呼び出しには届かない。書き出しが種類の登録表を通ってフォントを待つことを確かめる）
+  const called = [], keep = {};
+  for(const t of ['text', 'collage', 'sched']){ keep[t] = LAYER_KINDS[t].fonts; LAYER_KINDS[t].fonts = async L => { called.push(t); }; }
+  try{ await thumbBlob('png'); } finally { for(const t in keep) LAYER_KINDS[t].fonts = keep[t]; }
   out.exportFonts = [...new Set(called)].sort();
   return out;
 })()"""

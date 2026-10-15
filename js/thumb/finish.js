@@ -2,7 +2,10 @@
    主な公開関数：applyFinish（仕上げ本体）／finOn（仕上げが何か有効か）／applyFinPreset／posterize・threshold・tiltShift・drawBgPattern（背景用）
    保存データ：DOC.fin（FIN_BASE の形）。項目が増えても古い保存データは FIN_BASE と Object.assign で合わせる前提なので、項目追加時は FIN_BASE に既定値（0＝無効）を入れる
    依存：mk・clamp・rgba・hex2rgb・rng・PI・DOC・syncDoc・docChanged（共通ユーティリティ側）。呼び出し側は描画の最後（全レイヤーを描き終えたあと）。 */
-const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leakC:'#ff8a3d', vig:0, grain:0, rgb:0, scan:0, half:0, halfSize:10, paper:0, dust:0, target:'all'});   // paper＝紙の質感、dust＝傷・ほこり、target＝かける対象（'all' サムネ全体＝初期値／'bg' 背景だけ）
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
+const FIN_BASE = () => ({look:'none', amt:1, bloom:0, leak:0, leakPos:'tr', leakC:'#ff8a3d', vig:0, grain:0, rgb:0, scan:0, half:0, halfSize:10, paper:0, dust:0, target:'all'});
+var {FIN_LOOKS, FIN_PRESETS, finOn, applyFinPreset, applyFinish, posterize, threshold, tiltShift, BG_PATTERNS, drawBgPattern} = (() => {   // paper＝紙の質感、dust＝傷・ほこり、target＝かける対象（'all' サムネ全体＝初期値／'bg' 背景だけ）
 // 色フィルター：f は CSS フィルター、o は [重ね方, 色, 濃さ] の色の重ね
 // 配列は [表示名, CSSフィルター, 色の重ね]。キー名は DOC.fin.look に保存されるので、名前を変えると古い保存データが「なし」扱いになる
 const FIN_LOOKS = {
@@ -195,3 +198,5 @@ function drawBgPattern(ctx, W, H, f, p, cx, cy){
     x.fill(); }
   ctx.save(); ctx.globalAlpha = clamp(p.a, 0, 1); ctx.globalCompositeOperation = p.mode || 'source-over'; ctx.drawImage(t, 0, 0); ctx.restore();
 }
+return {FIN_LOOKS, FIN_PRESETS, finOn, applyFinPreset, applyFinish, posterize, threshold, tiltShift, BG_PATTERNS, drawBgPattern};
+})();

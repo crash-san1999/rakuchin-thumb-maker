@@ -6,9 +6,14 @@
   renderStyle が、その位置を最終的な絵（回転・トリミング後）の座標に直して、返す canvas の .plate に付ける。
   依存：RS・PI・clamp・rng・rgba（text-render.js / core.js）。読み込みは text-render.js の直後。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+/** @type {any} */
+let platePlace;
+var {TAIL_ANGLE, drawPlate} = (() => {
 // 直前の drawPlate が描いた吹き出しの位置（論理座標と、そのときの変換）。renderStyle が開始時に null に戻す
 /** @type {any} */
-let platePlace = null;
+platePlace = null;
 // 直前の bubbleTail が作ったしっぽの付け根・先と、吹き出しの中心・半径・種類（論理座標）。drawPlate が platePlace にまとめる
 /** @type {any} */
 let tailPts = null;
@@ -112,3 +117,5 @@ function drawPlate(ctx, L, outer){
   ctx.fillStyle = rgba(p.c, p.a); ctx.fill(); if(tail) ctx.fill(tail);
   ctx.restore();
 }
+return {TAIL_ANGLE, drawPlate};
+})();

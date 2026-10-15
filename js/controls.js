@@ -15,6 +15,8 @@
     セクションの on='キー' … 見出しのスイッチに結ぶ ON/OFF キー（OFF のセクションは見た目を薄くして折りたたむ）
 */
 /* ============ 操作パネル生成 ============ */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {TEXT_ROWS, SECTIONS, getK, setK, buildTextControls, syncUI} = (() => {
 // 文字の基本行（サイズ・字間・縦書きなど）。縦書き時だけ「揃え」の選択肢の表示が上/中央/下に変わるので、同じ seg:'align' を2つ定義して show で出し分けている
 const TEXT_ROWS = [
   {r:'size', l:'サイズ', min:40, max:400, step:1},
@@ -262,4 +264,5 @@ $('#resetAll').onclick = () => {
   const text = S.text; for(const k of Object.keys(S)) delete S[k]; Object.assign(S, clone(DEFAULT), {text});
   resetAdj(); refreshTextUI(); schedule(); if(DOC.mode === 'thumb') docChanged(false);
 };
-
+return {TEXT_ROWS, SECTIONS, getK, setK, buildTextControls, syncUI};
+})();

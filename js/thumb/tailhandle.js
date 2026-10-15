@@ -18,6 +18,8 @@
   依存：DOC・selLayer（doc.js）、prevCache・textCanvas・tvCss（render.js）、frameGeom・frameBubbleGeom（frames.js）、frameLocal（editmodes.js）、
        editLayer（editmodes.js）、TAIL_ANGLE（text-plate.js）、ASSETS、clamp・PI。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {tailInfo, tailHandleAt, tailDragStart, tailDragMove, drawTailHandle} = (() => {
 const BUBBLE_SHAPES = ['bubble', 'sbubble', 'obubble', 'cloud', 'shout'];
 const TAIL_HIT_PX = 14;          // つまみの当たり半径（画面上の px）
 const TAIL_LONG_PRESS = 400;     // スマホで「向きを変える」に切り替わる長押しの時間（ms）
@@ -120,3 +122,5 @@ function drawTailHandle(ctx, f, dpr){
   ctx.beginPath(); ctx.arc(t.tip[0] * f, t.tip[1] * f, 7 * dpr, 0, 2 * PI); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
+return {tailInfo, tailHandleAt, tailDragStart, tailDragMove, drawTailHandle};
+})();

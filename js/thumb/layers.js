@@ -11,8 +11,12 @@
   依存：DOC・saveDoc（doc.js）、docChanged・syncDoc（doc-sync.js）、prevCache（render.js）、groupLayers 等（group.js）、libAddImageSrc・libAddStyle（library.js）、
        setEdit（editmodes.js）。呼び出し元：events-layers.js・events-canvas.js（パネル・キャンバスの操作）、inspector.js・doc.js（renderLayers）。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let lpSliding;
+var {layerSubText, renderLayers, refreshThumbs, movePeer, startRename, menuItem, showMenu, isSelected, openLayerMenu, hideMenu, guardMenuUntilRelease, selectLayer, toggleMulti, removeLayers, layerAction} = (() => {
 // lpSliding：パネル内の不透明度スライダーをつかんでいる間 true。再描画でスライダー自体が作り直されて、ドラッグが途切れるのを防ぐ（renderLayers が先送りする）
-let lpSliding = false;
+lpSliding = false;
 // パネルに並べる順（手前が先）。グループのすぐ下に、中のレイヤーを並べる（閉じていれば出さない）
 /** @returns {Layer[]} */
 function layerRowsOrder(){
@@ -259,3 +263,5 @@ document.addEventListener('click', e => {
   const b = tgt(e).closest('[data-flip]'); const L = selLayer(); if(!b || !L || L.type !== 'image') return;
   flipLayer(L, b.dataset.flip); syncDoc(); docChanged(false);
 });
+return {layerSubText, renderLayers, refreshThumbs, movePeer, startRename, menuItem, showMenu, isSelected, openLayerMenu, hideMenu, guardMenuUntilRelease, selectLayer, toggleMulti, removeLayers, layerAction};
+})();

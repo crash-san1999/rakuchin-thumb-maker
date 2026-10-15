@@ -16,11 +16,15 @@
        selLayer・textLayer（doc.js）、uid・downloadBlob・stamp・toast・LS（core.js）。読み込み順は assets.js より前だが、関数は呼ばれる時点で参照するので問題ない。
   呼び出し元：main.js（libInit）、layers.js（右クリック「素材に登録」）、events-drop.js（ドロップ）・events.js（プロジェクトを開くとき型が library なら libImport）。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 外から読み書きする変数（ほかのファイルが今の値を読むので、外で宣言して中では代入だけにする）
+let LIB;
+var {LIB_MAX_BYTES, LIB_MAX_ITEM, fmtBytes, libUsed, libItems, myStyles, libCheck, libDelete, libAddImageSrc, libAddFiles, libAddStyle, libExport, libImport, renderLib, libInit} = (() => {
 // 上限：全体 200MB・画像1枚 12MB・500 個。ブラウザの保存領域を使い切って他の保存（作業データ）まで失敗しないよう、こちらで先に止める。
 // LIB_WARN は使用率がこの割合を超えたら「もうすぐいっぱい」と表示する閾値
 const LIB_MAX_BYTES = 200 * 1048576, LIB_MAX_ITEM = 12 * 1048576, LIB_MAX_COUNT = 500, LIB_WARN = 0.8, LIB_NAME_MAX = 24;
 // libOk：IndexedDB が使えるか（プライベートモードなどで false。false の間は保存系をすべて断る）
-let LIB = [], libTab = LS.get('ttm_libtab', 'img'), libOk = true;
+LIB = []; let libTab = LS.get('ttm_libtab', 'img'); let libOk = true;
 const fmtBytes = b => b >= 1048576 ? (b / 1048576).toFixed(b >= 10 * 1048576 ? 0 : 1) + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';
 const libUsed = () => LIB.reduce((a, i) => a + (i.bytes || 0), 0);
 const libItems = kind => LIB.filter(i => i.kind === kind);
@@ -200,3 +204,5 @@ async function libInit(){
   $('#libFile').onchange = e => { const fs = [...inputOf(e).files]; inputOf(e).value = ''; if(fs.length) libAddFiles(fs); };
   $('#libImport').onchange = e => { const f = inputOf(e).files[0]; inputOf(e).value = ''; if(f) libImport(f); };
 }
+return {LIB_MAX_BYTES, LIB_MAX_ITEM, fmtBytes, libUsed, libItems, myStyles, libCheck, libDelete, libAddImageSrc, libAddFiles, libAddStyle, libExport, libImport, renderLib, libInit};
+})();

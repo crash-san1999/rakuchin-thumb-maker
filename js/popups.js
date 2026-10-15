@@ -8,6 +8,8 @@
   localStorage：ttm_helpAuto（起動時にガイドを出すか。未設定=初回は出す）/ ttm_seenLog（最後に見た更新履歴の識別子）。
 */
 /* 操作ガイド */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {openHelp, closeHelp, openLog, togglePop} = (() => {
 // ttm_helpAuto は「次回も起動時に表示する」チェック（#helpNoAuto。id は名前と逆の意味なので注意）の値そのもの。
 // 未設定（初回）は main.js が !== false で判定して表示し、ここではチェックなしで開く。一度閉じると false が保存され、チェックしない限り次回から出ない
 function openHelp(){ $('#help').classList.add('show'); $as('#helpNoAuto', HTMLInputElement).checked = LS.get('ttm_helpAuto', false) === true; }
@@ -65,3 +67,5 @@ document.addEventListener('click', e => {
   if(!pop || (pop.id === 'addMenu' && tgt(e).closest('button') && !tgt(e).closest('#addLib'))) setTimeout(() => $$('.pop.show').forEach(p => p.classList.remove('show')), 0);
 });
 document.addEventListener('keydown', e => { if(e.key === 'Escape') $$('.pop.show').forEach(p => p.classList.remove('show')); });
+return {openHelp, closeHelp, openLog, togglePop};
+})();

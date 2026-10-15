@@ -5,9 +5,12 @@
      shape・style のキー名は保存されるので、名前を変えると古い保存データが壊れる（framePath は未知の shape を角丸四角として描く）。
    依存：layerSrc・cropOf・cutSig（cutout.js）・imgFilter・mk・rng・clamp・hex2rgb・PI（共通側）。framedCanvas は画像の描画側から呼ばれ、結果をレイヤーごとにキャッシュする。 */
 /* ---------- 画像の切り抜きフレーム ---------- */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+// 型の定義（types/types.js）が typeof で型を引く既定値は、包みの外に置く（中に入れると型が循環するため）
+function FRAME_BASE(){ return {shape:'none', ar:'auto', fs:1, cx:0.5, cy:0.5, r:0.12, style:'solid', c2:'#1f1b2d', seed:1, tside:'b', tp:0.3, tt:-0.16, tw:0.2, tb:0}; }
+var {FRAME_SEEDED, FRAME_SHAPES, FRAME_STYLES, FRAME_PRESETS, FRAME_GROUPS, frameBubbleGeom, framePath, frameGeom, frameCompensate, framedCanvas} = (() => {
 // 「筆のかすれ（別パターンにする）」で形が変わる、乱数を使う形
 const FRAME_SEEDED = ['swipe', 'drybrush', 'brushbox', 'rip', 'brushtri', 'brushcircle', 'torn', 'splash', 'burst'];
-function FRAME_BASE(){ return {shape:'none', ar:'auto', fs:1, cx:0.5, cy:0.5, r:0.12, style:'solid', c2:'#1f1b2d', seed:1, tside:'b', tp:0.3, tt:-0.16, tw:0.2, tb:0}; }
 // 吹き出しの形のしっぽ：tside＝付ける辺（b 下／t 上／l 左／r 右）、tp＝付け根の位置（辺の長さに対する割合）、tt＝先の位置（付け根からのずれ。割合）、tw＝付け根の太さ（割合）、tb＝曲がり（−1〜1）
 const FRAME_SHAPES = [
   ['none','なし'], ['rect','四角（角丸）'], ['circle','丸'], ['arch','アーチ'], ['hex','六角形'], ['oct','八角形'], ['diamond','ひし形'], ['tri','三角'],
@@ -408,3 +411,5 @@ function framedCanvas(L, f, live, cache){
     return c;
   });
 }
+return {FRAME_SEEDED, FRAME_SHAPES, FRAME_STYLES, FRAME_PRESETS, FRAME_GROUPS, frameBubbleGeom, framePath, frameGeom, frameCompensate, framedCanvas};
+})();

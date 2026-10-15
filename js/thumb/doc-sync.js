@@ -15,6 +15,8 @@
    '@sc' '@p.n'     … 先頭 @ は「選択中のレイヤー」からの相対パス
    '@cell.zoom'     … 分割フレームの「選択中のマス（L.ac）」からの相対パス
    戻り値は [起点オブジェクト, 残りのパス]。起点が無い（レイヤー未選択など）ときは b が null */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {docChanged, DB, syncDocSoon, syncDoc} = (() => {
 function dBase(k){
   if(k.startsWith('@cell.')){ const L = selLayer(); return [L && L.cells ? L.cells[L.ac || 0] : null, k.slice(6)]; }
   return k[0] === '@' ? [selLayer(), k.slice(1)] : [DOC, k];
@@ -73,4 +75,5 @@ function syncDoc(except){
   renderCells(); renderCellText(); renderSched();
   refreshSizeUI();
 }
-
+return {docChanged, DB, syncDocSoon, syncDoc};
+})();

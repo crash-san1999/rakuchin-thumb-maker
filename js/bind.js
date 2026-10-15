@@ -11,6 +11,8 @@
   読み込み順：core.js の次（paintRange・ic に依存）。イベントは document に委譲で登録するので、あとから作った入力欄にも効く。
   戻り値：{cond, sync, row}。sync() は値→画面、row() は設定行の HTML 作成で、onInput などの画面→値と対になる。
 */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {makeBinder} = (() => {
 // 入力欄の値を型に直す。読めない値は undefined を返し、呼び出し側はそれを「変更なし」として無視する
 // （例：数値欄を空にした途中の状態や、#rrggbb でない途中の色文字列で、値を壊さないため）
 function readInput(el){
@@ -63,3 +65,5 @@ function makeBinder(o){
     },
   };
 }
+return {makeBinder};
+})();

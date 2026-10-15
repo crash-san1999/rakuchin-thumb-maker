@@ -16,6 +16,8 @@
        同じ対象（document の click など）に登録する順番が元の events.js と変わらないよう、この並びを保つ。
 */
 /* ---------- イベント ---------- */
+// ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
+var {openProjectFile} = (() => {
 // 設定パネルのボタン類（クリックの委譲）。ボタンの id・data 属性は inspector.js の行定義と対応する
 document.addEventListener('click', e => {
   const pb = tgt(e).closest('[data-place]');
@@ -120,3 +122,5 @@ async function openProjectFile(f){
     loadDocObj(j.doc); toast('プロジェクトを開きました');
   }catch(err){ toast('開けませんでした: ' + err.message, true); }
 }
+return {openProjectFile};
+})();
