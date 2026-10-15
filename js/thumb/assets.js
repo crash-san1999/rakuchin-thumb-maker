@@ -144,3 +144,23 @@ function applyCropChange(L, change){
   const a = (L.rot || 0) * PI / 180, dx = u * L.sc, dy = v * L.sc;
   L.x += dx * Math.cos(a) - dy * Math.sin(a); L.y += dx * Math.sin(a) + dy * Math.cos(a);
 }
+
+// 画像レイヤー：crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
+function normalizeImageLayer(L){
+  return Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
+        fx: mergeCellFx(L.fx),   // 色は mergeCellFx の中で fxColorsSafe が安全な値にそろえる
+        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
+        btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
+        frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
+        shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {}), glow: Object.assign(IMAGE_BASE().glow, L.glow || {})});
+}
+/* ---------- 画像レイヤーの種類の登録（layer-kinds.js）。未知の種類もこれとして扱う ---------- */
+defineLayerKind('image', {
+  normalize: L => normalizeImageLayer(L),
+  draw: (ctx, L, f, live, cache) => drawLayer(ctx, L, f, live, cache),
+  assets: L => [L.asset],
+  name: L => L.name || '画像',
+  sub: L => ASSETS[L.asset] ? '画像' : '画像（読み込めません）',
+  thumb: L => ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : null,
+  menu: () => [menuItem('flip', 'fliph', '左右反転', 'H'), menuItem('flipV', 'flipv', '上下反転', 'V'), menuItem('toLib', 'star', '素材置き場に登録')],
+});

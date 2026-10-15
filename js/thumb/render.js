@@ -332,7 +332,7 @@ function livePaint(){ cancelAnimationFrame(livePaint.r); livePaint.r = requestAn
 // 通常（高品質）の再描画。先にフォントを読み込んでから描く。tok は preview.js の世代番号で、待っている間に次の更新が来たら古いほうを捨てる
 async function drawThumb(){
   const my = ++tok;
-  for(const L of DOC.layers) if(L.type === 'text' && !L.hidden) await ensureFont(L.style); else if(L.type === 'collage') await ensureCollageFonts(L); else if(L.type === 'sched') await ensureSchedFonts(L);
+  await ensureLayerFonts();
   if(my !== tok) return;
   paintPreview(false); updateVis(); updateTextTip();
 }
@@ -341,3 +341,13 @@ function updateCellFab(){
   const b = $('#cellFab'); if(!b) return; const L = selLayer(), show = !!(L && L.type === 'collage' && !L.hidden && !L.locked), on = !!(edit && edit.kind === 'cells');
   b.hidden = !show; b.classList.toggle('on', on); const t = on ? 'マスの調整を終える' : 'マスの画像を動かす'; if(b.lastChild.textContent !== t) b.lastChild.textContent = t;
 }
+
+/* ---------- 文字レイヤーの種類の登録（layer-kinds.js） ---------- */
+defineLayerKind('text', {
+  normalize: L => Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})}),
+  draw: (ctx, L, f, live, cache) => drawLayer(ctx, L, f, live, cache),
+  fonts: L => L.hidden ? undefined : ensureFont(L.style),
+  name: L => L.style.text.replace(/[{}]/g, '').replace(/\n/g, ' ').trim().slice(0, 28) || '（空の文字）',
+  sub: () => '文字',
+  menu: () => [menuItem('toLib', 'star', '文字スタイルを素材置き場に登録')],
+});

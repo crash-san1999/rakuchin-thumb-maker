@@ -38,48 +38,17 @@ const layerById = id => (DOC && DOC.layers.find(l => l.id === id)) || null;
 const selLayer = () => layerById(DOC && DOC.sel);
 const textLayer = () => layerById(DOC && DOC.textSel);
 // いま DOC が参照している画像アセットid の集合。IndexedDB の掃除（assets.js idbRestore）とプロジェクト保存で「使っているものだけ」を残すのに使う
-function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => l.type === 'image' ? [l.asset] : l.type === 'collage' ? l.cells.map(c => c.asset) : l.type === 'sched' ? l.rows.map(r => r.asset) : [])].filter(Boolean)); }
+function usedAssets(){ return new Set([DOC.bg.asset, ...DOC.layers.flatMap(l => kindOf(l).assets(l))].filter(Boolean)); }
 /** @param {Layer} L */
-function layerName(L){
-  if(L.label) return L.label;
-  if(L.type === 'text') return L.style.text.replace(/[{}]/g, '').replace(/\n/g, ' ').trim().slice(0, 28) || '（空の文字）';
-  if(L.type === 'group') return `グループ（${groupKids(L).length}個）`;
-  if(L.type === 'fx') return FX_NAMES[L.kind] || 'エフェクト';
-  if(L.type === 'collage') return `分割フレーム（${collageN(L)}分割）`;
-  if(L.type === 'sched') return '週間予定表';
-  return L.name || '画像';
-}
+// ユーザーが付けた名前（label）があればそれ、無ければ種類ごとの既定の名前（layer-kinds.js の name）
+function layerName(L){ return L.label || kindOf(L).name(L); }
 /* 保存データ（localStorage・プロジェクトJSON・取り消し履歴）を、いまの DOC の形に整えて返す。
    機能追加で増えたキーは既定値で埋め、範囲外の値は丸める。古い保存データを読んでも落ちないための唯一の入口なので、
    DOC にキーを足したら、ここで既定値が入るか（Object.assign のベースにあるか）を必ず確認すること。
    d が不正（null・layers なし）のときは、文字レイヤー1枚の新規ドキュメントを返す。 */
-// レイヤー 1 枚を、種類ごとの既定値と混ぜ直す（normalizeDoc から呼ぶ）。表に無い種類（image と未知の種類）は normalizeImageLayer。
+// レイヤー 1 枚を、種類ごとの既定値と混ぜ直す（normalizeDoc から呼ぶ）。中身は種類ごとの登録（layer-kinds.js の normalize）。
 // 保存データ L に無い項目は既定値で埋まる。入れ子のオブジェクト（shadow・cells の中など）は 1 段ずつ既定値と混ぜる
-// 全部のマスの文字のまとめての調整：on（オン／オフ）が無い古いデータは、値を動かしていればオンとみなす（最初の版では書き出しに効いていたので、見た目を保つ）
-function collageTtx(base, t){
-  if(!t || typeof t !== 'object') return base;
-  const o = Object.assign(base, t);
-  if(t.on === undefined) o.on = (t.sc !== undefined && +t.sc !== 1) || !!+t.ox || !!+t.oy;
-  return o;
-}
-const LAYER_NORMALIZE = {
-  text: L => Object.assign(LAYER_BASE(), L, {style: merged(L.style || {})}),
-  collage: L => (b => Object.assign(b, L, {fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {}), wk: Object.assign(b.wk, L.wk || {}), ttx: collageTtx(b.ttx, L.ttx), tstyle: L.tstyle ? merged(L.tstyle) : null,
-        cells: b.cells.map((c, i) => { const s = (L.cells || [])[i] || {}; return Object.assign(c, s, {fx: mergeCellFx(s.fx), bg: Object.assign(c.bg, s.bg || {}), tx: Object.assign(c.tx, s.tx || {})}); })}))(COLLAGE_BASE()),
-  group: L => (b => Object.assign(b, L, {fxMode:'all', fx: mergeCellFx(L.fx), shadow: Object.assign(b.shadow, L.shadow || {})}))(Object.assign(LAYER_BASE(), GROUP_BASE())),
-  fx: L => Object.assign(LAYER_BASE(), L, {p:Object.assign(FX_DEF[L.kind](), L.p || {})}),
-  sched: L => normalizeSched(L),
-};
-// 画像レイヤー：crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
-function normalizeImageLayer(L){
-  return Object.assign(LAYER_BASE(), IMAGE_BASE(), L, {
-        fx: mergeCellFx(L.fx),   // 色は mergeCellFx の中で fxColorsSafe が安全な値にそろえる
-        outline: Object.assign(IMAGE_BASE().outline, L.outline || {}), crop: cropClamp(L.crop), key: keyNormalize(L.key), strokes: strokesNormalize(L.strokes),
-        btool: ['erase', 'restore', 'pick'].includes(L.btool) ? L.btool : 'erase', bsz: clamp(+L.bsz || 60, 4, 600),
-        frame: (fr => { const o = Object.assign(FRAME_BASE(), fr); if(fr.fs == null && fr.zoom) o.fs = Math.max(0.1, 1 / fr.zoom); delete o.zoom; delete o.ox; delete o.oy; return o; })(L.frame || {}),
-        shadow: Object.assign(IMAGE_BASE().shadow, L.shadow || {}), glow: Object.assign(IMAGE_BASE().glow, L.glow || {})});
-}
-function normalizeLayer(L){ return hasKey(LAYER_NORMALIZE, L.type) ? LAYER_NORMALIZE[L.type](L) : normalizeImageLayer(L); }
+function normalizeLayer(L){ return kindOf(L).normalize(L); }
 // 背景・仕上げ・ガイド・ヘッダー画像の設定を既定値と混ぜ、旧データの効果の中心を引き継ぐ（o は Object.assign(DOC_BASE(), d) 済みのもの）
 function normalizeDocSettings(o, d){
   // Object.assign は浅いコピーなので、入れ子のオブジェクト（bg・fin・guides と、bg の中の zb など）は個別に既定値と混ぜる。
@@ -109,8 +78,7 @@ function sanitizeDocRefs(o){
   o.layers.forEach(l => {
     if(l.cells) l.cells.forEach(c => { c.bg.c = safeColor(c.bg.c, '#ffffff'); c.bg.c2 = safeColor(c.bg.c2, '#ffd9e8');
       c.tx.fc = safeColor(c.tx.fc, '#ffffff'); c.tx.ec = safeColor(c.tx.ec, '#1f1b2d'); c.w = cellW(c); });
-    if(l.type === 'collage'){ const t = l.ttx; t.on = !!t.on; t.sc = clamp(+t.sc || 1, 0.2, 3); t.ox = clamp(+t.ox || 0, -1, 1); t.oy = clamp(+t.oy || 0, -1, 1); l.wk.memo = clamp(Math.round(+l.wk.memo) || 8, 1, 8); }
-    if(l.type === 'fx' && l.p){ l.p.c = safeColor(l.p.c, '#ffffff'); if(l.p.c2 != null) l.p.c2 = safeColor(l.p.c2, '#1f1b2d'); }
+    kindOf(l).sanitize(l);   // 種類ごとの値（分割フレームの文字の調整・動的エフェクトの色など）
   });
 }
 // グループの整理（存在しないグループへの gid・空のグループ）と、複数選択のリセット
@@ -141,9 +109,8 @@ function normalizeDoc(d){
   while(ex > 200 && ex * ex * o.h / o.w > EXPORT_MAX_PX) ex = Math.floor(ex * 0.9);
   o.exportW = ex;
   normalizeDocSettings(o, d);
-  // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、未対応の fx 種別（バージョン違いの保存データ）は捨てる。
-  // 画像は crop / key / strokes などを専用の正規化関数で丸める。frame の旧形式（zoom・ox・oy）は fs（大きさ）へ変換して捨てる
-  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => L.type !== 'fx' || hasKey(FX_DEF, L.kind)).map(L => normalizeLayer(L));
+  // レイヤーを type ごとに既定値と混ぜ直す。壊れた要素と、種類の keep が false のもの（未対応の動的エフェクトの種類など。バージョン違いの保存データ）は捨てる
+  o.layers = d.layers.filter(L => L && typeof L === 'object').filter(L => kindOf(L).keep(L)).map(L => normalizeLayer(L));
   sanitizeDocRefs(o);
   cleanupGroups(o);
   migrateOldLines(o, d);

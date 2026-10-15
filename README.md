@@ -73,6 +73,7 @@ js/preview.js              文字素材モードのプレビュー・書き出�
 js/colors.js               配色（パレット・色調整・背景画像からの配色）
 js/history.js              取り消し／やり直し
 js/thumb/layer-paint.js    レイヤーを描くときの共通処理（描画キャッシュの再利用判定 cacheByScale／cacheBySize・置き方 poseLayer）
+js/thumb/layer-kinds.js    レイヤーの種類の登録表（defineLayerKind／kindOf。種類ごとの読み込み・描画・名前・パネル・メニュー・フォント・サイズ変更。登録は各種類のファイルで）
 js/thumb/frames.js         画像の切り抜きフレーム（形・枠のデザイン・プリセット）
 js/thumb/collage.js        分割フレーム（複数の画像を2〜8分割で並べる）① データの形・マスの効果・分割のしかたの一覧
 js/thumb/collage-draw.js   分割フレーム ② 分割の計算・境界の形・マスの画像と文字の描画
@@ -149,6 +150,7 @@ python3 -m playwright install chromium   # Chromium が入っていない場合
 新しい機能を足したら、その機能のテストを書き足すだけでなく、**機能に合わせてテスト全体を見直します**。
 
 - **画面と同じ経路で確かめる**：描画キャッシュ（`prevCache`）を消してから比べるテストは、「設定を変えても画面が変わらない」不具合を見逃します。見た目の確認は、実際の画面と同じく `paintPreview(false)` をキャッシュを残したまま呼んで行います
+- **レイヤーの種類**：新しい種類を足すときは、その種類のファイルで `defineLayerKind` を呼んで登録します（`js/thumb/layer-kinds.js` の先頭に項目の一覧）。ほかのファイルで `L.type` による枝分かれを増やさないでください。`tests/test_layer_kinds.py` の種類の一覧と、種類ごとの確認にも追加します
 - **キャッシュの印**：描画に効く項目をレイヤーに足したら、キャッシュの印（`drawCollage` の `sk` など）にも入れます。再利用の判定そのものは `js/thumb/layer-paint.js` の `cacheByScale`／`cacheBySize` にまとまっています。`tests/test_cache_consistency.py` が全レイヤーの全項目を自動で集めて、キャッシュありと描き直しが同じ絵になるかを確かめます（項目を足すと自動で対象になります）
 - **保存データ**：項目を足したら、既定値（`*_BASE`）・読み込み（`normalizeDoc`）・不正な値の補正（`sanitizeDocRefs`）・古いデータの扱いをテストし、`tests/test_security.py` の細工したプロジェクトにもその項目を入れます
 - **ほかの機能との組み合わせ**：同じ画面・同じデータを使う既存の機能（例：マスごとの調整と全部のマスのまとめての調整）を一緒に動かして、互いに影響しないことを確かめます

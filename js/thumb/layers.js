@@ -23,9 +23,7 @@ function layerRowsOrder(){
 }
 // パネルの2行目（種別などの説明）。画像が ASSETS に無いときは「読み込めません」（IndexedDB の復元前・保存失敗のとき）
 /** @param {Layer} L */
-function layerSubText(L){
-  return L.type === 'text' ? '文字' : L.type === 'group' ? `${groupKids(L).length}個のレイヤー${cellFxOn(L.fx) ? ' ・ 効果あり' : ''}` : L.type === 'collage' ? `${L.cells.slice(0, collageN(L)).filter(c => ASSETS[c.asset]).length} / ${collageN(L)} 枚` : L.type === 'sched' ? `${schedDays(L).map(d => `${d.getMonth() + 1}/${d.getDate()}`).filter((_, i) => i === 0 || i === 6).join('〜')}` : L.type === 'fx' ? '動的エフェクト' + (L.auto ? '（ワンクリック）' : '') : (ASSETS[L.asset] ? '画像' : '画像（読み込めません）');
-}
+function layerSubText(L){ return kindOf(L).sub(L); }
 // 毎回 innerHTML で作り直す。行のサムネは <canvas data-th> で、描き終わったあと refreshThumbs が prevCache の絵を縮小して入れる。
 // 背景の行は固定（並べ替え・選択の対象外）で、data-th='__bg' のサムネは背景キャッシュを使う
 // レイヤーパネルの 1 行（レイヤー L）の HTML。ms＝複数選択中の id の Set。サムネの canvas は描いたあと refreshThumbs が埋める
@@ -33,7 +31,7 @@ function layerSubText(L){
 function layerRowHTML(L, ms){
     const sub = layerSubText(L);
     const mode = L.blend && L.blend !== 'source-over' ? ' ・ ' + (BLEND_NAMES[L.blend] || L.blend) : '';
-    const th = L.type === 'group' ? `<span class="fxth grpth">${ic('group')}</span>` : L.type === 'fx' ? `<span class="fxth" style="--fxc:${safeColor(L.p.c)}">${ic(FX_ICONS[L.kind])}</span>` : L.type === 'image' && ASSETS[L.asset] ? `<img src="${ASSETS[L.asset].thumb}" alt="">` : `<canvas data-th="${escapeHtml(L.id)}" width="72" height="72"></canvas>`;
+    const th = kindOf(L).thumb(L) ?? `<canvas data-th="${escapeHtml(L.id)}" width="72" height="72"></canvas>`;   // 種類ごとのアイコン・画像。無ければ描画キャッシュの絵を縮小
     const fold = isGroup(L) ? `<button data-la="fold" title="${L.open === false ? '開く' : '閉じる'}">${L.open === false ? '▸' : '▾'}</button>` : '';
     return `<div class="ly${L.id === DOC.sel ? ' on' : ''}${ms.has(L.id) ? ' multi' : ''}${L.hidden ? ' hid' : ''}${L.locked ? ' locked' : ''}${isGroup(L) ? ' grp' : ''}${L.gid ? ' kid' : ''}" data-lid="${escapeHtml(L.id)}"${L.gid ? ` data-gid="${escapeHtml(L.gid)}"` : ''} title="ドラッグで重なり順を変更・ダブルクリックで名前を変更・Ctrl／Shift＋クリックで複数選択（スマホは長押し）">
       <span class="grip">${ic('grip')}</span>
@@ -129,8 +127,7 @@ function layerMenuHtml(L){
     [menuItem('dup', 'dup', '複製', 'Ctrl+D'), menuItem('rename', 'pen', '名前を変更'),
      menuItem('lock', L.locked ? 'unlock' : 'lock', L.locked ? 'ロックを解除' : 'ロック'),
      menuItem('eye', L.hidden ? 'eye' : 'eyeoff', L.hidden ? '表示する' : '隠す')],
-    L.type === 'image' ? [menuItem('flip', 'fliph', '左右反転', 'H'), menuItem('flipV', 'flipv', '上下反転', 'V'), menuItem('toLib', 'star', '素材置き場に登録')] : [],
-    L.type === 'text' ? [menuItem('toLib', 'star', '文字スタイルを素材置き場に登録')] : [],
+    kindOf(L).menu(L),   // 種類ごとの項目（画像の反転・素材置き場への登録など）
     [grp ? menuItem('ungroup', 'ungroup', 'グループを解除', 'Ctrl+Shift+G') : L.gid ? menuItem('ungroupOne', 'ungroup', 'グループから出す') : '',
      grp ? '' : menuItem('multi', 'group', '選択に追加（まとめて動かす・グループにする）')],
     [menuItem('del', 'trash', grp ? 'グループごと削除' : '削除', 'Delete', 'danger')]);
