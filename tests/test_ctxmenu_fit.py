@@ -64,4 +64,19 @@ async def run(p):
     # 指を離したあとは、ふつうに項目を押せる
     await pg.wait_for_timeout(400); await pg.click('#ctxmenu [data-ma="dup"]'); await settle(pg, 300)
     assert await pg.evaluate("DOC.layers.length") == n0[0] + 1, '長押しのあと、メニューの項目を押せない'
+    # 背景透過のブラシ（調整モード）で画像を長押ししても、画像の位置が壊れない。
+    # 長押しはドラッグを取り消して開始時の位置へ戻すが、以前は調整モードのドラッグ（位置を持たない）でも戻そうとして、位置が undefined になっていた
+    await pg.evaluate("document.querySelectorAll('#ctxmenu.show').forEach(e => e.classList.remove('show'))")
+    await pg.set_input_files('#imgfile', [IMG['chara.jpg']]); await settle(pg, 1500)
+    await pg.evaluate("document.querySelectorAll('.sheet.show, .help.show').forEach(e => e.classList.remove('show'))")
+    c = await pg.evaluate("""(() => { const L = DOC.layers.find(l => l.type === 'image'); DOC.layers = [L]; Object.assign(L, {x:960, y:540, rot:0}); L.sc = 800 / ASSETS[L.asset].img.naturalHeight;
+      selectLayer(L.id); setEdit('cut', L); paintPreview(false); const r = document.querySelector('#tv').getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2, edit && edit.kind]; })()""")
+    assert c[2] == 'cut', f'ブラシの調整モードに入れない {c}'
+    await cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': c[0], 'y': c[1]}]})
+    await pg.wait_for_timeout(1000)
+    await cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+    await pg.wait_for_timeout(400)
+    pos = await pg.evaluate("(() => { const L = DOC.layers[0]; return [L.x, L.y]; })()")
+    assert pos == [960, 540], f'調整モードで長押しすると、画像の位置が壊れる {pos}'
     await close(pg)

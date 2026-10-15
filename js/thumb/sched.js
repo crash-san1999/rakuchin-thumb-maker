@@ -104,7 +104,7 @@ function schedImage(x, A, ix, iw, by, bh){
 }
 // ctx に予定表を描く。絵は schedCanvas で作ってレイヤーごとにキャッシュし、ここでは位置・回転・影・不透明度を付けて貼るだけ（drawCollage と同じ手順）。
 // sk：見た目が変わる設定すべての印。描画に効く項目を足したら、ここにも必ず足す（日付は今日によって変わるので、計算した見出しも入れる）
-/** @param {CanvasRenderingContext2D} ctx @param {SchedLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
+/** @param {CanvasRenderingContext2D} ctx @param {SchedLayer} L @param {number} f @param {boolean|undefined} live @param {DrawCache} cache */
 function drawSched(ctx, L, f, live, cache){
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));
   dims.set(L.id, {w, h});

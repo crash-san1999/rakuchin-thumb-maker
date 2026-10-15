@@ -93,12 +93,12 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
 {
   const tv = $('#tv'), pts = new Map();
   // pinch：2本指の操作の開始時の状態（レイヤー・背景・編集モードで中身が違う）。lp：長押しのタイマー
-  /** @type {any} */ let pinch = null;
+  /** @type {Pinch|null} */ let pinch = null;
   let lp = 0, lastTap = {t:0, x:0, y:0};
   // 画面座標 → ドキュメント座標（DOC.w×DOC.h の px）。表示サイズは CSS で縮んでいるため、表示幅に対する比で換算する
   const toDoc = /** @param {number} cx @param {number} cy */ (cx, cy) => { const r = tv.getBoundingClientRect(); return [(cx - r.left) / r.width * DOC.w, (cy - r.top) / r.height * DOC.h]; };
   // 2本指の距離 d・角度 a（ラジアン）・中心 cx,cy。pts の先頭2本だけを見る（3本目以降は無視）
-  const pairInfo = () => { const [a, b] = [...pts.values()]; return {d:Math.hypot(b.x - a.x, b.y - a.y), a:Math.atan2(b.y - a.y, b.x - a.x), cx:(a.x + b.x) / 2, cy:(a.y + b.y) / 2}; };
+  const pairInfo = /** @returns {PinchPair} */ () => { const [a, b] = [...pts.values()]; return {d:Math.hypot(b.x - a.x, b.y - a.y), a:Math.atan2(b.y - a.y, b.x - a.x), cx:(a.x + b.x) / 2, cy:(a.y + b.y) / 2}; };
   tv.addEventListener('pointerdown', e => {
     if(DOC.mode !== 'thumb' || e.pointerType === 'mouse') return;
     pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
@@ -120,7 +120,9 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
       if(pts.size !== 1) return;
       const [dx, dy] = toDoc(x0, y0), L = hitMenuLayer(dx, dy);
       if(!L) return;
-      if(drag && drag.L){ drag.L.x = drag.lx; drag.L.y = drag.ly; }   // 長押しの間に少し動いていても、ドラッグ開始時の位置へ戻してからメニューを出す
+      // 長押しの間に少し動いていても、ドラッグ開始時の位置へ戻してからメニューを出す。開始時の位置を持つのは移動・拡大縮小・回転だけ
+      // （以前は調整モード・しっぽのドラッグでも戻そうとして、位置が undefined になっていた）
+      if(drag && 'lx' in drag){ drag.L.x = drag.lx; drag.L.y = drag.ly; }
       drag = null;
       if(navigator.vibrate) navigator.vibrate(12);
       openLayerMenu(L.id, x0 - 100, y0 + 12, y0 - 12); guardMenuUntilRelease();

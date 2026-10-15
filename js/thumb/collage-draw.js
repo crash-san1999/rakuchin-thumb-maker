@@ -245,7 +245,7 @@ function collageCellImage(x, L, i, poly, W, H, showEmpty){
 }
 // ctx に分割フレームを描く。実際の絵は collageCanvas で作ってレイヤーごとにキャッシュし、ここでは位置・回転・影・不透明度を付けて貼るだけ。
 // dims（選択枠・グループ範囲用）は描画のたびに更新。f＝倍率、live＝操作中、cache＝レイヤー id → {sk, k, c}
-/** @param {CanvasRenderingContext2D} ctx @param {CollageLayer} L @param {number} f @param {boolean|undefined} live @param {Map<string, any>} cache */
+/** @param {CanvasRenderingContext2D} ctx @param {CollageLayer} L @param {number} f @param {boolean|undefined} live @param {DrawCache} cache */
 function drawCollage(ctx, L, f, live, cache){
   const n = collageN(L), lay = collageLayoutOk(L.layout, n) ? L.layout : 'cols';
   const w = L.bw * L.sc, h = L.bh * L.sc, W = Math.max(2, Math.round(w * f)), H = Math.max(2, Math.round(h * f));

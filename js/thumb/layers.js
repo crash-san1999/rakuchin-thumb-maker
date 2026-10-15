@@ -72,7 +72,7 @@ function renderLayers(){
 // レイヤーのサムネを prevCache から描く。背景は cover（全面に敷く）、レイヤーは contain（0.94 倍で余白を残す）
 function refreshThumbs(){
   $$as('#layerList canvas[data-th]', HTMLCanvasElement).forEach(cv => {
-    const id = cv.dataset.th, e = prevCache.get(id), src = e && e.c, x = ctx2d(cv);
+    const id = cv.dataset.th ?? '', e = prevCache.get(id), src = e && e.c, x = ctx2d(cv);
     x.clearRect(0, 0, cv.width, cv.height); if(!src) return;
     const k = id === '__bg' ? Math.max(cv.width / src.width, cv.height / src.height) : Math.min(cv.width / src.width, cv.height / src.height) * 0.94;
     x.drawImage(src, (cv.width - src.width * k) / 2, (cv.height - src.height * k) / 2, src.width * k, src.height * k);

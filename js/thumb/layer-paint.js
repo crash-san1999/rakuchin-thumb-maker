@@ -19,7 +19,7 @@
 /**
  * 倍率で判定する描画キャッシュ。
  * @returns {CacheEntry}
- * @param {Map<string, any>} cache
+ * @param {DrawCache} cache
  * @param {string} id
  * @param {string} sk
  * @param {number} need
@@ -33,7 +33,7 @@
 }
 /**
  * ピクセル寸法（W×H）で判定する描画キャッシュ。k を渡したときだけ記録する（分割フレームは k を使う）。
- * @param {Map<string, any>} cache
+ * @param {DrawCache} cache
  * @param {string} id
  * @param {string} sk
  * @param {number} W
@@ -44,7 +44,7 @@
  */ function cacheBySize(cache, id, sk, W, H, live, make, k){
   const e = cache.get(id);
   if(e && e.sk === sk && (live ? Math.abs(e.c.width - W) / W < 0.5 : e.c.width === W && e.c.height === H)) return e;
-  const n = k === undefined ? {sk, c:make()} : {sk, k, c:make()}; cache.set(id, n);
+  const n = {sk, k:k ?? 1, c:make()}; cache.set(id, n);
   return n;
 }
 // レイヤーの不透明度と描画モードを ctx に設定する（呼ぶ側で ctx.save() / restore() する）

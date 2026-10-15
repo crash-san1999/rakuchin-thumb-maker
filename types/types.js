@@ -125,4 +125,31 @@
 /** naturalWidth・naturalHeight を持つ絵（<img>、または同じ名前の値を足した canvas） @typedef {CanvasImageSource & {naturalWidth: number, naturalHeight: number}} NatImage */
 /** 描く画像の入れ物（ASSETS の値、またはトリミング・背景透過・ブラシをかけた絵）。tintColor・tintCanvas はフチ用に色を塗った絵（render.js の tinted）
  * @typedef {{img: NatImage, name: string, tintColor?: string, tintCanvas?: HTMLCanvasElement}} ImgSrc */
-/** 描画キャッシュの 1 件（layer-paint.js の cacheByScale）。halo は影・光彩の絵（render.js の haloCanvas） @typedef {{sk: string, k: number, c: HTMLCanvasElement, halo?: Map<string, HTMLCanvasElement>}} CacheEntry */
+/** 描画キャッシュの 1 件（layer-paint.js）。sk＝見た目を決める値の印、k＝描いた倍率（寸法で判定するもの・背景は 1）、c＝描いた絵、halo＝影・光彩の絵（render.js の haloCanvas）
+ * @typedef {{sk: string, k: number, c: HTMLCanvasElement, halo?: Map<string, HTMLCanvasElement>}} CacheEntry */
+/** 描画キャッシュ：レイヤー id → その絵。'__bg' は背景、'__bgfin' は仕上げをかけた背景（render.js の compose） @typedef {Map<string, CacheEntry>} DrawCache */
+
+/* キャンバスの操作 */
+/** しっぽのドラッグの状態（tailhandle.js の tailDragStart が作る）。L は文字レイヤーか画像レイヤー、t は tailInfo の戻り値（L の種類で中身が違うので any）。
+ * mode は最初に動かしたときに決まる（'pos' 位置／'dir' 向き）。x0,y0 は押したときの先、center は吹き出しの中心（DOC 座標）
+ * @typedef {{L: any, t: any, mode: string|null, t0: number, touch: boolean, x0: number, y0: number, center: number[]}} TailDrag */
+/** キャンバス上のドラッグの状態（render.js の drag。events-canvas.js の pointerdown が作り、pointermove が mode ごとに読む。押していないときは null）
+ *   fx … 背景効果の中心 ◎／bg … 背景画像（x0,y0＝押した位置、ox,oy＝そのときの背景の位置）／tail … 吹き出しのしっぽ（st＝tailhandle.js の状態）
+ *   edit … 調整モード（L と押した位置のほかは、モードの down が返した値をそのまま持つ）
+ *   move・scale・rot … レイヤーの移動・拡大縮小・回転。lx,ly,sc,rot＝開始時の位置・倍率・角度、d0・a0＝中心からの距離・角度、
+ *     snap＝グループ・複数選択のときの開始時の状態（group.js の xformSnap。1 枚なら null）
+ * @typedef {{mode: 'fx'}
+ *   | {mode: 'bg', x0: number, y0: number, ox: number, oy: number}
+ *   | {mode: 'tail', L: Layer, st: TailDrag}
+ *   | ({mode: 'edit', L: Layer, x0: number, y0: number} & Record<string, any>)
+ *   | {mode: 'move'|'scale'|'rot', L: Layer, snap: ReturnType<typeof xformSnap>|null, x0: number, y0: number, lx: number, ly: number, sc: number, rot: number, d0: number, a0: number}} CanvasDrag */
+/** 吹き出しの位置を、描いた文字の絵（render の戻り値）のピクセル座標にまとめたもの（text-render.js の plateOnCanvas）。絵の .plate に付く。
+ * m＝論理座標→絵のピクセルの変換、tip・base・center＝しっぽの先・付け根・吹き出しの中心（ピクセル）、lc・lbase・ltip＝同じ点の論理座標、rx・ry・kind・size は TailPts と同じ
+ * @typedef {{m: number[], tip: number[], base: number[], center: number[], lc: number[], lbase: number[], ltip: number[], rx: number, ry: number, kind: string, size: number}} PlateInfo */
+/** 吹き出しの位置が付いているかもしれない、文字の絵 @typedef {HTMLCanvasElement & {plate?: PlateInfo}} TextCanvas */
+/** スマホの 2 本指の距離 d・角度 a（ラジアン）・中心 cx,cy（画面の座標。mobile.js の pairInfo） @typedef {{d: number, a: number, cx: number, cy: number}} PinchPair */
+/** スマホのピンチの開始時の状態（mobile.js）。i＝開始時の 2 本指。edit＝調整モード（st はモードの pinchStart が返した値）、
+ * layer＝レイヤー（開始時の倍率・角度・位置、グループなら snap）、bg＝背景画像（開始時の拡大率・位置）
+ * @typedef {{kind: 'edit', L: Layer, i: PinchPair, st: any}
+ *   | {kind: 'layer', L: Layer, i: PinchPair, sc: number, rot: number, x: number, y: number, snap: ReturnType<typeof xformSnap>|null}
+ *   | {kind: 'bg', i: PinchPair, zoom: number, ox: number, oy: number}} Pinch */

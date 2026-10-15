@@ -17,7 +17,7 @@
   const toDoc = /** @param {{clientX: number, clientY: number}} e */ e => { const r = tv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * DOC.w, (e.clientY - r.top) / r.height * DOC.h]; };
   // 選択中レイヤーのハンドルの上か。'rot'（回転）／'scale'（四隅）／null。当たり半径は画面上の 11px・10px（描画サイズより少し大きく、掴みやすくしている）。
   // 複数選択・ロック中は出さない
-  const handleAt = /** @param {number} x @param {number} y */ (x, y) => {
+  const handleAt = /** @param {number} x @param {number} y @returns {'rot'|'scale'|null} */ (x, y) => {
     if(DOC.msel && DOC.msel.length >= 2) return null;
     const L = selLayer(), g = L && !L.hidden && !L.locked && layerGeom(L); if(!g) return null;
     const px = DOC.w / tvCss;
@@ -36,7 +36,8 @@
     // 吹き出しのしっぽのつまみ（tailhandle.js）：ハンドルより優先（つまみは枠の外や四隅の近くに出ることがあるため）
     const tail = tailHandleAt(x, y);
     const T0 = tail && selLayer(); if(tail && T0){ drag = {mode:'tail', L:T0, st:tailDragStart(T0, tail, e)}; tv.setPointerCapture(e.pointerId); e.preventDefault(); tv.style.cursor = 'grabbing'; return; }
-    let mode = handleAt(x, y), T = selLayer();
+    /** @type {'move'|'scale'|'rot'|null} */ let mode = handleAt(x, y);
+    let T = selLayer();
     if(!mode && e.altKey){
       // Alt+クリック：重なっている下のレイヤーを順番に選ぶ
       // 絵が実際にある（rank>0）ものだけを巡回対象にする。無ければ枠の中のもの全部
@@ -74,42 +75,44 @@
     if(!drag && editLayer() && edit){ tv.style.cursor = edit.kind === 'cut' ? 'crosshair' : 'move'; if(edit.kind === 'cut'){ cutCursor = [x, y]; livePaint(); } return; }
     if(!drag && tailHandleAt(x, y)){ tv.style.cursor = 'grab'; return; }
     if(!drag){ const h = handleAt(x, y); tv.style.cursor = h === 'rot' ? 'grab' : h === 'scale' ? 'nwse-resize' : hitLayer(x, y) ? 'move' : (DOC.bg.type === 'image' && assetOf(DOC.bg.asset) ? 'grab' : 'default'); return; }
-    const L = drag.L, px = DOC.w / tvCss;
-    if(drag.mode === 'edit'){ editPointerMove(x, y); return; }
-    if(drag.mode === 'tail'){ tailDragMove(drag.st, x, y, e); syncDocSoon(); livePaint(); return; }
-    if(drag.mode === 'fx'){
+    const d = drag;
+    if(d.mode === 'edit'){ editPointerMove(x, y); return; }
+    if(d.mode === 'tail'){ tailDragMove(d.st, x, y, e); syncDocSoon(); livePaint(); return; }
+    if(d.mode === 'fx'){
       let fx = x / DOC.w, fy = y / DOC.h;
       if(DOC.guides.snap && !e.altKey){ for(const v of [0.5, 1 / 3, 2 / 3]){ if(Math.abs(fx - v) * tvCss < 8) fx = v; if(Math.abs(fy - v) * tvCss * DOC.h / DOC.w < 8) fy = v; } }
       DOC.bg.fcx = Math.round(clamp(fx, -0.2, 1.2) * 1000) / 1000; DOC.bg.fcy = Math.round(clamp(fy, -0.2, 1.2) * 1000) / 1000;
       syncDocSoon(); livePaint(); return;
     }
-    if(drag.mode === 'bg'){
-      DOC.bg.ox = Math.round((drag.ox + (x - drag.x0) / (DOC.w / 2)) * 1000) / 1000;
-      DOC.bg.oy = Math.round((drag.oy + (y - drag.y0) / (DOC.h / 2)) * 1000) / 1000;
+    if(d.mode === 'bg'){
+      DOC.bg.ox = Math.round((d.ox + (x - d.x0) / (DOC.w / 2)) * 1000) / 1000;
+      DOC.bg.oy = Math.round((d.oy + (y - d.y0) / (DOC.h / 2)) * 1000) / 1000;
       syncDocSoon(); livePaint(); return;
     }
-    if(drag.mode === 'move'){
+    // ここから先は、レイヤーの移動・拡大縮小・回転（d.mode が move・scale・rot）
+    const L = d.L, px = DOC.w / tvCss;
+    if(d.mode === 'move'){
       // スナップ：中心が画面の 1/3・1/2・2/3 の線に 8px（画面上）以内に近づいたら吸着し、スナップ線を表示する。Alt で一時的に無効
-      let nx = drag.lx + x - drag.x0, ny = drag.ly + y - drag.y0; snapLines = {x:null, y:null};
+      let nx = d.lx + x - d.x0, ny = d.ly + y - d.y0; snapLines = {x:null, y:null};
       if(DOC.guides.snap && !e.altKey){
         const th = 8 * px;
         for(const sx of [DOC.w / 2, DOC.w / 3, DOC.w * 2 / 3]) if(Math.abs(nx - sx) < th){ nx = sx; snapLines.x = sx; break; }
         for(const sy of [DOC.h / 2, DOC.h / 3, DOC.h * 2 / 3]) if(Math.abs(ny - sy) < th){ ny = sy; snapLines.y = sy; break; }
       }
-      if(drag.snap) xformApply(drag.snap, nx - drag.lx, ny - drag.ly); else{ L.x = Math.round(nx); L.y = Math.round(ny); }
-    }else if(drag.mode === 'scale' && drag.snap){
-      xformApply(drag.snap, 0, 0, clamp(Math.hypot(x - drag.snap.cx, y - drag.snap.cy) / Math.max(1, drag.d0), 0.05, 10), 0);
-    }else if(drag.mode === 'scale'){
-      L.sc = Math.round(clamp(drag.sc * Math.hypot(x - L.x, y - L.y) / Math.max(1, drag.d0), 0.05, 10) * 1000) / 1000;
-    }else if(drag.snap){
+      if(d.snap) xformApply(d.snap, nx - d.lx, ny - d.ly); else{ L.x = Math.round(nx); L.y = Math.round(ny); }
+    }else if(d.mode === 'scale' && d.snap){
+      xformApply(d.snap, 0, 0, clamp(Math.hypot(x - d.snap.cx, y - d.snap.cy) / Math.max(1, d.d0), 0.05, 10), 0);
+    }else if(d.mode === 'scale'){
+      L.sc = Math.round(clamp(d.sc * Math.hypot(x - L.x, y - L.y) / Math.max(1, d.d0), 0.05, 10) * 1000) / 1000;
+    }else if(d.snap){
       // グループ・複数選択の回転：Shift で 15° 刻み、そうでなければ 3° 以内で 0° に吸着
-      let dr = (Math.atan2(y - drag.snap.cy, x - drag.snap.cx) - drag.a0) * 180 / PI;
+      let dr = (Math.atan2(y - d.snap.cy, x - d.snap.cx) - d.a0) * 180 / PI;
       if(e.shiftKey) dr = Math.round(dr / 15) * 15; else if(Math.abs(dr) < 3) dr = 0;
-      xformApply(drag.snap, 0, 0, 1, dr);
+      xformApply(d.snap, 0, 0, 1, dr);
     }else{
       // 回転：開始時の角度に、中心まわりの角度の変化を足す。-180〜180 に正規化し、Shift で 15° 刻み、
       // そうでなければ 0・±90・180 の近く（3° 以内）で吸着する
-      let r = drag.rot + (Math.atan2(y - L.y, x - L.x) - drag.a0) * 180 / PI;
+      let r = d.rot + (Math.atan2(y - L.y, x - L.x) - d.a0) * 180 / PI;
       r = ((r + 540) % 360) - 180;
       if(e.shiftKey) r = Math.round(r / 15) * 15; else for(const s of [0, 90, -90, 180, -180]) if(Math.abs(r - s) < 3) r = s;
       L.rot = Math.round(r * 10) / 10;
