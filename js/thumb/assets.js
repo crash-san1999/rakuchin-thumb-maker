@@ -8,7 +8,7 @@
     DOC には id（layer.asset / bg.asset）しか入れない。DOC は localStorage（容量が小さい）、画像本体は IndexedDB（'ttm' の 'assets'）と分けているのはそのため。
     IndexedDB は DB 'ttm' を素材置き場（library.js の 'lib' ストア）と共用する。
   依存：uid・mk・clamp・toast（core.js）、cutCache・cutSrc・cutOn（cutout.js）、collageTakeFiles（collage-cells.js）。
-  呼び出し元：main.js（起動時 idbRestore）、events.js（ドロップ・貼り付け・プロジェクトを開く）、library.js、render.js（layerSrc）。
+  呼び出し元：main.js（起動時 idbRestore）、events-drop.js（ドロップ・貼り付け）・events.js（プロジェクトを開く）、library.js、render.js（layerSrc）。
 */
 /* ---------- 画像アセット（IndexedDBに保存） ---------- */
 // 画像レイヤーの初期値（白フチ・影・切り抜きフレームなし）

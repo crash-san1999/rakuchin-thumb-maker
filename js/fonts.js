@@ -488,4 +488,4 @@ async function addFontFiles(files){
 const drop = $('#drop');
 drop.onclick = () => $('#ffile').click();
 $('#ffile').onchange = e => { addFontFiles(e.target.files); e.target.value = ''; };
-// ドロップは画面全体のドロップ処理（thumb/events.js）が受け取る
+// ドロップは画面全体のドロップ処理（thumb/events-drop.js）が受け取る

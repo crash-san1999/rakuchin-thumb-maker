@@ -7,7 +7,7 @@
   主な公開：EDIT_MODES / edit（今のモード {kind, id}。null なら通常）/ setEdit・toggleEdit・enterEditAt / editLayer /
            editPointerDown・editPointerMove・editWheel・editPinchStart・editPinch（入力の振り分け）/ drawEditOverlay /
            rotLocal・frameLocal（座標変換）
-  呼び出し元：events.js（キャンバスのポインタ・ホイール・ダブルクリック・Esc・各ボタン）、mobile.js（ピンチ）、
+  呼び出し元：events-canvas.js（キャンバスのポインタ・ホイール・ダブルクリック・Esc・各ボタン）、mobile.js（ピンチ）、
             overlay.js（drawEditOverlay。編集中は通常の選択枠を出さずこちらを描く）、layers.js（別のレイヤーを選ぶと setEdit(null)）。
   依存：DOC・selLayer・syncDoc（doc.js）、drag・tvCss・livePaint・paintPreview（render.js）、frameGeom・frameCompensate・framePath（frames.js）、
        cutPixelColor・cropSrc・cropRect（cutout.js / assets.js）、collageCellAt・swapCells など（collage-cells.js）。

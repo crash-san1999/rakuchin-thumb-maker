@@ -100,7 +100,10 @@ js/changelog.js            アップデート履歴の元データ（機能を�
 js/thumb/export.js         サムネの書き出し・共有・プロジェクト読み込み
 js/thumb/inspector.js      選んだものに合わせた設定パネル（行の定義・ページ切り替え）
 js/thumb/hit.js            キャンバス上の当たり判定（どのレイヤーを掴むか。透明な部分は掴まない）
-js/thumb/events.js         キャンバス・ドラッグ＆ドロップ・ボタンの操作
+js/thumb/events.js         ボタンの操作・プロジェクトの保存／読み込み／新規作成
+js/thumb/events-layers.js  レイヤーパネルの操作（並べ替えのドラッグ・選択・名前の変更・メニュー）
+js/thumb/events-drop.js    ファイルのドラッグ＆ドロップ・貼り付け
+js/thumb/events-canvas.js  キャンバス上の操作（ドラッグ・ホイール・キー）
 js/mobile.js               PC／スマホの自動判定・下のバーとシート・タッチ操作
 js/popups.js               ポップアップ（操作ガイド・追加メニュー・ファイルメニュー）
 js/main.js                 起動（起動時の処理はすべてここの boot() に集約）

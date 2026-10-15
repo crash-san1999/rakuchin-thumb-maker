@@ -14,7 +14,7 @@
     JSON にできないので、バックアップ（書き出し）のときだけ Blob を dataURL に変える。
   依存：idb（assets.js）、addAsset・newImageLayer・fileToSrc・loadImg（assets.js）、applyPreset・renderPresets・presetStyle（presets.js）、
        selLayer・textLayer（doc.js）、uid・downloadBlob・stamp・toast・LS（core.js）。読み込み順は assets.js より前だが、関数は呼ばれる時点で参照するので問題ない。
-  呼び出し元：main.js（libInit）、layers.js（右クリック「素材に登録」）、events.js（ドロップ・プロジェクトを開くとき型が library なら libImport）。
+  呼び出し元：main.js（libInit）、layers.js（右クリック「素材に登録」）、events-drop.js（ドロップ）・events.js（プロジェクトを開くとき型が library なら libImport）。
 */
 // 上限：全体 200MB・画像1枚 12MB・500 個。ブラウザの保存領域を使い切って他の保存（作業データ）まで失敗しないよう、こちらで先に止める。
 // LIB_WARN は使用率がこの割合を超えたら「もうすぐいっぱい」と表示する閾値
