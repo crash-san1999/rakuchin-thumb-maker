@@ -5,7 +5,7 @@
   公開：isMobile / applyView(first)（main.js が起動時に呼ぶ）/ openSheet(name)（thumb 側の選択処理などからも呼ばれる）。
   依存：LS・$・ic・clamp・toast（core.js）、DOC・selLayer・drag・snapLines・paintPreview・livePaint・syncDocSoon・docChanged 等（thumb/*.js）、
   togglePop（popups.js）。スマホ向けのレイアウト自体は css 側（body.is-mobile / .sheet-on）で、ここは状態を切り替えるだけ。
-  マウス操作はここでは扱わない（thumb/events.js）。タッチは capture 段階で先に受け、2本指のときだけ events.js 側へ渡さない。
+  マウス操作はここでは扱わない（thumb/events-canvas.js）。タッチは capture 段階で先に受け、2本指のときだけ events-canvas.js 側へ渡さない。
 */
 /* ============ PC／スマホの自動判定 ============ */
 // isMobile：今スマホ表示か。sheet：開いているシート名（'layers' | 'ins' | null）
@@ -93,8 +93,8 @@ window.addEventListener('resize', () => { clearTimeout(applyView.t); applyView.t
     if(DOC.mode !== 'thumb' || e.pointerType === 'mouse') return;
     pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
     if(pts.size === 2){
-      // 1本目で events.js がドラッグを始めている可能性があるので、取り消してピンチに切り替える。
-      // stopImmediatePropagation で2本目を events.js に渡さない（capture 段階で登録しているのはこのため）
+      // 1本目で events-canvas.js がドラッグを始めている可能性があるので、取り消してピンチに切り替える。
+      // stopImmediatePropagation で2本目を events-canvas.js に渡さない（capture 段階で登録しているのはこのため）
       e.stopImmediatePropagation(); clearTimeout(lp); drag = null; snapLines = {x:null, y:null};
       const I = pairInfo(), L = selLayer();
       const EP = editPinchStart(I);

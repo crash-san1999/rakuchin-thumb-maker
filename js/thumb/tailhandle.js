@@ -2,11 +2,11 @@
 /*
   対象：文字の背景シェイプが吹き出し（角丸・四角・楕円・雲・叫び）のとき／画像の切り抜きフレームが「吹き出し」のとき。
   選んでいるレイヤーのしっぽの先に、丸いつまみを出す（overlay.js の drawOverlay → drawTailHandle）。
-  ドラッグ（events.js が tailHandleAt でつかんだかを調べ、tailDragStart・tailDragMove を呼ぶ）：
+  ドラッグ（events-canvas.js が tailHandleAt でつかんだかを調べ、tailDragStart・tailDragMove を呼ぶ）：
     ・ふつうにドラッグ … しっぽの先がつまみに付いてくる。文字は「位置（角度）と長さ」、フレームは「辺と先の位置」が変わる
     ・Shift を押しながら（スマホは長押ししてから）… 付け根は動かさず、文字は「先の向き」と長さ、フレームは「付け根の位置」が変わる
   結果は保存データ（文字：style.plate の tail='free'・tpos・ts・tdir／フレーム：frame.tside・tp・tt）に入るので、パネルのスライダーにも
-  そのまま出る。確定・取り消しの記録は、ドラッグの終わりに events.js が docChanged で行う。
+  そのまま出る。確定・取り消しの記録は、ドラッグの終わりに events-canvas.js が docChanged で行う。
   座標の対応：
     ・文字 … 描いた絵（text-render の render が返す canvas）に、吹き出しの中心・しっぽの付け根と先（絵のピクセル）と、
       論理座標→絵のピクセルの変換 m が付いている（.plate。text-plate.js の drawPlate が記録し、renderStyle が回転・トリミング後に直す）。
@@ -58,7 +58,7 @@ function tailHandleAt(x, y){
   const t = tailInfo(); if(!t) return null;
   return Math.hypot(x - t.tip[0], y - t.tip[1]) < TAIL_HIT_PX * DOC.w / tvCss ? t : null;
 }
-// ドラッグの開始。戻り値はドラッグ中の状態（events.js の drag.st に入る）
+// ドラッグの開始。戻り値はドラッグ中の状態（events-canvas.js の drag.st に入る）
 /** @param {Layer} L @param {PointerEvent} e */
 function tailDragStart(L, t, e){
   return {L, t, mode:null, t0:performance.now(), touch:e.pointerType === 'touch', x0:t.tip[0], y0:t.tip[1], center:t.center};

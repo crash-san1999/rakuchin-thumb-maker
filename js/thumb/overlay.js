@@ -77,7 +77,7 @@ function drawOverlay(ctx, W, H, dpr){
     ctx.lineWidth = 3 * dpr; ctx.strokeStyle = '#fff'; ctx.strokeText('背景効果の中心', hx + r * 1.6, hy - r * 1.4); ctx.fillStyle = '#1f1b2d'; ctx.fillText('背景効果の中心', hx + r * 1.6, hy - r * 1.4);
     ctx.restore();
   }
-  // スナップ線は DOC 座標で保持している（events.js のドラッグ中だけ値が入る）。描画時に f を掛けてプレビュー座標へ
+  // スナップ線は DOC 座標で保持している（events-canvas.js のドラッグ中だけ値が入る）。描画時に f を掛けてプレビュー座標へ
   if(snapLines.x != null || snapLines.y != null){
     ctx.strokeStyle = '#ff4f8b'; ctx.lineWidth = dpr; ctx.beginPath();
     if(snapLines.x != null){ ctx.moveTo(snapLines.x * f, 0); ctx.lineTo(snapLines.x * f, H); }
@@ -94,7 +94,7 @@ function drawOverlay(ctx, W, H, dpr){
   const L = selLayer(), g = L && !L.hidden && layerGeom(L);
   if(L && isGroup(L)) groupKids(L).forEach(k => outline(k, 'rgba(255,79,139,.55)', [3, 3]));   // グループ：中身の位置を薄く表示
   // ロック中は黄色の点線枠だけ（ハンドルなし＝動かせないことを示す）。通常は枠＋回転ハンドルへの線＋四隅の拡大縮小ハンドル
-  // （ハンドルの当たり判定は events.js の handleAt。半径はここの見た目より少し大きく取ってある）
+  // （ハンドルの当たり判定は events-canvas.js の handleAt。半径はここの見た目より少し大きく取ってある）
   if(g && L.locked){
     ctx.strokeStyle = '#ffb800'; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash([6 * dpr, 5 * dpr]); ctx.beginPath();
     g.pts.forEach(([x, y], i) => i ? ctx.lineTo(x * f, y * f) : ctx.moveTo(x * f, y * f)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
