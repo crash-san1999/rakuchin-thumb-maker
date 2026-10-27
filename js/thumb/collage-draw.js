@@ -35,7 +35,7 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
   };
   // 横向きの配置を縦向きから作る：x と y を入れ替え、頂点の回る向きが逆になるので並びも反転する
   const swap = /** @param {number[][][]} cells */ cells => cells.map(p => p.map(([x, y]) => [y, x]).reverse());
-  // 配置ごとの分け方：cols 縦に並べる／rows 横に並べる／上下 2 段（COLLAGE_ROWS2）／grid グリッド／big 系 1 つを大きく／それ以外は放射状
+  // 配置ごとの分け方：cols 縦に並べる／rows 横に並べる／上下 2 段（COLLAGE_ROWS2）／grid グリッド／big 系 1 つを大きく／fan 扇状／それ以外は放射状
   if(lay === 'cols') return quadCols(0, W, 0, H, n, slant * H * 0.5);
   if(lay === 'rows') return swap(quadCols(0, H, 0, W, n, slant * W * 0.5));
   if(COLLAGE_ROWS2[lay]){   // 上の段・下の段で、マスの数を変える（各段は幅を等分）
@@ -69,21 +69,29 @@ function collageCells(lay, n, W, H, slant = 0, main = 0.55, ws = null){
     const m = collageCells(lay === 'bigR' ? 'bigL' : 'bigT', n, W, H, slant, main).map(mir);
     return k <= 3 ? m : [m[0], ...m.slice(1 + half), ...m.slice(1, 1 + half)];
   }
-  // 放射状：中心から扇形に分ける
-  // 各扇は中心＋境界の光線が画面の縁に当たる点＋その間にある画面の角。角を含めないと、扇の間に隙間（欠け）ができる
-  const cx = W / 2, cy = H / 2, a0 = -PI / 2 + slant * PI / 2;
-  // 中心から角度 a の向きに進んで、画面の縁（四辺のどれか）に当たる点
-  const ray = /** @param {number} a */ a => { const dx = Math.cos(a), dy = Math.sin(a); let t = Infinity;
-    if(dx > 1e-9) t = Math.min(t, (W - cx) / dx); if(dx < -1e-9) t = Math.min(t, -cx / dx); if(dy > 1e-9) t = Math.min(t, (H - cy) / dy); if(dy < -1e-9) t = Math.min(t, -cy / dy);
-    return [cx + dx * t, cy + dy * t]; };
-  /** @type {Array<[number[], number]>} */
-  const corners = [[0, 0], [W, 0], [W, H], [0, H]].map(p => [p, Math.atan2(p[1] - cy, p[0] - cx)]);
-  const norm = /** @param {number} a */ a => ((a % (2 * PI)) + 2 * PI) % (2 * PI);
-  return [...Array(n)].map((_, i) => {
-    const s = a0 + 2 * PI * i / n, span = 2 * PI / n;
-    const mid = corners.map(([p, a]) => /** @type {[number[], number]} */ ([p, norm(a - s)])).filter(([, r]) => r > 1e-6 && r < span - 1e-6).sort((u, v) => u[1] - v[1]).map(([p]) => p);
-    return [[cx, cy], ray(s), ...mid, ray(s + span)];
-  });
+  // 放射状・扇状：要（かなめ）の点から扇形に分ける
+  // 各扇は 要＋境界の光線が画面の縁に当たる点＋その間にある画面の角。角を含めないと、扇の間に隙間（欠け）ができる
+  // cx, cy＝要の位置、a0＝1 枚目が始まる角度（画面座標なので、-π/2 が上・0 が右）、total＝全体で回る角度（放射状は 1 周、扇状は半周）
+  /** @param {number} cx @param {number} cy @param {number} a0 @param {number} total @returns {number[][][]} */
+  const sectors = (cx, cy, a0, total) => {
+    // 要から角度 a の向きに進んで、画面の縁（四辺のどれか）に当たる点
+    const ray = /** @param {number} a */ a => { const dx = Math.cos(a), dy = Math.sin(a); let t = Infinity;
+      if(dx > 1e-9) t = Math.min(t, (W - cx) / dx); if(dx < -1e-9) t = Math.min(t, -cx / dx); if(dy > 1e-9) t = Math.min(t, (H - cy) / dy); if(dy < -1e-9) t = Math.min(t, -cy / dy);
+      return [cx + dx * t, cy + dy * t]; };
+    /** @type {Array<[number[], number]>} */
+    const corners = [[0, 0], [W, 0], [W, H], [0, H]].map(p => [p, Math.atan2(p[1] - cy, p[0] - cx)]);
+    const norm = /** @param {number} a */ a => ((a % (2 * PI)) + 2 * PI) % (2 * PI);
+    return [...Array(n)].map((_, i) => {
+      const s = a0 + total * i / n, span = total / n;
+      const mid = corners.map(([p, a]) => /** @type {[number[], number]} */ ([p, norm(a - s)])).filter(([, r]) => r > 1e-6 && r < span - 1e-6).sort((u, v) => u[1] - v[1]).map(([p]) => p);
+      return [[cx, cy], ray(s), ...mid, ray(s + span)];
+    });
+  };
+  // 扇状：下の辺にある要（かなめ）から、上へ半周ぶん広げる（1 枚目が左、最後が右）。slant は要の左右の位置（0 で中央、±1 で左右へ）。
+  // 端まで寄せると端のマスが細くなりすぎるので、画面の幅の 20%〜80% の間に収める
+  if(lay === 'fan') return sectors(W * (0.5 + clamp(slant, -1, 1) * 0.3), H, -PI, PI);
+  // 放射状：画面の中心から 1 周ぶん分ける（slant は回転）
+  return sectors(W / 2, H / 2, -PI / 2 + slant * PI / 2, 2 * PI);
 }
 
 /* 境界の形（ギザギザ・波・ラフ）。となりのマスと同じ点になるよう、辺ごとに決まった形を作る */

@@ -9,7 +9,7 @@ async def run(p):
     await pg.set_input_files('#cellfile', [IMG[n] for n in ['city.jpg', 'synth.jpg', 'night.jpg', 'rings4.jpg', 'rings5.jpg', 'rings6.jpg']]); await settle(pg, 2500)
     assert await pg.evaluate("selLayer().cells.slice(0, 6).map(c => !!ASSETS[c.asset])") == [True] * 6
     combos = [('cols', 2, 0.35, 'zigzag', 'glow'), ('radial', 2, 0.3, 'straight', 'blur'), ('rows', 3, 0, 'wave', 'line'), ('bigL', 3, 0.2, 'straight', 'gap'),
-              ('grid', 4, 0, 'straight', 'line'), ('radial', 4, 0.25, 'rough', 'line'), ('bigT', 5, 0, 'zigzag', 'shadow'), ('grid2', 6, 0, 'wave', 'line')]
+              ('grid', 4, 0, 'straight', 'line'), ('radial', 4, 0.25, 'rough', 'line'), ('bigT', 5, 0, 'zigzag', 'shadow'), ('grid2', 6, 0, 'wave', 'line'), ('fan', 3, 0.4, 'zigzag', 'glow'), ('fan', 6, 0, 'wave', 'gap')]
     for lay, n, sl, edge, bs in combos:
         await pg.evaluate(f"(() => {{ Object.assign(selLayer(), {{n:'{n}', layout:'{lay}', slant:{sl}, edge:'{edge}', bstyle:'{bs}', lw:16}}); syncDoc(); paintPreview(false); }})()")
     await pg.evaluate("(() => { Object.assign(selLayer(), {n:'2', layout:'cols', slant:0, edge:'straight', bstyle:'line'}); syncDoc(); docChanged(false); })()"); await settle(pg, 1200)

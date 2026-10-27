@@ -224,6 +224,8 @@ const SEL_ROWS = [
   {pg:'split', seg:'@n', l:'分割数', opts:[['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8']], show:'@type=collage'},
   {pg:'split', layouts:true, l:'分割のしかた', show:'@type=collage'},
   {pg:'split', r:'@slant', l:'傾き・回転', min:-1, max:1, step:0.01, show:'@type=collage&@layout=cols|rows|bigL|bigT|bigR|bigB|radial'},
+  // 扇状では slant は「扇の要（かなめ）」の左右の位置なので、同じ項目を別の名前で出す（出る条件が違うので、どちらか一方だけが見える）
+  {pg:'split', r:'@slant', l:'扇の要の位置（左右）', min:-1, max:1, step:0.01, show:'@type=collage&@layout=fan'},
   {pg:'split', r:'@main', l:'大きいマスの大きさ', min:0.25, max:0.8, step:0.01, show:'@type=collage&@layout=bigL|bigT|bigR|bigB'},
   {pg:'split', seg:'@edge', l:'境界の形', opts:COLLAGE_EDGES, show:'@type=collage'},
   {pg:'split', r:'@amp', l:'形の大きさ', min:4, max:90, step:1, show:'@type=collage&@edge=zigzag|wave|rough'},
