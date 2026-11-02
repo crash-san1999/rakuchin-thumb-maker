@@ -359,6 +359,17 @@ body.is-mobile .help-card{width:100%;max-height:88dvh;border-radius:24px 24px 0 
 .ddov p{grid-column:1 / -1;margin:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--sub)}
 .ddov *{pointer-events:none}
 .ddov .dz{pointer-events:auto}
+/* 分割フレームがあるときだけ出る「マスに入れる」区画：マスの形の図の上で離したマスに入る */
+.ddov .dz[hidden]{display:none}
+.ddov.hascell{grid-template-columns:2fr minmax(260px,1.6fr) minmax(200px,1fr)}
+.ddov .dzcell{padding:16px;gap:8px;min-height:0}
+.ddov .dzcell.hot{background:#f1ffe8;border-color:#22a447;color:#15803d}
+.ddov .dzmap{flex:1;width:100%;min-height:0;max-height:100%;overflow:visible}
+.ddov .dzmap .cpoly{fill:rgba(255,255,255,.35);stroke:var(--ink);stroke-width:6;stroke-linejoin:round;pointer-events:all;transition:fill .12s}
+.ddov .dzmap .cimg{opacity:.6}
+.ddov .dzmap text{fill:var(--ink);stroke:#fff;stroke-width:8;paint-order:stroke;font-weight:800;text-anchor:middle;dominant-baseline:central}
+.ddov .dzmap .cbg{fill:#fff}
+.ddov .dzmap [data-cell].hot .cpoly{fill:rgba(34,164,71,.45);stroke:#15803d;stroke-width:12}
 /* ============ スマホ表示 ============ */
 .sp-only{display:none !important}
 body.is-mobile .pc-only{display:none !important}

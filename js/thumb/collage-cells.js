@@ -3,7 +3,7 @@
    分割フレームの追加と画像の割り当て（addCollage・collageSetCell・collageTakeFiles）／マスの入れ替え・元に戻す（swapCells・resetCell）。 */
 /* キャンバス上の位置 → どのマスか */
 // ファイルの中だけで使う名前を外（ほかのファイルと共有の場所）に出さないよう、中身を関数で包んでいる。外から使う名前は最後の return で出す
-var {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell} = (() => {
+var {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageFillFrom, collageTakeFiles, cellImg, swapCells, resetCell} = (() => {
 // x, y はドキュメント座標。レイヤーの回転を逆に戻してレイヤー内の割合(u,v)にし、1000 幅の仮想キャンバスで多角形の内外判定をする。
 // 戻り値はマス番号、どのマスでもなければ -1。境界の加工（ギザギザ等）は無視した、元の分割線で判定する
 /** @param {CollageLayer} L @param {number} x @param {number} y */
@@ -137,6 +137,17 @@ async function collageSetCell(L, i, file){
   const id = await addAsset(await fileToSrc(file), file.name);
   L.cells[i] = Object.assign({zoom:1, ox:0, oy:0, fx:CELL_FX_BASE()}, L.cells[i], {asset:id, zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false});
 }
+// 指定したマス i から順に画像を入れる（2 枚目からは、後ろの画像の無いマスへ）。入りきらなかった残りを返す。
+// ドロップ位置のマス（collageTakeFiles）と、ドロップの案内に出るマスの図（events-drop.js）の両方から使う
+/** @param {CollageLayer} L @param {number} i @param {File[]} files @returns {Promise<File[]>} */
+async function collageFillFrom(L, i, files){
+  const rest = files.slice(), n = collageN(L), start = clamp(i, 0, n - 1); let filled = 0;
+  i = start;
+  while(rest.length && i < n){ await collageSetCell(L, i, /** @type {File} */ (rest.shift())); L.ac = i; filled++; i++; while(i < n && assetOf(L.cells[i].asset)) i++; }
+  selectLayer(L.id); docChanged(false);
+  toast(filled > 1 ? `マス${start + 1}から ${filled} 枚入れました` : `マス${start + 1}に画像を入れました`);
+  return rest;
+}
 // ドロップ位置のマス、なければ選択中の分割フレームの空いているマスに順に入れる。残りを返す
 /** @param {File[]} files @param {number|null} [cx] @param {number} [cy] @returns {Promise<File[]>} */
 async function collageTakeFiles(files, cx, cy){
@@ -148,13 +159,7 @@ async function collageTakeFiles(files, cx, cy){
       const x = (cx - r.left) / r.width * DOC.w, y = (cy - r.top) / r.height * DOC.h;
       // ドロップでマスに入れるのは、いま選んでいる分割フレームの上に落としたときだけ（それ以外は、ふつうに画像レイヤーとして追加）
       const S0 = selLayer(), L = S0 && S0.type === 'collage' && !S0.hidden && collageCellAt(S0, x, y) >= 0 ? S0 : null;
-      if(L){
-        // 落としたマスから順に入れる（2 枚目からは、後ろの画像の無いマスへ）
-        let i = collageCellAt(L, x, y); const n = collageN(L);
-        while(rest.length && i < n){ await collageSetCell(L, i, /** @type {File} */ (rest.shift())); L.ac = i; i++; while(i < n && assetOf(L.cells[i].asset)) i++; }
-        selectLayer(L.id); docChanged(false); toast('分割フレームのマスに画像を入れました');
-        return rest;
-      }
+      if(L) return collageFillFrom(L, collageCellAt(L, x, y), rest);
     }
   }
   const C = cx == null ? selLayer() : null;   // ドロップのときは、ここでは入れない（選んでいても、落とした位置がマスの外なら画像レイヤーにする）
@@ -185,5 +190,5 @@ const CELL_IMG_KEYS = ['asset', 'zoom', 'ox', 'oy', 'rot', 'flip', 'flipV'];
 }
 // マス i の画像の位置・大きさ・回転・反転を初期値に戻す（画像そのものは残す）
 /** @param {CollageLayer} L @param {number} i */ function resetCell(L, i){ Object.assign(L.cells[i], {zoom:1, ox:0, oy:0, rot:0, flip:false, flipV:false}); }
-return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageTakeFiles, cellImg, swapCells, resetCell};
+return {collageCellAt, collageEdges, collageBorderAt, collageDragBorder, collageCellSize, collageAllText, collageDefaultStyle, collageSetStyle, ensureCollageFonts, WK_JA, weekDates, weekLabel, cellBtnLabel, collageFillWeek, addCollage, collageSetCell, collageFillFrom, collageTakeFiles, cellImg, swapCells, resetCell};
 })();
