@@ -12,9 +12,10 @@
   const ov = $('#ddov'); let depth = 0;   // depth：dragenter/leave は子要素をまたぐたびに発火するので、入れ子の深さを数えて、本当に画面の外へ出たときだけ消す
   // 分割フレームのマス同士の入れ替えドラッグ（cellDragFrom>=0。collage-panel.js）は、ファイルのドロップとして扱わない
   const hasFiles = /** @param {DragEvent} e */ e => cellDragFrom < 0 && [...(e.dataTransfer?.types || [])].some(t => t === 'Files' || t === 'text/uri-list');
-  /* 「分割フレームのマスに入れる」区画：分割フレームがあるときだけ、マスの形の図を出し、離したマスに入れる（キャンバスの上は案内で隠れて見えないため）。
+  /* 「分割フレームのマスに入れる」図：分割フレームがあるときだけ、案内の上の、キャンバスとぴったり同じ位置に、キャンバスの写しとマスの形を重ねて出す。
+     キャンバスで見ている位置どおりのマスの上で離すと、そのマスに入る（ふだんの案内はキャンバスを隠してしまうため）。マスの外で離せば、下の区画（レイヤー・背景など）になる。
      対象は、選んでいる分割フレーム。選んでいなければ、いちばん手前の（表示している）分割フレーム */
-  const cellZone = $('[data-dz=cell]', ov), cellMap = $('#ddCellMap', ov);
+  const cellBox = $('#ddCanvas', ov), cellMap = $('#ddCellMap', ov), shot = /** @type {HTMLCanvasElement} */ ($('#ddShot', ov));
   /** @type {CollageLayer|null} */ let cellL = null;
   const dropCollage = () => {
     if(!DOC || DOC.mode !== 'thumb') return null;
@@ -22,20 +23,28 @@
     return /** @type {CollageLayer|undefined} */ ([...DOC.layers].reverse().find(l => l.type === 'collage' && !l.hidden)) || null;
   };
   const buildCellMap = () => {
-    cellL = dropCollage(); ov.classList.toggle('hascell', !!cellL); cellZone.hidden = !cellL;
-    if(!cellL){ cellMap.innerHTML = ''; return; }
-    const L = cellL, W = 1000, H = Math.round(W * L.bh / L.bw), n = collageN(L), fs = Math.round(Math.min(W, H) * 0.11);
-    cellMap.setAttribute('viewBox', `-8 -8 ${W + 16} ${H + 16}`);
-    cellMap.innerHTML = `<rect class="cbg" width="${W}" height="${H}"/>` + collageCellsOf(L, W, H).slice(0, n).map((poly, i) => {
+    cellL = dropCollage();
+    const tv = /** @type {HTMLCanvasElement} */ ($('#tv')), r = tv.getBoundingClientRect();
+    cellBox.hidden = !cellL || !r.width || !r.height; ov.classList.toggle('hascell', !cellBox.hidden);
+    if(cellBox.hidden || !cellL){ cellMap.innerHTML = ''; return; }
+    // 枠線の内側（実際に絵が描かれている所）に合わせる
+    const left = r.left + tv.clientLeft, top = r.top + tv.clientTop, w = tv.clientWidth, h = tv.clientHeight;
+    Object.assign(cellBox.style, {left:left + 'px', top:top + 'px', width:w + 'px', height:h + 'px'});
+    cellBox.classList.toggle('capin', top < 56);   // 上に案内の文字を出す余白がなければ、図の中の上に出す
+    // キャンバスの写し（表示の大きさで写すだけなので軽い）
+    const dpr = window.devicePixelRatio || 1; shot.width = Math.max(1, Math.round(w * dpr)); shot.height = Math.max(1, Math.round(h * dpr));
+    const sx = shot.getContext('2d'); if(sx){ sx.drawImage(tv, 0, 0, shot.width, shot.height); }
+    // マスの形：ドキュメント座標で描く（viewBox がドキュメント全体）。レイヤーの中心へ移して回転し、左上を原点にする（collageCellAt と同じ変換）
+    const L = cellL, W = L.bw * L.sc, H = L.bh * L.sc, n = collageN(L), fs = Math.round(Math.min(W, H) * 0.1);
+    cellMap.setAttribute('viewBox', `0 0 ${DOC.w} ${DOC.h}`); cellMap.setAttribute('preserveAspectRatio', 'none');
+    const tf = `translate(${L.x.toFixed(1)} ${L.y.toFixed(1)}) rotate(${(L.rot || 0).toFixed(2)}) translate(${(-W / 2).toFixed(1)} ${(-H / 2).toFixed(1)})`;
+    cellMap.innerHTML = `<g transform="${tf}">` + collageCellsOf(L, W, H).slice(0, n).map((poly, i) => {
       const pts = poly.map(p => p.map(v => v.toFixed(1)).join(',')).join(' '), xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
-      const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
-      const A = assetOf(L.cells[i].asset);
       // 番号は多角形の頂点の平均の位置（扇状など細長いマスでも中に収まりやすい）
       const tx = xs.reduce((a, b) => a + b, 0) / xs.length, ty = ys.reduce((a, b) => a + b, 0) / ys.length;
-      return `<g data-cell="${i}"><clipPath id="ddclip${i}"><polygon points="${pts}"/></clipPath>`
-        + (A ? `<image class="cimg" href="${A.thumb}" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" preserveAspectRatio="xMidYMid slice" clip-path="url(#ddclip${i})"/>` : '')
-        + `<polygon class="cpoly" points="${pts}"/><text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${fs}">${i + 1}</text></g>`;
-    }).join('');
+      return `<g data-cell="${i}"><polygon class="cpoly" points="${pts}"/><polygon class="cline" points="${pts}"/>`
+        + `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="${fs}" stroke-width="${(fs * 0.14).toFixed(1)}">${i + 1}</text></g>`;
+    }).join('') + '</g>';
   };
   // ドロップ先の案内を出す／消す（出すときはマスの図を作り直す。消すときは、強調していた区画も戻す）
   const show = /** @param {boolean} on */ on => {
@@ -78,7 +87,7 @@
     // 画像は、まず選択中の週間予定表の行（schedTakeFiles）・分割フレームのマス（collageTakeFiles）に入れ、当たらなかった残りだけをレイヤーにする
     if(zone === 'lib'){ await libAddFiles(imgs); renderLib(); return; }   // 素材置き場へ登録だけする（キャンバスには追加しない）
     if(DOC.mode !== 'thumb'){ setMode('thumb'); }
-    // マスの図の上で離した：そのマスから入れる（入りきらない分はレイヤーに）。図のマスの外（すき間）なら、どこにも入れずに案内だけ出す
+    // マスの図の上で離した：そのマスから入れる（入りきらない分はレイヤーに）
     if(zone === 'cell'){
       const L = toL && DOC.layers.includes(toL) ? toL : null;
       if(!L || cellI < 0){ toast('入れたいマスの上で離してください', true); return; }

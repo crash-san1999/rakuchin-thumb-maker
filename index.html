@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=b5e77bc5">
+<link rel="stylesheet" href="css/app.css?v=bf6882aa">
 </head>
 <body class="mode-thumb">
 <header class="app-head">
@@ -345,7 +345,7 @@
 </div>
 <div class="ddov" id="ddov">
   <div class="dz" data-dz="layer"><i data-ic="image"></i><b>ここに離すとレイヤーとして追加</b><small>キャラ・素材・スタンプなど（複数まとめてOK）<br>画面のどこに離しても、基本はレイヤーになります</small></div>
-  <div class="dz dzcell" data-dz="cell" hidden><b>分割フレームのマスに入れる</b><small>入れたいマスの上で離してください（2枚以上なら、そのマスから空いているマスへ順に）</small><svg class="dzmap" id="ddCellMap" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="dzcanvas" id="ddCanvas" hidden><canvas id="ddShot"></canvas><svg class="dzmap" id="ddCellMap" data-dz="cell" xmlns="http://www.w3.org/2000/svg"></svg><span class="dzcap">分割フレーム：入れたいマスの上で離すと、そのマスに入ります</span></div>
   <div class="dzcol">
     <div class="dz" data-dz="bg"><i data-ic="sliders"></i><b>背景にする</b><small>ここに離したときだけ<br>サムネ全体の背景に</small></div>
     <div class="dz" data-dz="lib"><i data-ic="star"></i><b>素材置き場に登録</b><small>キャンバスには追加せず、<br>いつも使う素材としてストック</small></div>
@@ -353,58 +353,58 @@
   <p>フォントファイル（.ttf / .otf）やプロジェクト（.json）はどこに落としてもOK</p>
 </div>
 
-<script src="js/core.js?v=b5e77bc5"></script>
-<script src="js/bind.js?v=b5e77bc5"></script>
-<script src="js/presets.js?v=b5e77bc5"></script>
-<script src="js/data/font-list.js?v=b5e77bc5"></script>
-<script src="js/data/font-sources.js?v=b5e77bc5"></script>
-<script src="js/fonts.js?v=b5e77bc5"></script>
-<script src="js/controls.js?v=b5e77bc5"></script>
-<script src="js/text-render.js?v=b5e77bc5"></script>
-<script src="js/text-pixel.js?v=b5e77bc5"></script>
-<script src="js/text-deco.js?v=b5e77bc5"></script>
-<script src="js/text-plate.js?v=b5e77bc5"></script>
-<script src="js/preview.js?v=b5e77bc5"></script>
-<script src="js/colors.js?v=b5e77bc5"></script>
-<script src="js/history.js?v=b5e77bc5"></script>
-<script src="js/thumb/layer-paint.js?v=b5e77bc5"></script>
-<script src="js/thumb/layer-kinds.js?v=b5e77bc5"></script>
-<script src="js/thumb/frames.js?v=b5e77bc5"></script>
-<script src="js/thumb/imgfx.js?v=b5e77bc5"></script>
-<script src="js/thumb/collage.js?v=b5e77bc5"></script>
-<script src="js/thumb/collage-draw.js?v=b5e77bc5"></script>
-<script src="js/thumb/collage-cells.js?v=b5e77bc5"></script>
-<script src="js/thumb/collage-panel.js?v=b5e77bc5"></script>
-<script src="js/thumb/sched.js?v=b5e77bc5"></script>
-<script src="js/thumb/sched-panel.js?v=b5e77bc5"></script>
-<script src="js/thumb/library.js?v=b5e77bc5"></script>
-<script src="js/thumb/canvas.js?v=b5e77bc5"></script>
-<script src="js/thumb/group.js?v=b5e77bc5"></script>
-<script src="js/thumb/fx.js?v=b5e77bc5"></script>
-<script src="js/thumb/fx-draw.js?v=b5e77bc5"></script>
-<script src="js/thumb/cutout.js?v=b5e77bc5"></script>
-<script src="js/thumb/assets.js?v=b5e77bc5"></script>
-<script src="js/thumb/doc.js?v=b5e77bc5"></script>
-<script src="js/thumb/doc-sync.js?v=b5e77bc5"></script>
-<script src="js/thumb/finish.js?v=b5e77bc5"></script>
-<script src="js/thumb/render.js?v=b5e77bc5"></script>
-<script src="js/thumb/overlay.js?v=b5e77bc5"></script>
-<script src="js/thumb/tailhandle.js?v=b5e77bc5"></script>
-<script src="js/thumb/editmodes.js?v=b5e77bc5"></script>
-<script src="js/thumb/layers.js?v=b5e77bc5"></script>
-<script src="js/thumb/export.js?v=b5e77bc5"></script>
-<script src="js/thumb/inspector-rows.js?v=b5e77bc5"></script>
-<script src="js/thumb/inspector.js?v=b5e77bc5"></script>
-<script src="js/thumb/hit.js?v=b5e77bc5"></script>
-<script src="js/thumb/events.js?v=b5e77bc5"></script>
-<script src="js/thumb/events-layers.js?v=b5e77bc5"></script>
-<script src="js/thumb/events-drop.js?v=b5e77bc5"></script>
-<script src="js/thumb/events-canvas.js?v=b5e77bc5"></script>
-<script src="js/mobile.js?v=b5e77bc5"></script>
-<script src="js/pwa.js?v=b5e77bc5"></script>
-<script src="js/changelog.js?v=b5e77bc5"></script>
-<script src="js/popups.js?v=b5e77bc5"></script>
-<script src="js/main.js?v=b5e77bc5"></script>
+<script src="js/core.js?v=bf6882aa"></script>
+<script src="js/bind.js?v=bf6882aa"></script>
+<script src="js/presets.js?v=bf6882aa"></script>
+<script src="js/data/font-list.js?v=bf6882aa"></script>
+<script src="js/data/font-sources.js?v=bf6882aa"></script>
+<script src="js/fonts.js?v=bf6882aa"></script>
+<script src="js/controls.js?v=bf6882aa"></script>
+<script src="js/text-render.js?v=bf6882aa"></script>
+<script src="js/text-pixel.js?v=bf6882aa"></script>
+<script src="js/text-deco.js?v=bf6882aa"></script>
+<script src="js/text-plate.js?v=bf6882aa"></script>
+<script src="js/preview.js?v=bf6882aa"></script>
+<script src="js/colors.js?v=bf6882aa"></script>
+<script src="js/history.js?v=bf6882aa"></script>
+<script src="js/thumb/layer-paint.js?v=bf6882aa"></script>
+<script src="js/thumb/layer-kinds.js?v=bf6882aa"></script>
+<script src="js/thumb/frames.js?v=bf6882aa"></script>
+<script src="js/thumb/imgfx.js?v=bf6882aa"></script>
+<script src="js/thumb/collage.js?v=bf6882aa"></script>
+<script src="js/thumb/collage-draw.js?v=bf6882aa"></script>
+<script src="js/thumb/collage-cells.js?v=bf6882aa"></script>
+<script src="js/thumb/collage-panel.js?v=bf6882aa"></script>
+<script src="js/thumb/sched.js?v=bf6882aa"></script>
+<script src="js/thumb/sched-panel.js?v=bf6882aa"></script>
+<script src="js/thumb/library.js?v=bf6882aa"></script>
+<script src="js/thumb/canvas.js?v=bf6882aa"></script>
+<script src="js/thumb/group.js?v=bf6882aa"></script>
+<script src="js/thumb/fx.js?v=bf6882aa"></script>
+<script src="js/thumb/fx-draw.js?v=bf6882aa"></script>
+<script src="js/thumb/cutout.js?v=bf6882aa"></script>
+<script src="js/thumb/assets.js?v=bf6882aa"></script>
+<script src="js/thumb/doc.js?v=bf6882aa"></script>
+<script src="js/thumb/doc-sync.js?v=bf6882aa"></script>
+<script src="js/thumb/finish.js?v=bf6882aa"></script>
+<script src="js/thumb/render.js?v=bf6882aa"></script>
+<script src="js/thumb/overlay.js?v=bf6882aa"></script>
+<script src="js/thumb/tailhandle.js?v=bf6882aa"></script>
+<script src="js/thumb/editmodes.js?v=bf6882aa"></script>
+<script src="js/thumb/layers.js?v=bf6882aa"></script>
+<script src="js/thumb/export.js?v=bf6882aa"></script>
+<script src="js/thumb/inspector-rows.js?v=bf6882aa"></script>
+<script src="js/thumb/inspector.js?v=bf6882aa"></script>
+<script src="js/thumb/hit.js?v=bf6882aa"></script>
+<script src="js/thumb/events.js?v=bf6882aa"></script>
+<script src="js/thumb/events-layers.js?v=bf6882aa"></script>
+<script src="js/thumb/events-drop.js?v=bf6882aa"></script>
+<script src="js/thumb/events-canvas.js?v=bf6882aa"></script>
+<script src="js/mobile.js?v=bf6882aa"></script>
+<script src="js/pwa.js?v=bf6882aa"></script>
+<script src="js/changelog.js?v=bf6882aa"></script>
+<script src="js/popups.js?v=bf6882aa"></script>
+<script src="js/main.js?v=bf6882aa"></script>
 <!-- アクセス数の計測（Cloudflare Web Analytics）。Cookie を使わず、ページを開いた回数・参照元・国・端末の種類だけを数える。
      画像・テキスト・作りかけのデータは送らない。CSP の script-src で許可しているのはこの配信元だけ -->
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "60cf1682ac9040b19de66e5594330dc7"}'></script>

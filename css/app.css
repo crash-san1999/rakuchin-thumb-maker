@@ -346,7 +346,10 @@ body.is-mobile .help{padding:0;place-items:end stretch}
 body.is-mobile .help-card{width:100%;max-height:88dvh;border-radius:24px 24px 0 0;box-shadow:none;border-bottom:0}
 /* ドロップ受付 */
 .ddov{position:fixed;inset:0;z-index:50;display:none;grid-template-columns:3fr minmax(200px,1fr);grid-template-rows:1fr auto;gap:18px;padding:28px;background:rgba(255,247,238,.86);backdrop-filter:blur(6px)}
-.ddov.show{display:grid;animation:pop .2s var(--ease)}
+.ddov.show{display:grid;animation:ddfade .2s}
+/* 弾むアニメーションは区画だけにかける（.ddov 自体を拡大縮小すると、キャンバスに重ねるマスの図（position:fixed）がその間ずれるため） */
+.ddov.show > .dz,.ddov.show > .dzcol,.ddov.show > p{animation:pop .2s var(--ease)}
+@keyframes ddfade{from{opacity:0}to{opacity:1}}
 .ddov .dz{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:3px dashed var(--ink);border-radius:26px;background:#fff;color:var(--ink);text-align:center;transition:transform .2s var(--ease),background .15s,box-shadow .15s;box-shadow:var(--pop)}
 .ddov .dz .ic{width:46px;height:46px;stroke-width:1.8}
 .ddov .dz b{font-size:24px;font-weight:800}
@@ -359,17 +362,19 @@ body.is-mobile .help-card{width:100%;max-height:88dvh;border-radius:24px 24px 0 
 .ddov p{grid-column:1 / -1;margin:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--sub)}
 .ddov *{pointer-events:none}
 .ddov .dz{pointer-events:auto}
-/* 分割フレームがあるときだけ出る「マスに入れる」区画：マスの形の図の上で離したマスに入る */
-.ddov .dz[hidden]{display:none}
-.ddov.hascell{grid-template-columns:2fr minmax(260px,1.6fr) minmax(200px,1fr)}
-.ddov .dzcell{padding:16px;gap:8px;min-height:0}
-.ddov .dzcell.hot{background:#f1ffe8;border-color:#22a447;color:#15803d}
-.ddov .dzmap{flex:1;width:100%;min-height:0;max-height:100%;overflow:visible}
-.ddov .dzmap .cpoly{fill:rgba(255,255,255,.35);stroke:var(--ink);stroke-width:6;stroke-linejoin:round;pointer-events:all;transition:fill .12s}
-.ddov .dzmap .cimg{opacity:.6}
-.ddov .dzmap text{fill:var(--ink);stroke:#fff;stroke-width:8;paint-order:stroke;font-weight:800;text-anchor:middle;dominant-baseline:central}
-.ddov .dzmap .cbg{fill:#fff}
-.ddov .dzmap [data-cell].hot .cpoly{fill:rgba(34,164,71,.45);stroke:#15803d;stroke-width:12}
+/* 分割フレームがあるときだけ出る、キャンバスと同じ位置に重ねた「マスに入れる」図：キャンバスの写し＋マスの形。離したマスに入る */
+.ddov .dzcanvas{position:fixed;z-index:2}
+.ddov .dzcanvas[hidden]{display:none}
+.ddov .dzcanvas canvas,.ddov .dzmap{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ddov .dzcanvas canvas{border-radius:6px;box-shadow:0 0 0 3px var(--ink),7px 7px 0 3px var(--ink)}
+.ddov .dzmap .cpoly{fill:rgba(255,255,255,.18);stroke:#fff;stroke-width:3px;vector-effect:non-scaling-stroke;stroke-linejoin:round;pointer-events:all;transition:fill .12s}
+.ddov .dzmap .cline{fill:none;stroke:var(--ink);stroke-width:1.5px;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}
+.ddov .dzmap text{fill:var(--ink);stroke:#fff;paint-order:stroke;font-weight:800;text-anchor:middle;dominant-baseline:central}
+.ddov .dzmap [data-cell].hot .cpoly{fill:rgba(34,164,71,.42);stroke:#15803d;stroke-width:5px}
+.ddov .dzmap [data-cell].hot text{fill:#15803d}
+.ddov .dzcap{position:absolute;left:50%;bottom:calc(100% + 12px);transform:translateX(-50%);white-space:nowrap;padding:6px 14px;border-radius:999px;background:var(--ink);color:#fff;font-size:13px;font-weight:800}
+.ddov .dzcanvas.capin .dzcap{bottom:auto;top:10px}
+.ddov.hascell > .dz[data-dz=layer]{justify-content:flex-start;padding-top:28px}   /* 真ん中はキャンバスの図で隠れるので、案内の文字を上に寄せる */
 /* ============ スマホ表示 ============ */
 .sp-only{display:none !important}
 body.is-mobile .pc-only{display:none !important}
